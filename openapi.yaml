@@ -5,7 +5,7 @@ info:
     REST API for Familieassistenten — en familie-husassistent for RPi5.
     Dekker måltidsplanlegging, handleliste, husarbeid, kalender, inventory,
     og LLM-chat. Alle feilsvar bruker RFC 7807 (application/problem+json).
-  version: 1.1.0
+  version: 1.2.0
   license:
     name: Privat
 servers:

@@ -1,6 +1,6 @@
 {
   "name": "familieassistenten",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Selvforbedrende husholdsassistent for familien Frestad — kjører lokalt på Raspberry Pi 5",
   "main": "server/index.js",
   "engines": {
