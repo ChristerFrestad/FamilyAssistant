@@ -36,7 +36,26 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
 });
 
+// Auto-detekter node --test og sett NODE_ENV=test hvis ikke eksplisitt satt.
+// Dette hindrer at top-level require('../server/...') i testfiler triggerer
+// produksjons-guardene (AUTH_TOKEN, ALLOWED_ORIGINS) før test-helperen rekker
+// å sette process.env.NODE_ENV=test.
+function autoDetectTestEnv() {
+  if (process.env.NODE_ENV) return;
+  // node --test setter NODE_TEST_CONTEXT='child' i worker-prosessen og
+  // legger 'node:test' i require.cache hos loaderen.
+  if (process.env.NODE_TEST_CONTEXT) {
+    process.env.NODE_ENV = 'test';
+    return;
+  }
+  // Fallback: scan argv for --test
+  if (process.argv.some(a => a === '--test' || a === '--test-reporter' || a.startsWith('--test='))) {
+    process.env.NODE_ENV = 'test';
+  }
+}
+
 function loadConfig() {
+  autoDetectTestEnv();
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     console.error('\u26a0\ufe0f  Ugyldig milj\u00f8-konfigurasjon:');
@@ -56,6 +75,26 @@ function loadConfig() {
   cfg.ALLOWED_ORIGINS_LIST = cfg.ALLOWED_ORIGINS === '*'
     ? '*'
     : cfg.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean);
+
+  // Produksjons-krav: AUTH_TOKEN MÅ v\u00e6re satt hvis NODE_ENV=production.
+  // Hindrer \u00e5pen RPi5 p\u00e5 nettet uten autentisering.
+  if (cfg.NODE_ENV === 'production' && !cfg.AUTH_TOKEN) {
+    console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
+    console.error('   Sett en sterk token (minst 32 tegn) i .env eller systemd.');
+    console.error('   Eksempel: openssl rand -hex 32 > token.txt');
+    process.exit(1);
+  }
+  if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN.length < 16) {
+    console.error('\u26a0\ufe0f  AUTH_TOKEN er for kort (minst 16 tegn, helst 32+)');
+    process.exit(1);
+  }
+
+  // CORS-hardening: kan ikke bruke '*' samtidig med AUTH_TOKEN i production
+  if (cfg.NODE_ENV === 'production' && cfg.ALLOWED_ORIGINS_LIST === '*') {
+    console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
+    console.error('   Sett en komma-separert liste med tillatte origins.');
+    process.exit(1);
+  }
 
   return Object.freeze(cfg);
 }

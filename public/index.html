@@ -2,7 +2,7 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f5f6fa" id="metaThemeColor">
@@ -141,6 +141,8 @@
     .meal-card { position: relative; }
     .meal-day { font-size: 0.75rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     .meal-name { font-size: 1rem; font-weight: 600; margin: 4px 0; }
+    /* h2 i "Dagens middag"-kort (a11y: behold visuell størrelse på h3) */
+    .meal-heading { font-size: 1.15rem; font-weight: 600; margin: 4px 0 8px; }
     .meal-meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text2); }
     .meal-badge {
       display: inline-block;
@@ -971,6 +973,11 @@ header h1 {
   justify-content: center;
   animation: fabIn 0.4s var(--ease-spring);
 }
+/* Skjul FAB helt når SettingsView er aktiv — uansett tab-tilstand */
+body.settings-mode .fab,
+body.settings-mode .fab.visible {
+  display: none !important;
+}
 @keyframes fabIn {
   from { opacity: 0; transform: scale(0.6) translateY(20px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -1443,6 +1450,14 @@ html:not([data-theme="dark"]) .add-source-input input {
  * ----------------------------------------------------- */
 .pantry-combobox-wrap {
   position: relative;
+  z-index: 100;
+}
+/* Kortet som inneholder combobox må heves over søsken-kort for
+   at dropdown-en ikke skal klippes. backdrop-filter på .card lager
+   et eget stacking context, så z-index må settes på kortet selv. */
+.card.card-pantry-combobox {
+  position: relative;
+  z-index: 10;
 }
 .pantry-combobox-wrap input[type="text"] {
   width: 100%;
@@ -1711,7 +1726,7 @@ html:not([data-theme="dark"]) .add-source-input input {
   <div class="chat-input-area">
     <div class="chat-input-row">
       <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Trykk for å snakke">🎤</button>
-      <input type="text" id="chatInput" placeholder="Skriv eller snakk..." onkeydown="if(event.key==='Enter')sendChat()">
+      <input type="text" id="chatInput" aria-label="Chat-melding" placeholder="Skriv eller snakk..." onkeydown="if(event.key==='Enter')sendChat()">
       <button class="send-btn" onclick="sendChat()" title="Send melding">➤</button>
     </div>
     <div id="voiceStatus" style="text-align:center;font-size:0.7rem;color:var(--text2);margin-top:4px;display:none"></div>
@@ -1785,7 +1800,7 @@ html:not([data-theme="dark"]) .add-source-input input {
 <!-- ============================================================================
      FASE E — HTML-tillegg til public/index.html
      Ett enkelt element: FAB for oppskrifts-import.
-     Lim inn rett før <!-- TABS --> (ca. linje 418).
+     Lim inn rett før TABS-seksjonen (ca. linje 418).
      ============================================================================ -->
 
 <!-- Floating action button — kun synlig i Ukesmeny-fanen -->
@@ -1816,6 +1831,64 @@ html:not([data-theme="dark"]) .add-source-input input {
 <script>
 const API = '';  // Same origin
 const DAYS = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
+
+// === XSS-safe HTML templating (M1.1) ===
+// escapeHtml() gjør strenger DOM-trygge. h`...` er en tagged template
+// som auto-escaper alle interpolasjoner — bruk denne i stedet for vanlig
+// `...` når resultatet går via innerHTML og inneholder user-kontrollerte
+// felter (oppskriftsnavn, kalenderhendelser, pantry-varer, kvitteringer osv).
+// For å sette inn rå HTML som allerede er trygg (f.eks. en indre h`...`),
+// pakk den med raw() slik at escape hoppes over.
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// Sikker URL-validering for href/src — tillater bare http(s):, mailto:, tel:, /relative.
+// Returnerer 'about:blank' for javascript:, data:text/html, vbscript: osv.
+function safeUrl(u) {
+  if (u === null || u === undefined) return '';
+  const s = String(u).trim();
+  if (s === '') return '';
+  // Relative URLer er trygge
+  if (s.startsWith('/') || s.startsWith('#') || s.startsWith('?')) return escapeHtml(s);
+  // Eksplisitte trygge schemes
+  if (/^https?:\/\//i.test(s) || /^mailto:/i.test(s) || /^tel:/i.test(s)) {
+    return escapeHtml(s);
+  }
+  return 'about:blank';
+}
+class RawHTML { constructor(value) { this.value = value; } }
+function raw(html) { return new RawHTML(html); }
+function h(strings, ...values) {
+  let out = '';
+  for (let i = 0; i < strings.length; i++) {
+    out += strings[i];
+    if (i < values.length) {
+      const v = values[i];
+      if (v instanceof RawHTML) out += v.value;
+      else if (Array.isArray(v)) {
+        // Array of strings/RawHTML — join without separator (caller kontrollerer)
+        for (const item of v) {
+          if (item instanceof RawHTML) out += item.value;
+          else out += escapeHtml(item);
+        }
+      }
+      else out += escapeHtml(v);
+    }
+  }
+  return new RawHTML(out);
+}
+// setHTML(elem, content) — tar RawHTML eller string. String antas allerede trygg
+// for bakover-kompabilitet med kode som bygger h\`...\` gjennom flere lag.
+function setHTML(el, content) {
+  if (!el) return;
+  el.innerHTML = content instanceof RawHTML ? content.value : String(content ?? '');
+}
 
 // === State ===
 let currentWeek = null;
@@ -1879,13 +1952,13 @@ async function loadToday() {
     html += `
       <div class="card">
         <div class="card-title">Dagens middag</div>
-        <h3>${r.name}</h3>
+        <h2 class="meal-heading">${escapeHtml(r.name)}</h2>
         <div class="meal-meta">
-          <span class="meal-badge ${badgeClass}">${r.category}</span>
-          <span>⏱ ${r.prepTime}</span>
-          ${r.source ? `<span>📖 ${r.source}</span>` : ''}
+          <span class="meal-badge ${badgeClass}">${escapeHtml(r.category)}</span>
+          <span>⏱ ${escapeHtml(r.prepTime)}</span>
+          ${r.source ? `<span>📖 ${escapeHtml(r.source)}</span>` : ''}
         </div>
-        ${r.url ? `<a href="${r.url}" target="_blank" style="color:var(--accent);font-size:0.85rem;margin-top:8px;display:inline-block">Se oppskrift →</a>` : ''}
+        ${r.url ? `<a href="${safeUrl(r.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-size:0.85rem;margin-top:8px;display:inline-block">Se oppskrift →</a>` : ''}
       </div>
     `;
   } else if (data.meal && data.meal.status === 'away') {
@@ -1903,11 +1976,11 @@ async function loadToday() {
         <div style="padding:8px 0;border-bottom:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
-              <div style="font-size:0.9rem;font-weight:600">${ev.title}</div>
-              <div style="font-size:0.8rem;color:var(--text2)">${timeStr}</div>
+              <div style="font-size:0.9rem;font-weight:600">${escapeHtml(ev.title)}</div>
+              <div style="font-size:0.8rem;color:var(--text2)">${escapeHtml(timeStr)}</div>
             </div>
           </div>
-          ${ev.location ? `<a href="https://maps.apple.com/?q=${encodeURIComponent(ev.location)}" target="_blank" style="font-size:0.75rem;color:var(--accent);margin-top:2px;display:inline-block">📍 ${ev.location}</a>` : ''}
+          ${ev.location ? `<a href="https://maps.apple.com/?q=${encodeURIComponent(ev.location)}" target="_blank" rel="noopener noreferrer" style="font-size:0.75rem;color:var(--accent);margin-top:2px;display:inline-block">📍 ${escapeHtml(ev.location)}</a>` : ''}
         </div>
       `;
     }
@@ -1922,9 +1995,9 @@ async function loadToday() {
     for (const c of data.chores) {
       html += `
         <div class="chore-item">
-          <span class="chore-icon">${c.icon}</span>
-          <div class="chore-info"><div class="chore-task">${c.task}</div></div>
-          <button class="btn btn-success btn-small" onclick="completeChore(${c.choreId})">✓ Gjort</button>
+          <span class="chore-icon">${escapeHtml(c.icon)}</span>
+          <div class="chore-info"><div class="chore-task">${escapeHtml(c.task)}</div></div>
+          <button class="btn btn-success btn-small" onclick="completeChore(${Number(c.choreId)})">✓ Gjort</button>
         </div>
       `;
     }
@@ -1948,31 +2021,34 @@ async function loadToday() {
 // === SØNDAGSPUSH ===
 async function openSundayPush() {
   const data = await api('/api/sunday-push');
-  let html = `<h2>📋 Forslag — uke ${data.weekYear.split('-W')[1]}</h2>`;
-  html += `<p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">${data.message}</p>`;
+  const weekStr = escapeHtml(String(data.weekYear || '').split('-W')[1] || '');
+  let html = `<h2>📋 Forslag — uke ${weekStr}</h2>`;
+  html += `<p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">${escapeHtml(data.message)}</p>`;
 
   for (const m of data.meals) {
     if (!m.recipe) continue;
     const badgeClass = m.recipe.category === 'rask' ? 'badge-rask' : m.recipe.category === 'comfort' ? 'badge-comfort' : 'badge-helg';
     html += `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
-        <span style="font-size:0.75rem;color:var(--accent);font-weight:600;min-width:60px">${m.dayName}</span>
+        <span style="font-size:0.75rem;color:var(--accent);font-weight:600;min-width:60px">${escapeHtml(m.dayName)}</span>
         <div style="flex:1">
-          <div style="font-size:0.9rem">${m.recipe.name}</div>
-          <div style="font-size:0.75rem;color:var(--text2)"><span class="meal-badge ${badgeClass}" style="font-size:0.65rem">${m.recipe.category}</span> ⏱ ${m.recipe.prepTime}</div>
+          <div style="font-size:0.9rem">${escapeHtml(m.recipe.name)}</div>
+          <div style="font-size:0.75rem;color:var(--text2)"><span class="meal-badge ${badgeClass}" style="font-size:0.65rem">${escapeHtml(m.recipe.category)}</span> ⏱ ${escapeHtml(m.recipe.prepTime)}</div>
         </div>
       </div>
     `;
   }
 
   html += `<div style="margin-top:12px;padding:10px;background:rgba(240,192,64,0.1);border-radius:8px;font-size:0.85rem">`;
-  html += `<strong>🛒 Estimert handletur:</strong> ~${data.shoppingList.totalEstPrice} kr<br>`;
-  html += `<strong>📅 Anbefalt handledag:</strong> ${data.handledag}`;
+  html += `<strong>🛒 Estimert handletur:</strong> ~${Number(data.shoppingList?.totalEstPrice) || 0} kr<br>`;
+  html += `<strong>📅 Anbefalt handledag:</strong> ${escapeHtml(data.handledag)}`;
   html += `</div>`;
 
+  // weekYear må være trygg — regex-valider mot ^\d{4}-W\d{2}$ før onclick
+  const safeWeekYear = /^\d{4}-W\d{2}$/.test(data.weekYear) ? data.weekYear : '';
   html += `
     <div class="btn-row" style="margin-top:16px">
-      <button class="btn btn-success" style="flex:1" onclick="acceptSundayPush('${data.weekYear}')">✓ Godta forslaget</button>
+      <button class="btn btn-success" style="flex:1" onclick="acceptSundayPush('${safeWeekYear}')">✓ Godta forslaget</button>
       <button class="btn btn-secondary" onclick="openSundayPush()">🔄 Nytt forslag</button>
     </div>
     <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="closeModal()">Avbryt</button>
@@ -2007,7 +2083,7 @@ async function loadMeals() {
 function renderMeals() {
   const data = mealsData;
   if (!data) return;
-  let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Uke ${data.weekYear.split('-W')[1]}</div>`;
+  let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Uke ${escapeHtml(String(data.weekYear || '').split('-W')[1] || '')}</div>`;
 
   for (const slot of data.meals) {
     const r = slot.recipe;
@@ -2018,39 +2094,41 @@ function renderMeals() {
 
     if (isAway) {
       html += `
-        <div class="meal-day">${slot.dayName}</div>
+        <div class="meal-day">${escapeHtml(slot.dayName)}</div>
         <p style="color:var(--text2);margin:8px 0">🏖️ Borte</p>
-        <button class="btn btn-ghost btn-small" onclick="setMealStatus(${slot.dayOfWeek},'planned')">Tilbake</button>
+        <button class="btn btn-ghost btn-small" onclick="setMealStatus(${Number(slot.dayOfWeek)},'planned')">Tilbake</button>
       `;
     } else if (r) {
       const expanded = expandedRecipes.has(slot.dayOfWeek);
+      // Bruk JSON.stringify for onclick-literal slik at apostrofer/quotes ikke bryter markup
+      const nameForJs = JSON.stringify(String(r.name || '')).replace(/</g, '\\u003c');
       html += `
-        <div class="meal-day">${slot.dayName}</div>
-        <div class="meal-name">${r.name}</div>
+        <div class="meal-day">${escapeHtml(slot.dayName)}</div>
+        <div class="meal-name">${escapeHtml(r.name)}</div>
         <div class="meal-meta">
-          <span class="meal-badge ${badgeClass}">${r.category}</span>
-          <span>⏱ ${r.prepTime}</span>
+          <span class="meal-badge ${badgeClass}">${escapeHtml(r.category)}</span>
+          <span>⏱ ${escapeHtml(r.prepTime)}</span>
         </div>
-        <span class="recipe-toggle" onclick="toggleRecipe(${slot.dayOfWeek})">${expanded ? '▼ Skjul ingredienser' : '▶ Vis ingredienser'}</span>
+        <span class="recipe-toggle" onclick="toggleRecipe(${Number(slot.dayOfWeek)})">${expanded ? '▼ Skjul ingredienser' : '▶ Vis ingredienser'}</span>
         ${expanded ? `
           <div class="ingredients-list">
             ${r.ingredients.map(i => `
               <div class="ingredient-row">
-                <span>${i.name}</span>
-                <span class="ingredient-qty">${i.qty} ${i.unit}</span>
+                <span>${escapeHtml(i.name)}</span>
+                <span class="ingredient-qty">${escapeHtml(i.qty)} ${escapeHtml(i.unit)}</span>
               </div>
             `).join('')}
           </div>
-          ${r.url ? `<a href="${r.url}" target="_blank" style="color:var(--accent);font-size:0.8rem;margin-top:6px;display:inline-block">Se oppskrift →</a>` : ''}
+          ${r.url ? `<a href="${safeUrl(r.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-size:0.8rem;margin-top:6px;display:inline-block">Se oppskrift →</a>` : ''}
         ` : ''}
         <div class="btn-row">
-          <button class="btn btn-secondary btn-small" onclick="openSwapModal(${slot.dayOfWeek})">Bytt middag</button>
-          ${slot.dayOfWeek > 0 ? `<button class="btn btn-ghost btn-small" onclick="reorderMeal(${slot.dayOfWeek},${slot.dayOfWeek - 1})">↑</button>` : ''}
-          ${slot.dayOfWeek < 6 ? `<button class="btn btn-ghost btn-small" onclick="reorderMeal(${slot.dayOfWeek},${slot.dayOfWeek + 1})">↓</button>` : ''}
-          <button class="btn btn-ghost btn-small" onclick="setMealStatus(${slot.dayOfWeek},'away')">🏖️ Borte</button>
+          <button class="btn btn-secondary btn-small" onclick="openSwapModal(${Number(slot.dayOfWeek)})">Bytt middag</button>
+          ${slot.dayOfWeek > 0 ? `<button class="btn btn-ghost btn-small" onclick="reorderMeal(${Number(slot.dayOfWeek)},${Number(slot.dayOfWeek) - 1})">↑</button>` : ''}
+          ${slot.dayOfWeek < 6 ? `<button class="btn btn-ghost btn-small" onclick="reorderMeal(${Number(slot.dayOfWeek)},${Number(slot.dayOfWeek) + 1})">↓</button>` : ''}
+          <button class="btn btn-ghost btn-small" onclick="setMealStatus(${Number(slot.dayOfWeek)},'away')">🏖️ Borte</button>
         </div>
         <div class="similar-link-row">
-          <a href="#" class="similar-link" onclick="showSimilarRecipes(${r.id}, '${r.name.replace(/'/g, "\\'")}'); return false;">↻ Lignende oppskrift →</a>
+          <a href="#" class="similar-link" onclick="showSimilarRecipes(${Number(r.id)}, ${nameForJs}); return false;">↻ Lignende oppskrift →</a>
         </div>
       `;
     }
@@ -2087,9 +2165,9 @@ async function showSimilarRecipes(recipeId, recipeName) {
               <div class="similar-item-score">${pct}%</div>
             </div>
             <div class="similar-item-meta">
-              <span class="meal-badge badge-${s.category || 'comfort'}">${s.category || ''}</span>
+              <span class="meal-badge badge-${escapeHtml(s.category || 'comfort')}">${escapeHtml(s.category || '')}</span>
               ${s.prepTime ? `<span>⏱ ${escapeHtml(s.prepTime)}</span>` : ''}
-              ${s.servings ? `<span>🍽 ${s.servings} pers.</span>` : ''}
+              ${s.servings ? `<span>🍽 ${Number(s.servings) || 0} pers.</span>` : ''}
             </div>
             ${s.reasons && s.reasons.length ? `
               <div class="similar-item-reasons">${s.reasons.map(escapeHtml).join(' • ')}</div>
@@ -2130,13 +2208,13 @@ async function reorderMeal(fromDay, toDay) {
 
 async function openSwapModal(dayOfWeek) {
   const data = await api(`/api/meals/suggestions/${dayOfWeek}`);
-  let html = `<h2>Bytt middag — ${DAYS[dayOfWeek]}</h2>`;
+  let html = `<h2>Bytt middag — ${escapeHtml(DAYS[dayOfWeek] || '')}</h2>`;
 
   for (const s of data.suggestions) {
     html += `
-      <div class="suggestion-item" onclick="swapMeal(${dayOfWeek}, ${s.recipeId})">
-        <div class="suggestion-name">${s.name}</div>
-        <div class="suggestion-meta">⏱ ${s.prepTime} · ${s.reason}</div>
+      <div class="suggestion-item" onclick="swapMeal(${Number(dayOfWeek)}, ${Number(s.recipeId)})">
+        <div class="suggestion-name">${escapeHtml(s.name)}</div>
+        <div class="suggestion-meta">⏱ ${escapeHtml(s.prepTime)} · ${escapeHtml(s.reason)}</div>
       </div>
     `;
   }
@@ -2219,7 +2297,7 @@ function renderShopping() {
   if (!data) return;
 
   let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:8px">
-    Handleliste — uke ${data.weekYear.split('-W')[1]}
+    Handleliste — uke ${escapeHtml(String(data.weekYear || '').split('-W')[1] || '')}
   </div>`;
 
   // --- Segmentert toggle: Kjøpsliste / Pantry ---
@@ -2246,7 +2324,7 @@ function renderShopping() {
 
   // --- Eksisterende kategori-rendering med utvidelser ---
   for (const cat of data.categories || []) {
-    html += `<div class="shop-category"><div class="shop-category-title">${cat.category}</div>`;
+    html += `<div class="shop-category"><div class="shop-category-title">${escapeHtml(cat.category)}</div>`;
     for (const item of cat.items) {
       // Consumables uendret
       if (item.source === 'consumable') {
@@ -2265,7 +2343,7 @@ function renderShopping() {
   }
 
   // Total
-  html += `<div class="total-price">Estimert totalpris: ~${data.totalEstPrice || 0} kr</div>`;
+  html += `<div class="total-price">Estimert totalpris: ~${Number(data.totalEstPrice) || 0} kr</div>`;
 
   // Legg til vare-skjema (uendret)
   html += renderAddItemForm();
@@ -2322,23 +2400,23 @@ function renderRecipeItem(item) {
 
   let html = `<div class="shop-item ${checkedClass}">`;
   html += `<div style="flex:1">`;
-  html += `<div class="shop-item-name">${displayName} ${kassalChip}</div>`;
-  if (showEnglish) html += `<div class="shop-item-name-en">${item.ingredientName}</div>`;
+  html += `<div class="shop-item-name">${escapeHtml(displayName)} ${kassalChip}</div>`;
+  if (showEnglish) html += `<div class="shop-item-name-en">${escapeHtml(item.ingredientName)}</div>`;
 
   if (item.packSize) {
-    html += `<div class="shop-item-detail">${item.stillNeed}${item.packUnit} trengs → ${item.packCount} pk à ${item.packSize}${item.packUnit}</div>`;
+    html += `<div class="shop-item-detail">${escapeHtml(item.stillNeed)}${escapeHtml(item.packUnit)} trengs → ${escapeHtml(item.packCount)} pk à ${escapeHtml(item.packSize)}${escapeHtml(item.packUnit)}</div>`;
     if (item.hasHome > 0) {
-      html += `<div class="shop-item-detail" style="color:var(--green)">Har ${item.hasHome}${item.packUnit} hjemme</div>`;
+      html += `<div class="shop-item-detail" style="color:var(--green)">Har ${escapeHtml(item.hasHome)}${escapeHtml(item.packUnit)} hjemme</div>`;
     }
   }
-  if (item.dairyNote) html += `<div class="dairy-note">${item.dairyNote}</div>`;
+  if (item.dairyNote) html += `<div class="dairy-note">${escapeHtml(item.dairyNote)}</div>`;
   html += `</div>`; // end info col
 
-  if (item.estPrice > 0) html += `<div class="shop-item-price">~${item.estPrice} kr</div>`;
+  if (item.estPrice > 0) html += `<div class="shop-item-price">~${Number(item.estPrice) || 0} kr</div>`;
 
   // "Kjøpt" knapp → oppdaterer pantry (Fase D)
   if (!item.checkedOff && item.id) {
-    html += `<button class="btn btn-success btn-small" style="margin-left:8px" onclick="markItemBought(${item.id})">✓ Kjøpt</button>`;
+    html += `<button class="btn btn-success btn-small" style="margin-left:8px" onclick="markItemBought(${Number(item.id)})">✓ Kjøpt</button>`;
   }
   html += `</div>`;
   return html;
@@ -2349,10 +2427,10 @@ function renderPantryLinkedItem(item) {
   return `
     <div class="shop-item is-pantry">
       <div style="flex:1">
-        <div class="shop-item-name">${displayName}</div>
+        <div class="shop-item-name">${escapeHtml(displayName)}</div>
         <span class="pantry-flag">✓ Dekket av pantry</span>
       </div>
-      <button class="btn btn-ghost btn-small" onclick="unpantryItem(${item.id})" title="Flytt tilbake til kjøpsliste">
+      <button class="btn btn-ghost btn-small" onclick="unpantryItem(${Number(item.id)})" title="Flytt tilbake til kjøpsliste">
         ↩ Trenger likevel
       </button>
     </div>
@@ -2363,24 +2441,24 @@ function renderConsumableItem(item) {
   // Uendret fra eksisterende kode — flyttet ut i egen funksjon for lesbarhet
   let html = `<div class="consumable-item">`;
   html += `<div class="consumable-header">`;
-  html += `<div><div class="consumable-name">${item.name}</div>`;
-  if (item.packSize) html += `<div style="font-size:0.75rem;color:var(--text2)">${item.packCount || 1} pk à ${item.packSize} ${item.packUnit || 'stk'}</div>`;
+  html += `<div><div class="consumable-name">${escapeHtml(item.name)}</div>`;
+  if (item.packSize) html += `<div style="font-size:0.75rem;color:var(--text2)">${escapeHtml(item.packCount || 1)} pk à ${escapeHtml(item.packSize)} ${escapeHtml(item.packUnit || 'stk')}</div>`;
   html += `</div>`;
-  if (item.estPrice > 0) html += `<div class="consumable-price">~${item.estPrice} kr</div>`;
+  if (item.estPrice > 0) html += `<div class="consumable-price">~${Number(item.estPrice) || 0} kr</div>`;
   html += `</div>`;
   html += `<div class="consumable-meta">`;
-  if (item.depletionInfo) html += `<span>Forbruk: ${item.depletionInfo}</span>`;
-  if (item.store) html += `<span class="store-tag">📍 ${item.store}</span>`;
+  if (item.depletionInfo) html += `<span>Forbruk: ${escapeHtml(item.depletionInfo)}</span>`;
+  if (item.store) html += `<span class="store-tag">📍 ${escapeHtml(item.store)}</span>`;
   html += `</div>`;
   if (item.daysLeft !== undefined && item.daysLeft !== null) {
     const dClass = item.daysLeft <= 0 ? 'days-urgent' : item.daysLeft <= 3 ? 'days-warn' : 'days-ok';
-    const dText = item.daysLeft <= 0 ? 'TOM — kjøp nå!' : `~${item.daysLeft} dager igjen`;
-    html += `<div class="consumable-days-left ${dClass}">${dText}</div>`;
+    const dText = item.daysLeft <= 0 ? 'TOM — kjøp nå!' : `~${Number(item.daysLeft) || 0} dager igjen`;
+    html += `<div class="consumable-days-left ${dClass}">${escapeHtml(dText)}</div>`;
   }
-  if (item.notes) html += `<div class="consumable-notes">${item.notes}</div>`;
+  if (item.notes) html += `<div class="consumable-notes">${escapeHtml(item.notes)}</div>`;
   html += `<div class="consumable-actions">`;
-  html += `<button class="btn btn-success btn-small" onclick="markConsumableBought(${item.consumableId})">✓ Kjøpt</button>`;
-  html += `<button class="btn btn-ghost btn-small" onclick="toggleConsumableAuto(${item.consumableId})">Auto av/på</button>`;
+  html += `<button class="btn btn-success btn-small" onclick="markConsumableBought(${Number(item.consumableId)})">✓ Kjøpt</button>`;
+  html += `<button class="btn btn-ghost btn-small" onclick="toggleConsumableAuto(${Number(item.consumableId)})">Auto av/på</button>`;
   html += `</div></div>`;
   return html;
 }
@@ -2390,10 +2468,10 @@ function renderAddItemForm() {
     <div class="card" style="margin-top:16px">
       <div class="card-title">Legg til vare</div>
       <div class="input-row">
-        <input type="text" id="addItemInput" placeholder="Varenavn (f.eks. Saft, Bleier...)">
+        <input type="text" id="addItemInput" aria-label="Nytt varenavn" placeholder="Varenavn (f.eks. Saft, Bleier...)">
         <button class="btn btn-primary" onclick="addShoppingItem()">Legg til</button>
       </div>
-      <select id="addItemCategory" style="margin-top:8px;padding:8px;border-radius:8px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);width:100%;font-family:inherit">
+      <select id="addItemCategory" aria-label="Kategori for ny vare" style="margin-top:8px;padding:8px;border-radius:8px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);width:100%;font-family:inherit">
         <option value="Kjøtt & fisk">Kjøtt & fisk</option>
         <option value="Meieri">Meieri</option>
         <option value="Frukt & grønt">Frukt & grønt</option>
@@ -2450,7 +2528,7 @@ async function loadPantry() {
 
 function renderPantryInline() {
   return `
-    <div class="card">
+    <div class="card card-pantry-combobox">
       <div class="card-title">Legg til i beholdningen</div>
       <div class="pantry-combobox-wrap">
         <input type="text" id="pantryComboInput"
@@ -2526,7 +2604,7 @@ function renderPantryComboResults() {
     const badge = s.source === 'kassal' ? '<span class="combo-badge combo-badge-kassal">✓ Kassal</span>'
                 : s.source === 'lokal'  ? '<span class="combo-badge combo-badge-lokal">• Lokal</span>'
                 :                          '<span class="combo-badge combo-badge-ny">+ Ny vare</span>';
-    const meta = s.frequency ? `<span class="combo-meta">brukt ${s.frequency}×</span>` : '';
+    const meta = s.frequency ? `<span class="combo-meta">brukt ${Number(s.frequency) || 0}×</span>` : '';
     const selectedClass = i === pantryComboSelectedIdx ? ' selected' : '';
     return `
       <div class="combo-row${selectedClass}" onmousedown="selectPantryCombo(${i})">
@@ -2540,9 +2618,7 @@ function renderPantryComboResults() {
   }).join('');
 }
 
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-}
+// (escapeHtml defineres øverst i scriptet — M1.1 XSS-hardening)
 
 function onPantryComboKeydown(ev) {
   if (!pantryComboSuggestions.length) return;
@@ -2641,12 +2717,12 @@ function renderPantryList() {
   let html = '';
   for (const it of items) {
     const name = it.ingredientNameNo || it.ingredientName || it.name;
-    const pk = encodeURIComponent(it.productKey || '');
+    const pk = encodeURIComponent(it.productKey || ''); // trygg for attributtet
     // Fase F2: progress-bar hvis total er satt
     let progressHtml = '';
-    let qtyLabel = `${it.quantity || 1} ${it.unit || 'stk'}`;
+    let qtyLabel = `${escapeHtml(it.quantity || 1)} ${escapeHtml(it.unit || 'stk')}`;
     if (it.total && it.ratio !== null && typeof it.ratio !== 'undefined') {
-      const pct = Math.round(it.ratio * 100);
+      const pct = Math.max(0, Math.min(100, Math.round(Number(it.ratio) * 100) || 0));
       const lowClass = it.isLow ? 'low' : (it.ratio < 0.4 ? 'medium' : 'high');
       progressHtml = `
         <div class="pantry-progress-wrap">
@@ -2655,13 +2731,13 @@ function renderPantryList() {
           </div>
         </div>
       `;
-      qtyLabel = `${it.quantity} ${it.unit} <span class="pantry-qty-of">/ ${it.total} ${it.unit}</span>`;
+      qtyLabel = `${escapeHtml(it.quantity)} ${escapeHtml(it.unit)} <span class="pantry-qty-of">/ ${escapeHtml(it.total)} ${escapeHtml(it.unit)}</span>`;
     }
     html += `
       <div class="pantry-item${it.isLow ? ' is-low' : ''}">
         ${progressHtml}
         <div class="pantry-item-main">
-          <div class="pantry-item-name">${name}${it.isLow ? ' <span class="pantry-low-badge">⚠ lav</span>' : ''}</div>
+          <div class="pantry-item-name">${escapeHtml(name)}${it.isLow ? ' <span class="pantry-low-badge">⚠ lav</span>' : ''}</div>
           <div class="pantry-item-qty">${qtyLabel}</div>
         </div>
         <button class="btn btn-ghost btn-small" onclick="removeFromPantry('${pk}')" title="Har ikke likevel">
@@ -2732,8 +2808,9 @@ function renderRecipeTextPanel() {
 }
 
 function renderRecipeImagePanel() {
+  // recipeImportImageB64 kommer fra canvas.toDataURL() lokalt — trygt, men escape attribute-verdien
   const preview = recipeImportImageB64
-    ? `<img src="${recipeImportImageB64}" class="image-preview" alt="forhåndsvisning">`
+    ? `<img src="${escapeHtml(recipeImportImageB64)}" class="image-preview" alt="forhåndsvisning">`
     : '';
   return `
     <p style="font-size:0.8rem;color:var(--text2);margin-bottom:8px">
@@ -2798,7 +2875,9 @@ async function submitRecipeImport() {
       result = await api('/api/recipes/import/image', { method: 'POST', body: { imageBase64: recipeImportImageB64 } });
     }
     closeModal();
-    alert(`✅ Oppskrift importert: ${result.recipe?.name || 'ukjent navn'}`);
+    // alert() kjører tekst ikke HTML, så dette er trygt, men begrens lengde
+    const importedName = String(result.recipe?.name || 'ukjent navn').slice(0, 200);
+    alert(`✅ Oppskrift importert: ${importedName}`);
   } catch (err) {
     alert('Import feilet: ' + (err.message || err));
   } finally {
@@ -2816,6 +2895,8 @@ function updateFabVisibility() {
   if (!fab) return;
   const isMeals = document.getElementById('viewMeals').classList.contains('active');
   fab.classList.toggle('visible', isMeals);
+  // CSS-regelen `body.settings-mode .fab { display: none }` sikrer at FAB
+  // skjules automatisk når SettingsView er aktiv, uansett tab-tilstand.
 }
 // Kall updateFabVisibility() fra switchTab() etter klasse-toggle.
 // ===== FASE_E_END shopping-pantry-recipe-import =====
@@ -2832,7 +2913,7 @@ function renderChores() {
   const data = choresData;
   if (!data) return;
 
-  let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Uke ${data.weekYear.split('-W')[1]}</div>`;
+  let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Uke ${escapeHtml(String(data.weekYear || '').split('-W')[1] || '')}</div>`;
 
   // Grupper etter dag
   const byDay = {};
@@ -2843,20 +2924,20 @@ function renderChores() {
   }
 
   for (const [day, items] of Object.entries(byDay)) {
-    html += `<div class="card"><div class="card-title">${day}</div>`;
+    html += `<div class="card"><div class="card-title">${escapeHtml(day)}</div>`;
     for (const c of items) {
       const isDone = c.status === 'done';
       html += `
         <div class="chore-item ${isDone ? 'chore-done' : ''}">
-          <span class="chore-icon">${c.icon}</span>
+          <span class="chore-icon">${escapeHtml(c.icon)}</span>
           <div class="chore-info">
-            <div class="chore-task">${c.task}</div>
-            ${c.details ? `<div class="chore-day">${c.details}</div>` : ''}
+            <div class="chore-task">${escapeHtml(c.task)}</div>
+            ${c.details ? `<div class="chore-day">${escapeHtml(c.details)}</div>` : ''}
             ${c.status === 'postponed' ? '<div class="chore-day" style="color:var(--orange)">Utsatt</div>' : ''}
           </div>
           ${!isDone ? `
-            <button class="btn btn-ghost btn-small" onclick="postponeChore(${c.choreId})">Utsett</button>
-            <button class="btn btn-success btn-small" onclick="completeChore(${c.choreId})">✓</button>
+            <button class="btn btn-ghost btn-small" onclick="postponeChore(${Number(c.choreId)})">Utsett</button>
+            <button class="btn btn-success btn-small" onclick="completeChore(${Number(c.choreId)})">✓</button>
           ` : '<span style="color:var(--green);font-size:0.8rem">✓ Gjort</span>'}
         </div>
       `;
@@ -2901,11 +2982,13 @@ async function checkLlmStatus() {
   }
 }
 
-function addChatBubble(text, sender, extra) {
+function addChatBubble(text, sender, extraRawHtml) {
   const container = document.getElementById('chatMessages');
   const cls = sender === 'user' ? 'chat-msg-user' : 'chat-msg-ai';
-  const extraHtml = extra || '';
-  container.innerHTML += `<div class="chat-msg ${cls}"><div style="white-space:pre-wrap">${text}</div>${extraHtml}</div>`;
+  // extraRawHtml antas trygg (bygges av oss, ikke fra nett) — men vi vil snart
+  // droppe dette til fordel for DOM-construction. Escape text uansett.
+  const extraHtml = extraRawHtml || '';
+  container.innerHTML += `<div class="chat-msg ${cls}"><div style="white-space:pre-wrap">${escapeHtml(text)}</div>${extraHtml}</div>`;
   container.scrollTop = container.scrollHeight;
   return container;
 }
@@ -2918,8 +3001,8 @@ async function sendChat() {
 
   addChatBubble(message, 'user');
 
-  // Typing indicator
-  const typingId = 'typing_' + Date.now();
+  // Typing indicator — random-generated ID, ingen user-input
+  const typingId = 'typing_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   const container = document.getElementById('chatMessages');
   container.innerHTML += `<div class="chat-msg chat-msg-ai" id="${typingId}"><span class="chat-thinking">Tenker...</span></div>`;
   container.scrollTop = container.scrollHeight;
@@ -2933,12 +3016,14 @@ async function sendChat() {
 
     const typingEl = document.getElementById(typingId);
     if (typingEl) {
-      let html = `<div style="white-space:pre-wrap">${reply}</div>`;
-      // Vis utførte tool-calls
+      // LLM-svar kan inneholde tilfeldig tekst — alltid escape
+      let html = `<div style="white-space:pre-wrap">${escapeHtml(reply)}</div>`;
+      // Vis utførte tool-calls — messages og tool-navn fra backend også escape
       if (data.toolCalls && data.toolCalls.length > 0) {
         html += `<div style="margin-top:6px;font-size:0.75rem;color:var(--green)">`;
         for (const tc of data.toolCalls) {
-          html += `<div>🔧 ${tc.result?.message || tc.tool}</div>`;
+          const toolMsg = tc.result?.message || tc.tool || '';
+          html += `<div>🔧 ${escapeHtml(toolMsg)}</div>`;
         }
         html += `</div>`;
       }
@@ -2948,7 +3033,7 @@ async function sendChat() {
   } catch (err) {
     const typingEl = document.getElementById(typingId);
     if (typingEl) {
-      typingEl.innerHTML = `<div style="color:var(--red)">Feil: ${err.message}. Er LLM startet?</div>`;
+      typingEl.innerHTML = `<div style="color:var(--red)">Feil: ${escapeHtml(err.message || String(err))}. Er LLM startet?</div>`;
     }
   }
   container.scrollTop = container.scrollHeight;
@@ -3256,17 +3341,18 @@ async function loadSettingsContent() {
 }
 
 function renderApiKeyField({ label, key, masked, help, testable }) {
-  const id = `akf-${key}`;
+  // key er hardkodet whitelist-navn; escapes uansett for defense-in-depth
+  const id = `akf-${escapeHtml(key)}`;
   return `
     <div class="api-key-field">
-      <label class="api-key-field-label" for="${id}">${label}</label>
+      <label class="api-key-field-label" for="${id}">${escapeHtml(label)}</label>
       <div class="api-key-field-row">
         <input type="password" id="${id}" class="api-key-field-input"
-               value="${masked || ''}" placeholder="Ikke satt" data-env-key="${key}" autocomplete="off">
-        <button type="button" class="api-key-field-btn" onclick="toggleApiKeyVisibility('${id}')">Vis</button>
-        ${testable ? `<button type="button" class="api-key-field-btn btn-test" onclick="testIntegration('${testable}')">Test</button>` : ''}
+               value="${escapeHtml(masked || '')}" placeholder="Ikke satt" data-env-key="${escapeHtml(key)}" autocomplete="off">
+        <button type="button" class="api-key-field-btn" onclick="toggleApiKeyVisibility('${escapeHtml(id)}')">Vis</button>
+        ${testable ? `<button type="button" class="api-key-field-btn btn-test" onclick="testIntegration('${escapeHtml(testable)}')">Test</button>` : ''}
       </div>
-      <div class="api-key-status" id="${id}-status">${help || ''}</div>
+      <div class="api-key-status" id="${id}-status">${escapeHtml(help || '')}</div>
     </div>
   `;
 }
@@ -3376,16 +3462,48 @@ function onLlmMotorChange(motorId) {
   }
 }
 
-function renderSettingsKilder() {
+async function renderSettingsKilder() {
   const body = document.getElementById('settingsKilderBody');
   if (!body) return;
+  // Hent faktiske kilder fra /api/sources (F7 er implementert)
+  let sources = [];
+  try {
+    const res = await fetch('/api/sources');
+    if (res.ok) {
+      const data = await res.json();
+      sources = Array.isArray(data) ? data : (data.sources || []);
+    }
+  } catch { /* stille feil — vis tom liste */ }
+
+  const iconFor = (type) => ({
+    pinterest: '📌',
+    godt: '🍳',
+    rss: '📡',
+    html: '🌐',
+    unknown: '🌐',
+  }[type] || '🌐');
+
+  const rowsHtml = sources.length > 0
+    ? sources.map(s => `
+        <div class="recipe-source-row">
+          <span class="recipe-source-icon">${iconFor(s.type)}</span>
+          <div class="recipe-source-url">
+            <div class="recipe-source-label">${escapeHtml(s.label || s.url)}</div>
+            <div class="recipe-source-meta">${escapeHtml(s.type)} · ${s.lastSyncAt ? 'synket ' + escapeHtml(s.lastSyncAt) : 'ikke synket'}</div>
+          </div>
+          <button class="api-key-field-btn" onclick="syncRecipeSource(${Number(s.id)})" title="Synk nå">↻</button>
+          <button class="api-key-field-btn" onclick="removeRecipeSource(${Number(s.id)})" title="Fjern">✕</button>
+        </div>
+      `).join('')
+    : `
+        <div class="recipe-source-row" style="opacity:0.6">
+          <span class="recipe-source-icon">🌐</span>
+          <div class="recipe-source-url">Ingen kilder lagt til ennå</div>
+        </div>
+      `;
+
   body.innerHTML = `
-    <div id="recipeSourceList">
-      <div class="recipe-source-row" style="opacity:0.6">
-        <span class="recipe-source-icon">🌐</span>
-        <div class="recipe-source-url">Ingen kilder lagt til ennå</div>
-      </div>
-    </div>
+    <div id="recipeSourceList">${rowsHtml}</div>
     <div class="add-source-input">
       <input type="url" id="newSourceUrl" placeholder="https://pinterest.com/brukernavn/board">
       <button class="api-key-field-btn" onclick="addRecipeSource()">+ Legg til</button>
@@ -3396,8 +3514,25 @@ function renderSettingsKilder() {
         <button class="api-key-field-btn" onclick="openRecipeImportModal()">📄 Tekst/Bilde</button>
       </div>
     </div>
-    <div class="api-key-status warn" style="margin-top:12px">⚠ Kilder-integrasjon kommer i F7 — knappen over lagrer lokalt inntil videre</div>
+    <div class="api-key-status" style="margin-top:12px;color:var(--text2)">
+      ℹ Connector-stubs for Pinterest/Godt/RSS — faktisk synk skjer i bakgrunnen hver 6. time
+    </div>
   `;
+}
+
+async function syncRecipeSource(id) {
+  try {
+    await fetch(`/api/sources/${id}/sync`, { method: 'POST' });
+    renderSettingsKilder();
+  } catch { /* stille */ }
+}
+
+async function removeRecipeSource(id) {
+  if (!confirm('Fjern denne kilden?')) return;
+  try {
+    await fetch(`/api/sources/${id}`, { method: 'DELETE' });
+    renderSettingsKilder();
+  } catch { /* stille */ }
 }
 
 async function addRecipeSource() {
@@ -3412,8 +3547,9 @@ async function addRecipeSource() {
     if (r.ok) {
       input.value = '';
       renderSettingsKilder();
-    } else if (r.status === 404) {
-      alert('F7 ikke implementert ennå — prøv igjen etter at oppskriftskilder er ferdige');
+    } else {
+      const err = await r.json().catch(() => ({}));
+      alert('Kunne ikke legge til kilde: ' + (err.error?.message || r.statusText));
     }
   } catch (err) {
     alert('Kunne ikke legge til kilde: ' + err.message);
@@ -3431,9 +3567,15 @@ async function renderSettingsProfil() {
 
   const renderTags = (arr, emptyText, fieldKey) => {
     if (!arr || arr.length === 0) {
-      return `<span class="profile-tag" style="opacity:0.5">${emptyText}</span>`;
+      return `<span class="profile-tag" style="opacity:0.5">${escapeHtml(emptyText)}</span>`;
     }
-    return arr.map(t => `<span class="profile-tag" onclick="removeProfileTag('${fieldKey}','${escapeHtml(t)}')" title="Klikk for å fjerne">${escapeHtml(t)} ✕</span>`).join('');
+    // JSON.stringify gir trygg JS-literal for onclick-arg (escaper ", \, etc.),
+    // escapeHtml på attributet selv beskytter mot > og <.
+    return arr.map(t => {
+      const jsArg = JSON.stringify(String(t));
+      const attrEsc = escapeHtml(`removeProfileTag('${fieldKey}',${jsArg})`);
+      return `<span class="profile-tag" onclick="${attrEsc}" title="Klikk for å fjerne">${escapeHtml(t)} ✕</span>`;
+    }).join('');
   };
 
   body.innerHTML = `
@@ -3515,23 +3657,34 @@ async function renderSettingsOm() {
   if (!body) return;
   body.innerHTML = `
     <dl class="about-grid">
-      <dt>Versjon</dt><dd>1.1.0 · Fase F</dd>
+      <dt>Versjon</dt><dd id="aboutVersion">laster…</dd>
       <dt>Database</dt><dd id="aboutDb">laster…</dd>
       <dt>Migrasjoner</dt><dd id="aboutMigs">laster…</dd>
-      <dt>Tester</dt><dd>179/179 ✓</dd>
-      <dt>Siste sync</dt><dd id="aboutSync">–</dd>
+      <dt>Tester</dt><dd id="aboutTests">laster…</dd>
+      <dt>Oppetid</dt><dd id="aboutUptime">–</dd>
     </dl>
   `;
-  // Hent live helse
   try {
-    const data = await fetch('/api/status').then(r => r.ok ? r.json() : null);
-    if (data) {
-      const dbEl = document.getElementById('aboutDb');
-      const migEl = document.getElementById('aboutMigs');
-      if (dbEl) dbEl.textContent = data.db || 'ukjent';
-      if (migEl) migEl.textContent = data.migrations || '–';
+    const res = await fetch('/api/status');
+    if (!res.ok) throw new Error('status-endepunkt svarte ikke');
+    const data = await res.json();
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('aboutVersion', `${data.version} · ${data.phase}`);
+    set('aboutDb', data.db || 'ukjent');
+    set('aboutMigs', data.migrations || '–');
+    set('aboutTests', data.tests ? `${data.tests} ✓` : '–');
+    if (typeof data.uptime === 'number') {
+      const h = Math.floor(data.uptime / 3600);
+      const m = Math.floor((data.uptime % 3600) / 60);
+      set('aboutUptime', h > 0 ? `${h}t ${m}m` : `${m} min`);
     }
-  } catch { /* stille feil */ }
+  } catch (err) {
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('aboutVersion', '1.1.0 · Fase F');
+    set('aboutDb', 'offline');
+    set('aboutMigs', '–');
+    set('aboutTests', '–');
+  }
 }
 // ===== FASE_F_END settings-view-js =====
 

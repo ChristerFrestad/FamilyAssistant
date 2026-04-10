@@ -106,12 +106,35 @@ function startRateLimitCleanup() {
 //
 // Minimumsett baseline headers som ikke krever konfig.
 
+// Content-Security-Policy: str\u00f8mlinjeformet mot Familieassistentens
+// monolittiske index.html med inline <style> og inline event handlers.
+// 'unsafe-inline' for script holdes inntil M5 modulariserer frontend.
+const CSP_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "media-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+].join('; ');
+
 function applySecurityHeaders(res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  // HSTS b\u00f8r kun settes bak HTTPS; vi legger det til n\u00e5r en reverse proxy brukes
+  res.setHeader('Content-Security-Policy', CSP_POLICY);
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  // HSTS settes bare n\u00e5r vi er bak HTTPS (Caddy) — det sjekker vi via env
+  if (config.NODE_ENV === 'production' && process.env.HTTPS_TERMINATED === 'true') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
 }
 
 // ============================================================

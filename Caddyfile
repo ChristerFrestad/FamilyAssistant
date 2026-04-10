@@ -1,0 +1,110 @@
+# Caddyfile for Familieassistenten (M1.6)
+#
+# Caddy er valgt som reverse proxy foran Node.js fordi:
+#   - Automatisk HTTPS (internt sertifikat i LAN, Let's Encrypt ved public domain)
+#   - Innebygd HTTP/2 + HTTP/3
+#   - Kort og lesbar konfig
+#   - Setter HSTS automatisk når HTTPS er aktivt
+#
+# === Tre alternative oppsett ===
+#
+# A) LAN-only via .local / .home / IP — trenger ikke gyldig cert
+# B) Tailscale Serve — ts.net-domene, automatisk sertifikat, tilgjengelig utenfor hjemmet
+# C) Public domain (familieassistenten.dittdomene.no) — Let's Encrypt staging/prod
+#
+# Velg én blokk under. Kommenter ut resten.
+#
+# Forutsetning: Node-serveren kjører på 127.0.0.1:3000 (systemd),
+#               og env HTTPS_TERMINATED=true er satt så server.js
+#               legger til HSTS-header. NODE_ENV=production krever AUTH_TOKEN.
+#
+# Start/reload:
+#   sudo apt install -y caddy
+#   sudo cp Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl enable --now caddy
+#   sudo systemctl reload caddy   # etter endringer
+
+# ------------------------------------------------------------
+# A) LAN-only, intern Caddy-CA (anbefalt for familie-bruk)
+# ------------------------------------------------------------
+# Caddy genererer et lokalt rot-sertifikat som du installerer på
+# iPhone + laptop én gang. Ingen eksponering utenfor huset.
+#
+# iPhone-installasjon:
+#   1. Kjør `caddy trust` én gang på RPi5
+#   2. Kopier /etc/caddy/pki/authorities/local/root.crt til iPhone via AirDrop/mail
+#   3. Innstillinger → Profiler → godkjenn → Innstillinger → Generelt → VPN og enhetsadministrering → Sertifikat-innstillinger
+
+familieassistenten.local, raspberrypi.local, 192.168.50.50 {
+    # Bytt IP til RPi5s faktiske LAN-IP
+
+    # HTTPS med lokalt sertifikat fra Caddys interne CA
+    tls internal
+
+    # Gzip/zstd ut mot klient
+    encode zstd gzip
+
+    # Send alle requests til Node-serveren
+    reverse_proxy 127.0.0.1:3000 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-For {remote_host}
+        header_up Host {host}
+    }
+
+    # Logging til journald (følger `journalctl -u caddy`)
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+
+    # Kapp maks request-body — Node har egen MAX_BODY_BYTES, dette er
+    # et ekstra lag for å blokkere 100 MB upload-forsøk før de treffer Node.
+    request_body {
+        max_size 5MB
+    }
+}
+
+# ------------------------------------------------------------
+# B) Tailscale Serve (alternativ — tilgjengelig utenfor huset)
+# ------------------------------------------------------------
+# Bruker Tailscale sin egen ts.net-kjede med gyldig TLS.
+# Krever at `tailscale up` er gjort og `tailscale serve` er
+# konfigurert på egenhånd, eller at du bruker Caddy som her:
+#
+# rpi5.dittnett.ts.net {
+#     tls {
+#         # Caddy får cert fra tailscaled
+#         get_certificate tailscale
+#     }
+#     encode zstd gzip
+#     reverse_proxy 127.0.0.1:3000 {
+#         header_up X-Forwarded-Proto {scheme}
+#         header_up X-Forwarded-For {remote_host}
+#         header_up Host {host}
+#     }
+#     request_body { max_size 5MB }
+# }
+
+# ------------------------------------------------------------
+# C) Public domain med Let's Encrypt
+# ------------------------------------------------------------
+# Krever at familieassistenten.dittdomene.no peker på offentlig IP
+# med port 80 + 443 åpent. Familieassistenten er designet for
+# LAN-bruk — åpne kun public hvis du har en konkret grunn og har
+# satt sterke AUTH_TOKEN og (aller helst) en WireGuard/Tailscale-ACL.
+#
+# familieassistenten.dittdomene.no {
+#     encode zstd gzip
+#     reverse_proxy 127.0.0.1:3000 {
+#         header_up X-Forwarded-Proto {scheme}
+#         header_up X-Forwarded-For {remote_host}
+#         header_up Host {host}
+#     }
+#     header {
+#         # Ekstra hardening på public — Caddy setter HSTS automatisk,
+#         # men du kan låse max-age hvis du vil.
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+#     }
+#     request_body { max_size 5MB }
+# }

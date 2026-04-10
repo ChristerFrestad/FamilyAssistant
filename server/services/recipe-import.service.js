@@ -39,6 +39,43 @@ const receiptService = require('./receipt.service');
 
 const ALLOWED_CATEGORIES = new Set(['rask', 'comfort', 'helg']);
 const MAX_TEXT_CHARS = 8000;
+const MAX_NAME_CHARS = 200;
+const MAX_INGREDIENT_NAME_CHARS = 100;
+const MAX_STEP_CHARS = 500;
+
+/**
+ * Fjerner control-chars, HTML-tags og begrenser lengden på en streng.
+ * Brukes som defense-in-depth mot ondsinnet LLM-output eller OCR-injection.
+ * Frontend escaper også ved visning (M1.1), men vi kapper og vasker her
+ * slik at data ikke er vedholdende korrupt i DB.
+ */
+function sanitizeString(s, maxLen) {
+  if (s === null || s === undefined) return '';
+  let out = String(s);
+  // Fjern NUL og ASCII-kontrolltegn (unntatt nyelinje/tabulator)
+  out = out.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+  // Strip ut alle HTML/script/tag-lignende konstruksjoner
+  out = out.replace(/<\s*\/?\s*(script|iframe|object|embed|style|link|meta|img|svg|math|base)\b[^>]*>/gi, '');
+  // Fjern gjenværende <...>-mønstre (generic HTML tags) — vi vil ha ren tekst
+  out = out.replace(/<[^>]*>/g, '');
+  // Trim + kapp lengde
+  out = out.trim();
+  if (out.length > maxLen) out = out.slice(0, maxLen);
+  return out;
+}
+
+/**
+ * Tillater kun trygge URL-schemes for lagrede oppskrifts-URLer.
+ * Returnerer null for javascript:, data:, vbscript: etc.
+ */
+function sanitizeUrl(u) {
+  if (!u) return null;
+  const s = String(u).trim();
+  if (!s) return null;
+  if (!/^https?:\/\//i.test(s)) return null;
+  if (s.length > 500) return null;
+  return s;
+}
 
 // ============================================================
 // LLM-prompt
@@ -123,14 +160,17 @@ function sanitizeIngredients(rawIngredients) {
   const out = [];
   for (const ing of rawIngredients) {
     if (!ing || typeof ing !== 'object') continue;
-    const name = (ing.name || '').toString().trim();
+    // Fjern HTML-tags / control-chars før normalizer ser navnet
+    const name = sanitizeString(ing.name, MAX_INGREDIENT_NAME_CHARS);
     if (!name) continue;
 
     // Kjør gjennom fase C normalizer for qty/unit-utvinning + EN→NO
     // Hvis LLM-en allerede har gitt qty/unit respekterer vi det og
     // bruker normalizer kun til å oversette navnet.
-    const llmQty = Number.isFinite(ing.qty) ? ing.qty : null;
-    const llmUnit = typeof ing.unit === 'string' && ing.unit ? ing.unit : null;
+    const llmQty = Number.isFinite(ing.qty) && ing.qty > 0 ? ing.qty : null;
+    const llmUnit = typeof ing.unit === 'string' && ing.unit
+      ? sanitizeString(ing.unit, 20)
+      : null;
 
     const norm = normalizer.normalizeSync({
       name,
@@ -139,9 +179,9 @@ function sanitizeIngredients(rawIngredients) {
     });
 
     out.push({
-      name: norm.nameNo || name.toLowerCase(),
+      name: sanitizeString(norm.nameNo || name.toLowerCase(), MAX_INGREDIENT_NAME_CHARS),
       qty: norm.qty ?? llmQty ?? 1,
-      unit: norm.unit ?? llmUnit ?? 'stk',
+      unit: sanitizeString(norm.unit ?? llmUnit ?? 'stk', 20),
       optional: false,
     });
   }
@@ -151,7 +191,7 @@ function sanitizeIngredients(rawIngredients) {
 function sanitizeSteps(rawSteps) {
   if (!Array.isArray(rawSteps)) return [];
   return rawSteps
-    .map(s => (typeof s === 'string' ? s.trim() : ''))
+    .map(s => sanitizeString(s, MAX_STEP_CHARS))
     .filter(Boolean)
     .slice(0, 30);
 }
@@ -189,7 +229,8 @@ async function importFromText(repos, { text, title = null, sourceUrl = null, lan
   }
 
   const parsed = llmRes.parsed;
-  const name = (parsed.name || title || '').toString().trim();
+  // M1.5: rens alt user/LLM-kontrollert tekst mot XSS + control chars før DB-skriv
+  const name = sanitizeString(parsed.name || title || '', MAX_NAME_CHARS);
   if (!name) return { error: 'Mangler oppskriftsnavn i LLM-svar', raw: parsed };
 
   const ingredients = sanitizeIngredients(parsed.ingredients);
@@ -199,19 +240,20 @@ async function importFromText(repos, { text, title = null, sourceUrl = null, lan
 
   const steps = sanitizeSteps(parsed.steps);
   const category = sanitizeCategory(parsed.category);
-  const prepTime = Number.isFinite(parsed.prepTimeMin)
-    ? `${parsed.prepTimeMin} min`
+  const prepTime = Number.isFinite(parsed.prepTimeMin) && parsed.prepTimeMin > 0
+    ? `${Math.min(Math.round(parsed.prepTimeMin), 9999)} min`
     : null;
   const servings = Number.isFinite(parsed.servings) && parsed.servings > 0
-    ? Math.round(parsed.servings)
+    ? Math.min(Math.round(parsed.servings), 99)
     : 2;
+  const safeSourceUrl = sanitizeUrl(sourceUrl);
 
   const recipeId = repos.recipes.insert({
     name,
     category,
     prepTime,
-    source: sourceUrl ? 'import_url' : 'import_text',
-    url: sourceUrl,
+    source: safeSourceUrl ? 'import_url' : 'import_text',
+    url: safeSourceUrl,
     servings,
     notes: steps.length > 0 ? steps.map((s, i) => `${i + 1}. ${s}`).join('\n') : null,
     ingredients,
