@@ -18,6 +18,13 @@ const KEEP_DAYS = 14;
 const REMOTE_PATH = process.env.BACKUP_REMOTE_PATH || '';
 const REMOTE_TIMEOUT_MS = Number(process.env.BACKUP_REMOTE_TIMEOUT_MS || 60_000);
 
+// Lazy-load for å unngå sirkulær avhengighet ved testing
+let _alerting = null;
+function alerting() {
+  if (!_alerting) _alerting = require('./alerting');
+  return _alerting;
+}
+
 function log(msg) {
   const ts = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`[BACKUP ${ts}] ${msg}`);
@@ -52,12 +59,23 @@ function backupNow(db) {
     if (REMOTE_PATH) {
       syncToRemote(target).catch(err => {
         log(`\u2717 Off-site sync feilet: ${err.message}`);
+        // M4.3: varsle operator om off-site backup feiler
+        alerting().warning('Off-site backup feilet', {
+          detail: err.message,
+          context: { remote: REMOTE_PATH.replace(/:.*@/, ':***@') },
+          key: 'backup_remote_failed',
+        }).catch(() => {});
       });
     }
 
     return target;
   } catch (err) {
     log(`\u2717 Backup feilet: ${err.message}`);
+    // M4.3: varsle operator — kritisk siden det betyr ingen recovery-point
+    alerting().critical('Lokal backup feilet', {
+      detail: err.message,
+      key: 'backup_local_failed',
+    }).catch(() => {});
     return null;
   }
 }

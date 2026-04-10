@@ -72,6 +72,102 @@
     }
     .theme-toggle:active { background: var(--card); }
 
+    /* === M5.1 Toast === */
+    .toast-container {
+      position: fixed;
+      top: max(16px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-width: 90vw;
+      width: 360px;
+    }
+    .toast {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.9rem;
+      pointer-events: auto;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast-icon { font-size: 1.1rem; line-height: 1; flex-shrink: 0; }
+    .toast-body { flex: 1; min-width: 0; word-wrap: break-word; }
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 0 0 8px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .toast-info    { border-left: 4px solid var(--accent2); }
+    .toast-success { border-left: 4px solid var(--green); }
+    .toast-warn    { border-left: 4px solid var(--yellow); }
+    .toast-error   { border-left: 4px solid var(--red); }
+
+    /* === M5.2 Offline banner === */
+    .offline-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--yellow);
+      color: #1a202c;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 1500;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    [data-theme="dark"] .offline-banner { color: #1a1a2e; }
+
+    /* === M5.3 Skeleton loaders === */
+    .skeleton {
+      background: linear-gradient(
+        90deg,
+        var(--border) 0%,
+        rgba(128,128,128,0.1) 50%,
+        var(--border) 100%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.4s ease-in-out infinite;
+      border-radius: 6px;
+    }
+    .skeleton-line { height: 12px; margin: 6px 0; }
+    .skeleton-line.short { width: 40%; }
+    .skeleton-line.long  { width: 90%; }
+    .skeleton-card {
+      padding: 16px;
+      margin-bottom: 12px;
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: var(--card-shadow);
+    }
+    @keyframes skeleton-shimmer {
+      0%   { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton { animation: none; }
+      .toast { transition: none; }
+    }
+
     /* Tabs */
     .tabs {
       display: flex;
@@ -1695,22 +1791,51 @@ html:not([data-theme="dark"]) .add-source-input input {
 
 <!-- ========== I DAG ========== -->
 <div class="content view active" id="viewToday">
-  <div id="todayContent"><div class="loading">Laster dagens oversikt...</div></div>
+  <div id="todayContent" aria-busy="true">
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ========== UKESMENY ========== -->
 <div class="content view" id="viewMeals">
-  <div id="mealsContent"><div class="loading">Laster ukesmeny...</div></div>
+  <div id="mealsContent" aria-busy="true">
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+  </div>
 </div>
 
 <!-- ========== HANDLETUR ========== -->
 <div class="content view" id="viewShopping">
-  <div id="shoppingContent"><div class="loading">Laster handleliste...</div></div>
+  <div id="shoppingContent" aria-busy="true">
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ========== HUSARBEID ========== -->
 <div class="content view" id="viewChores">
-  <div id="choresContent"><div class="loading">Laster husarbeid...</div></div>
+  <div id="choresContent" aria-busy="true">
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+  </div>
 </div>
 
 <!-- ========== CHAT / STEMME ========== -->
@@ -1828,6 +1953,12 @@ html:not([data-theme="dark"]) .add-source-input input {
   </button>
 </div>
 
+<!-- M5.1: Toast-container + M5.2: Offline-banner -->
+<div id="offlineBanner" class="offline-banner" aria-live="polite" hidden>
+  📴 Offline — viser siste kjente data
+</div>
+<div id="toastContainer" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
 <script>
 const API = '';  // Same origin
 const DAYS = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
@@ -1888,6 +2019,8 @@ function h(strings, ...values) {
 function setHTML(el, content) {
   if (!el) return;
   el.innerHTML = content instanceof RawHTML ? content.value : String(content ?? '');
+  // M5.3: clear aria-busy når innhold er satt
+  if (el.hasAttribute('aria-busy')) el.setAttribute('aria-busy', 'false');
 }
 
 // === State ===
@@ -1905,15 +2038,98 @@ let recipeImportTab = 'text';
 let recipeImportImageB64 = null;
 // ===== FASE_E_END state-vars =====
 
-// === Fetch helpers ===
-async function api(path, opts = {}) {
-  const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...opts,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  return res.json();
+// === M5.1 Toast-komponent ===
+// Auto-dismiss etter 4s (warn/error etter 6s). Maks 4 samtidige toasts —
+// nyeste pusher eldste ut når capen nås. Alle toasts er role=status slik
+// at screen readers leser dem.
+const MAX_TOASTS = 4;
+function showToast(message, type = 'info', durationMs = null) {
+  const container = document.getElementById('toastContainer');
+  if (!container) { console.log('[toast]', type, message); return; }
+
+  // Cap antall samtidige
+  while (container.children.length >= MAX_TOASTS) {
+    container.removeChild(container.firstElementChild);
+  }
+
+  const icons = { info: 'ℹ️', success: '✅', warn: '⚠️', error: '❌' };
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  // Escape user/server tekst — DOM-safe
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'toast-icon';
+  iconSpan.textContent = icons[type] || icons.info;
+  const body = document.createElement('div');
+  body.className = 'toast-body';
+  body.textContent = String(message ?? '').slice(0, 300);
+  const close = document.createElement('button');
+  close.className = 'toast-close';
+  close.setAttribute('aria-label', 'Lukk melding');
+  close.textContent = '×';
+  close.onclick = () => dismissToast(t);
+  t.appendChild(iconSpan);
+  t.appendChild(body);
+  t.appendChild(close);
+  container.appendChild(t);
+
+  // Trigger CSS-transition
+  requestAnimationFrame(() => t.classList.add('show'));
+
+  const duration = durationMs ?? (type === 'error' || type === 'warn' ? 6000 : 4000);
+  setTimeout(() => dismissToast(t), duration);
 }
+function dismissToast(el) {
+  if (!el || !el.parentNode) return;
+  el.classList.remove('show');
+  setTimeout(() => { try { el.remove(); } catch {} }, 250);
+}
+
+// === Fetch helpers ===
+// M4.1: tracking siste request-id globalt så brukerfeil kan refereres
+// til noe operator kan grep'e i loggen.
+let lastRequestId = null;
+let isOffline = false;
+async function api(path, opts = {}) {
+  try {
+    const res = await fetch(API + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    const rid = res.headers.get('X-Request-Id');
+    if (rid) lastRequestId = rid;
+    setOffline(false);
+    const data = await res.json();
+    // M5.1: auto-toast på 4xx/5xx med problem+json
+    if (!res.ok && data) {
+      const errMsg = data.detail || data.title || `HTTP ${res.status}`;
+      // Silent for 401/404 på utforsknings-endpoints; alltid vis 5xx
+      if (res.status >= 500) {
+        showToast(`${errMsg}${data.requestId ? ` (id: ${data.requestId.slice(0, 8)})` : ''}`, 'error');
+      } else if (res.status >= 400 && opts.method && opts.method !== 'GET') {
+        showToast(errMsg, 'warn');
+      }
+    }
+    return data;
+  } catch (err) {
+    // Nettverksfeil → marker offline + vis toast
+    setOffline(true);
+    showToast('Ingen forbindelse — sjekk nettverket', 'error');
+    throw err;
+  }
+}
+function getLastRequestId() { return lastRequestId; }
+
+function setOffline(offline) {
+  if (offline === isOffline) return;
+  isOffline = offline;
+  const banner = document.getElementById('offlineBanner');
+  if (banner) banner.hidden = !offline;
+  document.body.classList.toggle('is-offline', offline);
+}
+// M5.2: browser-event for offline/online
+window.addEventListener('offline', () => { setOffline(true); showToast('Offline', 'warn'); });
+window.addEventListener('online', () => { setOffline(false); showToast('Tilkoblet igjen', 'success'); });
 
 // === Tab switching ===
 function switchTab(el) {
@@ -2015,7 +2231,7 @@ async function loadToday() {
     </div>
   `;
 
-  document.getElementById('todayContent').innerHTML = html;
+  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('todayContent'));
 }
 
 // === SØNDAGSPUSH ===
@@ -2135,7 +2351,7 @@ function renderMeals() {
     html += `</div>`;
   }
 
-  document.getElementById('mealsContent').innerHTML = html;
+  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('mealsContent'));
 }
 
 // === Fase F4 — Lignende oppskrift modal ===
@@ -2314,7 +2530,7 @@ function renderShopping() {
 
   if (shoppingSubView === 'pantry') {
     html += renderPantryInline();
-    document.getElementById('shoppingContent').innerHTML = html;
+    (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('shoppingContent'));
     loadPantry(); // async refresh
     return;
   }
@@ -2348,7 +2564,7 @@ function renderShopping() {
   // Legg til vare-skjema (uendret)
   html += renderAddItemForm();
 
-  document.getElementById('shoppingContent').innerHTML = html;
+  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('shoppingContent'));
 }
 
 function renderEnrichmentBanner(data) {
@@ -2945,7 +3161,7 @@ function renderChores() {
     html += `</div>`;
   }
 
-  document.getElementById('choresContent').innerHTML = html;
+  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('choresContent'));
 }
 
 async function postponeChore(choreId) {
@@ -3696,6 +3912,28 @@ initVoice();
 // Sjekk varsler hvert 30. minutt
 setInterval(checkNotifications, 30 * 60 * 1000);
 setTimeout(checkNotifications, 5000); // Sjekk etter 5 sek
+
+// === M5.2 Service worker registration ===
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        // Sjekk for oppdateringer hver time
+        setInterval(() => { reg.update().catch(() => {}); }, 60 * 60 * 1000);
+        // Når en ny SW er installert og venter, informer brukeren
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              showToast('Ny versjon tilgjengelig — last siden på nytt', 'info', 10000);
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[sw] registrering feilet:', err));
+  });
+}
 </script>
 </body>
 </html>

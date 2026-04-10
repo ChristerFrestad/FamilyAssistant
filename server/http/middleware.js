@@ -133,6 +133,9 @@ function createContext(req, res, pathname, query) {
       const problem = err instanceof HttpError
         ? err.toProblem(pathname)
         : { type: 'about:blank', title: 'Internal Server Error', status: 500, detail: 'Uventet feil', instance: pathname };
+      // M4.1: Alltid inkluder request-id i problem-body så klienten kan
+      // vise den som feilkode, og operator kan grep'e journald direkte.
+      problem.requestId = requestId;
       const payload = Buffer.from(JSON.stringify(problem), 'utf8');
       res.writeHead(problem.status, {
         'Content-Type': 'application/problem+json; charset=utf-8',

@@ -39,7 +39,15 @@ function serveStatic(res, filePath) {
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
   try {
     const content = fs.readFileSync(filePath);
-    res.writeHead(200, { 'Content-Type': mime });
+    const headers = { 'Content-Type': mime };
+    const basename = path.basename(filePath);
+    // M5.2: Service worker MÅ serves uten langtids-cache, og må kunne kontrollere
+    // roten av originen. Service-Worker-Allowed tillater dette eksplisitt.
+    if (basename === 'sw.js') {
+      headers['Service-Worker-Allowed'] = '/';
+      headers['Cache-Control'] = 'no-cache, must-revalidate';
+    }
+    res.writeHead(200, headers);
     res.end(content);
     return true;
   } catch {

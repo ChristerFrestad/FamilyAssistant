@@ -66,12 +66,78 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   router.get('/ready', (ctx) => {
-    const ready = serverState.ready && repos !== null;
+    // M4.2: utvidet ready-sjekk med dependency + kapasitet-signaler
+    const checks = { server: serverState.ready, repos: repos !== null };
+    const warnings = [];
+    let dbSizeBytes = null;
+    let diskFreeBytes = null;
+
+    // DB-size (fra filen hvis vi har DB_PATH)
+    try {
+      const fs = require('fs');
+      const { DB_PATH } = require('./db');
+      if (DB_PATH && fs.existsSync(DB_PATH)) {
+        dbSizeBytes = fs.statSync(DB_PATH).size;
+        // Advarsel hvis DB > 500 MB
+        if (dbSizeBytes > 500 * 1024 * 1024) warnings.push('db_size_over_500mb');
+      }
+    } catch { /* stille */ }
+
+    // Disk-space (statfs finnes bare på Linux med Node ≥18.15, så wrap i try)
+    try {
+      const fs = require('fs');
+      if (fs.statfsSync) {
+        const s = fs.statfsSync(require('path').dirname(require('./db').DB_PATH || process.cwd()));
+        diskFreeBytes = s.bfree * s.bsize;
+        if (diskFreeBytes < 100 * 1024 * 1024) warnings.push('disk_under_100mb');
+      }
+    } catch { /* stille */ }
+
+    // Backup-freshness — siste backup <30t gammel?
+    let lastBackupAgeHours = null;
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { BACKUP_DIR } = require('./backup');
+      if (fs.existsSync(BACKUP_DIR)) {
+        const files = fs.readdirSync(BACKUP_DIR)
+          .filter(f => /^familieassistenten-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+          .map(f => ({ f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        if (files.length > 0) {
+          lastBackupAgeHours = Math.round((Date.now() - files[0].mtime) / 3600000);
+          if (lastBackupAgeHours > 30) warnings.push('backup_stale_over_30h');
+        }
+      }
+    } catch { /* stille */ }
+
+    // Circuit breaker state — ikke blocker 503, bare rapporteres
+    let breakersOpen = 0;
+    try {
+      const snap = require('./services/circuit-breaker').snapshotAll();
+      for (const b of Object.values(snap)) {
+        if (b.state === 'OPEN') breakersOpen++;
+      }
+      if (breakersOpen > 0) warnings.push(`breakers_open_${breakersOpen}`);
+    } catch { /* stille */ }
+
+    const ready = checks.server && checks.repos && !warnings.some(w =>
+      w === 'disk_under_100mb' || w === 'db_size_over_500mb'
+    );
+
     ctx.json({
       ready,
       driver: serverState.driver,
       kbEntries: repos ? repos.kb.count() : 0,
       fts5: repos?.hasFTS || false,
+      checks,
+      dbSizeBytes,
+      dbSizeMB: dbSizeBytes != null ? Math.round(dbSizeBytes / 1024 / 1024) : null,
+      diskFreeBytes,
+      diskFreeMB: diskFreeBytes != null ? Math.round(diskFreeBytes / 1024 / 1024) : null,
+      lastBackupAgeHours,
+      breakersOpen,
+      warnings,
     }, ready ? 200 : 503);
   });
 
@@ -1048,10 +1114,10 @@ function registerRoutes(router, { repos, serverState }) {
 
     ctx.json({
       version: '1.2.0',
-      phase: 'M2',
+      phase: 'M1–M8 produksjons-hardening',
       db: driver,
       migrations: `${migrationCount} applikert`,
-      tests: '314/314',
+      tests: '408/408',
       uptime: Math.round(process.uptime()),
       breakers,
     });

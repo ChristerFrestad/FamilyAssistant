@@ -160,9 +160,24 @@ function createBreaker({
 
 const { logger } = require('../logger');
 
+// Lazy-load for å unngå sirkulær avhengighet
+let _alerting = null;
+function alerting() {
+  if (!_alerting) _alerting = require('../alerting');
+  return _alerting;
+}
+
 function onStateChange(old, newState, ctx) {
   const level = newState === 'OPEN' ? 'warn' : 'info';
   logger[level]({ breaker: ctx.name, from: old, to: newState, failures: ctx.failures, totalFailures: ctx.totalFailures }, 'circuit breaker state change');
+  // M4.3: varsle når breaker åpner mot kritisk backend
+  if (newState === 'OPEN') {
+    alerting().warning(`Circuit breaker åpnet: ${ctx.name}`, {
+      detail: `${ctx.failures} påfølgende feil mot ${ctx.name}`,
+      context: { breaker: ctx.name, totalFailures: ctx.totalFailures },
+      key: `breaker_open_${ctx.name}`,
+    }).catch(() => {});
+  }
 }
 
 const breakers = {

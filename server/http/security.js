@@ -117,6 +117,8 @@ const CSP_POLICY = [
   "font-src 'self' data:",
   "connect-src 'self'",
   "media-src 'self'",
+  "worker-src 'self'", // M5.2: service worker
+  "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",
   "frame-ancestors 'none'",

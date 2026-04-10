@@ -21,6 +21,7 @@ const { registerRoutes } = require('./routes');
 const { startRateLimitCleanup } = require('./http/security');
 const stateSnapshot = require('./state-snapshot');
 const sdNotify = require('./sd-notify');
+const alerting = require('./alerting');
 
 // ============================================================
 // Global error handlers
@@ -28,10 +29,20 @@ const sdNotify = require('./sd-notify');
 
 process.on('uncaughtException', (err) => {
   logger.fatal({ err: { message: err.message, stack: err.stack } }, 'uncaughtException');
+  // M4.3: fire-and-forget alert. shouldThrottle hindrer spam.
+  alerting.fatal('uncaughtException', {
+    detail: err.message,
+    context: { stack: err.stack?.split('\n').slice(0, 10).join('\n') },
+    key: 'uncaughtException',
+  }).catch(() => {});
 });
 
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ reason }, 'unhandledRejection');
+  alerting.fatal('unhandledRejection', {
+    detail: String(reason?.message || reason).slice(0, 500),
+    key: 'unhandledRejection',
+  }).catch(() => {});
 });
 
 // ============================================================
