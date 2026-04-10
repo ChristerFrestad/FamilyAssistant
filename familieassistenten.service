@@ -9,16 +9,45 @@ After=network.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+# M2.2: notify-type gjør at systemd venter på READY=1 fra prosessen
+# før den markeres som startet, og WatchdogSec utløser restart hvis
+# WATCHDOG=1 ikke er sendt innen timeout.
+Type=notify
+NotifyAccess=main
+WatchdogSec=90
 User=pi
 WorkingDirectory=/home/pi/Familieassistenten
 ExecStart=/usr/bin/node server/index.js
 Restart=always
 RestartSec=5
+# Begrens restart-storm: maks 5 restarts per 60s, ellers gi opp
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=OLLAMA_HOST=http://localhost:11434
 Environment=OLLAMA_MODEL=qwen3:4b
+# Husk å sette AUTH_TOKEN og ALLOWED_ORIGINS her (se DEPLOY.md §13.4)
+# og HTTPS_TERMINATED=true når kjørt bak Caddy.
+
+# M2.1: off-site backup (valgfri). Sett til NAS-mount, user@host:/path eller rsync://host/modul
+# Environment=BACKUP_REMOTE_PATH=/mnt/nas/familieassistenten
+
+# Sikkerhets-hardening (systemd sandboxing)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/home/pi/Familieassistenten/data /home/pi/Familieassistenten/.env
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
 
 # Logging
 StandardOutput=journal

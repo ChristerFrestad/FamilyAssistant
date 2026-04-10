@@ -20,6 +20,7 @@ const { createServer } = require('./http/server');
 const { registerRoutes } = require('./routes');
 const { startRateLimitCleanup } = require('./http/security');
 const stateSnapshot = require('./state-snapshot');
+const sdNotify = require('./sd-notify');
 
 // ============================================================
 // Global error handlers
@@ -48,6 +49,7 @@ let repos = null;
 let server = null;
 let stopRateLimitCleanup = null;
 let stopStateSnapshot = null;
+let stopWatchdog = null;
 
 // ============================================================
 // Startup
@@ -88,7 +90,13 @@ async function startServer() {
     fts5: repos.hasFTS,
     nodeEnv: config.NODE_ENV,
     routes: router.routes.length,
+    sdNotifyActive: sdNotify.isActive(),
   }, `Familieassistenten kj\u00f8rer p\u00e5 http://localhost:${config.PORT}`);
+
+  // M2.2: signaliser READY til systemd + start watchdog
+  sdNotify.ready();
+  sdNotify.status(`Ready on :${config.PORT} (driver=${dbHandle.driver})`);
+  stopWatchdog = sdNotify.startWatchdog();
 
   // 6. Start cron + backup + rate-limit cleanup + state-snapshot
   startCronJobs(repos);
@@ -123,6 +131,11 @@ async function gracefulShutdown(signal) {
   shuttingDown = true;
   serverState.ready = false;
   logger.info({ signal }, 'Starter graceful shutdown');
+
+  // M2.2: si ifra til systemd at vi er på vei ned — ellers kan systemd tolke
+  // en lang shutdown som at prosessen har hengt og SIGKILLe den.
+  try { sdNotify.stopping(); } catch {}
+  try { stopWatchdog?.(); } catch {}
 
   if (server) {
     server.close((err) => {

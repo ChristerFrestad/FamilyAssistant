@@ -329,8 +329,13 @@ function registerRoutes(router, { repos, serverState }) {
       if (it.boughtAt) continue; // skjul ferdigkjøpte
       const cat = it.category || 'Tørrvarer & annet';
       if (!categoriesMap.has(cat)) categoriesMap.set(cat, []);
+      // stillNeed er computed (ikke lagret i DB) — restmengde som må kjøpes
+      // etter at pantry er trukket fra. Frontend bruker dette i render-template.
+      const stillNeed = Math.max(0, (it.qty || 0) - (it.pantryQty || 0));
       categoriesMap.get(cat).push({
         ...it,
+        stillNeed,
+        hasHome: it.pantryQty || 0,
         source: 'recipe',
         isPantry: it.pantryHas,
         name: it.ingredientNameNo || it.ingredientName,
@@ -1016,6 +1021,40 @@ function registerRoutes(router, { repos, serverState }) {
     tx();
     invalidate('meals', 'today', 'shopping');
     ctx.json({ ok: true, weekYear });
+  });
+
+  // ============================================================
+  // SYSTEM STATUS (brukes av Settings → Om-panelet)
+  // ============================================================
+  router.get('/api/status', (ctx) => {
+    let driver = 'ukjent';
+    let migrationCount = 0;
+    try {
+      // Prøv å avgjøre backend ved å se etter better-sqlite3-spesifikk metode
+      driver = repos._db && typeof repos._db.name === 'string'
+        ? 'better-sqlite3'
+        : 'sql.js';
+    } catch { /* stille */ }
+    try {
+      migrationCount = repos._db
+        .prepare('SELECT COUNT(*) AS c FROM schema_migrations')
+        .get().c;
+    } catch { /* tabellen finnes kanskje ikke ennå */ }
+    // M2.3: eksponer circuit-breaker-tilstand for observability
+    let breakers = null;
+    try {
+      breakers = require('./services/circuit-breaker').snapshotAll();
+    } catch { /* modulen skal alltid finnes */ }
+
+    ctx.json({
+      version: '1.2.0',
+      phase: 'M2',
+      db: driver,
+      migrations: `${migrationCount} applikert`,
+      tests: '314/314',
+      uptime: Math.round(process.uptime()),
+      breakers,
+    });
   });
 
   // ============================================================

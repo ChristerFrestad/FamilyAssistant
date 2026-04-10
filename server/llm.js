@@ -1,8 +1,12 @@
 // LLM-integrasjon med tool-calling, RAG, og kontekstvindu-begrensning
 // Støtter: Ollama (standard), llama.cpp server (raskere på RPI5)
 // Anbefalt modell: qwen2.5:3b (Q4_K_M) for 8GB RAM
+//
+// M2.3: Alle LLM-kall går gjennom en circuit breaker slik at en hengende
+// Ollama-prosess ikke hoper opp requests på RPi5.
 
 const http = require('http');
+const { getBreaker, CircuitOpenError } = require('./services/circuit-breaker');
 
 // === Konfigurasjon ===
 const LLM_BACKEND = process.env.LLM_BACKEND || 'ollama'; // 'ollama' eller 'llamacpp'
@@ -146,10 +150,25 @@ function httpRequest(url, payload, timeout = 60000) {
 // === Generisk LLM-kall med tool-calling support ===
 
 async function llmChat(messages, options = {}) {
-  if (LLM_BACKEND === 'llamacpp') {
-    return llamaCppChat(messages, options);
+  // M2.3: Rute gjennom circuit breaker (ollama-breakeren dekker begge
+  // lokale backends — llama.cpp har samme feilmønster som Ollama).
+  const breaker = getBreaker('ollama');
+  if (!breaker) {
+    // Skal ikke skje, men fail-open hvis modulen er fjernet.
+    return LLM_BACKEND === 'llamacpp' ? llamaCppChat(messages, options) : ollamaChat(messages, options);
   }
-  return ollamaChat(messages, options);
+  try {
+    return await breaker.execute(async () => {
+      if (LLM_BACKEND === 'llamacpp') return llamaCppChat(messages, options);
+      return ollamaChat(messages, options);
+    });
+  } catch (err) {
+    if (err instanceof CircuitOpenError) {
+      log(`LLM circuit open (${err.retryAfterMs}ms retry): ${err.message}`);
+      throw new Error(`LLM midlertidig utilgjengelig (circuit open ${Math.round(err.retryAfterMs / 1000)}s)`);
+    }
+    throw err;
+  }
 }
 
 async function ollamaChat(messages, options = {}) {
