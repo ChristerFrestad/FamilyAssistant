@@ -1,0 +1,28 @@
+# Systemd service fil for Familieassistenten
+# Installer: sudo cp familieassistenten.service /etc/systemd/system/
+#             sudo systemctl enable familieassistenten
+#             sudo systemctl start familieassistenten
+
+[Unit]
+Description=Familieassistenten — Husholdningsassistent for familien Frestad
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Familieassistenten
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=OLLAMA_HOST=http://localhost:11434
+Environment=OLLAMA_MODEL=qwen3:4b
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

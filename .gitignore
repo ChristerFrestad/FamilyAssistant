@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Databaser og persistente data
+data/*.db
+data/*.db-journal
+data/*.sqlite
+data/*.sqlite-journal
+data/backups/
+data/familieassistenten.json
+
+# Miljøvariabler og secrets
+.env
+.env.*
+!.env.example
+
+# Build / tmp
+*.tmp
+*.lock
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backups (lokale snapshots som ikke hører hjemme i historikken)
+*.bak
+public/index.html.pre-*.bak
+
+# Claude/agent workspace (behold planer, dropp transient state)
+.claude/settings.local.json
+
+# Test-artifakter
+coverage/
+.nyc_output/

@@ -1,0 +1,569 @@
+openapi: 3.1.0
+info:
+  title: Familieassistenten API
+  description: |
+    REST API for Familieassistenten — en familie-husassistent for RPi5.
+    Dekker måltidsplanlegging, handleliste, husarbeid, kalender, inventory,
+    og LLM-chat. Alle feilsvar bruker RFC 7807 (application/problem+json).
+  version: 1.1.0
+  license:
+    name: Privat
+servers:
+  - url: http://localhost:3000
+    description: Lokal utvikling
+  - url: http://familieassistenten.local
+    description: RPi5 produksjon
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 7807 Problem Details
+      properties:
+        type: { type: string, format: uri, example: "about:blank" }
+        title: { type: string, example: "Bad Request" }
+        status: { type: integer, example: 400 }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: array
+          description: Field-level validation errors
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              message: { type: string }
+
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: "ok" }
+        uptimeSec: { type: integer }
+        pid: { type: integer }
+        memMB: { type: integer }
+
+    Ready:
+      type: object
+      properties:
+        ready: { type: boolean }
+        driver: { type: string, enum: [better-sqlite3, sql.js, none] }
+        kbEntries: { type: integer }
+        fts5: { type: boolean }
+
+    MealSlot:
+      type: object
+      properties:
+        id: { type: integer }
+        weekYear: { type: string, example: "2026-W15" }
+        dayOfWeek: { type: integer, minimum: 0, maximum: 6 }
+        dayName: { type: string }
+        mealType: { type: string, example: "middag" }
+        recipeId: { type: integer, nullable: true }
+        status: { type: string, enum: [planned, cooked, skipped, away] }
+        recipe: { $ref: "#/components/schemas/Recipe" }
+
+    MealsResponse:
+      type: object
+      properties:
+        weekYear: { type: string }
+        meals:
+          type: array
+          items: { $ref: "#/components/schemas/MealSlot" }
+
+    Recipe:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        category: { type: string, enum: [rask, comfort, helg] }
+        prepTime: { type: string }
+        servings: { type: integer }
+        ingredients:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeIngredient" }
+
+    RecipeIngredient:
+      type: object
+      properties:
+        id: { type: integer }
+        productKey: { type: string, nullable: true }
+        name: { type: string }
+        qty: { type: number }
+        unit: { type: string }
+        optional: { type: boolean }
+
+    ShoppingListResponse:
+      type: object
+      properties:
+        weekYear: { type: string }
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    key: { type: string }
+                    name: { type: string }
+                    qty: { type: number }
+                    unit: { type: string }
+                    source: { type: string, enum: [recipe, consumable, extra] }
+
+    Chore:
+      type: object
+      properties:
+        choreId: { type: integer }
+        task: { type: string }
+        icon: { type: string }
+        frequency: { type: string }
+        scheduledDay: { type: integer }
+        postponedTo: { type: integer, nullable: true }
+        effectiveDay: { type: integer }
+        dayName: { type: string }
+        status: { type: string, enum: [pending, done, postponed] }
+
+    CalendarEvent:
+      type: object
+      required: [title, date]
+      properties:
+        id: { type: integer, readOnly: true }
+        title: { type: string }
+        date: { type: string, format: date }
+        startTime: { type: string, pattern: '^\d{2}:\d{2}$', nullable: true }
+        endTime: { type: string, pattern: '^\d{2}:\d{2}$', nullable: true }
+        location: { type: string, nullable: true }
+        allDay: { type: boolean }
+        notes: { type: string, nullable: true }
+
+    TodayResponse:
+      type: object
+      properties:
+        dayName: { type: string }
+        dayOfWeek: { type: integer }
+        weekYear: { type: string }
+        meal:
+          $ref: "#/components/schemas/MealSlot"
+        chores:
+          type: array
+          items: { $ref: "#/components/schemas/Chore" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/CalendarEvent" }
+
+    MetricsSnapshot:
+      type: object
+      properties:
+        uptimeSec: { type: integer }
+        totalRequests: { type: integer }
+        totalErrors: { type: integer }
+        errorRate: { type: number }
+        routes:
+          type: array
+          items:
+            type: object
+            properties:
+              route: { type: string }
+              count: { type: integer }
+              avgMs: { type: number }
+              p50Ms: { type: number }
+              p95Ms: { type: number }
+              p99Ms: { type: number }
+
+  responses:
+    BadRequest:
+      description: Validation or malformed request
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Resource or route not found
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After: { schema: { type: integer } }
+        X-RateLimit-Limit: { schema: { type: integer } }
+        X-RateLimit-Remaining: { schema: { type: integer } }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Server is up
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /ready:
+    get:
+      summary: Readiness probe
+      security: []
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ready" }
+        '503':
+          description: Not ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ready" }
+
+  /metrics:
+    get:
+      summary: Prometheus metrics exposition or JSON snapshot
+      security: []
+      parameters:
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [prom, json]
+            default: prom
+      responses:
+        '200':
+          description: Metrics
+          content:
+            text/plain:
+              schema: { type: string }
+            application/json:
+              schema: { $ref: "#/components/schemas/MetricsSnapshot" }
+
+  /api/today:
+    get:
+      summary: Combined today view (meal + chores + events)
+      responses:
+        '200':
+          description: Today
+          headers:
+            ETag: { schema: { type: string } }
+            X-Cache: { schema: { type: string, enum: [HIT, MISS] } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TodayResponse" }
+        '304': { description: Not modified }
+        '401': { $ref: "#/components/responses/Unauthorized" }
+        '429': { $ref: "#/components/responses/RateLimited" }
+
+  /api/meals/current:
+    get:
+      summary: Get current week's meal plan
+      responses:
+        '200':
+          description: Weekly plan
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealsResponse" }
+        '304': { description: Not modified }
+
+  /api/meals/week/{weekYear}:
+    get:
+      summary: Get meal plan for a specific ISO week
+      parameters:
+        - in: path
+          name: weekYear
+          required: true
+          schema: { type: string, pattern: '^\d{4}-W\d{2}$' }
+      responses:
+        '200':
+          description: Weekly plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealsResponse" }
+
+  /api/meals/swap:
+    put:
+      summary: Replace a meal slot with a different recipe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dayOfWeek, recipeId]
+              properties:
+                weekYear: { type: string }
+                dayOfWeek: { type: integer, minimum: 0, maximum: 6 }
+                recipeId: { type: integer }
+      responses:
+        '200':
+          description: Swap done
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  mealPlan:
+                    type: array
+                    items: { $ref: "#/components/schemas/MealSlot" }
+        '400': { $ref: "#/components/responses/BadRequest" }
+
+  /api/meals/status:
+    put:
+      summary: Update status of a meal slot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dayOfWeek, status]
+              properties:
+                weekYear: { type: string }
+                dayOfWeek: { type: integer }
+                status: { type: string, enum: [planned, cooked, skipped, away] }
+      responses:
+        '200': { description: Updated }
+        '400': { $ref: "#/components/responses/BadRequest" }
+
+  /api/recipes:
+    get:
+      summary: List all recipes
+      responses:
+        '200':
+          description: Recipes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recipes:
+                    type: array
+                    items: { $ref: "#/components/schemas/Recipe" }
+
+  /api/recipes/{id}:
+    get:
+      summary: Get a single recipe
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Recipe
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recipe: { $ref: "#/components/schemas/Recipe" }
+        '404': { $ref: "#/components/responses/NotFound" }
+
+  /api/shopping/current:
+    get:
+      summary: Computed shopping list for the current week
+      responses:
+        '200':
+          description: Shopping list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingListResponse" }
+
+  /api/shopping/add:
+    post:
+      summary: Add an extra item to the shopping list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, category]
+              properties:
+                name: { type: string }
+                category: { type: string }
+                quantity: { type: number }
+      responses:
+        '200': { description: Added }
+
+  /api/chores/current:
+    get:
+      summary: Chore schedule for the current week
+      responses:
+        '200':
+          description: Chores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weekYear: { type: string }
+                  chores:
+                    type: array
+                    items: { $ref: "#/components/schemas/Chore" }
+
+  /api/chores/complete:
+    put:
+      summary: Mark a chore as completed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [choreId]
+              properties:
+                weekYear: { type: string }
+                choreId: { type: integer }
+      responses:
+        '200': { description: Marked done }
+
+  /api/calendar/events:
+    get:
+      summary: List calendar events in a date range
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/CalendarEvent" }
+    post:
+      summary: Create a new calendar event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CalendarEvent" }
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  event: { $ref: "#/components/schemas/CalendarEvent" }
+
+  /api/calendar/events/{id}:
+    delete:
+      summary: Delete a calendar event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+
+  /api/llm/chat:
+    post:
+      summary: Send a chat message to the local LLM (with tool-calling)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+                history:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role: { type: string, enum: [user, assistant] }
+                      content: { type: string }
+                saveToKB: { type: boolean }
+      responses:
+        '200':
+          description: LLM response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response: { type: string }
+                  toolCalls:
+                    type: array
+                    items:
+                      type: object
+        '503':
+          description: LLM not available
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /api/llm/recipe:
+    post:
+      summary: Generate a recipe from text (cached 7 days)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+      responses:
+        '200':
+          description: Recipe JSON
+          headers:
+            X-LLM-Cache: { schema: { type: string, enum: [HIT, MISS] } }
+
+  /api/cache/stats:
+    get:
+      summary: Cache statistics (response cache + LLM cache)
+      responses:
+        '200':
+          description: Stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  responseCache:
+                    type: object
+                    properties:
+                      size: { type: integer }
+                      hits: { type: integer }
+                      misses: { type: integer }
+                  llmCache:
+                    type: object
+                    properties:
+                      entries: { type: integer }
+                      totalHits: { type: integer }

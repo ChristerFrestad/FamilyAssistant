@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f5f6fa" id="metaThemeColor">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>Familieassistenten</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* === LIGHT THEME (default) === */
+    :root {
+      --bg: #f5f6fa;
+      --surface: #ffffff;
+      --card: #ffffff;
+      --accent: #e94560;
+      --accent2: #2c5282;
+      --text: #1a202c;
+      --text2: #718096;
+      --green: #38a169;
+      --yellow: #d69e2e;
+      --red: #e53e3e;
+      --orange: #dd6b20;
+      --border: rgba(0,0,0,0.08);
+      --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --input-bg: #f7fafc;
+    }
+    /* === DARK THEME === */
+    [data-theme="dark"] {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --card: #1e2d4a;
+      --accent: #e94560;
+      --accent2: #0f3460;
+      --text: #eee;
+      --text2: #aab;
+      --green: #4ecca3;
+      --yellow: #f0c040;
+      --red: #e94560;
+      --orange: #f08c40;
+      --border: rgba(255,255,255,0.05);
+      --card-shadow: none;
+      --input-bg: #1e2d4a;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    header {
+      background: var(--surface);
+      padding: 16px 20px 8px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--card-shadow);
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 2px; }
+    .header-row { display: flex; align-items: center; justify-content: space-between; }
+    .theme-toggle {
+      background: none; border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 10px; cursor: pointer;
+      font-size: 1rem; color: var(--text); transition: all 0.2s;
+    }
+    .theme-toggle:active { background: var(--card); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 -1px 4px rgba(0,0,0,0.05);
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 4px 8px;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--text2);
+      cursor: pointer;
+      transition: color 0.2s;
+      border: none;
+      background: none;
+    }
+    .tab.active { color: var(--accent); }
+    .tab-icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+
+    /* Content */
+    .content { padding: 16px; max-width: 600px; margin: 0 auto; }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border);
+    }
+    .card-title { font-size: 0.85rem; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card h3 { font-size: 1.1rem; margin-bottom: 4px; }
+    .card .meta { font-size: 0.8rem; color: var(--text2); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:active { background: #c73650; }
+    .btn-secondary { background: var(--accent2); color: white; }
+    .btn-secondary:active { background: #0a2440; }
+    .btn-success { background: var(--green); color: #111; }
+    .btn-success:active { background: #3bab88; }
+    .btn-small { padding: 6px 10px; font-size: 0.75rem; }
+    .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+    .btn-ghost:active { background: rgba(255,255,255,0.05); }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+    /* Meal card */
+    .meal-card { position: relative; }
+    .meal-day { font-size: 0.75rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .meal-name { font-size: 1rem; font-weight: 600; margin: 4px 0; }
+    .meal-meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text2); }
+    .meal-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-rask { background: rgba(78,204,163,0.2); color: var(--green); }
+    .badge-comfort { background: rgba(240,140,64,0.2); color: var(--orange); }
+    .badge-helg { background: rgba(233,69,96,0.2); color: var(--red); }
+    .away-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(26,26,46,0.85);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      color: var(--text2);
+    }
+
+    /* Ingredients */
+    .ingredients-list { margin-top: 10px; }
+    .ingredient-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .ingredient-row:last-child { border-bottom: none; }
+    .ingredient-qty { color: var(--green); font-weight: 600; min-width: 60px; text-align: right; }
+
+    /* Shopping list */
+    .shop-category { margin-top: 16px; }
+    .shop-category-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(233,69,96,0.3);
+    }
+    .shop-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .shop-item.checked-off { opacity: 0.4; text-decoration: line-through; }
+    .shop-item-name { font-size: 0.9rem; flex: 1; }
+    .shop-item-detail { font-size: 0.75rem; color: var(--text2); }
+    .shop-item-price { font-size: 0.8rem; color: var(--yellow); min-width: 50px; text-align: right; }
+    .dairy-note { font-size: 0.7rem; color: var(--yellow); display: block; margin-top: 2px; }
+    .total-price {
+      text-align: right;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--yellow);
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px solid rgba(240,192,64,0.3);
+    }
+
+    /* Chores */
+    .chore-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .chore-icon { font-size: 1.4rem; }
+    .chore-info { flex: 1; }
+    .chore-task { font-size: 0.9rem; }
+    .chore-day { font-size: 0.75rem; color: var(--text2); }
+    .chore-done { opacity: 0.4; }
+    .chore-done .chore-task { text-decoration: line-through; }
+
+    /* Modal / Overlay */
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal {
+      background: var(--surface);
+      border-radius: 16px 16px 0 0;
+      padding: 24px 20px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal h2 { font-size: 1.1rem; margin-bottom: 16px; }
+    .suggestion-item {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .suggestion-item:active { background: var(--accent2); }
+    .suggestion-name { font-weight: 600; font-size: 0.95rem; }
+    .suggestion-meta { font-size: 0.8rem; color: var(--text2); margin-top: 2px; }
+
+    /* Input */
+    .input-row { display: flex; gap: 8px; margin-top: 12px; }
+    .input-row input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    .input-row input::placeholder { color: var(--text2); }
+
+    /* Warning */
+    .warning-box {
+      background: rgba(240,192,64,0.15);
+      border: 1px solid rgba(240,192,64,0.3);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      color: var(--yellow);
+      margin-top: 8px;
+    }
+
+    /* Loading */
+    .loading { text-align: center; padding: 40px; color: var(--text2); }
+
+    /* Expandable recipe */
+    .recipe-toggle {
+      font-size: 0.8rem;
+      color: var(--accent);
+      cursor: pointer;
+      margin-top: 6px;
+      display: inline-block;
+    }
+
+    /* Consumable items */
+    .consumable-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .consumable-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .consumable-name { font-size: 0.9rem; font-weight: 600; flex: 1; }
+    .consumable-price { font-size: 0.85rem; color: var(--yellow); font-weight: 600; white-space: nowrap; }
+    .consumable-meta { font-size: 0.75rem; color: var(--text2); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .consumable-meta .store-tag { color: var(--accent); }
+    .consumable-days-left { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+    .days-ok { background: rgba(78,204,163,0.15); color: var(--green); }
+    .days-warn { background: rgba(240,192,64,0.15); color: var(--yellow); }
+    .days-urgent { background: rgba(233,69,96,0.15); color: var(--red); }
+    .consumable-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .consumable-notes { font-size: 0.7rem; color: var(--text2); font-style: italic; margin-top: 4px; }
+    .auto-badge {
+      font-size: 0.65rem; padding: 1px 6px; border-radius: 4px;
+      background: rgba(78,204,163,0.15); color: var(--green);
+      text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+    }
+
+    /* Voice/Chat unified */
+    .chat-container { display: flex; flex-direction: column; height: calc(100vh - 160px); }
+    .chat-messages { flex: 1; overflow-y: auto; padding-bottom: 10px; }
+    .chat-input-area {
+      position: fixed; bottom: 64px; left: 0; right: 0;
+      padding: 8px 16px; background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+    .chat-input-row { display: flex; gap: 8px; max-width: 600px; margin: 0 auto; align-items: center; }
+    .chat-input-row input { flex: 1; padding: 10px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 0.9rem; font-family: inherit; }
+    .chat-input-row input::placeholder { color: var(--text2); }
+    .voice-btn {
+      width: 40px; height: 40px; border-radius: 50%; border: none;
+      background: var(--accent); color: white; font-size: 1.1rem;
+      cursor: pointer; transition: all 0.2s; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .voice-btn:active { transform: scale(0.95); }
+    .voice-btn.recording { background: var(--red); animation: pulse-rec 1s infinite; }
+    @keyframes pulse-rec {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(233,69,96,0); }
+    }
+    .send-btn {
+      width: 40px; height: 40px; border-radius: 50%; border: none;
+      background: var(--accent2); color: white; font-size: 1rem;
+      cursor: pointer; transition: all 0.2s; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .send-btn:active { transform: scale(0.95); }
+    .chat-msg { max-width: 85%; border-radius: 16px; padding: 10px 14px; margin-bottom: 8px; font-size: 0.9rem; line-height: 1.4; }
+    .chat-msg-user { background: var(--accent2); color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+    .chat-msg-ai { background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .chat-msg-ai .kb-tag { font-size: 0.65rem; color: var(--green); display: block; margin-top: 4px; }
+    .chat-thinking { color: var(--text2); font-style: italic; }
+
+    /* Hide views */
+    .view { display: none; }
+    .view.active { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <h1>🏠 Familieassistenten</h1>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Bytt tema">☀️</button>
+  </div>
+  <div class="subtitle" id="headerSubtitle">Laster...</div>
+</header>
+
+<!-- ========== I DAG ========== -->
+<div class="content view active" id="viewToday">
+  <div id="todayContent"><div class="loading">Laster dagens oversikt...</div></div>
+</div>
+
+<!-- ========== UKESMENY ========== -->
+<div class="content view" id="viewMeals">
+  <div id="mealsContent"><div class="loading">Laster ukesmeny...</div></div>
+</div>
+
+<!-- ========== HANDLETUR ========== -->
+<div class="content view" id="viewShopping">
+  <div id="shoppingContent"><div class="loading">Laster handleliste...</div></div>
+</div>
+
+<!-- ========== HUSARBEID ========== -->
+<div class="content view" id="viewChores">
+  <div id="choresContent"><div class="loading">Laster husarbeid...</div></div>
+</div>
+
+<!-- ========== CHAT / STEMME ========== -->
+<div class="content view" id="viewChat">
+  <div class="chat-container">
+    <div class="chat-messages" id="chatMessages">
+      <div class="card" style="background:rgba(78,204,163,0.08);border:1px solid rgba(78,204,163,0.2)">
+        <div style="font-size:0.9rem">Hei! 👋 Jeg er Familieassistenten. Spør meg om middagsforslag, oppskrifter, handleliste eller hva som helst annet. Alt du skriver eller sier her lagres i kunnskapsbasen og brukes til å tilpasse anbefalinger over tid.</div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-top:4px" id="llmStatus">Sjekker LLM-status...</div>
+      </div>
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <div class="chat-input-row">
+      <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Trykk for å snakke">🎤</button>
+      <input type="text" id="chatInput" placeholder="Skriv eller snakk..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="send-btn" onclick="sendChat()" title="Send melding">➤</button>
+    </div>
+    <div id="voiceStatus" style="text-align:center;font-size:0.7rem;color:var(--text2);margin-top:4px;display:none"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" style="display:none" onclick="closeModal(event)">
+  <div class="modal" id="modalContent" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" data-view="viewToday" onclick="switchTab(this)">
+    <span class="tab-icon">📅</span>I dag
+  </button>
+  <button class="tab" data-view="viewMeals" onclick="switchTab(this)">
+    <span class="tab-icon">🍽️</span>Ukesmeny
+  </button>
+  <button class="tab" data-view="viewShopping" onclick="switchTab(this)">
+    <span class="tab-icon">🛒</span>Handletur
+  </button>
+  <button class="tab" data-view="viewChores" onclick="switchTab(this)">
+    <span class="tab-icon">🧹</span>Husarbeid
+  </button>
+  <button class="tab" data-view="viewChat" onclick="switchTab(this)">
+    <span class="tab-icon">💬</span>Chat
+  </button>
+</div>
+
+<script>
+const API = '';  // Same origin
+const DAYS = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
+
+// === State ===
+let currentWeek = null;
+let mealsData = null;
+let shoppingData = null;
+let choresData = null;
+let expandedRecipes = new Set();
+
+// === Fetch helpers ===
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  return res.json();
+}
+
+// === Tab switching ===
+function switchTab(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(el.dataset.view).classList.add('active');
+
+  // Load data for the tab
+  const view = el.dataset.view;
+  if (view === 'viewToday') loadToday();
+  if (view === 'viewMeals') loadMeals();
+  if (view === 'viewShopping') loadShopping();
+  if (view === 'viewChores') loadChores();
+}
+
+// === I DAG ===
+async function loadToday() {
+  const data = await api('/api/today');
+  currentWeek = data.weekYear;
+  document.getElementById('headerSubtitle').textContent = `${data.dayName} — uke ${data.weekYear.split('-W')[1]}`;
+
+  let html = '';
+
+  // Dagens middag — kompakt visning (ingredienser i Ukesmeny-fanen)
+  if (data.meal && data.meal.recipe) {
+    const r = data.meal.recipe;
+    const badgeClass = r.category === 'rask' ? 'badge-rask' : r.category === 'comfort' ? 'badge-comfort' : 'badge-helg';
+    html += `
+      <div class="card">
+        <div class="card-title">Dagens middag</div>
+        <h3>${r.name}</h3>
+        <div class="meal-meta">
+          <span class="meal-badge ${badgeClass}">${r.category}</span>
+          <span>⏱ ${r.prepTime}</span>
+          ${r.source ? `<span>📖 ${r.source}</span>` : ''}
+        </div>
+        ${r.url ? `<a href="${r.url}" target="_blank" style="color:var(--accent);font-size:0.85rem;margin-top:8px;display:inline-block">Se oppskrift →</a>` : ''}
+      </div>
+    `;
+  } else if (data.meal && data.meal.status === 'away') {
+    html += `<div class="card"><div class="card-title">Dagens middag</div><p style="color:var(--text2)">🏖️ Borte i dag</p></div>`;
+  } else {
+    html += `<div class="card"><div class="card-title">Dagens middag</div><p style="color:var(--text2)">Ingen middag planlagt</p></div>`;
+  }
+
+  // Kalender-hendelser i dag
+  if (data.events && data.events.length > 0) {
+    html += `<div class="card"><div class="card-title">Kalender i dag</div>`;
+    for (const ev of data.events) {
+      const timeStr = ev.allDay ? 'Hele dagen' : `${ev.startTime}–${ev.endTime}`;
+      html += `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:0.9rem;font-weight:600">${ev.title}</div>
+              <div style="font-size:0.8rem;color:var(--text2)">${timeStr}</div>
+            </div>
+          </div>
+          ${ev.location ? `<a href="https://maps.apple.com/?q=${encodeURIComponent(ev.location)}" target="_blank" style="font-size:0.75rem;color:var(--accent);margin-top:2px;display:inline-block">📍 ${ev.location}</a>` : ''}
+        </div>
+      `;
+    }
+    html += `</div>`;
+  } else {
+    html += `<div class="card"><div class="card-title">Kalender i dag</div><p style="color:var(--text2)">Ingen hendelser 📅</p></div>`;
+  }
+
+  // Dagens husarbeid
+  if (data.chores && data.chores.length > 0) {
+    html += `<div class="card"><div class="card-title">Husarbeid i dag</div>`;
+    for (const c of data.chores) {
+      html += `
+        <div class="chore-item">
+          <span class="chore-icon">${c.icon}</span>
+          <div class="chore-info"><div class="chore-task">${c.task}</div></div>
+          <button class="btn btn-success btn-small" onclick="completeChore(${c.choreId})">✓ Gjort</button>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  } else {
+    html += `<div class="card"><div class="card-title">Husarbeid i dag</div><p style="color:var(--text2)">Ingen oppgaver i dag 🎉</p></div>`;
+  }
+
+  // Søndagspush — automatisk søndag 14:00 via cron, manuell knapp som backup
+  html += `
+    <div class="card">
+      <div class="card-title">Neste uke</div>
+      <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px">Automatisk forslag kommer søndag kl. 14:00. Trykk for å planlegge manuelt nå.</p>
+      <button class="btn btn-primary" onclick="openSundayPush()">📋 Planlegg neste uke</button>
+    </div>
+  `;
+
+  document.getElementById('todayContent').innerHTML = html;
+}
+
+// === SØNDAGSPUSH ===
+async function openSundayPush() {
+  const data = await api('/api/sunday-push');
+  let html = `<h2>📋 Forslag — uke ${data.weekYear.split('-W')[1]}</h2>`;
+  html += `<p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">${data.message}</p>`;
+
+  for (const m of data.meals) {
+    if (!m.recipe) continue;
+    const badgeClass = m.recipe.category === 'rask' ? 'badge-rask' : m.recipe.category === 'comfort' ? 'badge-comfort' : 'badge-helg';
+    html += `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <span style="font-size:0.75rem;color:var(--accent);font-weight:600;min-width:60px">${m.dayName}</span>
+        <div style="flex:1">
+          <div style="font-size:0.9rem">${m.recipe.name}</div>
+          <div style="font-size:0.75rem;color:var(--text2)"><span class="meal-badge ${badgeClass}" style="font-size:0.65rem">${m.recipe.category}</span> ⏱ ${m.recipe.prepTime}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  html += `<div style="margin-top:12px;padding:10px;background:rgba(240,192,64,0.1);border-radius:8px;font-size:0.85rem">`;
+  html += `<strong>🛒 Estimert handletur:</strong> ~${data.shoppingList.totalEstPrice} kr<br>`;
+  html += `<strong>📅 Anbefalt handledag:</strong> ${data.handledag}`;
+  html += `</div>`;
+
+  html += `
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-success" style="flex:1" onclick="acceptSundayPush('${data.weekYear}')">✓ Godta forslaget</button>
+      <button class="btn btn-secondary" onclick="openSundayPush()">🔄 Nytt forslag</button>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="closeModal()">Avbryt</button>
+  `;
+
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalBg').style.display = 'flex';
+  // Lagre data for accept
+  window._sundayPushData = data;
+}
+
+async function acceptSundayPush(weekYear) {
+  const data = window._sundayPushData;
+  if (!data) return;
+  await api('/api/sunday-push/accept', {
+    method: 'POST',
+    body: { weekYear, meals: data.meals },
+  });
+  closeModal();
+  alert('✅ Uke ' + weekYear.split('-W')[1] + ' er planlagt!');
+  await loadToday();
+}
+
+// === UKESMENY ===
+async function loadMeals() {
+  const data = await api('/api/meals/current');
+  mealsData = data;
+  currentWeek = data.weekYear;
+  renderMeals();
+}
+
+function renderMeals() {
+  const data = mealsData;
+  if (!data) return;
+  let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Uke ${data.weekYear.split('-W')[1]}</div>`;
+
+  for (const slot of data.meals) {
+    const r = slot.recipe;
+    const isAway = slot.status === 'away';
+    const badgeClass = r ? (r.category === 'rask' ? 'badge-rask' : r.category === 'comfort' ? 'badge-comfort' : 'badge-helg') : '';
+
+    html += `<div class="card meal-card">`;
+
+    if (isAway) {
+      html += `
+        <div class="meal-day">${slot.dayName}</div>
+        <p style="color:var(--text2);margin:8px 0">🏖️ Borte</p>
+        <button class="btn btn-ghost btn-small" onclick="setMealStatus(${slot.dayOfWeek},'planned')">Tilbake</button>
+      `;
+    } else if (r) {
+      const expanded = expandedRecipes.has(slot.dayOfWeek);
+      html += `
+        <div class="meal-day">${slot.dayName}</div>
+        <div class="meal-name">${r.name}</div>
+        <div class="meal-meta">
+          <span class="meal-badge ${badgeClass}">${r.category}</span>
+          <span>⏱ ${r.prepTime}</span>
+        </div>
+        <span class="recipe-toggle" onclick="toggleRecipe(${slot.dayOfWeek})">${expanded ? '▼ Skjul ingredienser' : '▶ Vis ingredienser'}</span>
+        ${expanded ? `
+          <div class="ingredients-list">
+            ${r.ingredients.map(i => `
+              <div class="ingredient-row">
+                <span>${i.name}</span>
+                <span class="ingredient-qty">${i.qty} ${i.unit}</span>
+              </div>
+            `).join('')}
+          </div>
+          ${r.url ? `<a href="${r.url}" target="_blank" style="color:var(--accent);font-size:0.8rem;margin-top:6px;display:inline-block">Se oppskrift →</a>` : ''}
+        ` : ''}
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-small" onclick="openSwapModal(${slot.dayOfWeek})">Bytt middag</button>
+          ${slot.dayOfWeek > 0 ? `<button class="btn btn-ghost btn-small" onclick="reorderMeal(${slot.dayOfWeek},${slot.dayOfWeek - 1})">↑</button>` : ''}
+          ${slot.dayOfWeek < 6 ? `<button class="btn btn-ghost btn-small" onclick="reorderMeal(${slot.dayOfWeek},${slot.dayOfWeek + 1})">↓</button>` : ''}
+          <button class="btn btn-ghost btn-small" onclick="setMealStatus(${slot.dayOfWeek},'away')">🏖️ Borte</button>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  document.getElementById('mealsContent').innerHTML = html;
+}
+
+function toggleRecipe(dayOfWeek) {
+  if (expandedRecipes.has(dayOfWeek)) expandedRecipes.delete(dayOfWeek);
+  else expandedRecipes.add(dayOfWeek);
+  renderMeals();
+}
+
+async function setMealStatus(dayOfWeek, status) {
+  await api('/api/meals/status', { method: 'PUT', body: { weekYear: currentWeek, dayOfWeek, status } });
+  await loadMeals();
+}
+
+async function reorderMeal(fromDay, toDay) {
+  const data = await api('/api/meals/reorder', { method: 'PUT', body: { weekYear: currentWeek, fromDay, toDay } });
+  if (data.shelfWarnings && data.shelfWarnings.length > 0) {
+    const msgs = data.shelfWarnings.map(w => w.message).join('\n');
+    alert('⚠️ Holdbarhetsvarsel:\n\n' + msgs + '\n\nByttet er utført, men vurder å flytte tilbake.');
+  }
+  await loadMeals();
+}
+
+async function openSwapModal(dayOfWeek) {
+  const data = await api(`/api/meals/suggestions/${dayOfWeek}`);
+  let html = `<h2>Bytt middag — ${DAYS[dayOfWeek]}</h2>`;
+
+  for (const s of data.suggestions) {
+    html += `
+      <div class="suggestion-item" onclick="swapMeal(${dayOfWeek}, ${s.recipeId})">
+        <div class="suggestion-name">${s.name}</div>
+        <div class="suggestion-meta">⏱ ${s.prepTime} · ${s.reason}</div>
+      </div>
+    `;
+  }
+
+  html += `
+    <div style="margin-top:16px">
+      <div style="font-size:0.85rem;color:var(--text2);margin-bottom:6px">Eller skriv inn ønsket rett:</div>
+      <div class="input-row">
+        <input type="text" id="customMealInput" placeholder="F.eks. Taco, Lasagne, Stekt ris...">
+        <button class="btn btn-primary" onclick="customSwap(${dayOfWeek})">Velg</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:12px;width:100%" onclick="closeModal()">Avbryt</button>
+  `;
+
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalBg').style.display = 'flex';
+}
+
+async function swapMeal(dayOfWeek, recipeId) {
+  await api('/api/meals/swap', { method: 'PUT', body: { weekYear: currentWeek, dayOfWeek, recipeId } });
+  closeModal();
+  await loadMeals();
+}
+
+async function customSwap(dayOfWeek) {
+  const input = document.getElementById('customMealInput');
+  const name = input.value.trim();
+  if (!name) return;
+  // Søk i eksisterende oppskrifter
+  const data = await api('/api/recipes');
+  const match = data.recipes.find(r => r.name.toLowerCase().includes(name.toLowerCase()));
+  if (match) {
+    await swapMeal(dayOfWeek, match.id);
+  } else {
+    alert('Fant ikke oppskrift for "' + name + '". Prøv et av forslagene, eller be om at oppskriften legges til.');
+    input.focus();
+  }
+}
+
+function closeModal(event) {
+  if (event && event.target !== document.getElementById('modalBg')) return;
+  document.getElementById('modalBg').style.display = 'none';
+}
+
+// === HANDLETUR ===
+async function loadShopping() {
+  const data = await api('/api/shopping/current');
+  shoppingData = data;
+  currentWeek = data.weekYear;
+  renderShopping();
+}
+
+function renderShopping() {
+  const data = shoppingData;
+  if (!data) return;
+
+  let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Handleliste — uke ${data.weekYear.split('-W')[1]}</div>`;
+
+  for (const cat of data.categories) {
+    html += `<div class="shop-category"><div class="shop-category-title">${cat.category}</div>`;
+    for (const item of cat.items) {
+
+      // === CONSUMABLE items — rich display ===
+      if (item.source === 'consumable') {
+        html += `<div class="consumable-item">`;
+        html += `<div class="consumable-header">`;
+        html += `<div><div class="consumable-name">${item.name}</div>`;
+        if (item.packSize) html += `<div style="font-size:0.75rem;color:var(--text2)">${item.packCount || 1} pk à ${item.packSize} ${item.packUnit || 'stk'}</div>`;
+        html += `</div>`;
+        if (item.estPrice > 0) html += `<div class="consumable-price">~${item.estPrice} kr</div>`;
+        html += `</div>`; // end header
+
+        // Days left + depletion info
+        html += `<div class="consumable-meta">`;
+        if (item.depletionInfo) html += `<span>Forbruk: ${item.depletionInfo}</span>`;
+        if (item.store) html += `<span class="store-tag">📍 ${item.store}</span>`;
+        html += `</div>`;
+
+        if (item.daysLeft !== undefined && item.daysLeft !== null) {
+          const dClass = item.daysLeft <= 0 ? 'days-urgent' : item.daysLeft <= 3 ? 'days-warn' : 'days-ok';
+          const dText = item.daysLeft <= 0 ? 'TOM — kjøp nå!' : `~${item.daysLeft} dager igjen`;
+          html += `<div class="consumable-days-left ${dClass}">${dText}</div>`;
+        }
+
+        if (item.notes) html += `<div class="consumable-notes">${item.notes}</div>`;
+
+        // Actions
+        html += `<div class="consumable-actions">`;
+        html += `<button class="btn btn-success btn-small" onclick="markConsumableBought(${item.consumableId})">✓ Kjøpt</button>`;
+        html += `<button class="btn btn-ghost btn-small" onclick="toggleConsumableAuto(${item.consumableId})">Auto av/på</button>`;
+        html += `</div>`;
+
+        html += `</div>`; // end consumable-item
+        continue;
+      }
+
+      // === RECIPE / manual items ===
+      const checkedClass = item.checkedOff ? 'checked-off' : '';
+      html += `<div class="shop-item ${checkedClass}">`;
+      html += `<div style="flex:1">`;
+      html += `<div class="shop-item-name">${item.name}</div>`;
+
+      if (item.packSize) {
+        html += `<div class="shop-item-detail">${item.stillNeed}${item.packUnit} trengs → ${item.packCount} pk à ${item.packSize}${item.packUnit}</div>`;
+        if (item.hasHome > 0) {
+          html += `<div class="shop-item-detail" style="color:var(--green)">Har ${item.hasHome}${item.packUnit} hjemme</div>`;
+        }
+      }
+      if (item.dairyNote) html += `<div class="dairy-note">${item.dairyNote}</div>`;
+
+      html += `</div>`;
+      if (item.estPrice > 0) html += `<div class="shop-item-price">~${item.estPrice} kr</div>`;
+
+      if (item.source === 'recipe' && !item.checkedOff) {
+        html += `<button class="btn btn-success btn-small" style="margin-left:8px" onclick="markAtHome('${item.key}')">Har hjemme</button>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Total
+  html += `<div class="total-price">Estimert totalpris: ~${data.totalEstPrice} kr</div>`;
+
+  // Legg til vare
+  html += `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Legg til vare</div>
+      <div class="input-row">
+        <input type="text" id="addItemInput" placeholder="Varenavn (f.eks. Saft, Bleier...)">
+        <button class="btn btn-primary" onclick="addShoppingItem()">Legg til</button>
+      </div>
+      <select id="addItemCategory" style="margin-top:8px;padding:8px;border-radius:8px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);width:100%;font-family:inherit">
+        <option value="Kjøtt & fisk">Kjøtt & fisk</option>
+        <option value="Meieri">Meieri</option>
+        <option value="Frukt & grønt">Frukt & grønt</option>
+        <option value="Brød & bakst">Brød & bakst</option>
+        <option value="Tørrvarer & annet" selected>Tørrvarer & annet</option>
+        <option value="Drikkevarer">Drikkevarer</option>
+        <option value="Husholdning">Husholdning</option>
+        <option value="Barn">Barn</option>
+        <option value="Personlig pleie">Personlig pleie</option>
+      </select>
+    </div>
+  `;
+
+  document.getElementById('shoppingContent').innerHTML = html;
+}
+
+async function markConsumableBought(consumableId) {
+  await api(`/api/consumables/${consumableId}/bought`, { method: 'POST' });
+  await loadShopping();
+}
+
+async function toggleConsumableAuto(consumableId) {
+  await api(`/api/consumables/toggle-auto/${consumableId}`, { method: 'POST' });
+  await loadShopping();
+}
+
+async function markAtHome(productKey) {
+  await api('/api/shopping/check', { method: 'PUT', body: { productKey } });
+  await loadShopping();
+}
+
+async function addShoppingItem() {
+  const input = document.getElementById('addItemInput');
+  const category = document.getElementById('addItemCategory').value;
+  const name = input.value.trim();
+  if (!name) return;
+  await api('/api/shopping/add', { method: 'POST', body: { name, category } });
+  input.value = '';
+  await loadShopping();
+}
+
+// === HUSARBEID ===
+async function loadChores() {
+  const data = await api('/api/chores/current');
+  choresData = data;
+  currentWeek = data.weekYear;
+  renderChores();
+}
+
+function renderChores() {
+  const data = choresData;
+  if (!data) return;
+
+  let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Uke ${data.weekYear.split('-W')[1]}</div>`;
+
+  // Grupper etter dag
+  const byDay = {};
+  for (const c of data.chores) {
+    const day = c.dayName;
+    if (!byDay[day]) byDay[day] = [];
+    byDay[day].push(c);
+  }
+
+  for (const [day, items] of Object.entries(byDay)) {
+    html += `<div class="card"><div class="card-title">${day}</div>`;
+    for (const c of items) {
+      const isDone = c.status === 'done';
+      html += `
+        <div class="chore-item ${isDone ? 'chore-done' : ''}">
+          <span class="chore-icon">${c.icon}</span>
+          <div class="chore-info">
+            <div class="chore-task">${c.task}</div>
+            ${c.details ? `<div class="chore-day">${c.details}</div>` : ''}
+            ${c.status === 'postponed' ? '<div class="chore-day" style="color:var(--orange)">Utsatt</div>' : ''}
+          </div>
+          ${!isDone ? `
+            <button class="btn btn-ghost btn-small" onclick="postponeChore(${c.choreId})">Utsett</button>
+            <button class="btn btn-success btn-small" onclick="completeChore(${c.choreId})">✓</button>
+          ` : '<span style="color:var(--green);font-size:0.8rem">✓ Gjort</span>'}
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  document.getElementById('choresContent').innerHTML = html;
+}
+
+async function postponeChore(choreId) {
+  await api('/api/chores/postpone', { method: 'PUT', body: { weekYear: currentWeek, choreId } });
+  await loadChores();
+}
+
+async function completeChore(choreId) {
+  await api('/api/chores/complete', { method: 'PUT', body: { weekYear: currentWeek, choreId } });
+  // Reload both today and chores
+  await Promise.all([loadToday(), loadChores()]);
+}
+
+// === CHAT / STEMME / KB ===
+let chatHistory = [];
+let isRecording = false;
+let recognition = null;
+
+async function checkLlmStatus() {
+  try {
+    const data = await api('/api/llm/status');
+    const el = document.getElementById('llmStatus');
+    if (data.available) {
+      const sttText = data.stt?.available ? ` · STT: ${data.stt.backend}` : ' · STT: nettleser';
+      const kbText = data.kb ? ` · KB: ${data.kb.totalInteractions} samtaler` : '';
+      el.textContent = `🟢 ${data.model} via ${data.backend || 'ollama'}${sttText}${kbText}`;
+      el.style.color = 'var(--green)';
+    } else {
+      el.textContent = '🟡 LLM ikke tilgjengelig — grunnfunksjoner aktive, smarte forslag deaktivert';
+      el.style.color = 'var(--yellow)';
+    }
+  } catch {
+    document.getElementById('llmStatus').textContent = '🔴 Kunne ikke sjekke LLM-status';
+  }
+}
+
+function addChatBubble(text, sender, extra) {
+  const container = document.getElementById('chatMessages');
+  const cls = sender === 'user' ? 'chat-msg-user' : 'chat-msg-ai';
+  const extraHtml = extra || '';
+  container.innerHTML += `<div class="chat-msg ${cls}"><div style="white-space:pre-wrap">${text}</div>${extraHtml}</div>`;
+  container.scrollTop = container.scrollHeight;
+  return container;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = '';
+
+  addChatBubble(message, 'user');
+
+  // Typing indicator
+  const typingId = 'typing_' + Date.now();
+  const container = document.getElementById('chatMessages');
+  container.innerHTML += `<div class="chat-msg chat-msg-ai" id="${typingId}"><span class="chat-thinking">Tenker...</span></div>`;
+  container.scrollTop = container.scrollHeight;
+
+  chatHistory.push({ role: 'user', content: message });
+
+  try {
+    const data = await api('/api/llm/chat', { method: 'POST', body: { message, history: chatHistory, saveToKB: true } });
+    const reply = data.response || 'Beklager, noe gikk galt.';
+    chatHistory.push({ role: 'assistant', content: reply });
+
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) {
+      let html = `<div style="white-space:pre-wrap">${reply}</div>`;
+      // Vis utførte tool-calls
+      if (data.toolCalls && data.toolCalls.length > 0) {
+        html += `<div style="margin-top:6px;font-size:0.75rem;color:var(--green)">`;
+        for (const tc of data.toolCalls) {
+          html += `<div>🔧 ${tc.result?.message || tc.tool}</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `<span class="kb-tag">📚 Lagret i kunnskapsbasen</span>`;
+      typingEl.innerHTML = html;
+    }
+  } catch (err) {
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) {
+      typingEl.innerHTML = `<div style="color:var(--red)">Feil: ${err.message}. Er LLM startet?</div>`;
+    }
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+// === VOICE — prøver backend STT (whisper.cpp) først, fallback til Web Speech API ===
+let useBackendSTT = false; // Settes av checkLlmStatus
+let mediaRecorder = null;
+let audioChunks = [];
+
+function initVoice() {
+  // Sjekk om backend STT er tilgjengelig (satt i checkLlmStatus)
+  // Web Speech API som fallback
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition && !useBackendSTT) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'no-NO';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      document.getElementById('chatInput').value = transcript;
+      if (event.results[event.results.length - 1].isFinal) {
+        stopVoice();
+        sendChat();
+      }
+    };
+
+    recognition.onerror = (event) => {
+      const statusEl = document.getElementById('voiceStatus');
+      statusEl.style.display = 'block';
+      statusEl.textContent = event.error === 'not-allowed'
+        ? 'Mikrofonrettigheter mangler — gi tilgang i nettleseren'
+        : `Stemmefeil: ${event.error}`;
+      stopVoice();
+    };
+
+    recognition.onend = () => { stopVoice(); };
+  }
+}
+
+function toggleVoice() {
+  if (isRecording) { stopVoice(); }
+  else { startVoice(); }
+}
+
+async function startVoice() {
+  isRecording = true;
+  const btn = document.getElementById('voiceBtn');
+  btn.classList.add('recording');
+  btn.textContent = '⏹';
+  const statusEl = document.getElementById('voiceStatus');
+  statusEl.style.display = 'block';
+
+  if (useBackendSTT) {
+    // Backend STT via whisper.cpp — ta opp lyd via MediaRecorder
+    statusEl.textContent = 'Tar opp... snakk nå (whisper.cpp)';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        statusEl.textContent = 'Transkriberer...';
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        try {
+          const response = await fetch(API + '/api/stt/transcribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'audio/webm' },
+            body: blob,
+          });
+          const data = await response.json();
+          if (data.text) {
+            document.getElementById('chatInput').value = data.text;
+            statusEl.textContent = `✓ Transkribert (${data.duration_ms}ms)`;
+            setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+            sendChat();
+          } else {
+            statusEl.textContent = data.error || 'Ingen tekst gjenkjent';
+          }
+        } catch (err) {
+          statusEl.textContent = `STT-feil: ${err.message}`;
+        }
+        stopVoiceUI();
+      };
+      mediaRecorder.start();
+    } catch (err) {
+      statusEl.textContent = `Mikrofonfeil: ${err.message}`;
+      stopVoice();
+    }
+  } else {
+    // Web Speech API fallback
+    statusEl.textContent = 'Lytter... snakk nå';
+    if (!recognition) { initVoice(); }
+    if (recognition) recognition.start();
+    else { statusEl.textContent = 'Stemmegjenkjenning ikke støttet'; stopVoice(); }
+  }
+}
+
+function stopVoice() {
+  if (useBackendSTT && mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop(); // Triggers onstop → transcribe
+    return;
+  }
+  stopVoiceUI();
+  try { if (recognition) recognition.stop(); } catch {}
+}
+
+function stopVoiceUI() {
+  isRecording = false;
+  const btn = document.getElementById('voiceBtn');
+  btn.classList.remove('recording');
+  btn.textContent = '🎤';
+}
+
+// === THEME TOGGLE ===
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme === 'dark' ? 'dark' : '');
+  if (newTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  document.getElementById('themeBtn').textContent = newTheme === 'dark' ? '🌙' : '☀️';
+  document.getElementById('metaThemeColor').content = newTheme === 'dark' ? '#1a1a2e' : '#f5f6fa';
+  try { localStorage.setItem('fa-theme', newTheme); } catch {}
+}
+
+function loadTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem('fa-theme'); } catch {}
+  const theme = saved || 'light'; // default light
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('themeBtn').textContent = '🌙';
+    document.getElementById('metaThemeColor').content = '#1a1a2e';
+  }
+}
+
+// === NOTIFICATIONS (varsler fra cron-jobber) ===
+async function checkNotifications() {
+  try {
+    const data = await api('/api/notifications');
+    if (data.notifications && data.notifications.length > 0) {
+      const latest = data.notifications[data.notifications.length - 1];
+      if (latest.type === 'shelf_life' && latest.warnings) {
+        const msgs = latest.warnings.map(w => w.message).join('\n');
+        if (confirm('⚠️ Holdbarhetsvarsler:\n\n' + msgs + '\n\nMark som lest?')) {
+          await api('/api/notifications/read', { method: 'PUT' });
+        }
+      }
+    }
+  } catch { /* stille feil */ }
+}
+
+// === Init ===
+loadTheme();
+loadToday();
+checkLlmStatus();
+initVoice();
+// Sjekk varsler hvert 30. minutt
+setInterval(checkNotifications, 30 * 60 * 1000);
+setTimeout(checkNotifications, 5000); // Sjekk etter 5 sek
+</script>
+
+<script>
+const MOCK_DATA = {
+  '/api/today': {
+    dayName: 'Mandag', dayOfWeek: 0, weekYear: '2026-W15',
+    meal: { dayOfWeek: 0, recipeId: 1, status: 'planned',
+      recipe: { id: 1, name: 'One-pot kremet pasta med kylling', category: 'rask', prepTime: '25 min', source: 'godt.no', url: '#' }
+    },
+    events: [
+      { id: 1, title: 'Mazie legekontroll', date: '2026-04-07', startTime: '09:30', endTime: '10:00', location: 'Vågsbygd legesenter', allDay: false },
+      { id: 2, title: 'Handletur Kiwi', date: '2026-04-07', startTime: '17:00', endTime: '17:30', location: 'Kiwi Vågsbygd', allDay: false },
+    ],
+    chores: [
+      { choreId: 1, task: 'Støvsuge stue og gang', icon: '🧹', status: 'pending' },
+      { choreId: 2, task: 'Tørke kjøkkenbenk', icon: '🧽', status: 'pending' },
+    ],
+  },
+  '/api/meals/current': {
+    weekYear: '2026-W15',
+    meals: [
+      { dayOfWeek: 0, dayName: 'Mandag', status: 'planned', recipe: { id: 1, name: 'One-pot kremet pasta med kylling', category: 'rask', prepTime: '25 min', ingredients: [{name:'Kylling',qty:400,unit:'g'}] } },
+      { dayOfWeek: 1, dayName: 'Tirsdag', status: 'planned', recipe: { id: 5, name: 'Laksefilet med brokkoli', category: 'rask', prepTime: '20 min', ingredients: [] } },
+      { dayOfWeek: 2, dayName: 'Onsdag', status: 'planned', recipe: { id: 9, name: 'Kyllingwok med nudler', category: 'rask', prepTime: '20 min', ingredients: [] } },
+      { dayOfWeek: 3, dayName: 'Torsdag', status: 'planned', recipe: { id: 12, name: 'Pasta carbonara', category: 'rask', prepTime: '20 min', ingredients: [] } },
+      { dayOfWeek: 4, dayName: 'Fredag', status: 'planned', recipe: { id: 20, name: 'Taco med kjøttdeig', category: 'comfort', prepTime: '30 min', ingredients: [] } },
+      { dayOfWeek: 5, dayName: 'Lørdag', status: 'planned', recipe: { id: 30, name: 'Lammegryte med rotgrønnsaker', category: 'helg', prepTime: '2t 30min', ingredients: [] } },
+      { dayOfWeek: 6, dayName: 'Søndag', status: 'planned', recipe: { id: 35, name: 'Ribbe med surkål', category: 'helg', prepTime: '3t', ingredients: [] } },
+    ]
+  },
+  '/api/shopping/current': {
+    weekYear: '2026-W15', totalEstPrice: 1847,
+    categories: [
+      { category: 'Kjøtt & fisk', items: [
+        { key: 'kylling', name: 'Prior Kyllingfilet 700g', source: 'recipe', packSize: 700, packUnit: 'g', packCount: 1, stillNeed: 800, hasHome: 0, estPrice: 109, checkedOff: false },
+        { key: 'laks', name: 'Lerøy Laksefilet 400g', source: 'recipe', packSize: 400, packUnit: 'g', packCount: 1, stillNeed: 400, hasHome: 0, estPrice: 89, checkedOff: false },
+      ]},
+      { category: 'Meieri', items: [
+        { key: 'melk', name: 'Røros Helmelk 1L', source: 'recipe', packSize: 1, packUnit: 'L', packCount: 2, stillNeed: 2, hasHome: 0, estPrice: 58, dairyNote: '🐄 Røros — kun Kiwi Vågsbygd', checkedOff: false },
+      ]},
+      { category: 'Drikkevarer', items: [
+        { key: 'c_1', consumableId: 1, name: 'Lerums Saft 1.5L', source: 'consumable', packSize: 1.5, packUnit: 'L', packCount: 1, estPrice: 45, depletionInfo: '~0.1 L/dag', daysLeft: 4, store: 'Kiwi Vågsbygd', notes: 'Halverer forbruk hvis brus er på listen' },
+        { key: 'c_2', consumableId: 2, name: 'Coca-Cola Zero 1.5L (4pk)', source: 'consumable', packSize: 4, packUnit: 'fl', packCount: 1, estPrice: 69, depletionInfo: '~0.5 fl/dag', daysLeft: 2, store: 'Kiwi Vågsbygd', notes: null },
+      ]},
+      { category: 'Barn', items: [
+        { key: 'c_22', consumableId: 22, name: 'Libero Newborn str.1 (28stk)', source: 'consumable', packSize: 28, packUnit: 'stk', packCount: 2, estPrice: 178, depletionInfo: '~9 stk/dag', daysLeft: 1, store: 'Kiwi Vågsbygd', notes: 'Justerer etter Mazie sitt behov.' },
+        { key: 'c_23', consumableId: 23, name: 'Libero Våtservietter 64stk', source: 'consumable', packSize: 64, packUnit: 'stk', packCount: 1, estPrice: 29, depletionInfo: '~8 stk/dag', daysLeft: 5, store: 'Kiwi Vågsbygd', notes: null },
+      ]},
+      { category: 'Personlig pleie', items: [
+        { key: 'c_30', consumableId: 30, name: 'Colgate Total tannkrem 75ml', source: 'consumable', packSize: 1, packUnit: 'stk', packCount: 1, estPrice: 39, depletionInfo: 'Hver 45. dag', daysLeft: 15, store: 'Kiwi Vågsbygd', notes: null },
+      ]},
+    ]
+  },
+  '/api/chores/current': {
+    weekYear: '2026-W15',
+    chores: [
+      { choreId: 1, scheduledDay: 0, dayName: 'Mandag', task: 'Støvsuge stue og gang', icon: '🧹', status: 'pending', postponedTo: null },
+      { choreId: 2, scheduledDay: 0, dayName: 'Mandag', task: 'Tørke kjøkkenbenk', icon: '🧽', status: 'pending', postponedTo: null },
+      { choreId: 3, scheduledDay: 2, dayName: 'Onsdag', task: 'Vaske bad', icon: '🚿', status: 'pending', postponedTo: null },
+      { choreId: 4, scheduledDay: 4, dayName: 'Fredag', task: 'Skifte sengetøy', icon: '🛏️', status: 'pending', postponedTo: null },
+      { choreId: 5, scheduledDay: 5, dayName: 'Lørdag', task: 'Vaske klær', icon: '👕', status: 'done', postponedTo: null },
+    ]
+  },
+  '/api/llm/status': { available: true, model: 'qwen2.5:3b', backend: 'ollama', models: ['qwen2.5:3b'], stt: { available: true, backend: 'whisper.cpp', model: 'nb-whisper-base' }, kb: { totalInteractions: 42 } },
+  '/api/notifications': { notifications: [] },
+};
+
+const _origFetch = window.fetch;
+window.fetch = async function(url, opts) {
+  const pathname = new URL(url, location.origin).pathname;
+  if (MOCK_DATA[pathname]) return { json: async () => JSON.parse(JSON.stringify(MOCK_DATA[pathname])), ok: true };
+  if (pathname.startsWith('/api/'))
+    return { json: async () => ({ ok: true, response: 'Hei! Jeg er Familieassistenten. Hva kan jeg hjelpe med? 😊', toolCalls: [] }), ok: true };
+  return _origFetch(url, opts);
+};
+</script>
+
+</body>
+</html>

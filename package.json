@@ -1,0 +1,35 @@
+{
+  "name": "familieassistenten",
+  "version": "1.1.0",
+  "description": "Selvforbedrende husholdsassistent for familien Frestad — kjører lokalt på Raspberry Pi 5",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "start:fallback": "LLM_BACKEND=ollama node server/index.js",
+    "test": "node --test tests/*.test.js",
+    "test:watch": "node --test --watch tests/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "pino": "^9.14.0",
+    "zod": "^3.25.76"
+  },
+  "optionalDependencies": {
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "pino-pretty": "^11.3.0"
+  },
+  "keywords": [
+    "familieassistenten",
+    "raspberry-pi",
+    "sqlite",
+    "llm",
+    "husholdning"
+  ],
+  "author": "Christer & Martine Frestad",
+  "license": "MIT"
+}
