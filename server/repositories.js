@@ -87,6 +87,9 @@ function createRepositories(db) {
         FROM recipe_ingredients WHERE recipe_id = ? ORDER BY sort_order, id
       `).all(id);
       recipe.equipment = recipe.equipment_json ? JSON.parse(recipe.equipment_json) : [];
+      // Normaliser snake_case → camelCase for frontend-parity med getAll()
+      recipe.prepTime = recipe.prep_time;
+      recipe.sourceType = recipe.source_type || 'manual';
       return recipe;
     },
     getAll() {

@@ -488,6 +488,37 @@ paths:
       responses:
         '200': { description: Deleted }
 
+  /api/llm/status:
+    get:
+      summary: Check LLM availability and current backend
+      description: |
+        Returns LLM (Ollama/llama.cpp) availability, model name, and STT
+        backend status. Does not require LLM to be running — returns a
+        disabled-state payload when backend is unreachable.
+      responses:
+        '200':
+          description: LLM status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: { type: boolean }
+                  backend: { type: string, enum: [ollama, llamacpp] }
+                  model: { type: string }
+                  models:
+                    type: array
+                    items: { type: string }
+                  stt:
+                    type: object
+                    properties:
+                      available: { type: boolean }
+                      backend: { type: string }
+                  kb:
+                    type: object
+                    properties:
+                      totalInteractions: { type: integer }
+
   /api/llm/chat:
     post:
       summary: Send a chat message to the local LLM (with tool-calling)
