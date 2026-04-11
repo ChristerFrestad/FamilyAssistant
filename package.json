@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "^4.2.1",
-    "@eslint/js": "^9.38.0",
+    "@eslint/js": "^10.0.1",
     "eslint": "^10.2.0",
     "globals": "^15.14.0",
     "pino-pretty": "^13.1.3",
