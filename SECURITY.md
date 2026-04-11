@@ -58,9 +58,9 @@ Dette er data som finnes i produksjonsinstallasjonen og krever ekstra vare:
 - Navn på familiemedlemmer utover prosjekt-eieren (for author-attribution)
 - Adresser, postnummer, telefon, personnummer
 - Bilder eller navn på barn
-- Spesifikke butikk-lokasjoner (bruk generisk navn "Kiwi" i stedet for
-  "Kiwi Vågsbygd")
-- Kalender-lokasjoner (bruk test-verdier som "Testveien 1")
+- Spesifikke butikk-lokasjoner (bruk generisk butikk-navn uten bydel
+  eller by — f.eks. "Kiwi" i stedet for "Kiwi <bydel>")
+- Kalender-lokasjoner (bruk test-verdier som "Testveien 1" i fixtures)
 
 **Hvorfor:** Repoet kan en dag bli delt, klonet av nye bidragsytere,
 eller eksponert via logs/backups. PII i git-historien er vanskelig
