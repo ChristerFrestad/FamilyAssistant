@@ -1,0 +1,47 @@
+# Uke 7 PORT-4: sikre konsistente linje-endinger på tvers av plattformer.
+# Windows default autocrlf konverterer LF→CRLF ved checkout, som bryter
+# Prettier-check (endOfLine: 'lf' i .prettierrc.json).
+#
+# Med denne filen tvinges git til å bruke LF uansett OS ved checkout,
+# og CRLF ved checkin hvis filen tilfeldigvis blir redigert på Windows.
+
+# Default: behandle som tekst, autodetekt
+* text=auto eol=lf
+
+# Kildekode — alltid LF
+*.js           text eol=lf
+*.mjs          text eol=lf
+*.cjs          text eol=lf
+*.ts           text eol=lf
+*.tsx          text eol=lf
+*.json         text eol=lf
+*.jsonc        text eol=lf
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.md           text eol=lf
+*.html         text eol=lf
+*.css          text eol=lf
+*.sh           text eol=lf
+*.sql          text eol=lf
+*.service      text eol=lf
+Dockerfile     text eol=lf
+Caddyfile      text eol=lf
+
+# Binære filer
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.gif          binary
+*.webp         binary
+*.ico          binary
+*.pdf          binary
+*.db           binary
+*.sqlite       binary
+*.sqlite-journal binary
+
+# Lockfiles — LF for konsistens
+package-lock.json text eol=lf
+
+# Ekskluder store filer fra language-stats
+public/dist/** linguist-generated
+coverage/**    linguist-generated

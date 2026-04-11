@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-04-11T09:45:03.634Z",
+  "profile": "smoke",
+  "concurrency": 5,
+  "durationSec": 15,
+  "totalRequests": 96759,
+  "rps": 6450.6,
+  "errors": 0,
+  "errors4xx": 0,
+  "errors5xx": 0,
+  "errorRatePct": 0,
+  "global": {
+    "min": 0.2,
+    "mean": 0.8,
+    "p50": 0.6,
+    "p95": 1.5,
+    "p99": 2.1,
+    "max": 7
+  },
+  "perEndpoint": {
+    "GET /api/chores/current": {
+      "count": 21396,
+      "p50": 0.5,
+      "p95": 1.4,
+      "p99": 1.9
+    },
+    "GET /api/meals/current": {
+      "count": 21496,
+      "p50": 0.6,
+      "p95": 1.4,
+      "p99": 1.9
+    },
+    "GET /api/today": {
+      "count": 32488,
+      "p50": 0.5,
+      "p95": 1.4,
+      "p99": 1.9
+    },
+    "GET /ready": {
+      "count": 10710,
+      "p50": 1.1,
+      "p95": 2,
+      "p99": 2.7
+    },
+    "GET /health": {
+      "count": 10669,
+      "p50": 0.5,
+      "p95": 1.4,
+      "p99": 1.9
+    }
+  },
+  "grade": {
+    "p95 < 200ms": true,
+    "error rate < 0.1%": true,
+    "no 5xx": true
+  },
+  "gradeOk": true
+}

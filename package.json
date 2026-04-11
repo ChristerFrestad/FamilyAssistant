@@ -1,0 +1,65 @@
+{
+  "name": "familieassistenten",
+  "version": "1.3.0",
+  "description": "Selvforbedrende husholdsassistent — kjører lokalt på Raspberry Pi 5",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20.0.0 <23",
+    "npm": ">=10.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "scripts": {
+    "start": "node server/index.js",
+    "start:fallback": "LLM_BACKEND=ollama node server/index.js",
+    "test": "node scripts/run-tests.js",
+    "test:watch": "node scripts/run-tests.js --watch",
+    "test:coverage": "node scripts/run-tests.js --experimental-test-coverage --test-reporter=spec",
+    "test:coverage:gate": "node scripts/run-tests.js --experimental-test-coverage --test-reporter=spec | node scripts/coverage-gate.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --check \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"public/manifest.json\" \"package.json\"",
+    "format:fix": "prettier --write \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"public/manifest.json\" \"package.json\"",
+    "ci": "npm run lint && npm run format && npm test",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "sbom": "cyclonedx-npm --omit dev --package-lock-only --output-format JSON --output-file sbom.json",
+    "sbom:full": "cyclonedx-npm --package-lock-only --output-format JSON --output-file sbom-full.json",
+    "typecheck": "tsc --noEmit",
+    "openapi:types": "openapi-typescript openapi.yaml --output types/openapi.d.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "pino": "^10.3.1",
+    "zod": "^4.3.6"
+  },
+  "optionalDependencies": {
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@cyclonedx/cyclonedx-npm": "^4.2.1",
+    "@eslint/js": "^9.38.0",
+    "@types/node": "^20.19.39",
+    "eslint": "^10.2.0",
+    "globals": "^17.4.0",
+    "openapi-typescript": "^7.13.0",
+    "pino-pretty": "^13.1.3",
+    "prettier": "^3.3.3",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "familieassistenten",
+    "raspberry-pi",
+    "sqlite",
+    "llm",
+    "husholdning"
+  ],
+  "author": "Christer Frestad",
+  "license": "MIT"
+}

@@ -1,0 +1,273 @@
+{
+  "title": "Familieassistenten — Overview",
+  "uid": "familieass-overview",
+  "tags": ["familieassistenten", "iso25010", "week6"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "enable": true,
+        "expr": "changes(familieass_uptime_seconds[1m]) > 0",
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "titleFormat": "Restart"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "route",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(familieass_http_request_duration_ms_count, route)",
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "familieass_uptime_seconds",
+          "legendFormat": "uptime"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 300 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Total requests / min",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(familieass_http_requests_total[1m]) * 60",
+          "legendFormat": "rpm"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "none" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "5xx rate (%)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(familieass_http_errors_total[5m]) / rate(familieass_http_requests_total[5m]) * 100",
+          "legendFormat": "5xx %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "RSS memory (MB)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes / 1024 / 1024",
+          "legendFormat": "rss"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 460 },
+              { "color": "red", "value": 512 }
+            ]
+          }
+        }
+      },
+      "description": "Warn at 90% av MEMORY_BUDGET_MB (512 MB default)"
+    },
+    {
+      "id": 5,
+      "title": "Disk free (MB)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "familieass_disk_free_mb",
+          "legendFormat": "disk free"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "green", "value": 1000 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Backup age (hours)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "targets": [
+        {
+          "expr": "familieass_last_backup_age_hours",
+          "legendFormat": "backup"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 24 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Request duration p50 / p95 / p99 per route",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "expr": "familieass_http_request_duration_ms{quantile=\"0.5\",route=~\"$route\"}",
+          "legendFormat": "{{route}} p50"
+        },
+        {
+          "expr": "familieass_http_request_duration_ms{quantile=\"0.95\",route=~\"$route\"}",
+          "legendFormat": "{{route}} p95"
+        },
+        {
+          "expr": "familieass_http_request_duration_ms{quantile=\"0.99\",route=~\"$route\"}",
+          "legendFormat": "{{route}} p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      },
+      "description": "SLO: p95 < 200ms på alle endepunkter"
+    },
+    {
+      "id": 11,
+      "title": "Circuit breakers (0=CLOSED, 1=HALF_OPEN, 2=OPEN)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "familieass_circuit_breaker_state",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Rate limit drops / min",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "expr": "rate(familieass_rate_limit_drops_total[1m]) * 60",
+          "legendFormat": "drops/min"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "none" }
+      }
+    },
+    {
+      "id": 13,
+      "title": "DB size (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "expr": "familieass_db_size_mb",
+          "legendFormat": "db size"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "decmbytes" }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Requests by status",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 22 },
+      "targets": [
+        {
+          "expr": "rate(familieass_http_requests_total[1m]) * 60",
+          "legendFormat": "total"
+        },
+        {
+          "expr": "rate(familieass_http_errors_total[1m]) * 60",
+          "legendFormat": "5xx"
+        }
+      ]
+    }
+  ]
+}

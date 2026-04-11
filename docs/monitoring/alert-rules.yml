@@ -1,0 +1,181 @@
+# Prometheus alerting rules for Familieassistenten
+#
+# Uke 6 av ISO/IEC 25010-planen (OBS-2). Dekker 10 nøkkel-alert-regler
+# basert på SLO-ene i RUNBOOK.md §10.
+#
+# Laste inn i Prometheus via:
+#   rule_files:
+#     - /etc/prometheus/alert-rules.yml
+#
+# Koble til Alertmanager for e-post/webhook via:
+#   alerting:
+#     alertmanagers:
+#       - static_configs:
+#           - targets: ['localhost:9093']
+
+groups:
+  - name: familieassistenten
+    interval: 30s
+    rules:
+
+      # =================================================================
+      # Availability
+      # =================================================================
+      - alert: ServerDown
+        expr: up{job="familieassistenten"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: familieassistenten
+        annotations:
+          summary: "Familieassistenten svarer ikke"
+          description: "Scrape target er nede i 1+ minutt. Sjekk systemctl status familieassistenten."
+          runbook: "RUNBOOK.md §11.1"
+
+      - alert: WatchdogMiss
+        # systemd Type=notify + WatchdogSec=90. Hvis uptime-counter reseter
+        # oftere enn hvert 5. minutt uten å være tilstøtt, står restart-loop.
+        expr: changes(familieass_uptime_seconds[5m]) > 1
+        for: 10m
+        labels:
+          severity: critical
+          service: familieassistenten
+        annotations:
+          summary: "Systemd-watchdog har restartet Familieassistenten 2+ ganger på 5 min"
+          description: "Prosessen henger eller panic-er. Sjekk journalctl -u familieassistenten."
+          runbook: "RUNBOOK.md §11.2"
+
+      # =================================================================
+      # Error rate
+      # =================================================================
+      - alert: High5xxRate
+        expr: |
+          rate(familieass_http_errors_total[10m])
+            / rate(familieass_http_requests_total[10m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          service: familieassistenten
+        annotations:
+          summary: "5xx-rate over 1% i 10 minutter"
+          description: "Se /metrics og journalctl for sist uncaughtException/unhandledRejection."
+          runbook: "RUNBOOK.md §11.3"
+
+      - alert: Critical5xxRate
+        expr: |
+          rate(familieass_http_errors_total[5m])
+            / rate(familieass_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: familieassistenten
+        annotations:
+          summary: "5xx-rate over 5% i 5 minutter"
+          description: "Kritisk feilrate. Vurder å restarte servicen og/eller rulle tilbake siste deploy."
+          runbook: "RUNBOOK.md §11.3"
+
+      # =================================================================
+      # Circuit breakers
+      # =================================================================
+      - alert: CircuitBreakerOpen
+        expr: familieass_circuit_breaker_state == 2
+        for: 5m
+        labels:
+          severity: warning
+          service: familieassistenten
+        annotations:
+          summary: "Circuit breaker {{ $labels.name }} OPEN i 5+ minutter"
+          description: "Eksterne kall til {{ $labels.name }} feiler. LLM/Kassal-integrasjon kan være degradert."
+          runbook: "RUNBOOK.md §11.4"
+
+      # =================================================================
+      # Memory
+      # =================================================================
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 460
+        for: 5m
+        labels:
+          severity: warning
+          service: familieassistenten
+        annotations:
+          summary: "RSS over 460 MB (90% av MEMORY_BUDGET_MB)"
+          description: "Prosessen nærmer seg memory-budget. Vurder memory-leak-analyse eller restart."
+          runbook: "RUNBOOK.md §11.5"
+
+      - alert: CriticalMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 512
+        for: 2m
+        labels:
+          severity: critical
+          service: familieassistenten
+        annotations:
+          summary: "RSS over 512 MB (overskrider MEMORY_BUDGET_MB)"
+          description: "Systemd vil sannsynligvis OOM-kille prosessen snart. Restart + leak-investigation nå."
+          runbook: "RUNBOOK.md §11.5"
+
+      # =================================================================
+      # Backup
+      # =================================================================
+      - alert: BackupStale
+        expr: familieass_last_backup_age_hours > 26
+        for: 15m
+        labels:
+          severity: warning
+          service: familieassistenten
+        annotations:
+          summary: "Siste backup er {{ $value }} timer gammel (>26h)"
+          description: "Daglig cron burde ha kjørt. Sjekk systemd timer og BACKUP_REMOTE_PATH."
+          runbook: "RUNBOOK.md §11.6"
+
+      - alert: BackupCriticallyStale
+        expr: familieass_last_backup_age_hours > 48
+        for: 30m
+        labels:
+          severity: critical
+          service: familieassistenten
+        annotations:
+          summary: "Siste backup er {{ $value }} timer gammel (>48h)"
+          description: "Backup-systemet er brutt. Umiddelbar handling krevet. Se RUNBOOK §4 DR-scenarier."
+          runbook: "RUNBOOK.md §11.6"
+
+      # =================================================================
+      # Disk
+      # =================================================================
+      - alert: DiskLow
+        expr: familieass_disk_free_mb < 500
+        for: 5m
+        labels:
+          severity: warning
+          service: familieassistenten
+        annotations:
+          summary: "Disk fri < 500 MB"
+          description: "Prune backups eller flytt store filer. SQLite kan krasje ved out-of-space."
+          runbook: "RUNBOOK.md §11.7"
+
+      - alert: DiskCritical
+        expr: familieass_disk_free_mb < 100
+        for: 1m
+        labels:
+          severity: critical
+          service: familieassistenten
+        annotations:
+          summary: "Disk fri < 100 MB — /ready returnerer 503"
+          description: "SQLite-skriving vil feile. Umiddelbar disk-frigjøring krevet."
+          runbook: "RUNBOOK.md §11.7"
+
+      # =================================================================
+      # Latency
+      # =================================================================
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            rate(familieass_http_request_duration_ms_bucket[5m])
+          ) > 500
+        for: 10m
+        labels:
+          severity: warning
+          service: familieassistenten
+        annotations:
+          summary: "p95-latens over 500 ms for {{ $labels.route }}"
+          description: "SLO er p95 < 200 ms. Dette er 2.5x over. Sjekk DB-locks og LLM-tilgjengelighet."
+          runbook: "RUNBOOK.md §11.8"

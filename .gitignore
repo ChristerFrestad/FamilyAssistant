@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+
+# Databaser og persistente data
+data/*.db
+data/*.db-journal
+data/*.sqlite
+data/*.sqlite-journal
+data/backups/
+data/familieassistenten.json
+
+# Miljøvariabler og secrets
+.env
+.env.*
+!.env.example
+
+# Build / tmp
+*.tmp
+*.lock
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backups (lokale snapshots som ikke hører hjemme i historikken)
+*.bak
+public/index.html.pre-*.bak
+
+# Agent workspaces og lokal state
+.claude/
+.cursor/
+.copilot/
+*.local.json
+
+# Privat designdokumentasjon (inneholder PII som ikke skal i git)
+DESIGNDOKUMENT.md
+docs/DESIGN*.md
+docs/design/
+
+# Test-artifakter
+coverage/
+.nyc_output/
+coverage.txt
+coverage.lcov
+
+# SBOM-artifakter (genereres i CI / før release)
+sbom.json
+sbom-full.json
+sbom.xml
+
+# Perf-artifakter — BEHOLD perf-baseline.json (dette er "truth"),
+# men ignorer perf-current.json som genereres av CI
+perf-current.json

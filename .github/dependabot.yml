@@ -1,0 +1,54 @@
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # npm packages (runtime + dev)
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Oslo
+    open-pull-requests-limit: 5
+    reviewers:
+      - ChristerFrestad
+    labels:
+      - dependencies
+      - npm
+    commit-message:
+      prefix: deps
+      prefix-development: deps-dev
+      include: scope
+    groups:
+      # Grupper minor/patch sammen for mindre støy
+      runtime-minor:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      dev-minor:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    # Major-versjoner kommer som egne PRs for manuell vurdering
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions workflow dependencies (action versions)
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Oslo
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope

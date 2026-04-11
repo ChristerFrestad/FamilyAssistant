@@ -1,0 +1,69 @@
+# Uke 7 PORT-1: Dockerignore holder build-context minimal.
+# Alt som ikke trengs for runtime image.
+
+# Git
+.git
+.gitignore
+.github
+
+# Node
+node_modules
+npm-debug.log
+.npm
+
+# Build artifacts
+coverage
+coverage.txt
+.nyc_output
+perf-baseline.json
+perf-current.json
+sbom.json
+sbom-full.json
+
+# Dev / editor
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docs (bygges inn via volum eller ignoreres helt)
+*.md
+!README.md
+docs
+
+# Agent workspaces (lokal state, ikke shipped)
+.claude
+.cursor
+.copilot
+
+# Data og backups — mountes som volum
+data
+backups
+
+# Tests (kjøres i CI, ikke shipped i image)
+tests
+playwright-report
+
+# Config som ikke trengs
+.env
+.env.*
+!.env.example
+.prettierrc.json
+.prettierignore
+.eslintrc*
+eslint.config.*
+
+# Tmp
+*.tmp
+*.log
+*.bak
+
+# Build tools outside Dockerfile scope
+Caddyfile
+familieassistenten.service
+install.sh
+setup-rpi5.sh
+upgrade.sh
+start.sh

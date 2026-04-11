@@ -1,0 +1,111 @@
+name: Performance
+
+# Uke 5 PERF-2: nightly performance check + regresjonsgate.
+# Kjører load-baseline.js mot en server startet i GitHub Actions og
+# sammenligner p95 mot committed perf-baseline.json. Feiler hvis p95
+# dropper mer enn 20% versus baseline.
+#
+# Triggers:
+#   - nightly (02:30 UTC = 04:30 Europe/Oslo sommertid)
+#   - manuelt via workflow_dispatch
+#   - ved pull request som endrer server/, scripts/load-baseline.js,
+#     eller perf-baseline.json (sanity-sjekk før merge)
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'scripts/load-baseline.js'
+      - 'perf-baseline.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  load-baseline:
+    name: Load baseline + regression gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start server in background (high rate-limit)
+        env:
+          NODE_ENV: development
+          RATE_LIMIT_MAX: '999999'
+          LOG_LEVEL: warn
+          PORT: '3000'
+        run: |
+          nohup node server/index.js > /tmp/fam-perf.log 2>&1 &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+          # Vent til serveren svarer på /health
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "Server er oppe etter $i sek"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run load-baseline smoke profile
+        # Baseline er malt lokalt (Windows). GitHub Actions ubuntu-runner gir
+        # typisk +20-40% p95 pa samme lavlast-profil. Vi bruker 50% buffer
+        # for aa ta hoyde for runner-variasjon uten aa maskere reelle
+        # regresjoner. p95-mal absolutt: <200ms (SLO). Hvis p95 passerer
+        # 50%-grensen, betyr det sannsynligvis at noe reelt har endret seg.
+        run: |
+          node scripts/load-baseline.js \
+            --concurrency=5 \
+            --duration=15 \
+            --warmupMs=1500 \
+            --output=perf-current.json \
+            --compare=perf-baseline.json \
+            --allowRegressionPct=50
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -n "${SERVER_PID:-}" ]; then
+            kill $SERVER_PID 2>/dev/null || true
+          fi
+          echo "--- Server log (siste 40 linjer) ---"
+          tail -40 /tmp/fam-perf.log || true
+
+      - name: Upload perf artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-results-${{ github.sha }}
+          path: |
+            perf-baseline.json
+            perf-current.json
+            /tmp/fam-perf.log
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f perf-current.json ]; then
+            echo "### Performance Summary" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat perf-current.json | head -40 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

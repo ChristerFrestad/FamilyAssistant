@@ -1,0 +1,105 @@
+# Familieassistenten — Docker Compose
+#
+# Uke 7 av ISO/IEC 25010-planen (PORT-2).
+#
+# Kjørmåter:
+#   docker compose up              # kjør begge tjenester i foreground
+#   docker compose up -d           # detached
+#   docker compose logs -f app     # follow appens logger
+#   docker compose down            # stopp alt
+#   docker compose pull            # oppdater til siste tagget versjon
+#
+# Før du starter:
+#   1. Kopier .env.example til .env og sett AUTH_TOKEN (obligatorisk i prod)
+#   2. mkdir data (eller la compose lage volum)
+#   3. (valgfritt) juster Caddyfile for domenet ditt
+
+services:
+  # --------------------------------------------------------------------------
+  # Familieassistenten — hoved-app
+  # --------------------------------------------------------------------------
+  app:
+    image: ghcr.io/christerfrestad/familyassistant:${TAG:-latest}
+    # Kommentere inn nedenfor for lokal build i stedet for GHCR pull:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: familieassistenten
+    restart: unless-stopped
+    # Single-user home setup — bind til localhost slik at Caddy
+    # eksponerer eksternt. Bytt til "3000:3000" for direkte-tilgang.
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Disse MÅ settes i .env for produksjon
+      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN er påkrevd i prod (min 16 tegn)}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localhost}
+      AUTH_TOKEN_CREATED_AT: ${AUTH_TOKEN_CREATED_AT:-}
+      # LLM-backend (valgfritt — single-user kan bruke ollama på host)
+      LLM_BACKEND: ${LLM_BACKEND:-ollama}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      # Sikkerhet og ytelse
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      MAX_BODY_BYTES: ${MAX_BODY_BYTES:-1048576}
+      MEMORY_BUDGET_MB: ${MEMORY_BUDGET_MB:-512}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      HTTPS_TERMINATED: "true"  # Caddy terminerer HTTPS foran
+    # Ressursgrenser — reflekterer RPi5 4GB budsjett
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.5"
+        reservations:
+          memory: 128M
+    # Node-distroless har ikke shell, så Docker health depends på
+    # HEALTHCHECK-instruksjonen i Dockerfile (node -e fetch('/health'))
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    # For å nå ollama som kjører på host på Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - familieass
+
+  # --------------------------------------------------------------------------
+  # Caddy — reverse proxy med HTTPS
+  # --------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: familieass-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - familieass
+
+# ----------------------------------------------------------------------------
+# Named volumes
+# ----------------------------------------------------------------------------
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  familieass:
+    driver: bridge

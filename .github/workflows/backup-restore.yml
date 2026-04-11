@@ -1,0 +1,151 @@
+name: Backup Restore Test
+
+# Uke 6 OBS-6: weekly backup restore-test.
+# Bygger en server, seeder databasen, kjører backupNow(), stopper
+# server, tar backupen som 'fresh DB' og starter en ny server som
+# leser det. Sjekker at en seed-query svarer som forventet.
+#
+# Dette fanger broken backups tidlig — hvis SQLite-filen er korrupt
+# eller online-backup ikke fullførte, vil ny-server-oppstart feile.
+
+on:
+  schedule:
+    - cron: '15 3 * * 1'  # Mandag 03:15 UTC = 05:15 Europe/Oslo sommertid
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'server/backup.js'
+      - 'server/db.js'
+      - 'server/migrations/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-restore-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  restore-test:
+    name: Backup + restore roundtrip
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Step 1 — Seed fresh DB and take backup
+        env:
+          NODE_ENV: test
+          DB_PATH: /tmp/fam-src.db
+        run: |
+          node -e "
+          const { initDB } = require('./server/db');
+          const { createRepositories } = require('./server/repositories');
+          const { seedIfEmpty, ensureCurrentWeek } = require('./server/services/seed.service');
+          const { backupNow } = require('./server/backup');
+          (async () => {
+            const h = await initDB();
+            const repos = createRepositories(h.db);
+            seedIfEmpty(repos);
+            ensureCurrentWeek(repos);
+            // Registrer kjent-verdier som restore-testen kan sjekke
+            repos.auditLog.record({
+              requestId: 'backup-test',
+              action: 'POST',
+              entityType: 'restore_marker',
+              entityId: 'ci-week6',
+              route: '/ci',
+              metadata: { canary: 'uke-6-backup-roundtrip' },
+            });
+            const backupPath = backupNow(h.db);
+            console.log('backup skrevet til:', backupPath);
+            require('fs').writeFileSync('/tmp/backup-path.txt', backupPath);
+            // Verifiser at filen eksisterer og har rimelig størrelse
+            const fs = require('fs');
+            const stats = fs.statSync(backupPath);
+            if (stats.size < 1000) {
+              console.error('Backup er under 1KB - sannsynligvis korrupt');
+              process.exit(1);
+            }
+            console.log('backup-størrelse:', stats.size, 'bytes');
+            h.db.close();
+          })().catch(err => { console.error(err); process.exit(2); });
+          "
+
+      - name: Step 2 — Restore backup to new DB and query canary
+        env:
+          NODE_ENV: test
+        run: |
+          cp $(cat /tmp/backup-path.txt) /tmp/fam-restored.db
+          DB_PATH=/tmp/fam-restored.db node -e "
+          const { initDB } = require('./server/db');
+          const { createRepositories } = require('./server/repositories');
+          (async () => {
+            const h = await initDB();
+            const repos = createRepositories(h.db);
+
+            // Verifiser at seed-dataene kom med
+            const products = h.db.prepare('SELECT COUNT(*) as c FROM products').get();
+            if (products.c < 80) {
+              console.error('FEIL: forventet >=80 products, fikk', products.c);
+              process.exit(1);
+            }
+            console.log('products:', products.c);
+
+            const recipes = h.db.prepare('SELECT COUNT(*) as c FROM recipes').get();
+            if (recipes.c < 30) {
+              console.error('FEIL: forventet >=30 recipes, fikk', recipes.c);
+              process.exit(1);
+            }
+            console.log('recipes:', recipes.c);
+
+            // Verifiser at audit-log-canary-raden kom med
+            const canary = repos.auditLog.getByEntity('restore_marker', 'ci-week6');
+            if (canary.length !== 1) {
+              console.error('FEIL: canary audit-raden mangler. Fant', canary.length);
+              process.exit(1);
+            }
+            if (canary[0].metadata?.canary !== 'uke-6-backup-roundtrip') {
+              console.error('FEIL: canary metadata korrupt:', canary[0].metadata);
+              process.exit(1);
+            }
+            console.log('canary OK:', canary[0].metadata);
+
+            // Sjekk at schema_migrations er intakt
+            const migs = h.db.prepare('SELECT COUNT(*) as c FROM schema_migrations').get();
+            if (migs.c < 11) {
+              console.error('FEIL: forventet >=11 migrations, fikk', migs.c);
+              process.exit(1);
+            }
+            console.log('migrations applikert:', migs.c);
+
+            console.log('BACKUP RESTORE OK');
+            h.db.close();
+          })().catch(err => { console.error(err); process.exit(2); });
+          "
+
+      - name: Step 3 — Clean up
+        if: always()
+        run: |
+          rm -f /tmp/fam-src.db /tmp/fam-restored.db /tmp/backup-path.txt
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "### Backup Restore Test — PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Seeded fresh DB" >> $GITHUB_STEP_SUMMARY
+          echo "- Took backup via backupNow()" >> $GITHUB_STEP_SUMMARY
+          echo "- Copied backup to new DB path" >> $GITHUB_STEP_SUMMARY
+          echo "- Verified 80+ products, 30+ recipes, canary audit row, 11+ migrations" >> $GITHUB_STEP_SUMMARY

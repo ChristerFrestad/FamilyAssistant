@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022", "DOM"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "noImplicitThis": true,
+    "alwaysStrict": false,
+    "strictNullChecks": false,
+    "strictFunctionTypes": false,
+    "strictBindCallApply": true,
+    "useUnknownInCatchVariables": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": [
+    "server/**/*.js",
+    "scripts/coverage-gate.js",
+    "scripts/run-tests.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "tests",
+    "public",
+    "data",
+    "backups",
+    "coverage",
+    ".claude",
+    "scripts/load-baseline.js",
+    "scripts/extract-frontend.js",
+    "scripts/rewrite-index-html.js"
+  ]
+}
