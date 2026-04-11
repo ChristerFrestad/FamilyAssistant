@@ -79,7 +79,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-node20
           path: coverage.txt
@@ -149,7 +149,7 @@ jobs:
           "
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-cyclonedx-${{ github.sha }}
           path: |
@@ -190,7 +190,7 @@ jobs:
 
       - name: Upload OSV artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: osv-scan-results
           path: osv-results.sarif
