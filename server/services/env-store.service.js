@@ -183,11 +183,13 @@ async function write(key, value) {
     let content = '';
     try {
       content = fs.readFileSync(ENV_PATH, 'utf8');
-    } catch { /* tom fil */ }
+    } catch {
+      /* tom fil */
+    }
 
     const lines = content ? content.split(/\r?\n/) : [];
     const newLine = `${key}="${clean}"`;
-    const idx = lines.findIndex(l => l.trim().startsWith(`${key}=`));
+    const idx = lines.findIndex((l) => l.trim().startsWith(`${key}=`));
     if (idx >= 0) {
       lines[idx] = newLine;
     } else {
@@ -219,7 +221,9 @@ async function write(key, value) {
     };
   } finally {
     // Rydd opp tmp hvis den fortsatt finnes (skal ikke skje etter rename)
-    try { if (fs.existsSync(TMP_PATH)) fs.unlinkSync(TMP_PATH); } catch {}
+    try {
+      if (fs.existsSync(TMP_PATH)) fs.unlinkSync(TMP_PATH);
+    } catch {}
     releaseLock();
   }
 }
@@ -241,16 +245,24 @@ async function testIntegration(name) {
         if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
         // Lettvekts-sjekk: HEAD/GET mot et Kassal-endpoint
         const url = 'https://kassal.app/api/v1/products?search=melk&size=1';
-        const r = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${key}` } }, 5000);
+        const r = await fetchWithTimeout(
+          url,
+          { headers: { Authorization: `Bearer ${key}` } },
+          5000
+        );
         if (r.ok) return { ok: true, latencyMs: Date.now() - start };
         return { ok: false, latencyMs: Date.now() - start, error: `HTTP ${r.status}` };
       }
       case 'openai': {
         const key = process.env.OPENAI_API_KEY;
         if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
-        const r = await fetchWithTimeout('https://api.openai.com/v1/models', {
-          headers: { Authorization: `Bearer ${key}` },
-        }, 5000);
+        const r = await fetchWithTimeout(
+          'https://api.openai.com/v1/models',
+          {
+            headers: { Authorization: `Bearer ${key}` },
+          },
+          5000
+        );
         if (r.ok) return { ok: true, latencyMs: Date.now() - start };
         return { ok: false, latencyMs: Date.now() - start, error: `HTTP ${r.status}` };
       }
@@ -258,28 +270,36 @@ async function testIntegration(name) {
         const key = process.env.ANTHROPIC_API_KEY;
         if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
         // Anthropic krever POST for chat, men vi kan bruke et minimalt probe
-        const r = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': key,
-            'anthropic-version': '2023-06-01',
+        const r = await fetchWithTimeout(
+          'https://api.anthropic.com/v1/messages',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': key,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model: 'claude-3-5-haiku-20241022',
+              max_tokens: 1,
+              messages: [{ role: 'user', content: 'ping' }],
+            }),
           },
-          body: JSON.stringify({
-            model: 'claude-3-5-haiku-20241022',
-            max_tokens: 1,
-            messages: [{ role: 'user', content: 'ping' }],
-          }),
-        }, 5000);
+          5000
+        );
         if (r.ok || r.status === 400) return { ok: true, latencyMs: Date.now() - start };
         return { ok: false, latencyMs: Date.now() - start, error: `HTTP ${r.status}` };
       }
       case 'xai': {
         const key = process.env.XAI_API_KEY;
         if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
-        const r = await fetchWithTimeout('https://api.x.ai/v1/models', {
-          headers: { Authorization: `Bearer ${key}` },
-        }, 5000);
+        const r = await fetchWithTimeout(
+          'https://api.x.ai/v1/models',
+          {
+            headers: { Authorization: `Bearer ${key}` },
+          },
+          5000
+        );
         if (r.ok) return { ok: true, latencyMs: Date.now() - start };
         return { ok: false, latencyMs: Date.now() - start, error: `HTTP ${r.status}` };
       }

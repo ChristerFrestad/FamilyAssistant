@@ -22,7 +22,7 @@ describe('createCache', () => {
   test('TTL expires', async () => {
     const c = createCache({ ttlMs: 10 });
     c.set('a', 1);
-    await new Promise(r => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 20));
     assert.equal(c.get('a'), undefined);
   });
 

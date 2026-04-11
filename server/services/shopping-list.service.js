@@ -55,7 +55,7 @@ function computeShoppingListForWeek(repos, weekYear) {
   //    'away', 'skipped' og 'removed' teller ikke — dagen trenger ingen mat.
   for (const slot of plan) {
     if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed') continue;
-    const recipe = allRecipes.find(r => r.id === slot.recipeId);
+    const recipe = allRecipes.find((r) => r.id === slot.recipeId);
     if (!recipe) continue;
     for (const ing of recipe.ingredients || []) {
       const key = ing.productKey || (ing.name || '').toLowerCase();
@@ -89,13 +89,13 @@ function computeShoppingListForWeek(repos, weekYear) {
     const pantryHas = hasHome > 0 && stillNeed === 0;
     const needsBuy = stillNeed > 0;
 
-    const packCount = product && product.packSize > 0
-      ? Math.ceil(stillNeed / product.packSize) : 0;
+    const packCount = product && product.packSize > 0 ? Math.ceil(stillNeed / product.packSize) : 0;
     const estPrice = product ? packCount * (product.estPrice || 0) : 0;
     const dairyRule = product?.dairyRule;
     let dairyNote = null;
     if (dairyRule === 'r\u00f8ros_only') dairyNote = '\ud83d\udd34 KUN R\u00f8ros-meieriet (Kiwi)';
-    else if (dairyRule === 'r\u00f8ros_preferred') dairyNote = '\ud83d\udfe1 R\u00f8ros foretrukket, Anglamark OK';
+    else if (dairyRule === 'r\u00f8ros_preferred')
+      dairyNote = '\ud83d\udfe1 R\u00f8ros foretrukket, Anglamark OK';
 
     const name = product ? product.productName : data.name;
 
@@ -114,9 +114,7 @@ function computeShoppingListForWeek(repos, weekYear) {
     // flatItem: row-ready for shopping_list_items
     flatItems.push({
       sourceType: 'meal_ingredient',
-      sourceRef: data.recipeIds.size > 0
-        ? Array.from(data.recipeIds).join(',')
-        : null,
+      sourceRef: data.recipeIds.size > 0 ? Array.from(data.recipeIds).join(',') : null,
       ingredientName: name,
       ingredientNameNo,
       productKey: data.productKey,
@@ -163,7 +161,7 @@ function computeShoppingListForWeek(repos, weekYear) {
     let packCount = 1;
     if (c.packSize && c.reorderThreshold > 0) {
       const deficit = Math.max(0, c.reorderThreshold - c.currentQty);
-      packCount = c.packSize > 1 ? (Math.ceil(deficit / c.packSize) || 1) : 1;
+      packCount = c.packSize > 1 ? Math.ceil(deficit / c.packSize) || 1 : 1;
     }
 
     let daysLeft = null;
@@ -192,7 +190,7 @@ function computeShoppingListForWeek(repos, weekYear) {
 
     const cat = c.category;
     if (!catMap[cat]) catMap[cat] = [];
-    if (catMap[cat].find(i => i.consumableId === c.id)) continue;
+    if (catMap[cat].find((i) => i.consumableId === c.id)) continue;
     catMap[cat].push({
       key: `consumable_${c.id}`,
       consumableId: c.id,
@@ -265,7 +263,10 @@ function computeShoppingListForWeek(repos, weekYear) {
   return {
     flatItems,
     legacy: {
-      categories: CATEGORY_ORDER.filter(c => catMap[c]).map(c => ({ category: c, items: catMap[c] })),
+      categories: CATEGORY_ORDER.filter((c) => catMap[c]).map((c) => ({
+        category: c,
+        items: catMap[c],
+      })),
       totalEstPrice: Math.round(totalEstPrice),
     },
   };
@@ -290,7 +291,9 @@ function computeShoppingListForWeek(repos, weekYear) {
  */
 function generateForWeek(repos, weekYear, { force = false } = {}) {
   if (!force && !repos.mealPlans.isWeekComplete(weekYear)) {
-    const err = new Error('Uken er ikke komplett \u2014 alle 7 dager m\u00e5 ha et valg (middag, away, skipped eller removed)');
+    const err = new Error(
+      'Uken er ikke komplett \u2014 alle 7 dager m\u00e5 ha et valg (middag, away, skipped eller removed)'
+    );
     err.code = 'WEEK_NOT_COMPLETE';
     throw err;
   }
@@ -325,9 +328,7 @@ function generateForWeek(repos, weekYear, { force = false } = {}) {
  * uendret selv før brukeren har generert en "ekte" liste.
  */
 function buildShoppingList(repos, weekYear) {
-  const active = repos.shoppingLists?.getActive
-    ? repos.shoppingLists.getActive(weekYear)
-    : null;
+  const active = repos.shoppingLists?.getActive ? repos.shoppingLists.getActive(weekYear) : null;
 
   if (active && active.items && active.items.length > 0) {
     return legacyViewFromActiveList(active);
@@ -361,9 +362,12 @@ function legacyViewFromActiveList(list) {
       estPrice: it.estPrice || 0,
       dairyNote: it.dairyNote || null,
       meals: it.mealsJson || [],
-      source: it.sourceType === 'meal_ingredient' ? 'recipe'
-        : it.sourceType === 'consumable' ? 'consumable'
-        : 'manual',
+      source:
+        it.sourceType === 'meal_ingredient'
+          ? 'recipe'
+          : it.sourceType === 'consumable'
+            ? 'consumable'
+            : 'manual',
       checkedOff: !!it.boughtAt,
       boughtAt: it.boughtAt,
       kassalProductId: it.kassalProductId,
@@ -374,7 +378,10 @@ function legacyViewFromActiveList(list) {
   return {
     listId: list.id,
     enrichmentStatus: list.enrichmentStatus,
-    categories: CATEGORY_ORDER.filter(c => catMap[c]).map(c => ({ category: c, items: catMap[c] })),
+    categories: CATEGORY_ORDER.filter((c) => catMap[c]).map((c) => ({
+      category: c,
+      items: catMap[c],
+    })),
     totalEstPrice: Math.round(list.totalEstPrice ?? totalEstPrice),
   };
 }

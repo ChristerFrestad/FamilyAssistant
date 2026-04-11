@@ -53,7 +53,7 @@ register('metrics', {
 function isStale(createdAt) {
   const t = new Date(createdAt).getTime();
   if (!Number.isFinite(t)) return true;
-  return (Date.now() - t) > STALE_MS;
+  return Date.now() - t > STALE_MS;
 }
 
 /**
@@ -74,7 +74,10 @@ function snapshotOne(repos, type) {
     logger.info({ type, bytes: json.length, trimmed }, 'state-snapshot: lagret');
     return true;
   } catch (err) {
-    logger.error({ err: { message: err.message, stack: err.stack }, type }, 'state-snapshot: snapshot feilet');
+    logger.error(
+      { err: { message: err.message, stack: err.stack }, type },
+      'state-snapshot: snapshot feilet'
+    );
     return false;
   }
 }
@@ -93,12 +96,16 @@ function restoreOne(repos, type) {
       return false;
     }
     if (isStale(row.createdAt)) {
-      logger.warn({ type, createdAt: row.createdAt }, 'state-snapshot: for gammel, hopper over hydratisering');
+      logger.warn(
+        { type, createdAt: row.createdAt },
+        'state-snapshot: for gammel, hopper over hydratisering'
+      );
       return false;
     }
     let data;
-    try { data = JSON.parse(row.dataJson); }
-    catch (err) {
+    try {
+      data = JSON.parse(row.dataJson);
+    } catch (err) {
       logger.error({ err: { message: err.message }, type }, 'state-snapshot: JSON-parse feilet');
       return false;
     }
@@ -110,7 +117,10 @@ function restoreOne(repos, type) {
     logger.warn({ type }, 'state-snapshot: hydrate returnerte false');
     return false;
   } catch (err) {
-    logger.error({ err: { message: err.message, stack: err.stack }, type }, 'state-snapshot: restore feilet');
+    logger.error(
+      { err: { message: err.message, stack: err.stack }, type },
+      'state-snapshot: restore feilet'
+    );
     return false;
   }
 }

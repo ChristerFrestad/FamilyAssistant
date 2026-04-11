@@ -56,8 +56,11 @@ function parseBody(req, { maxBytes = config.MAX_BODY_BYTES } = {}) {
     req.on('end', () => {
       if (aborted) return;
       if (!data) return resolve({});
-      try { resolve(JSON.parse(data)); }
-      catch { reject(errors.badRequest('Invalid JSON body')); }
+      try {
+        resolve(JSON.parse(data));
+      } catch {
+        reject(errors.badRequest('Invalid JSON body'));
+      }
     });
     req.on('error', reject);
   });
@@ -78,12 +81,13 @@ function writeJsonWithETag(req, res, data, status) {
 
   // Weak ETag basert på sha1 av kroppen (før gzip).
   // Weak fordi gzip endrer bytes men ikke semantikken.
-  const etag = 'W/"' + crypto.createHash('sha1').update(payload).digest('base64').slice(0, 22) + '"';
+  const etag =
+    'W/"' + crypto.createHash('sha1').update(payload).digest('base64').slice(0, 22) + '"';
 
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    'ETag': etag,
-    'Vary': 'Accept-Encoding',
+    ETag: etag,
+    Vary: 'Accept-Encoding',
     'Cache-Control': 'private, max-age=0, must-revalidate',
   };
 
@@ -130,9 +134,16 @@ function createContext(req, res, pathname, query) {
     },
     problem(err) {
       if (res.writableEnded) return;
-      const problem = err instanceof HttpError
-        ? err.toProblem(pathname)
-        : { type: 'about:blank', title: 'Internal Server Error', status: 500, detail: 'Uventet feil', instance: pathname };
+      const problem =
+        err instanceof HttpError
+          ? err.toProblem(pathname)
+          : {
+              type: 'about:blank',
+              title: 'Internal Server Error',
+              status: 500,
+              detail: 'Uventet feil',
+              instance: pathname,
+            };
       // M4.1: Alltid inkluder request-id i problem-body så klienten kan
       // vise den som feilkode, og operator kan grep'e journald direkte.
       problem.requestId = requestId;

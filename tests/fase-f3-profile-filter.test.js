@@ -14,8 +14,12 @@ const { startTestServer, request } = require('./helpers');
 
 describe('Fase F3 — family_profile', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('GET /api/profile returnerer tom profil ved oppstart', async () => {
     const r = await request(ctx.baseUrl, 'GET', '/api/profile');
@@ -56,8 +60,12 @@ describe('Fase F3 — family_profile', () => {
 
 describe('Fase F3 — profile defaults', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('GET /api/profile/defaults returnerer tomt ved ingen profil', async () => {
     const r = await request(ctx.baseUrl, 'GET', '/api/profile/defaults');
@@ -92,8 +100,12 @@ describe('Fase F3 — profile defaults', () => {
 
 describe('Fase F3 — filter_usage', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('POST /api/profile/filter-usage registrerer bruk', async () => {
     const r = await request(ctx.baseUrl, 'POST', '/api/profile/filter-usage', {

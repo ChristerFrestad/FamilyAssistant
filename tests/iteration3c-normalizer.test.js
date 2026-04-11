@@ -227,7 +227,10 @@ describe('normalize (async med LLM-fallback)', () => {
     const { repos } = server;
     let called = 0;
     const llm = require('../server/llm');
-    llm.llmChat = async () => { called++; return { type: 'text', content: '{"name":"should not be used"}' }; };
+    llm.llmChat = async () => {
+      called++;
+      return { type: 'text', content: '{"name":"should not be used"}' };
+    };
 
     const r = await normalizer.normalize(repos, { name: 'chicken breast' });
     assert.equal(r.nameNo, 'kyllingfilet');
@@ -287,8 +290,12 @@ describe('normalize (async med LLM-fallback)', () => {
 
 describe('integrasjon: generateForWeek setter ingredientNameNo', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('recipe med engelsk ingrediensnavn gir ingredientNameNo på lista', () => {
     const { repos } = server;
@@ -317,7 +324,7 @@ describe('integrasjon: generateForWeek setter ingredientNameNo', () => {
     const list = repos.shoppingLists.getById(res.listId);
 
     // Finn chicken breast-item — det skal ha ingredientNameNo = 'kyllingfilet'
-    const chickenItem = list.items.find(it =>
+    const chickenItem = list.items.find((it) =>
       (it.ingredientName || '').toLowerCase().includes('chicken')
     );
     assert.ok(chickenItem, 'chicken breast-item skal finnes');

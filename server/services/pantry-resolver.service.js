@@ -83,14 +83,16 @@ function resolvePantryInput(repos, query) {
   try {
     if (repos._db && typeof repos._db.prepare === 'function') {
       const rows = repos._db
-        .prepare(`
+        .prepare(
+          `
           SELECT product_key, COUNT(*) as cnt, MAX(created_at) as last_used
           FROM inventory_log
           WHERE lower(product_key) LIKE ?
           GROUP BY product_key
           ORDER BY cnt DESC
           LIMIT 20
-        `)
+        `
+        )
         .all(`%${q}%`);
       for (const r of rows) {
         if (seenKeys.has(r.product_key)) continue;
@@ -121,7 +123,7 @@ function resolvePantryInput(repos, query) {
   const trimmed = results.slice(0, MAX_RESULTS);
 
   // 4. Alltid tilby "opprett ny"-rad hvis ingen eksakt match
-  const hasExact = trimmed.some(r => r.confidence >= 1.0);
+  const hasExact = trimmed.some((r) => r.confidence >= 1.0);
   if (!hasExact && q.length >= 2) {
     const newKey = slugifyProductKey(query);
     if (newKey && !seenKeys.has(newKey)) {

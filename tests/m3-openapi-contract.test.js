@@ -44,7 +44,10 @@ function extractDocumentedRoutes(yamlText) {
     const line = lines[i];
     const raw = line.replace(/\t/g, '  ');
 
-    if (/^paths:\s*$/.test(raw)) { inPaths = true; continue; }
+    if (/^paths:\s*$/.test(raw)) {
+      inPaths = true;
+      continue;
+    }
     if (!inPaths) continue;
 
     // Top-level section exit: ny seksjon på kolonne 0 som ikke starter med "/"
@@ -99,14 +102,17 @@ function collectRuntimeRoutes() {
   // Fake repos med nok stubs til at routes.js ikke kaster ved registrering.
   // registerRoutes kaller ikke repos — det gjør handlerne — så en plain
   // stub holder.
-  const repos = new Proxy({}, {
-    get: () => new Proxy({}, { get: () => () => null }),
-  });
+  const repos = new Proxy(
+    {},
+    {
+      get: () => new Proxy({}, { get: () => () => null }),
+    }
+  );
   const serverState = { ready: true, driver: 'sql.js', startedAt: Date.now() };
 
   const router = createRouter();
   registerRoutes(router, { repos, serverState });
-  return router.routes.map(r => ({
+  return router.routes.map((r) => ({
     method: r.method,
     path: r.path,
   }));
@@ -126,8 +132,8 @@ describe('M3.2 · OpenAPI contract — paths', () => {
   const yaml = fs.readFileSync(yamlPath, 'utf8');
   const docRoutes = extractDocumentedRoutes(yaml);
   const codeRoutes = collectRuntimeRoutes();
-  const codeKeys = new Set(codeRoutes.map(r => `${r.method} ${r.path}`));
-  const docKeys = new Set(docRoutes.map(r => `${r.method} ${normalizePath(r.path)}`));
+  const codeKeys = new Set(codeRoutes.map((r) => `${r.method} ${r.path}`));
+  const docKeys = new Set(docRoutes.map((r) => `${r.method} ${normalizePath(r.path)}`));
 
   test('openapi.yaml parses til minst 15 ruter', () => {
     assert.ok(docRoutes.length >= 15, `fant ${docRoutes.length} dokumenterte ruter`);
@@ -164,12 +170,12 @@ describe('M3.2 · OpenAPI contract — paths', () => {
       'GET /api/llm/status',
       'POST /api/llm/chat',
     ];
-    const missing = critical.filter(c => !docKeys.has(c));
+    const missing = critical.filter((c) => !docKeys.has(c));
     assert.deepEqual(missing, [], `Kritiske ruter mangler dokumentasjon:\n${missing.join('\n')}`);
   });
 
   test('Alle dokumenterte ruter erklærer minst én response-status', () => {
-    const silent = docRoutes.filter(r => r.responses.length === 0);
+    const silent = docRoutes.filter((r) => r.responses.length === 0);
     assert.deepEqual(silent, [], `Ruter uten responses:\n${JSON.stringify(silent, null, 2)}`);
   });
 });
@@ -179,8 +185,12 @@ describe('M3.2 · OpenAPI contract — paths', () => {
 // ============================================================
 describe('M3.2 · OpenAPI contract — live response shapes', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('GET /health returnerer dokumentert Health-shape', async () => {
     const res = await request(server.baseUrl, 'GET', '/health');

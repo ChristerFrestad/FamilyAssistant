@@ -30,19 +30,23 @@ const alerting = require('./alerting');
 process.on('uncaughtException', (err) => {
   logger.fatal({ err: { message: err.message, stack: err.stack } }, 'uncaughtException');
   // M4.3: fire-and-forget alert. shouldThrottle hindrer spam.
-  alerting.fatal('uncaughtException', {
-    detail: err.message,
-    context: { stack: err.stack?.split('\n').slice(0, 10).join('\n') },
-    key: 'uncaughtException',
-  }).catch(() => {});
+  alerting
+    .fatal('uncaughtException', {
+      detail: err.message,
+      context: { stack: err.stack?.split('\n').slice(0, 10).join('\n') },
+      key: 'uncaughtException',
+    })
+    .catch(() => {});
 });
 
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ reason }, 'unhandledRejection');
-  alerting.fatal('unhandledRejection', {
-    detail: String(reason?.message || reason).slice(0, 500),
-    key: 'unhandledRejection',
-  }).catch(() => {});
+  alerting
+    .fatal('unhandledRejection', {
+      detail: String(reason?.message || reason).slice(0, 500),
+      key: 'unhandledRejection',
+    })
+    .catch(() => {});
 });
 
 // ============================================================
@@ -79,8 +83,11 @@ async function startServer() {
   ensureCurrentWeek(repos);
 
   // 2b. Hydratiser persistert state (metrics) fra forrige run
-  try { stateSnapshot.restoreAll(repos); }
-  catch (e) { logger.warn({ err: e.message }, 'state-snapshot restore feilet'); }
+  try {
+    stateSnapshot.restoreAll(repos);
+  } catch (e) {
+    logger.warn({ err: e.message }, 'state-snapshot restore feilet');
+  }
 
   // 3. Bygg router + registrer ruter
   const router = createRouter();
@@ -95,14 +102,17 @@ async function startServer() {
   });
 
   serverState.ready = true;
-  logger.info({
-    port: config.PORT,
-    driver: dbHandle.driver,
-    fts5: repos.hasFTS,
-    nodeEnv: config.NODE_ENV,
-    routes: router.routes.length,
-    sdNotifyActive: sdNotify.isActive(),
-  }, `Familieassistenten kj\u00f8rer p\u00e5 http://localhost:${config.PORT}`);
+  logger.info(
+    {
+      port: config.PORT,
+      driver: dbHandle.driver,
+      fts5: repos.hasFTS,
+      nodeEnv: config.NODE_ENV,
+      routes: router.routes.length,
+      sdNotifyActive: sdNotify.isActive(),
+    },
+    `Familieassistenten kj\u00f8rer p\u00e5 http://localhost:${config.PORT}`
+  );
 
   // M2.2: signaliser READY til systemd + start watchdog
   sdNotify.ready();
@@ -116,14 +126,14 @@ async function startServer() {
   stopStateSnapshot = stateSnapshot.startSnapshotScheduler(repos);
 
   // 7. Sjekk LLM/STT-tilgjengelighet (ikke-blokkerende)
-  isLLMAvailable().then(status => {
+  isLLMAvailable().then((status) => {
     if (status.available) {
       logger.info({ backend: status.backend, models: status.models }, 'LLM tilgjengelig');
     } else {
       logger.warn({ backend: status.backend }, 'LLM ikke tilgjengelig \u2014 chat er deaktivert');
     }
   });
-  isSTTAvailable().then(status => {
+  isSTTAvailable().then((status) => {
     if (status.available) {
       logger.info({ backend: status.backend }, 'STT tilgjengelig');
     } else {
@@ -145,8 +155,12 @@ async function gracefulShutdown(signal) {
 
   // M2.2: si ifra til systemd at vi er på vei ned — ellers kan systemd tolke
   // en lang shutdown som at prosessen har hengt og SIGKILLe den.
-  try { sdNotify.stopping(); } catch {}
-  try { stopWatchdog?.(); } catch {}
+  try {
+    sdNotify.stopping();
+  } catch {}
+  try {
+    stopWatchdog?.();
+  } catch {}
 
   if (server) {
     server.close((err) => {
@@ -155,20 +169,45 @@ async function gracefulShutdown(signal) {
     });
   }
 
-  try { stopCronJobs(); } catch (e) { logger.error({ err: e }, 'Cron stop feilet'); }
-  try { stopBackupScheduler(); } catch (e) { logger.error({ err: e }, 'Backup stop feilet'); }
-  try { stopRateLimitCleanup?.(); } catch (e) { logger.error({ err: e }, 'RL cleanup stop feilet'); }
-  try { stopStateSnapshot?.(); } catch (e) { logger.error({ err: e }, 'State-snapshot stop feilet'); }
+  try {
+    stopCronJobs();
+  } catch (e) {
+    logger.error({ err: e }, 'Cron stop feilet');
+  }
+  try {
+    stopBackupScheduler();
+  } catch (e) {
+    logger.error({ err: e }, 'Backup stop feilet');
+  }
+  try {
+    stopRateLimitCleanup?.();
+  } catch (e) {
+    logger.error({ err: e }, 'RL cleanup stop feilet');
+  }
+  try {
+    stopStateSnapshot?.();
+  } catch (e) {
+    logger.error({ err: e }, 'State-snapshot stop feilet');
+  }
 
   // Persister in-memory state (metrics) før DB stenger
-  try { if (repos) stateSnapshot.snapshotAll(repos); }
-  catch (e) { logger.warn({ err: e.message }, 'State-snapshot ved shutdown feilet'); }
+  try {
+    if (repos) stateSnapshot.snapshotAll(repos);
+  } catch (e) {
+    logger.warn({ err: e.message }, 'State-snapshot ved shutdown feilet');
+  }
 
-  try { if (dbHandle?.db) backupNow(dbHandle.db); }
-  catch (e) { logger.warn({ err: e.message }, 'Avslutningsbackup feilet'); }
+  try {
+    if (dbHandle?.db) backupNow(dbHandle.db);
+  } catch (e) {
+    logger.warn({ err: e.message }, 'Avslutningsbackup feilet');
+  }
 
-  try { closeDB(dbHandle); }
-  catch (e) { logger.error({ err: e }, 'DB close feilet'); }
+  try {
+    closeDB(dbHandle);
+  } catch (e) {
+    logger.error({ err: e }, 'DB close feilet');
+  }
 
   setTimeout(() => {
     logger.info('Shutdown komplett');
@@ -179,7 +218,7 @@ async function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-startServer().catch(err => {
+startServer().catch((err) => {
   logger.fatal({ err: { message: err.message, stack: err.stack } }, 'Oppstartsfeil');
   process.exit(1);
 });

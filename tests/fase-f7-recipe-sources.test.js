@@ -65,8 +65,12 @@ describe('Fase F7 — connector stubs', () => {
 
 describe('Fase F7 — CRUD /api/sources', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('GET /api/sources tom ved oppstart', async () => {
     const r = await request(ctx.baseUrl, 'GET', '/api/sources');
@@ -131,7 +135,7 @@ describe('Fase F7 — CRUD /api/sources', () => {
 
     // Sjekk at den er borte
     const listR = await request(ctx.baseUrl, 'GET', '/api/sources');
-    assert.ok(!listR.body.sources.find(s => s.id === id));
+    assert.ok(!listR.body.sources.find((s) => s.id === id));
   });
 
   test('POST /api/sources/:id/sync kaller connector (stub)', async () => {
@@ -148,8 +152,12 @@ describe('Fase F7 — CRUD /api/sources', () => {
 
 describe('Fase F7 — recipes ?source filter', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('GET /api/recipes returnerer alle uten filter', async () => {
     const r = await request(ctx.baseUrl, 'GET', '/api/recipes');

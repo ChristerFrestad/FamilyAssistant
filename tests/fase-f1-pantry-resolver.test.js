@@ -25,7 +25,10 @@ describe('Fase F1 — slugifyProductKey', () => {
 
   test('fjerner spesial-tegn', () => {
     assert.equal(slugifyProductKey('Melk!@#%&'), 'melk');
-    assert.equal(slugifyProductKey('First Price kjøttdeig 14% 400g'), 'first-price-kjottdeig-14-400g');
+    assert.equal(
+      slugifyProductKey('First Price kjøttdeig 14% 400g'),
+      'first-price-kjottdeig-14-400g'
+    );
   });
 
   test('tom input → tom streng', () => {
@@ -73,7 +76,7 @@ describe('Fase F1 — pantry-resolver', () => {
     assert.ok(Array.isArray(r.body.suggestions), 'suggestions er array');
     assert.ok(r.body.suggestions.length > 0, 'fant minst ett treff');
     // Minst ett treff skal være fra kassal/seed-katalog
-    const kassalHits = r.body.suggestions.filter(s => s.source === 'kassal');
+    const kassalHits = r.body.suggestions.filter((s) => s.source === 'kassal');
     assert.ok(kassalHits.length > 0, 'har minst ett kassal-treff for "melk"');
   });
 
@@ -81,7 +84,7 @@ describe('Fase F1 — pantry-resolver', () => {
     const r = await request(ctx.baseUrl, 'GET', '/api/pantry/suggest?q=unzzzxxxvare');
     assert.equal(r.status, 200);
     // Skal ha en "ny"-rad nederst
-    const newRows = r.body.suggestions.filter(s => s.source === 'ny');
+    const newRows = r.body.suggestions.filter((s) => s.source === 'ny');
     assert.ok(newRows.length >= 1, 'tilbyr å opprette ny vare');
     assert.equal(newRows[0].productKey, 'unzzzxxxvare');
   });
@@ -145,7 +148,7 @@ describe('Fase F1 — POST /api/pantry/add med query', () => {
     // Deretter søk på prefiks
     const r = await request(ctx.baseUrl, 'GET', '/api/pantry/suggest?q=unik-f1');
     assert.equal(r.status, 200);
-    const found = r.body.suggestions.find(s => s.productKey === 'unik-f1-vare-test');
+    const found = r.body.suggestions.find((s) => s.productKey === 'unik-f1-vare-test');
     assert.ok(found, 'fant nyopprettet vare i suggest-resultatet');
     assert.ok(['lokal', 'kassal'].includes(found.source), 'source er lokal eller kassal');
   });

@@ -162,12 +162,20 @@ async function send({ level = 'warning', title, detail = '', context = {}, key =
 }
 
 // Convenience wrappers
-function warning(title, opts = {}) { return send({ ...opts, level: 'warning', title }); }
-function critical(title, opts = {}) { return send({ ...opts, level: 'critical', title }); }
-function fatal(title, opts = {}) { return send({ ...opts, level: 'fatal', title }); }
+function warning(title, opts = {}) {
+  return send({ ...opts, level: 'warning', title });
+}
+function critical(title, opts = {}) {
+  return send({ ...opts, level: 'critical', title });
+}
+function fatal(title, opts = {}) {
+  return send({ ...opts, level: 'fatal', title });
+}
 
 // Test-helper: reset throttle og (optional) inject webhook URL
-function _resetThrottle() { lastSent.clear(); }
+function _resetThrottle() {
+  lastSent.clear();
+}
 
 module.exports = {
   isActive,

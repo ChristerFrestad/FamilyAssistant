@@ -166,7 +166,13 @@ async function fetchWithTimeout(url, { apiKey, timeoutMs = KASSAL_TIMEOUT_MS }) 
  * @param {string} [opts.apiKey]    — auth; default KASSAL_API_KEY env
  * @returns {Promise<object|null>}  — parsed JSON eller null
  */
-async function cachedFetch({ repos, cacheKey, endpoint, url, apiKey = process.env.KASSAL_API_KEY }) {
+async function cachedFetch({
+  repos,
+  cacheKey,
+  endpoint,
+  url,
+  apiKey = process.env.KASSAL_API_KEY,
+}) {
   // 1. Null-fallback: ingen API-nøkkel → hele integrasjonen er av
   if (!apiKey) return null;
 
@@ -186,7 +192,7 @@ async function cachedFetch({ repos, cacheKey, endpoint, url, apiKey = process.en
   // 4. Token bucket
   if (!takeToken()) {
     logger.warn({ cacheKey }, 'kassal: rate limit nådd');
-    if (cached.parsed) return cached.parsed;  // stale-if-overrate
+    if (cached.parsed) return cached.parsed; // stale-if-overrate
     return null;
   }
 

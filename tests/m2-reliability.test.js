@@ -28,20 +28,32 @@ describe('M2.3 · Circuit breaker state machine', () => {
     const cb = createBreaker({ name: 'test1', failureThreshold: 3, cooldownMs: 1000 });
     assert.equal(cb.state, 'CLOSED');
     for (let i = 0; i < 3; i++) {
-      await assert.rejects(cb.execute(async () => { throw new Error('boom'); }), /boom/);
+      await assert.rejects(
+        cb.execute(async () => {
+          throw new Error('boom');
+        }),
+        /boom/
+      );
     }
     assert.equal(cb.state, 'OPEN');
   });
 
   test('OPEN short-circuiter uten å kalle fn', async () => {
     const cb = createBreaker({ name: 'test2', failureThreshold: 1, cooldownMs: 10_000 });
-    await assert.rejects(cb.execute(async () => { throw new Error('boom'); }));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('boom');
+      })
+    );
     assert.equal(cb.state, 'OPEN');
 
     let called = false;
     await assert.rejects(
-      cb.execute(async () => { called = true; return 'ok'; }),
-      (err) => err instanceof CircuitOpenError,
+      cb.execute(async () => {
+        called = true;
+        return 'ok';
+      }),
+      (err) => err instanceof CircuitOpenError
     );
     assert.equal(called, false, 'fn skal IKKE kalles når OPEN');
     const snap = cb.snapshot();
@@ -50,10 +62,14 @@ describe('M2.3 · Circuit breaker state machine', () => {
 
   test('OPEN → HALF_OPEN når cooldown er utløpt', async () => {
     const cb = createBreaker({ name: 'test3', failureThreshold: 1, cooldownMs: 30 });
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
     assert.equal(cb.state, 'OPEN');
 
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise((r) => setTimeout(r, 60));
     // Neste execute skal gå over i HALF_OPEN og kalle fn
     const r = await cb.execute(async () => 'ok');
     assert.equal(r, 'ok');
@@ -62,23 +78,47 @@ describe('M2.3 · Circuit breaker state machine', () => {
 
   test('HALF_OPEN-feil → OPEN igjen', async () => {
     const cb = createBreaker({ name: 'test4', failureThreshold: 1, cooldownMs: 20 });
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
     assert.equal(cb.state, 'OPEN');
 
-    await new Promise(r => setTimeout(r, 40));
-    await assert.rejects(cb.execute(async () => { throw new Error('still broken'); }));
+    await new Promise((r) => setTimeout(r, 40));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('still broken');
+      })
+    );
     assert.equal(cb.state, 'OPEN', 'HALF_OPEN-feil skal sende oss tilbake til OPEN');
   });
 
   test('Suksess i CLOSED resetter failure-teller', async () => {
     const cb = createBreaker({ name: 'test5', failureThreshold: 3, cooldownMs: 1000 });
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
     // 2 feil, men ikke OPEN ennå
     assert.equal(cb.state, 'CLOSED');
     await cb.execute(async () => 'ok'); // suksess → reset
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
     // Fortsatt CLOSED siden telleren ble nullstilt
     assert.equal(cb.state, 'CLOSED');
   });
@@ -86,7 +126,11 @@ describe('M2.3 · Circuit breaker state machine', () => {
   test('snapshot() returnerer all relevant state', async () => {
     const cb = createBreaker({ name: 'test6', failureThreshold: 2, cooldownMs: 500 });
     await cb.execute(async () => 'ok');
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
     const s = cb.snapshot();
     assert.equal(s.name, 'test6');
     assert.equal(s.state, 'CLOSED');
@@ -98,7 +142,11 @@ describe('M2.3 · Circuit breaker state machine', () => {
 
   test('reset() setter tilbake til CLOSED', async () => {
     const cb = createBreaker({ name: 'test7', failureThreshold: 1, cooldownMs: 10_000 });
-    await assert.rejects(cb.execute(async () => { throw new Error('x'); }));
+    await assert.rejects(
+      cb.execute(async () => {
+        throw new Error('x');
+      })
+    );
     assert.equal(cb.state, 'OPEN');
     cb.reset();
     assert.equal(cb.state, 'CLOSED');
@@ -125,7 +173,12 @@ describe('M2.3 · Circuit breaker state machine', () => {
 // 2. Circuit breaker — shared instances
 // ============================================================
 describe('M2.3 · Circuit breaker shared instances', () => {
-  const { getBreaker, snapshotAll, resetAll, breakers } = require('../server/services/circuit-breaker');
+  const {
+    getBreaker,
+    snapshotAll,
+    resetAll,
+    breakers,
+  } = require('../server/services/circuit-breaker');
 
   test('getBreaker returnerer alle kjente backends', () => {
     for (const name of ['kassal', 'ollama', 'anthropic', 'openai', 'xai']) {
@@ -189,8 +242,12 @@ describe('M2.1 · Backup syncToRemote (mount)', () => {
   });
 
   after(() => {
-    try { fs.rmSync(tmpSrc, { recursive: true, force: true }); } catch {}
-    try { fs.rmSync(tmpDst, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpSrc, { recursive: true, force: true });
+    } catch {}
+    try {
+      fs.rmSync(tmpDst, { recursive: true, force: true });
+    } catch {}
   });
 
   test('mount-path: kopierer filen til remote', async () => {
@@ -231,8 +288,12 @@ describe('M2.1 · Backup syncToRemote (mount)', () => {
 // ============================================================
 describe('M2 · /api/status med breakers', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('/api/status inneholder breakers-snapshot', async () => {
     const res = await request(server.baseUrl, 'GET', '/api/status');

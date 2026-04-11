@@ -50,11 +50,11 @@ async function getCurrentWeek() {
  * Sett alle 7 dager til en kjent tilstand. Default: første 5 dager = recipeId 1,
  * lørdag = 'away', søndag = 'removed'. Returnerer weekYear.
  */
-function fillWeek(repos, wk, {
-  recipeIds = [1, 1, 1, 1, 1],
-  saturdayStatus = 'away',
-  sundayStatus = 'removed',
-} = {}) {
+function fillWeek(
+  repos,
+  wk,
+  { recipeIds = [1, 1, 1, 1, 1], saturdayStatus = 'away', sundayStatus = 'removed' } = {}
+) {
   for (let d = 0; d < 5; d++) {
     repos.mealPlans.setRecipe(wk, d, recipeIds[d] ?? 1, 'planned');
   }
@@ -114,19 +114,28 @@ describe('shoppingLists repository', () => {
     const wk = '2099-W40';
 
     // Første liste
-    const first = repos.shoppingLists.createActive(wk, [
-      { sourceType: 'extra', ingredientName: 'Sjokolade',
-        category: 'Tørrvarer & annet', needsBuy: true },
-    ], { totalEstPrice: 40 });
+    const first = repos.shoppingLists.createActive(
+      wk,
+      [
+        {
+          sourceType: 'extra',
+          ingredientName: 'Sjokolade',
+          category: 'Tørrvarer & annet',
+          needsBuy: true,
+        },
+      ],
+      { totalEstPrice: 40 }
+    );
     assert.ok(first.listId > 0);
     assert.equal(first.itemCount, 1);
     assert.equal(first.needsBuyCount, 1);
 
     // Andre liste → første skal bli superseded
-    const second = repos.shoppingLists.createActive(wk, [
-      { sourceType: 'extra', ingredientName: 'Melk',
-        category: 'Meieri', needsBuy: true },
-    ], { totalEstPrice: 25 });
+    const second = repos.shoppingLists.createActive(
+      wk,
+      [{ sourceType: 'extra', ingredientName: 'Melk', category: 'Meieri', needsBuy: true }],
+      { totalEstPrice: 25 }
+    );
     assert.ok(second.listId > first.listId);
 
     const active = repos.shoppingLists.getActive(wk);
@@ -140,8 +149,7 @@ describe('shoppingLists repository', () => {
     const { repos } = server;
     const wk = '2099-W41';
     const { listId } = repos.shoppingLists.createActive(wk, [
-      { sourceType: 'extra', ingredientName: 'Brød',
-        category: 'Brød & bakst', needsBuy: true },
+      { sourceType: 'extra', ingredientName: 'Brød', category: 'Brød & bakst', needsBuy: true },
     ]);
     const list = repos.shoppingLists.getById(listId);
     const item = list.items[0];
@@ -158,9 +166,12 @@ describe('shoppingLists repository', () => {
     const wk = '2099-W42';
     const { listId } = repos.shoppingLists.createActive(wk, [
       {
-        sourceType: 'meal_ingredient', ingredientName: 'Ost',
+        sourceType: 'meal_ingredient',
+        ingredientName: 'Ost',
         category: 'Meieri',
-        pantryHas: true, pantryQty: 2, needsBuy: false,
+        pantryHas: true,
+        pantryQty: 2,
+        needsBuy: false,
       },
     ]);
     const list = repos.shoppingLists.getById(listId);
@@ -178,8 +189,12 @@ describe('shoppingLists repository', () => {
     const { repos } = server;
     const wk = '2099-W43';
     const { listId } = repos.shoppingLists.createActive(wk, [
-      { sourceType: 'extra', ingredientName: 'Sukker',
-        category: 'Tørrvarer & annet', needsBuy: true },
+      {
+        sourceType: 'extra',
+        ingredientName: 'Sukker',
+        category: 'Tørrvarer & annet',
+        needsBuy: true,
+      },
     ]);
     repos.shoppingLists.markDone(listId);
     const list = repos.shoppingLists.getById(listId);
@@ -314,7 +329,7 @@ describe('Shopping routes', () => {
 
     // Inventory_log skal ha en 'shopping_bought'-rad
     const logs = server.repos.inventoryLog.getByReason('shopping_bought', 10);
-    assert.ok(logs.some(l => l.productKey === 'kjottdeig_400g'));
+    assert.ok(logs.some((l) => l.productKey === 'kjottdeig_400g'));
   });
 
   test('PUT /api/shopping/items/:id/bought øker times_confirmed hvis resolutionId finnes', async () => {
@@ -360,8 +375,9 @@ describe('Shopping routes', () => {
     const before = repos.productResolutions.getById(resolutionId);
     const beforeCount = before.times_confirmed || 0;
 
-    const res = await request(server.baseUrl, 'PUT',
-      `/api/shopping/items/${itemId}/bought`, { body: {} });
+    const res = await request(server.baseUrl, 'PUT', `/api/shopping/items/${itemId}/bought`, {
+      body: {},
+    });
     assert.equal(res.status, 200);
 
     const afterRes = repos.productResolutions.getById(resolutionId);
@@ -385,8 +401,7 @@ describe('Shopping routes', () => {
     const list = repos.shoppingLists.getById(listId);
     const itemId = list.items[0].id;
 
-    const res = await request(server.baseUrl, 'PUT',
-      `/api/shopping/items/${itemId}/unpantry`);
+    const res = await request(server.baseUrl, 'PUT', `/api/shopping/items/${itemId}/unpantry`);
     assert.equal(res.status, 200);
 
     const after = repos.shoppingLists.getById(listId);
@@ -398,11 +413,9 @@ describe('Shopping routes', () => {
     const { repos } = server;
     const wk = '2099-W66';
     const { listId } = repos.shoppingLists.createActive(wk, [
-      { sourceType: 'extra', ingredientName: 'Epler',
-        category: 'Frukt & grønt', needsBuy: true },
+      { sourceType: 'extra', ingredientName: 'Epler', category: 'Frukt & grønt', needsBuy: true },
     ]);
-    const res = await request(server.baseUrl, 'POST',
-      `/api/shopping/list/${listId}/done`);
+    const res = await request(server.baseUrl, 'POST', `/api/shopping/list/${listId}/done`);
     assert.equal(res.status, 200);
     const list = repos.shoppingLists.getById(listId);
     assert.equal(list.status, 'done');
@@ -435,8 +448,7 @@ describe('Autogenerer-hook', () => {
       body: { weekYear: wk, dayOfWeek: 6, status: 'removed' },
     });
     assert.equal(res.status, 200);
-    assert.ok(res.body.autogeneratedShoppingList,
-      'forventet autogeneratedShoppingList i response');
+    assert.ok(res.body.autogeneratedShoppingList, 'forventet autogeneratedShoppingList i response');
 
     // Aktiv liste skal nå finnes
     const active = repos.shoppingLists.getActive(wk);
@@ -497,17 +509,19 @@ describe('Receipt confirmReceipt capture-hook', () => {
       sha256: 'sha-3b-capture-' + Date.now(),
       status: 'pending',
     });
-    repos.receiptItems.insertMany(receiptId, [{
-      lineText: 'Kiwi Mild Kaffe',
-      productKey: 'kaffe_400g',
-      productName: 'Kiwi Mild Kaffe 400g',
-      qty: 1,
-      unit: 'stk',
-      unitPrice: 55,
-      totalPrice: 55,
-      discount: 0,
-      confidence: 0.9,
-    }]);
+    repos.receiptItems.insertMany(receiptId, [
+      {
+        lineText: 'Kiwi Mild Kaffe',
+        productKey: 'kaffe_400g',
+        productName: 'Kiwi Mild Kaffe 400g',
+        qty: 1,
+        unit: 'stk',
+        unitPrice: 55,
+        totalPrice: 55,
+        discount: 0,
+        confidence: 0.9,
+      },
+    ]);
     // Sett confirmed=true på item-et slik at confirmReceipt plukker det opp
     const items = repos.receiptItems.getByReceipt(receiptId);
     repos.receiptItems.updateItem(items[0].id, { confirmed: true });
@@ -518,7 +532,10 @@ describe('Receipt confirmReceipt capture-hook', () => {
     confirmReceipt(repos, receiptId);
 
     const after = repos.productResolutions.getById(resolutionId);
-    assert.equal(after.times_confirmed, beforeCount + 1,
-      'bekreftet kvittering skal øke times_confirmed');
+    assert.equal(
+      after.times_confirmed,
+      beforeCount + 1,
+      'bekreftet kvittering skal øke times_confirmed'
+    );
   });
 });

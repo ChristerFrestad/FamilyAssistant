@@ -50,14 +50,18 @@ const shoppingAddBody = z.object({
   quantity: z.number().positive().optional(),
 });
 
-const shoppingGenerateBody = z.object({
-  weekYear: weekYear.optional(),
-  force: z.boolean().optional(),
-}).strict();
+const shoppingGenerateBody = z
+  .object({
+    weekYear: weekYear.optional(),
+    force: z.boolean().optional(),
+  })
+  .strict();
 
-const shoppingItemBoughtBody = z.object({
-  qty: z.number().positive().optional(),
-}).strict();
+const shoppingItemBoughtBody = z
+  .object({
+    qty: z.number().positive().optional(),
+  })
+  .strict();
 
 // ============================================================
 // Chores
@@ -77,16 +81,18 @@ const choreCompleteBody = z.object({
 // Consumables
 // ============================================================
 
-const consumableUpdateBody = z.object({
-  name: z.string().optional(),
-  autoAdd: z.boolean().optional(),
-  depletionRate: z.number().nonnegative().optional(),
-  reorderThreshold: z.number().nonnegative().optional(),
-  notes: z.string().optional(),
-  estPrice: z.number().nonnegative().optional(),
-  packName: z.string().optional(),
-  packSize: z.number().positive().optional(),
-}).strict();
+const consumableUpdateBody = z
+  .object({
+    name: z.string().optional(),
+    autoAdd: z.boolean().optional(),
+    depletionRate: z.number().nonnegative().optional(),
+    reorderThreshold: z.number().nonnegative().optional(),
+    notes: z.string().optional(),
+    estPrice: z.number().nonnegative().optional(),
+    packName: z.string().optional(),
+    packSize: z.number().positive().optional(),
+  })
+  .strict();
 
 const consumableBoughtBody = z.object({
   qty: z.number().positive().optional(),
@@ -99,16 +105,30 @@ const consumableBoughtBody = z.object({
 const calendarEventBody = z.object({
   title: z.string().min(1).max(200),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)'),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Ugyldig tid (HH:MM)').optional().nullable(),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Ugyldig tid (HH:MM)').optional().nullable(),
+  startTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, 'Ugyldig tid (HH:MM)')
+    .optional()
+    .nullable(),
+  endTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, 'Ugyldig tid (HH:MM)')
+    .optional()
+    .nullable(),
   location: z.string().max(200).optional().nullable(),
   allDay: z.boolean().optional(),
   notes: z.string().max(1000).optional().nullable(),
 });
 
 const calendarQuerySchema = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 // ============================================================
@@ -117,10 +137,14 @@ const calendarQuerySchema = z.object({
 
 const llmChatBody = z.object({
   message: z.string().min(1).max(4000),
-  history: z.array(z.object({
-    role: z.enum(['user', 'assistant', 'system']),
-    content: z.string(),
-  })).optional(),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string(),
+      })
+    )
+    .optional(),
   saveToKB: z.boolean().optional(),
 });
 
@@ -132,12 +156,14 @@ const llmRecipeBody = z.object({
 // Recipe import (Iterasjon 3b fase D)
 // ============================================================
 
-const recipeImportTextBody = z.object({
-  text: z.string().min(20).max(8000),
-  title: z.string().min(1).max(200).optional(),
-  sourceUrl: z.string().url().max(500).optional(),
-  language: z.enum(['no', 'en', 'auto']).optional(),
-}).strict();
+const recipeImportTextBody = z
+  .object({
+    text: z.string().min(20).max(8000),
+    title: z.string().min(1).max(200).optional(),
+    sourceUrl: z.string().url().max(500).optional(),
+    language: z.enum(['no', 'en', 'auto']).optional(),
+  })
+  .strict();
 
 const kbSearchQuery = z.object({
   q: z.string().max(500).optional(),
@@ -150,46 +176,57 @@ const kbSearchQuery = z.object({
 // Fase F: productKey og query er nå alternative — hvis productKey mangler
 // kjører server-siden resolver på query. qty kan være hel- eller decimaltall.
 // total + unit er nye valgfrie felter for Fase F progress-bar og lav-terskel.
-const pantryAddBody = z.object({
-  productKey: z.string().min(1).max(100).optional(),
-  query: z.string().min(1).max(200).optional(),
-  qty: z.number().positive(),
-  total: z.number().positive().optional(),
-  unit: z.string().max(20).optional(),
-  shelfDays: z.number().int().positive().max(3650).optional(),
-  expiresEst: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)').optional(),
-  category: z.string().min(1).max(50).optional(),
-  notes: z.string().max(500).optional(),
-  reason: z.enum(['manual', 'initial_seed', 'correction']).optional(),
-}).strict().refine(
-  (d) => !!d.productKey || !!d.query,
-  { message: 'productKey eller query må være satt' }
-);
+const pantryAddBody = z
+  .object({
+    productKey: z.string().min(1).max(100).optional(),
+    query: z.string().min(1).max(200).optional(),
+    qty: z.number().positive(),
+    total: z.number().positive().optional(),
+    unit: z.string().max(20).optional(),
+    shelfDays: z.number().int().positive().max(3650).optional(),
+    expiresEst: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .optional(),
+    category: z.string().min(1).max(50).optional(),
+    notes: z.string().max(500).optional(),
+    reason: z.enum(['manual', 'initial_seed', 'correction']).optional(),
+  })
+  .strict()
+  .refine((d) => !!d.productKey || !!d.query, { message: 'productKey eller query må være satt' });
 
-const pantryCorrectBody = z.object({
-  productKey: z.string().min(1).max(100),
-  newQty: z.number().nonnegative(),
-  newTotal: z.number().positive().optional(),
-  newUnit: z.string().max(20).optional(),
-  notes: z.string().max(500).optional(),
-}).strict();
+const pantryCorrectBody = z
+  .object({
+    productKey: z.string().min(1).max(100),
+    newQty: z.number().nonnegative(),
+    newTotal: z.number().positive().optional(),
+    newUnit: z.string().max(20).optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .strict();
 
 // ============================================================
 // Receipts (Iterasjon 2)
 // ============================================================
 
-const receiptConfirmBody = z.object({
-  receiptId: positiveId,
-  items: z.array(z.object({
-    id: positiveId,
-    productKey: z.string().min(1).max(100).nullable().optional(),
-    productName: z.string().min(1).max(200).optional(),
-    qty: z.number().positive().optional(),
-    unit: z.string().max(20).optional(),
-    totalPrice: z.number().nonnegative().optional(),
-    confirmed: z.boolean().optional(),
-  })).optional(),
-}).strict();
+const receiptConfirmBody = z
+  .object({
+    receiptId: positiveId,
+    items: z
+      .array(
+        z.object({
+          id: positiveId,
+          productKey: z.string().min(1).max(100).nullable().optional(),
+          productName: z.string().min(1).max(200).optional(),
+          qty: z.number().positive().optional(),
+          unit: z.string().max(20).optional(),
+          totalPrice: z.number().nonnegative().optional(),
+          confirmed: z.boolean().optional(),
+        })
+      )
+      .optional(),
+  })
+  .strict();
 
 const receiptListQuery = z.object({
   status: z.enum(['pending', 'confirmed', 'rejected', 'failed']).optional(),
@@ -215,12 +252,16 @@ const priceSearchQuery = z.object({
 
 const sundayAcceptBody = z.object({
   weekYear,
-  meals: z.array(z.object({
-    dayOfWeek,
-    recipeId: positiveId.optional(),
-    status: mealStatus.optional(),
-    recipe: z.object({ id: positiveId }).optional(),
-  })).length(7),
+  meals: z
+    .array(
+      z.object({
+        dayOfWeek,
+        recipeId: positiveId.optional(),
+        status: mealStatus.optional(),
+        recipe: z.object({ id: positiveId }).optional(),
+      })
+    )
+    .length(7),
 });
 
 // ============================================================

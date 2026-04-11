@@ -102,7 +102,8 @@ async function syncAllEnabled(repos) {
   let failed = 0;
   for (const src of sources) {
     const r = await syncSource(repos, src.id);
-    if (r.ok) synced++; else failed++;
+    if (r.ok) synced++;
+    else failed++;
   }
   logger.info({ total: sources.length, synced, failed }, 'recipe-sources: syncAllEnabled ferdig');
   return { ok: true, total: sources.length, synced, failed };

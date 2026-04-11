@@ -25,9 +25,9 @@ const { logger } = require('../logger');
 // ============================================================
 
 // Ferskhet (dager) som styrer hvilken strategi som brukes ved lookup.
-const FRESH_DAYS = 30;          // <30 dager: bruk direkte, confidence = originalen
-const INDEX_DAYS = 90;          // 30–90: CPI-indekser til ny pris
-const STALE_DAYS = 90;          // >90: markeres stale (search-UI kan skjule)
+const FRESH_DAYS = 30; // <30 dager: bruk direkte, confidence = originalen
+const INDEX_DAYS = 90; // 30–90: CPI-indekser til ny pris
+const STALE_DAYS = 90; // >90: markeres stale (search-UI kan skjule)
 
 // Default SSB KPI YoY-vekst i prosent (oppdateres manuelt ved årsskifte).
 // Hvis en mer oppdatert verdi eksisterer i price_references.indexed_from
@@ -56,7 +56,7 @@ function daysSince(isoDate) {
 function cpiMultiplier(daysOld, annualPct = DEFAULT_CPI_ANNUAL_PCT) {
   if (!Number.isFinite(daysOld) || daysOld <= 0) return 1;
   const years = daysOld / 365;
-  return Math.pow(1 + (annualPct / 100), years);
+  return Math.pow(1 + annualPct / 100, years);
 }
 
 // ============================================================
@@ -122,7 +122,10 @@ function estimatePantryValue(repos) {
   for (const [key, inv] of Object.entries(inventoryMap)) {
     if (!inv.qtyRemaining || inv.qtyRemaining <= 0) continue;
     const ref = lookupPrice(repos, key);
-    if (!ref) { unknownCount++; continue; }
+    if (!ref) {
+      unknownCount++;
+      continue;
+    }
     knownCount++;
     // Heuristisk: tilsett full pris per "pakke" hvis vi har pack_size.
     // Uten pack_size bruker vi qtyRemaining * pris-per-enhet hvis tilgjengelig.
@@ -132,9 +135,10 @@ function estimatePantryValue(repos) {
     totalEstimated: Math.round(total * 100) / 100,
     itemsKnown: knownCount,
     itemsUnknown: unknownCount,
-    fieldConfidence: knownCount + unknownCount > 0
-      ? Math.round((knownCount / (knownCount + unknownCount)) * 100) / 100
-      : 0,
+    fieldConfidence:
+      knownCount + unknownCount > 0
+        ? Math.round((knownCount / (knownCount + unknownCount)) * 100) / 100
+        : 0,
   };
 }
 
@@ -147,7 +151,10 @@ function estimatePantryValue(repos) {
  * Skriver ny rad til price_history med source='cpi_index'.
  * Returnerer antall oppdaterte rader.
  */
-function applyCpiIndexing(repos, { annualPct = DEFAULT_CPI_ANNUAL_PCT, olderThanDays = INDEX_DAYS } = {}) {
+function applyCpiIndexing(
+  repos,
+  { annualPct = DEFAULT_CPI_ANNUAL_PCT, olderThanDays = INDEX_DAYS } = {}
+) {
   const stale = repos.priceReferences.getStale(olderThanDays);
   if (stale.length === 0) return 0;
 
@@ -164,12 +171,16 @@ function applyCpiIndexing(repos, { annualPct = DEFAULT_CPI_ANNUAL_PCT, olderThan
     // Bruk eksisterende repo-metode for atomisk update + history
     // (applyCpiMultiplier oppdaterer alle stale — vi kan ikke bruke den per-rad
     //  uten å introdusere N*N-arbeid, så vi gjør det manuelt her.)
-    repos._db.prepare(`
+    repos._db
+      .prepare(
+        `
       UPDATE price_references
          SET current_price = ?, confidence = 0.7,
              indexed_from = date('now'), updated_at = datetime('now')
        WHERE id = ?
-    `).run(newPrice, row.id);
+    `
+      )
+      .run(newPrice, row.id);
     repos.priceHistory.insert({
       priceRefId: row.id,
       price: newPrice,
@@ -224,7 +235,7 @@ async function syncProductFromKassal(repos, productKey, searchQuery) {
   if (!data || data.length === 0) return null;
   // Velg billigste observasjon
   const best = data
-    .filter(p => p && Number.isFinite(p.current_price))
+    .filter((p) => p && Number.isFinite(p.current_price))
     .sort((a, b) => a.current_price - b.current_price)[0];
   if (!best) return null;
 
@@ -256,7 +267,7 @@ module.exports = {
   fetchFromKassal,
   syncProductFromKassal,
   cpiMultiplier, // eksportert for testing
-  daysSince,     // eksportert for testing
+  daysSince, // eksportert for testing
   FRESH_DAYS,
   INDEX_DAYS,
   STALE_DAYS,

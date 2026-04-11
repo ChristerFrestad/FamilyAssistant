@@ -123,7 +123,9 @@ function createAdapter(rawDb, filePath) {
     // sql.js st\u00f8tter ikke alle pragmas (spesielt ikke WAL), men ignorerer trygt de fleste
     try {
       rawDb.exec(`PRAGMA ${stmt}`);
-    } catch { /* ignore \u2014 sql.js mangler visse pragmas */ }
+    } catch {
+      /* ignore \u2014 sql.js mangler visse pragmas */
+    }
   }
 
   function close() {

@@ -68,11 +68,19 @@ function createBreaker({
     const old = state;
     state = newState;
     if (newState === STATE.OPEN) openedAt = Date.now();
-    if (newState === STATE.CLOSED) { failures = 0; successes = 0; }
-    if (newState === STATE.HALF_OPEN) { successes = 0; }
+    if (newState === STATE.CLOSED) {
+      failures = 0;
+      successes = 0;
+    }
+    if (newState === STATE.HALF_OPEN) {
+      successes = 0;
+    }
     if (onStateChange) {
-      try { onStateChange(old, newState, { name, failures, totalFailures }); }
-      catch { /* logging må ikke bryte breakeren */ }
+      try {
+        onStateChange(old, newState, { name, failures, totalFailures });
+      } catch {
+        /* logging må ikke bryte breakeren */
+      }
     }
   }
 
@@ -116,7 +124,7 @@ function createBreaker({
 
     try {
       const result = await fn();
-      const failed = isFailure ? isFailure(result) : (result === null || result === undefined);
+      const failed = isFailure ? isFailure(result) : result === null || result === undefined;
       if (failed) {
         onFailure();
       } else {
@@ -151,7 +159,15 @@ function createBreaker({
     openedAt = 0;
   }
 
-  return { execute, snapshot, reset, get state() { return state; }, STATE };
+  return {
+    execute,
+    snapshot,
+    reset,
+    get state() {
+      return state;
+    },
+    STATE,
+  };
 }
 
 // ============================================================
@@ -169,21 +185,37 @@ function alerting() {
 
 function onStateChange(old, newState, ctx) {
   const level = newState === 'OPEN' ? 'warn' : 'info';
-  logger[level]({ breaker: ctx.name, from: old, to: newState, failures: ctx.failures, totalFailures: ctx.totalFailures }, 'circuit breaker state change');
+  logger[level](
+    {
+      breaker: ctx.name,
+      from: old,
+      to: newState,
+      failures: ctx.failures,
+      totalFailures: ctx.totalFailures,
+    },
+    'circuit breaker state change'
+  );
   // M4.3: varsle når breaker åpner mot kritisk backend
   if (newState === 'OPEN') {
-    alerting().warning(`Circuit breaker åpnet: ${ctx.name}`, {
-      detail: `${ctx.failures} påfølgende feil mot ${ctx.name}`,
-      context: { breaker: ctx.name, totalFailures: ctx.totalFailures },
-      key: `breaker_open_${ctx.name}`,
-    }).catch(() => {});
+    alerting()
+      .warning(`Circuit breaker åpnet: ${ctx.name}`, {
+        detail: `${ctx.failures} påfølgende feil mot ${ctx.name}`,
+        context: { breaker: ctx.name, totalFailures: ctx.totalFailures },
+        key: `breaker_open_${ctx.name}`,
+      })
+      .catch(() => {});
   }
 }
 
 const breakers = {
   kassal: createBreaker({ name: 'kassal', failureThreshold: 5, cooldownMs: 60_000, onStateChange }),
   ollama: createBreaker({ name: 'ollama', failureThreshold: 3, cooldownMs: 30_000, onStateChange }),
-  anthropic: createBreaker({ name: 'anthropic', failureThreshold: 5, cooldownMs: 60_000, onStateChange }),
+  anthropic: createBreaker({
+    name: 'anthropic',
+    failureThreshold: 5,
+    cooldownMs: 60_000,
+    onStateChange,
+  }),
   openai: createBreaker({ name: 'openai', failureThreshold: 5, cooldownMs: 60_000, onStateChange }),
   xai: createBreaker({ name: 'xai', failureThreshold: 5, cooldownMs: 60_000, onStateChange }),
 };
@@ -193,9 +225,7 @@ function getBreaker(name) {
 }
 
 function snapshotAll() {
-  return Object.fromEntries(
-    Object.entries(breakers).map(([k, b]) => [k, b.snapshot()])
-  );
+  return Object.fromEntries(Object.entries(breakers).map(([k, b]) => [k, b.snapshot()]));
 }
 
 function resetAll() {

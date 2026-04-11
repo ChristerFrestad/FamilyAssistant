@@ -38,9 +38,11 @@ function sundayPushJob(repos) {
   const draft = generateSundayDraft(repos);
   repos.sundayDrafts.save(draft.weekYear, draft.meals);
 
-  const names = draft.meals.map(s => repos.recipes.getById(s.recipeId)?.name || '?').join(', ');
+  const names = draft.meals.map((s) => repos.recipes.getById(s.recipeId)?.name || '?').join(', ');
   log(`S\u00f8ndagspush: Generert forslag for ${draft.weekYear} \u2014 ${names}`);
-  repos.notifications.insert('sunday_push', `Forslag til ukemeny for ${draft.weekYear} er klart`, { weekYear: draft.weekYear });
+  repos.notifications.insert('sunday_push', `Forslag til ukemeny for ${draft.weekYear} er klart`, {
+    weekYear: draft.weekYear,
+  });
 }
 
 // === Jobb 2: Holdbarhetsvarsler (daglig kl. 08:00) ===
@@ -61,16 +63,21 @@ function shelfLifeCheckJob(repos) {
         daysLeft,
         qtyRemaining: inv.qtyRemaining,
         unit: inv.unit,
-        message: daysLeft <= 0
-          ? `\u26a0\ufe0f ${product?.productName || key} har g\u00e5tt ut!`
-          : `\u23f0 ${product?.productName || key} utl\u00f8per i morgen!`,
+        message:
+          daysLeft <= 0
+            ? `\u26a0\ufe0f ${product?.productName || key} har g\u00e5tt ut!`
+            : `\u23f0 ${product?.productName || key} utl\u00f8per i morgen!`,
       });
     }
   }
 
   if (warnings.length > 0) {
-    const summary = warnings.map(w => w.product).join(', ');
-    repos.notifications.insert('shelf_life', `${warnings.length} varer utl\u00f8per snart: ${summary}`, { date: today, warnings });
+    const summary = warnings.map((w) => w.product).join(', ');
+    repos.notifications.insert(
+      'shelf_life',
+      `${warnings.length} varer utl\u00f8per snart: ${summary}`,
+      { date: today, warnings }
+    );
     log(`Holdbarhet: ${warnings.length} varer utl\u00f8per snart: ${summary}`);
   } else {
     log('Holdbarhet: Alt OK');
@@ -82,7 +89,7 @@ function dailyDepletionJob(repos) {
   const wk = getWeekYear();
   const dayOfWeek = (new Date().getDay() + 6) % 7;
   const plan = repos.mealPlans.getWeek(wk);
-  const todaySlot = plan.find(p => p.dayOfWeek === dayOfWeek);
+  const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
 
   if (!todaySlot || todaySlot.status === 'away' || todaySlot.status === 'skipped') {
     log('Depletion: Ingen middag i dag \u2014 hopper over');
@@ -157,36 +164,44 @@ function shoppingEnrichmentJob(repos) {
   // enrichPendingLists er async — vi venter ikke på den inni cron-callbacken
   // for å ikke blokkere reschedule. Feil går til log.
   enrichPendingLists(repos, { maxLists: 3, delayMs: 1100 })
-    .then(results => {
+    .then((results) => {
       if (results.length === 0) return;
-      const summary = results.map(r =>
-        `#${r.listId}:${r.finalStatus}(+${r.enriched}/~${r.skipped})`
-      ).join(' ');
+      const summary = results
+        .map((r) => `#${r.listId}:${r.finalStatus}(+${r.enriched}/~${r.skipped})`)
+        .join(' ');
       log(`Enrichment: ${summary}`);
     })
-    .catch(err => log(`Enrichment FEIL: ${err.message}`));
+    .catch((err) => log(`Enrichment FEIL: ${err.message}`));
 }
 
 // === Scheduler ===
 function scheduleJob(name, dayOfWeek, hour, minute, jobFn, repos) {
   function runAndReschedule() {
-    try { jobFn(repos); }
-    catch (err) { log(`FEIL i ${name}: ${err.message}\n${err.stack}`); }
+    try {
+      jobFn(repos);
+    } catch (err) {
+      log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
+    }
     const ms = msUntilNext(dayOfWeek, hour, minute);
     log(`${name}: Neste kj\u00f8ring om ${Math.round(ms / 3600000)} timer`);
     const t = setTimeout(runAndReschedule, ms);
     activeTimers.add(t);
   }
   const ms = msUntilNext(dayOfWeek, hour, minute);
-  log(`${name}: Planlagt om ${Math.round(ms / 3600000)} timer (${new Date(Date.now() + ms).toLocaleString('no-NO')})`);
+  log(
+    `${name}: Planlagt om ${Math.round(ms / 3600000)} timer (${new Date(Date.now() + ms).toLocaleString('no-NO')})`
+  );
   const t = setTimeout(runAndReschedule, ms);
   activeTimers.add(t);
 }
 
 function scheduleDailyJob(name, hour, minute, jobFn, repos) {
   function runAndReschedule() {
-    try { jobFn(repos); }
-    catch (err) { log(`FEIL i ${name}: ${err.message}\n${err.stack}`); }
+    try {
+      jobFn(repos);
+    } catch (err) {
+      log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
+    }
     const t = setTimeout(runAndReschedule, 24 * 3600000);
     activeTimers.add(t);
   }
@@ -204,8 +219,11 @@ function scheduleDailyJob(name, hour, minute, jobFn, repos) {
 // Første kjøring er etter intervalMs (ikke umiddelbart) for å la serveren varme opp.
 function scheduleIntervalJob(name, intervalMs, jobFn, repos) {
   function runAndReschedule() {
-    try { jobFn(repos); }
-    catch (err) { log(`FEIL i ${name}: ${err.message}\n${err.stack}`); }
+    try {
+      jobFn(repos);
+    } catch (err) {
+      log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
+    }
     const t = setTimeout(runAndReschedule, intervalMs);
     activeTimers.add(t);
   }
@@ -251,9 +269,15 @@ function stopCronJobs() {
 }
 
 module.exports = {
-  startCronJobs, stopCronJobs,
-  sundayPushJob, shelfLifeCheckJob, dailyDepletionJob, weeklyChoresJob,
-  llmCacheCleanupJob, pantryExpiredJob, priceCpiIndexingJob,
+  startCronJobs,
+  stopCronJobs,
+  sundayPushJob,
+  shelfLifeCheckJob,
+  dailyDepletionJob,
+  weeklyChoresJob,
+  llmCacheCleanupJob,
+  pantryExpiredJob,
+  priceCpiIndexingJob,
   shoppingEnrichmentJob,
   recipeSourcesSyncJob,
 };

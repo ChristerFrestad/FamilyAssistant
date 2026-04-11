@@ -19,14 +19,20 @@ const { startTestServer, request } = require('./helpers');
 // ============================================================
 describe('M4.1 · Request-ID ende-til-ende', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('Alle responses har X-Request-Id header', async () => {
     const res = await request(server.baseUrl, 'GET', '/health');
     assert.ok(res.headers['x-request-id'], 'X-Request-Id mangler');
-    assert.ok(/^[a-f0-9]{8,}$/.test(res.headers['x-request-id']),
-      `X-Request-Id ser ikke ut som en hex-id: ${res.headers['x-request-id']}`);
+    assert.ok(
+      /^[a-f0-9]{8,}$/.test(res.headers['x-request-id']),
+      `X-Request-Id ser ikke ut som en hex-id: ${res.headers['x-request-id']}`
+    );
   });
 
   test('Klient kan sette sin egen X-Request-Id som blir echoed', async () => {
@@ -40,8 +46,11 @@ describe('M4.1 · Request-ID ende-til-ende', () => {
     const res = await request(server.baseUrl, 'GET', '/api/does-not-exist');
     assert.equal(res.status, 404);
     assert.ok(res.body.requestId, 'problem.requestId mangler');
-    assert.equal(res.body.requestId, res.headers['x-request-id'],
-      'requestId i body matcher ikke header');
+    assert.equal(
+      res.body.requestId,
+      res.headers['x-request-id'],
+      'requestId i body matcher ikke header'
+    );
   });
 
   test('400-problem fra validation har requestId', async () => {
@@ -58,8 +67,12 @@ describe('M4.1 · Request-ID ende-til-ende', () => {
 // ============================================================
 describe('M4.2 · /ready utvidet health', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('/ready har utvidede felter', async () => {
     const res = await request(server.baseUrl, 'GET', '/ready');
@@ -91,12 +104,18 @@ describe('M4.2 · /ready utvidet health', () => {
     const testBreaker = cb.getBreaker('kassal');
     // Simuler feil for å åpne breakeren
     for (let i = 0; i < 10; i++) {
-      try { await testBreaker.execute(async () => { throw new Error('x'); }); } catch {}
+      try {
+        await testBreaker.execute(async () => {
+          throw new Error('x');
+        });
+      } catch {}
     }
     const res = await request(server.baseUrl, 'GET', '/ready');
     assert.ok(res.body.breakersOpen >= 1, 'breakersOpen skal være ≥1 etter å ha åpnet kassal');
-    assert.ok(res.body.warnings.some(w => w.startsWith('breakers_open_')),
-      'warnings skal liste breakers_open_*');
+    assert.ok(
+      res.body.warnings.some((w) => w.startsWith('breakers_open_')),
+      'warnings skal liste breakers_open_*'
+    );
     cb.resetAll();
   });
 });
@@ -113,7 +132,9 @@ describe('M4.3 · Alerting webhook', () => {
     received = [];
     webhookServer = http.createServer((req, res) => {
       let body = '';
-      req.on('data', c => { body += c; });
+      req.on('data', (c) => {
+        body += c;
+      });
       req.on('end', () => {
         try {
           received.push(JSON.parse(body));
@@ -124,13 +145,13 @@ describe('M4.3 · Alerting webhook', () => {
         res.end();
       });
     });
-    await new Promise(r => webhookServer.listen(0, '127.0.0.1', r));
+    await new Promise((r) => webhookServer.listen(0, '127.0.0.1', r));
     const port = webhookServer.address().port;
     webhookUrl = `http://127.0.0.1:${port}/webhook`;
   });
 
   after(async () => {
-    if (webhookServer) await new Promise(r => webhookServer.close(r));
+    if (webhookServer) await new Promise((r) => webhookServer.close(r));
   });
 
   test('isActive() returnerer false uten ALERT_WEBHOOK', () => {
@@ -233,7 +254,12 @@ describe('M4.3 · Alerting webhook', () => {
     alerting._resetThrottle();
 
     const huge = { big: 'x'.repeat(10_000) };
-    const r = await alerting.send({ level: 'warning', title: 'big', context: huge, key: 'big-test' });
+    const r = await alerting.send({
+      level: 'warning',
+      title: 'big',
+      context: huge,
+      key: 'big-test',
+    });
     assert.equal(r.sent, true);
     // Hele payloaden skal fortsatt være parsable JSON
     assert.equal(received.length, 1);

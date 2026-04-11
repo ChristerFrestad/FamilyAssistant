@@ -79,7 +79,7 @@ describe('pantry.service', () => {
     assert.equal(inv.qtyRemaining, 4);
 
     const log = repos.inventoryLog.getByKey('test-vare-003');
-    const correction = log.find(l => l.reason === 'correction');
+    const correction = log.find((l) => l.reason === 'correction');
     assert.ok(correction);
     assert.equal(correction.qtyDelta, -6);
     assert.equal(correction.newQty, 4);
@@ -92,7 +92,8 @@ describe('pantry.service', () => {
     // Tving en vare til å ha utløpt dato i går
     pantry.addToPantry(repos, { productKey: 'test-vare-004', qty: 5, unit: 'stk' });
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    repos._db.prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
+    repos._db
+      .prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
       .run(yesterday, 'test-vare-004');
 
     const removed = pantry.removeExpired(repos);
@@ -102,7 +103,7 @@ describe('pantry.service', () => {
     assert.equal(inv.qtyRemaining, 0);
 
     const log = repos.inventoryLog.getByKey('test-vare-004');
-    const expired = log.find(l => l.reason === 'shelf_life_expired');
+    const expired = log.find((l) => l.reason === 'shelf_life_expired');
     assert.ok(expired);
     assert.equal(expired.qtyDelta, -5);
   });
@@ -156,8 +157,12 @@ describe('price-reference.service', () => {
     assert.equal(fresh.stale, false);
 
     // Tving raden til å være 180 dager gammel
-    const oldDate = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 19).replace('T', ' ');
-    repos._db.prepare(`UPDATE price_references SET last_verified = ? WHERE product_key = ?`)
+    const oldDate = new Date(Date.now() - 180 * 86400000)
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
+    repos._db
+      .prepare(`UPDATE price_references SET last_verified = ? WHERE product_key = ?`)
       .run(oldDate, 'test-melk');
 
     const indexed = lookupPrice(repos, 'test-melk');
@@ -179,8 +184,12 @@ describe('price-reference.service', () => {
       source: 'seed',
       confidence: 1.0,
     });
-    const oldDate = new Date(Date.now() - 400 * 86400000).toISOString().slice(0, 19).replace('T', ' ');
-    repos._db.prepare(`UPDATE price_references SET last_verified = ? WHERE product_key = ?`)
+    const oldDate = new Date(Date.now() - 400 * 86400000)
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
+    repos._db
+      .prepare(`UPDATE price_references SET last_verified = ? WHERE product_key = ?`)
       .run(oldDate, 'test-brod');
 
     const beforeRow = repos.priceReferences.getBest('test-brod');
@@ -269,7 +278,11 @@ describe('HTTP: /api/prices/*', () => {
   });
 
   test('GET /api/prices/lookup returnerer found=false for ukjent', async () => {
-    const res = await request(server.baseUrl, 'GET', '/api/prices/lookup?productKey=finnes-absolutt-ikke');
+    const res = await request(
+      server.baseUrl,
+      'GET',
+      '/api/prices/lookup?productKey=finnes-absolutt-ikke'
+    );
     assert.equal(res.status, 200);
     assert.equal(res.body.found, false);
   });
@@ -284,7 +297,11 @@ describe('HTTP: /api/prices/*', () => {
       source: 'seed',
       confidence: 1.0,
     });
-    const res = await request(server.baseUrl, 'GET', '/api/prices/lookup?productKey=http-test-melk');
+    const res = await request(
+      server.baseUrl,
+      'GET',
+      '/api/prices/lookup?productKey=http-test-melk'
+    );
     assert.equal(res.status, 200);
     assert.equal(res.body.found, true);
     assert.equal(res.body.price, 25);
@@ -359,7 +376,7 @@ describe('state-snapshot', () => {
 
     const snap = metrics.snapshot();
     assert.equal(snap.totalRequests, 2);
-    const restoreRoute = snap.routes.find(r => r.route.includes('/api/restore'));
+    const restoreRoute = snap.routes.find((r) => r.route.includes('/api/restore'));
     assert.ok(restoreRoute);
   });
 
@@ -370,11 +387,18 @@ describe('state-snapshot', () => {
 
     // Rydd snapshots og skriv én gammel rad manuelt
     repos._db.prepare("DELETE FROM state_snapshots WHERE type = 'metrics'").run();
-    const veryOld = new Date(Date.now() - 100 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    const veryOld = new Date(Date.now() - 100 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
     const json = JSON.stringify({ version: 1, totalRequests: 42, totalErrors: 0, routes: [] });
-    repos._db.prepare(`
+    repos._db
+      .prepare(
+        `
       INSERT INTO state_snapshots (type, data_json, created_at) VALUES ('metrics', ?, ?)
-    `).run(json, veryOld);
+    `
+      )
+      .run(json, veryOld);
 
     metrics.reset();
     const ok = stateSnap.restoreOne(repos, 'metrics');

@@ -33,7 +33,20 @@ const AVAILABLE_TOOLS = [
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Varenavn (f.eks. Bakepapir, Saft)' },
-          category: { type: 'string', enum: ['Kjøtt & fisk', 'Meieri', 'Frukt & grønt', 'Brød & bakst', 'Tørrvarer & annet', 'Drikkevarer', 'Husholdning', 'Barn', 'Personlig pleie'] },
+          category: {
+            type: 'string',
+            enum: [
+              'Kjøtt & fisk',
+              'Meieri',
+              'Frukt & grønt',
+              'Brød & bakst',
+              'Tørrvarer & annet',
+              'Drikkevarer',
+              'Husholdning',
+              'Barn',
+              'Personlig pleie',
+            ],
+          },
           quantity: { type: 'number', description: 'Antall (valgfritt)' },
         },
         required: ['name', 'category'],
@@ -66,7 +79,10 @@ const AVAILABLE_TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          category: { type: 'string', enum: ['mat', 'rutine', 'preferanse', 'kalender', 'barn', 'annet'] },
+          category: {
+            type: 'string',
+            enum: ['mat', 'rutine', 'preferanse', 'kalender', 'barn', 'annet'],
+          },
           description: { type: 'string', description: 'Hva som ble lært eller endret' },
           action: { type: 'string', enum: ['add', 'update', 'remove'] },
         },
@@ -82,7 +98,10 @@ const AVAILABLE_TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          criteria: { type: 'string', description: 'Hva brukeren ønsker (rask, med kylling, asiatisk, etc.)' },
+          criteria: {
+            type: 'string',
+            description: 'Hva brukeren ønsker (rask, med kylling, asiatisk, etc.)',
+          },
           day: { type: 'string', description: 'Hvilken dag (mandag, fredag, etc.)' },
         },
         required: ['criteria'],
@@ -106,7 +125,7 @@ const AVAILABLE_TOOLS = [
 ];
 
 // === Tool-name-only liste for modeller uten native tool support ===
-const TOOL_DESCRIPTIONS = AVAILABLE_TOOLS.map(t => {
+const TOOL_DESCRIPTIONS = AVAILABLE_TOOLS.map((t) => {
   const f = t.function;
   const params = Object.entries(f.parameters.properties)
     .map(([k, v]) => `  ${k}: ${v.type} — ${v.description}`)
@@ -133,15 +152,23 @@ function httpRequest(url, payload, timeout = 60000) {
 
     const req = http.request(reqOpts, (res) => {
       let data = '';
-      res.on('data', chunk => { data += chunk; });
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
       res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error(`Parse error: ${e.message}`)); }
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error(`Parse error: ${e.message}`));
+        }
       });
     });
 
     req.on('error', (e) => reject(new Error(`Connection failed: ${e.message}`)));
-    req.on('timeout', () => { req.destroy(); reject(new Error('LLM timeout')); });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('LLM timeout'));
+    });
     req.write(payload);
     req.end();
   });
@@ -155,7 +182,9 @@ async function llmChat(messages, options = {}) {
   const breaker = getBreaker('ollama');
   if (!breaker) {
     // Skal ikke skje, men fail-open hvis modulen er fjernet.
-    return LLM_BACKEND === 'llamacpp' ? llamaCppChat(messages, options) : ollamaChat(messages, options);
+    return LLM_BACKEND === 'llamacpp'
+      ? llamaCppChat(messages, options)
+      : ollamaChat(messages, options);
   }
   try {
     return await breaker.execute(async () => {
@@ -165,7 +194,9 @@ async function llmChat(messages, options = {}) {
   } catch (err) {
     if (err instanceof CircuitOpenError) {
       log(`LLM circuit open (${err.retryAfterMs}ms retry): ${err.message}`);
-      throw new Error(`LLM midlertidig utilgjengelig (circuit open ${Math.round(err.retryAfterMs / 1000)}s)`);
+      throw new Error(
+        `LLM midlertidig utilgjengelig (circuit open ${Math.round(err.retryAfterMs / 1000)}s)`
+      );
     }
     throw err;
   }
@@ -188,13 +219,17 @@ async function ollamaChat(messages, options = {}) {
     payload.tools = options.tools;
   }
 
-  const json = await httpRequest(OLLAMA_HOST + '/api/chat', JSON.stringify(payload), options.timeout || 60000);
+  const json = await httpRequest(
+    OLLAMA_HOST + '/api/chat',
+    JSON.stringify(payload),
+    options.timeout || 60000
+  );
 
   // Sjekk for tool calls i svaret
   if (json.message?.tool_calls && json.message.tool_calls.length > 0) {
     return {
       type: 'tool_calls',
-      toolCalls: json.message.tool_calls.map(tc => ({
+      toolCalls: json.message.tool_calls.map((tc) => ({
         name: tc.function.name,
         arguments: tc.function.arguments,
       })),
@@ -222,17 +257,22 @@ async function llamaCppChat(messages, options = {}) {
     payload.tool_choice = 'auto';
   }
 
-  const json = await httpRequest(LLAMACPP_HOST + '/v1/chat/completions', JSON.stringify(payload), options.timeout || 60000);
+  const json = await httpRequest(
+    LLAMACPP_HOST + '/v1/chat/completions',
+    JSON.stringify(payload),
+    options.timeout || 60000
+  );
   const choice = json.choices?.[0];
 
   if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
     return {
       type: 'tool_calls',
-      toolCalls: choice.message.tool_calls.map(tc => ({
+      toolCalls: choice.message.tool_calls.map((tc) => ({
         name: tc.function.name,
-        arguments: typeof tc.function.arguments === 'string'
-          ? JSON.parse(tc.function.arguments)
-          : tc.function.arguments,
+        arguments:
+          typeof tc.function.arguments === 'string'
+            ? JSON.parse(tc.function.arguments)
+            : tc.function.arguments,
       })),
       content: choice.message.content || '',
     };
@@ -256,24 +296,34 @@ async function isLLMAvailable() {
 
     return new Promise((resolve) => {
       const url = new URL(OLLAMA_HOST);
-      const req = http.get({
-        hostname: url.hostname,
-        port: url.port || 11434,
-        path: '/api/tags',
-        timeout: 3000,
-      }, (res) => {
-        let data = '';
-        res.on('data', c => { data += c; });
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            const models = (json.models || []).map(m => m.name);
-            resolve({ available: true, backend: 'ollama', model: OLLAMA_MODEL, models });
-          } catch { resolve({ available: false, backend: 'ollama', models: [] }); }
-        });
-      });
+      const req = http.get(
+        {
+          hostname: url.hostname,
+          port: url.port || 11434,
+          path: '/api/tags',
+          timeout: 3000,
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (c) => {
+            data += c;
+          });
+          res.on('end', () => {
+            try {
+              const json = JSON.parse(data);
+              const models = (json.models || []).map((m) => m.name);
+              resolve({ available: true, backend: 'ollama', model: OLLAMA_MODEL, models });
+            } catch {
+              resolve({ available: false, backend: 'ollama', models: [] });
+            }
+          });
+        }
+      );
       req.on('error', () => resolve({ available: false, backend: 'ollama', models: [] }));
-      req.on('timeout', () => { req.destroy(); resolve({ available: false, backend: 'ollama', models: [] }); });
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ available: false, backend: 'ollama', models: [] });
+      });
     });
   } catch {
     return { available: false, backend: LLM_BACKEND, models: [] };
@@ -310,8 +360,11 @@ function trimHistoryToFit(systemPrompt, history, userMessage, maxTokens) {
 let _sanitize = null;
 function getSanitizer() {
   if (_sanitize) return _sanitize;
-  try { _sanitize = require('./http/security').sanitizeForPrompt; }
-  catch { _sanitize = (s) => (s || '').slice(0, 500); }
+  try {
+    _sanitize = require('./http/security').sanitizeForPrompt;
+  } catch {
+    _sanitize = (s) => (s || '').slice(0, 500);
+  }
   return _sanitize;
 }
 
@@ -435,17 +488,22 @@ function extractToolCallsFromText(text) {
         toolCalls.push({ name: parsed.tool, arguments: parsed.arguments });
         cleanedText = cleanedText.replace(match[0], '');
       }
-    } catch { /* ikke gyldig tool-call JSON */ }
+    } catch {
+      /* ikke gyldig tool-call JSON */
+    }
   }
 
   // Prøv også direkte function-call-mønster
-  const fnPattern = /\b(add_to_shopping_list|add_calendar_event|update_routine|suggest_meal|search_knowledge_base)\s*\(([^)]*)\)/g;
+  const fnPattern =
+    /\b(add_to_shopping_list|add_calendar_event|update_routine|suggest_meal|search_knowledge_base)\s*\(([^)]*)\)/g;
   while ((match = fnPattern.exec(text)) !== null) {
     try {
       const args = JSON.parse(match[2] || '{}');
       toolCalls.push({ name: match[1], arguments: args });
       cleanedText = cleanedText.replace(match[0], '');
-    } catch { /* kan ikke parse args */ }
+    } catch {
+      /* kan ikke parse args */
+    }
   }
 
   return { toolCalls, cleanedText: cleanedText.trim() };
@@ -483,10 +541,13 @@ Svar i dette JSON-formatet:
 }`;
 
   try {
-    const result = await llmChat([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ], { temperature: 0.8, maxTokens: 2048 });
+    const result = await llmChat(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      { temperature: 0.8, maxTokens: 2048 }
+    );
 
     const jsonMatch = (result.content || '').match(/\{[\s\S]*\}/);
     if (jsonMatch) return JSON.parse(jsonMatch[0]);
@@ -506,10 +567,13 @@ Bruk ingredienser fra Kiwi/Coop i Norge. Svar på norsk i JSON-format.`;
 Svar i JSON: { "name": "...", "category": "rask|comfort|helg", "prepTime": "25 min", "ingredients": [{"name": "X", "qty": 400, "unit": "g"}], "instructions": ["Steg 1..."], "equipment": ["stekepanne"] }`;
 
   try {
-    const result = await llmChat([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ], { temperature: 0.5, maxTokens: 1024 });
+    const result = await llmChat(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      { temperature: 0.5, maxTokens: 1024 }
+    );
 
     const jsonMatch = (result.content || '').match(/\{[\s\S]*\}/);
     if (jsonMatch) return JSON.parse(jsonMatch[0]);
@@ -532,10 +596,17 @@ async function llmSundayPush(context) {
 // 5. Intent-extraksjon (for KB self-improvement)
 async function extractIntent(userMessage) {
   try {
-    const result = await llmChat([
-      { role: 'system', content: 'Analyser brukerens melding og ekstraher intent og entiteter. Svar i JSON: { "intent": "shopping|calendar|routine|meal|question|chat", "entities": {...}, "action": "add|update|remove|query|none" }' },
-      { role: 'user', content: userMessage },
-    ], { temperature: 0.2, maxTokens: 256 });
+    const result = await llmChat(
+      [
+        {
+          role: 'system',
+          content:
+            'Analyser brukerens melding og ekstraher intent og entiteter. Svar i JSON: { "intent": "shopping|calendar|routine|meal|question|chat", "entities": {...}, "action": "add|update|remove|query|none" }',
+        },
+        { role: 'user', content: userMessage },
+      ],
+      { temperature: 0.2, maxTokens: 256 }
+    );
 
     const jsonMatch = (result.content || '').match(/\{[\s\S]*\}/);
     if (jsonMatch) return JSON.parse(jsonMatch[0]);

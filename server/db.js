@@ -88,8 +88,8 @@ async function initDB() {
   // 3. Ingen SQLite tilgjengelig
   throw new Error(
     'Ingen SQLite-driver tilgjengelig. Installer med:\n' +
-    '  npm install better-sqlite3       (foretrukket, krever build-tools)\n' +
-    '  npm install sql.js               (pure JS fallback)'
+      '  npm install better-sqlite3       (foretrukket, krever build-tools)\n' +
+      '  npm install sql.js               (pure JS fallback)'
   );
 }
 

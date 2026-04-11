@@ -24,14 +24,18 @@ function setupLlmMock(responseObj) {
     type: 'text',
     content: JSON.stringify(responseObj),
   });
-  return () => { llm.llmChat = originalChat; };
+  return () => {
+    llm.llmChat = originalChat;
+  };
 }
 
 function setupLlmRaw(rawString) {
   const llm = require('../server/llm');
   const originalChat = llm.llmChat;
   llm.llmChat = async () => ({ type: 'text', content: rawString });
-  return () => { llm.llmChat = originalChat; };
+  return () => {
+    llm.llmChat = originalChat;
+  };
 }
 
 // ============================================================
@@ -46,7 +50,9 @@ describe('recipe-import: importFromText', () => {
     server = await startTestServer();
     importService = require('../server/services/recipe-import.service');
   });
-  after(async () => { if (server) await server.close(); });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('norsk tekst + mock LLM → recipe lagret med ingredienser', async () => {
     const restore = setupLlmMock({
@@ -74,7 +80,7 @@ describe('recipe-import: importFromText', () => {
       assert.equal(r.recipe.category, 'comfort');
       assert.equal(r.recipe.servings, 4);
       assert.equal(r.recipe.ingredients.length, 4);
-      const names = r.recipe.ingredients.map(i => i.name);
+      const names = r.recipe.ingredients.map((i) => i.name);
       assert.ok(names.includes('kjøttdeig'));
       assert.ok(names.includes('løk'));
     } finally {
@@ -102,8 +108,11 @@ describe('recipe-import: importFromText', () => {
       });
 
       assert.ok(r.recipeId);
-      const names = r.recipe.ingredients.map(i => i.name);
-      assert.ok(names.includes('kyllingfilet'), `forventet kyllingfilet, fikk ${JSON.stringify(names)}`);
+      const names = r.recipe.ingredients.map((i) => i.name);
+      assert.ok(
+        names.includes('kyllingfilet'),
+        `forventet kyllingfilet, fikk ${JSON.stringify(names)}`
+      );
       assert.ok(names.includes('soyasaus'), `forventet soyasaus, fikk ${JSON.stringify(names)}`);
     } finally {
       restore();
@@ -132,8 +141,10 @@ describe('recipe-import: importFromText', () => {
   });
 
   test('for kort tekst → error', async () => {
-    const r = await require('../server/services/recipe-import.service')
-      .importFromText(server.repos, { text: 'kort' });
+    const r = await require('../server/services/recipe-import.service').importFromText(
+      server.repos,
+      { text: 'kort' }
+    );
     assert.ok(r.error);
     assert.ok(r.error.includes('for kort'));
   });
@@ -141,10 +152,12 @@ describe('recipe-import: importFromText', () => {
   test('LLM returnerer ikke-JSON → error', async () => {
     const restore = setupLlmRaw('Beklager, jeg kan ikke parse denne oppskriften.');
     try {
-      const r = await require('../server/services/recipe-import.service')
-        .importFromText(server.repos, {
+      const r = await require('../server/services/recipe-import.service').importFromText(
+        server.repos,
+        {
           text: 'En oppskrift på noe som helst med flere ord for å passere lengden.',
-        });
+        }
+      );
       assert.ok(r.error);
     } finally {
       restore();
@@ -159,10 +172,12 @@ describe('recipe-import: importFromText', () => {
       steps: [],
     });
     try {
-      const r = await require('../server/services/recipe-import.service')
-        .importFromText(server.repos, {
+      const r = await require('../server/services/recipe-import.service').importFromText(
+        server.repos,
+        {
           text: 'En oppskrift på noe som helst med flere ord for å passere lengden.',
-        });
+        }
+      );
       assert.ok(r.error);
       assert.ok(r.error.includes('ingredienser'));
     } finally {
@@ -182,7 +197,9 @@ describe('recipe-import: importFromImage', () => {
     server = await startTestServer();
     importService = require('../server/services/recipe-import.service');
   });
-  after(async () => { if (server) await server.close(); });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('fake OCR-adapter → tekst → LLM → recipe lagret', async () => {
     const restore = setupLlmMock({
@@ -254,8 +271,12 @@ describe('recipe-import: importFromImage', () => {
 
 describe('route: POST /api/recipes/import', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('JSON-body → 201 med recipeId', async () => {
     const restore = setupLlmMock({
@@ -303,8 +324,12 @@ describe('route: POST /api/recipes/import', () => {
 
 describe('route: POST /api/recipes/import/image', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('base64 image → 400 når OCR ikke er tilgjengelig (ingen tesseract)', async () => {
     // Vi gjør ingen LLM-mock og ingen OCR-override. På CI/dev uten Tesseract

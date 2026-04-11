@@ -27,25 +27,33 @@ const kassalClient = require('./kassal-client.service');
 // ============================================================
 
 function normalize(text) {
-  return (text || '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
+  return (text || '').toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 /**
  * Del navn i "betydningsfulle" ord (≥3 tegn, ikke stop-ord).
  */
 const STOP_WORDS = new Set([
-  'og', 'med', 'fra', 'til', 'som', 'for', 'uten', 'med',
-  'ny', 'nye', 'ekstra', 'premium', 'original',
+  'og',
+  'med',
+  'fra',
+  'til',
+  'som',
+  'for',
+  'uten',
+  'med',
+  'ny',
+  'nye',
+  'ekstra',
+  'premium',
+  'original',
 ]);
 
 function tokenize(text) {
   return normalize(text)
     .replace(/[^\p{L}\p{N} ]/gu, ' ')
     .split(/\s+/)
-    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
 }
 
 /**
@@ -110,17 +118,13 @@ function scoreCandidate(candidate, { name, brandHint, qty, unit }) {
   const prox = packSizeProximity(
     candidate.pack_size ?? candidate.packSize,
     candidate.pack_unit ?? candidate.packUnit ?? candidate.weight_unit,
-    qty, unit
+    qty,
+    unit
   );
 
   const priceKnown = Number.isFinite(candidate.current_price) ? 1 : 0;
 
-  return (
-    overlap * 0.50 +
-    brandMatch * 0.25 +
-    prox * 0.20 +
-    priceKnown * 0.05
-  );
+  return overlap * 0.5 + brandMatch * 0.25 + prox * 0.2 + priceKnown * 0.05;
 }
 
 // ============================================================
@@ -145,8 +149,7 @@ function persistKassalProduct(repos, rawProduct, { captureSource = 'lookup' } = 
     packSize: rawProduct.weight ?? rawProduct.pack_size ?? null,
     packUnit: rawProduct.weight_unit ?? rawProduct.pack_unit ?? null,
     imageUrl: rawProduct.image || rawProduct.image_url || null,
-    lastSeenPrice: Number.isFinite(rawProduct.current_price)
-      ? rawProduct.current_price : null,
+    lastSeenPrice: Number.isFinite(rawProduct.current_price) ? rawProduct.current_price : null,
     lastSeenStore: rawProduct.store?.name || rawProduct.store || null,
     rawJson: JSON.stringify(rawProduct),
     captureSource,
@@ -279,12 +282,12 @@ async function resolveByLine(repos, need, { captureSource = 'lookup' } = {}) {
 
   // Score og velg
   const scored = products
-    .map(p => ({ p, score: scoreCandidate(p, need) }))
+    .map((p) => ({ p, score: scoreCandidate(p, need) }))
     .sort((a, b) => b.score - a.score);
 
   // Hvis beste treff er for svakt, returner kandidater men ingen autoritativ match
   const best = scored[0];
-  const MIN_AUTO_CONFIDENCE = 0.30;
+  const MIN_AUTO_CONFIDENCE = 0.3;
 
   if (best.score < MIN_AUTO_CONFIDENCE) {
     logger.debug(
@@ -292,7 +295,9 @@ async function resolveByLine(repos, need, { captureSource = 'lookup' } = {}) {
       'resolver: for svakt treff, returnerer kandidater kun'
     );
     // Persistér topp-3 som candidates i resolution_candidates_json-format
-    const candidates = scored.slice(0, 3).map(s => persistAndDescribe(repos, s.p, s.score, captureSource));
+    const candidates = scored
+      .slice(0, 3)
+      .map((s) => persistAndDescribe(repos, s.p, s.score, captureSource));
     return {
       kassalProductRowId: null,
       kassalId: null,
@@ -315,7 +320,9 @@ async function resolveByLine(repos, need, { captureSource = 'lookup' } = {}) {
     confidence: best.score,
   });
 
-  const candidates = scored.slice(0, 3).map(s => persistAndDescribe(repos, s.p, s.score, captureSource));
+  const candidates = scored
+    .slice(0, 3)
+    .map((s) => persistAndDescribe(repos, s.p, s.score, captureSource));
 
   return {
     kassalProductRowId: bestPersisted.kassalProductRowId,

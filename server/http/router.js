@@ -18,13 +18,15 @@ const { HttpError, errors } = require('./errors');
 function compilePath(pattern) {
   const paramNames = [];
   const regex = new RegExp(
-    '^' + pattern
-      .replace(/\//g, '\\/')
-      .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, name) => {
-        paramNames.push(name);
-        return '([^/]+)';
-      })
-      .replace(/\*/g, '.*') + '$'
+    '^' +
+      pattern
+        .replace(/\//g, '\\/')
+        .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, name) => {
+          paramNames.push(name);
+          return '([^/]+)';
+        })
+        .replace(/\*/g, '.*') +
+      '$'
   );
   return { regex, paramNames };
 }
@@ -33,7 +35,9 @@ function match(compiled, pathname) {
   const m = compiled.regex.exec(pathname);
   if (!m) return null;
   const params = {};
-  compiled.paramNames.forEach((name, i) => { params[name] = decodeURIComponent(m[i + 1]); });
+  compiled.paramNames.forEach((name, i) => {
+    params[name] = decodeURIComponent(m[i + 1]);
+  });
   return params;
 }
 

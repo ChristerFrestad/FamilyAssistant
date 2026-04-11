@@ -16,7 +16,7 @@ describe('metrics', () => {
     assert.equal(snap.totalRequests, 3);
     assert.equal(snap.totalErrors, 1);
     assert.ok(snap.errorRate > 0);
-    const r = snap.routes.find(x => x.route === 'GET /api/today');
+    const r = snap.routes.find((x) => x.route === 'GET /api/today');
     assert.ok(r);
     assert.equal(r.count, 3);
     assert.equal(r.byStatus['2xx'], 2);

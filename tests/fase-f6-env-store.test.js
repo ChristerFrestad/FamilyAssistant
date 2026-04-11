@@ -61,24 +61,15 @@ describe('Fase F6 — env-store sanitize', () => {
 
 describe('Fase F6 — env-store whitelist', () => {
   test('avviser ukjent nøkkel', async () => {
-    await assert.rejects(
-      envStore.write('SECRET_THING', 'hax'),
-      /Ukjent nøkkel/
-    );
+    await assert.rejects(envStore.write('SECRET_THING', 'hax'), /Ukjent nøkkel/);
   });
 
   test('avviser ugyldig format for OPENAI_API_KEY', async () => {
-    await assert.rejects(
-      envStore.write('OPENAI_API_KEY', 'notanopenaikey'),
-      /Ugyldig format/
-    );
+    await assert.rejects(envStore.write('OPENAI_API_KEY', 'notanopenaikey'), /Ugyldig format/);
   });
 
   test('avviser ugyldig format for LLM_BACKEND', async () => {
-    await assert.rejects(
-      envStore.write('LLM_BACKEND', 'gemini'),
-      /Ugyldig format/
-    );
+    await assert.rejects(envStore.write('LLM_BACKEND', 'gemini'), /Ugyldig format/);
   });
 
   test('aksepterer gyldig LLM_BACKEND', async () => {
@@ -181,6 +172,10 @@ describe('Fase F6 — backup', () => {
 
 // Restore cwd etter alle tester
 process.on('exit', () => {
-  try { process.chdir(origCwd); } catch {}
-  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+  try {
+    process.chdir(origCwd);
+  } catch {}
+  try {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  } catch {}
 });

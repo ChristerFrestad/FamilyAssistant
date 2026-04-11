@@ -1,0 +1,218 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint + format + tests på Node 20 og 22
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ['20.x', '22.x']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint flat config)
+        run: npm run lint
+
+      - name: Format check (Prettier)
+        run: npm run format
+
+      - name: Run tests (node --test)
+        run: npm test
+        env:
+          NODE_ENV: test
+
+  # ---------------------------------------------------------------------------
+  # Test coverage med gate (feiler hvis lines/branches/functions faller)
+  # Baseline 2026-04-10: 83.26% lines, 71.23% branches, 75.83% functions.
+  # Terskler i scripts/coverage-gate.js: 80% / 68% / 72%.
+  # ---------------------------------------------------------------------------
+  coverage:
+    name: Coverage gate
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run coverage with gate
+        run: npm run test:coverage:gate 2>&1 | tee coverage.txt
+        env:
+          NODE_ENV: test
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node20
+          path: coverage.txt
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Security: npm audit på runtime-deps (ikke dev, siden de ikke er i prod)
+  # ---------------------------------------------------------------------------
+  security:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit runtime dependencies (fail on high+)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit including dev (informational)
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+  # ---------------------------------------------------------------------------
+  # SBOM (Software Bill of Materials) — CycloneDX 1.6, runtime-only
+  # Publiseres som build-artifact. Ved release gjenopprettes den av release.yml.
+  # ---------------------------------------------------------------------------
+  sbom:
+    name: SBOM generation
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate runtime SBOM (CycloneDX JSON)
+        run: npm run sbom
+
+      - name: Generate full SBOM (inkl. dev-deps, informational)
+        run: npm run sbom:full
+        continue-on-error: true
+
+      - name: Verify SBOM structure
+        run: |
+          node -e "
+          const s = JSON.parse(require('fs').readFileSync('sbom.json', 'utf8'));
+          if (s.bomFormat !== 'CycloneDX') { console.error('FEIL: ikke CycloneDX format'); process.exit(1); }
+          if (!s.components || s.components.length === 0) { console.error('FEIL: ingen komponenter i SBOM'); process.exit(1); }
+          console.log('OK: SBOM ' + s.specVersion + ', ' + s.components.length + ' komponenter');
+          "
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx-${{ github.sha }}
+          path: |
+            sbom.json
+            sbom-full.json
+          retention-days: 90
+
+  # ---------------------------------------------------------------------------
+  # OSV-Scanner — Google's Open Source Vulnerabilities database
+  # Kryssjekker package-lock.json mot OSV feed. Feil ved HIGH/CRITICAL.
+  # ---------------------------------------------------------------------------
+  osv-scan:
+    name: OSV vulnerability scan
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+            --format=sarif
+            --output=osv-results.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: osv-results.sarif
+        continue-on-error: true
+
+      - name: Upload OSV artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-scan-results
+          path: osv-results.sarif
+          retention-days: 30
+
+      - name: Fail on HIGH/CRITICAL vulnerabilities
+        run: |
+          if [ -f osv-results.sarif ]; then
+            HIGH_COUNT=$(node -e "
+              try {
+                const s = JSON.parse(require('fs').readFileSync('osv-results.sarif','utf8'));
+                const results = (s.runs?.[0]?.results || []);
+                const high = results.filter(r => {
+                  const level = r.level || 'warning';
+                  return level === 'error';
+                });
+                console.log(high.length);
+              } catch (e) { console.log(0); }
+            ")
+            if [ "$HIGH_COUNT" -gt 0 ]; then
+              echo "::error::OSV-Scanner fant $HIGH_COUNT HIGH/CRITICAL sårbarheter"
+              exit 1
+            fi
+            echo "OK: ingen HIGH/CRITICAL sårbarheter i OSV-feed"
+          fi

@@ -55,23 +55,27 @@ describe('Fase F2 — units.js', () => {
   });
 
   test('isLowStock bruker 15% default-terskel', () => {
-    assert.equal(units.isLowStock(10, 100), true);   // 10% < 15%
-    assert.equal(units.isLowStock(14, 100), true);   // 14% < 15%
-    assert.equal(units.isLowStock(15, 100), false);  // eksakt 15% er IKKE < 15%
+    assert.equal(units.isLowStock(10, 100), true); // 10% < 15%
+    assert.equal(units.isLowStock(14, 100), true); // 14% < 15%
+    assert.equal(units.isLowStock(15, 100), false); // eksakt 15% er IKKE < 15%
     assert.equal(units.isLowStock(50, 100), false);
     assert.equal(units.isLowStock(100, null), null); // ingen total → null
   });
 
   test('isLowStock med custom terskel', () => {
-    assert.equal(units.isLowStock(20, 100, 0.25), true);  // 20% < 25%
+    assert.equal(units.isLowStock(20, 100, 0.25), true); // 20% < 25%
     assert.equal(units.isLowStock(30, 100, 0.25), false);
   });
 });
 
 describe('Fase F2 — addToPantry med total + unit', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('add med total og unit lagres og returneres av GET /api/pantry', async () => {
     const addR = await request(ctx.baseUrl, 'POST', '/api/pantry/add', {
@@ -82,7 +86,7 @@ describe('Fase F2 — addToPantry med total + unit', () => {
 
     const listR = await request(ctx.baseUrl, 'GET', '/api/pantry');
     assert.equal(listR.status, 200);
-    const item = listR.body.items.find(i => i.productKey === 'test-milk-f2');
+    const item = listR.body.items.find((i) => i.productKey === 'test-milk-f2');
     assert.ok(item, 'vara finnes i pantry-listen');
     assert.equal(item.quantity, 300);
     assert.equal(item.total, 1000);
@@ -101,8 +105,12 @@ describe('Fase F2 — addToPantry med total + unit', () => {
 
 describe('Fase F2 — correctQty med newTotal + newUnit', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('correctQty kan sette ny total og unit', async () => {
     // Først: legg til en vare
@@ -117,7 +125,7 @@ describe('Fase F2 — correctQty med newTotal + newUnit', () => {
 
     // Verifiser
     const listR = await request(ctx.baseUrl, 'GET', '/api/pantry');
-    const item = listR.body.items.find(i => i.productKey === 'correct-f2');
+    const item = listR.body.items.find((i) => i.productKey === 'correct-f2');
     assert.ok(item);
     assert.equal(item.quantity, 200);
     assert.equal(item.total, 800);
@@ -138,8 +146,12 @@ describe('Fase F2 — correctQty med newTotal + newUnit', () => {
 
 describe('Fase F2 — Lav-beholdning auto-trigger', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
-  after(async () => { await ctx.close(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
+  after(async () => {
+    await ctx.close();
+  });
 
   test('correctQty under 15% trigger-respons inneholder lowStock-info', async () => {
     await request(ctx.baseUrl, 'POST', '/api/pantry/add', {

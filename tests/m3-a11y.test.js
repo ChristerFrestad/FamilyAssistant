@@ -33,8 +33,10 @@ describe('M3.3 · A11y statisk analyse', () => {
   test('Viewport tillater zoom (user-scalable=no forbudt)', () => {
     const m = html.match(/<meta[^>]*name\s*=\s*["']viewport["'][^>]*>/i);
     assert.ok(m, 'mangler viewport-meta');
-    assert.ok(!/user-scalable\s*=\s*no/i.test(m[0]),
-      `user-scalable=no er en WCAG 1.4.4-brudd: ${m[0]}`);
+    assert.ok(
+      !/user-scalable\s*=\s*no/i.test(m[0]),
+      `user-scalable=no er en WCAG 1.4.4-brudd: ${m[0]}`
+    );
   });
 
   test('Theme color satt', () => {
@@ -56,7 +58,7 @@ describe('M3.3 · A11y statisk analyse', () => {
 
   test('Ingen duplikate id-attributter i statisk markup', () => {
     const bodyNoScript = body.replace(/<script[\s\S]*?<\/script>/gi, '');
-    const ids = [...bodyNoScript.matchAll(/\bid\s*=\s*["']([^"']+)["']/g)].map(m => m[1]);
+    const ids = [...bodyNoScript.matchAll(/\bid\s*=\s*["']([^"']+)["']/g)].map((m) => m[1]);
     const seen = new Map();
     for (const id of ids) seen.set(id, (seen.get(id) || 0) + 1);
     const dups = [...seen.entries()].filter(([, c]) => c > 1).map(([k]) => k);
@@ -69,7 +71,7 @@ describe('M3.3 · A11y statisk analyse', () => {
     const bodyNoScript = body.replace(/<script[\s\S]*?<\/script>/gi, '');
     const inputsRe = /<(input|select|textarea)\b([^>]*)>/gi;
     const labelledFor = new Set(
-      [...bodyNoScript.matchAll(/<label[^>]*\bfor\s*=\s*["']([^"']+)["']/gi)].map(m => m[1])
+      [...bodyNoScript.matchAll(/<label[^>]*\bfor\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1])
     );
     const unlabelled = [];
     for (const match of bodyNoScript.matchAll(inputsRe)) {
@@ -111,12 +113,19 @@ describe('M3.3 · A11y statisk analyse', () => {
     // Sjekken er bare at vi ikke har noen ukjente handlers som kan bety copy-paste-feil.
     // Dette er en soft-check — den skal bestå, men gi oss signal hvis nye handlers dukker opp.
     const bodyNoScript = body.replace(/<script[\s\S]*?<\/script>/gi, '');
-    const allowedHandlers = new Set(['onclick', 'oninput', 'onkeydown', 'onchange', 'onfocus', 'onblur']);
+    const allowedHandlers = new Set([
+      'onclick',
+      'oninput',
+      'onkeydown',
+      'onchange',
+      'onfocus',
+      'onblur',
+    ]);
     const found = new Set();
     for (const m of bodyNoScript.matchAll(/\bon([a-z]+)\s*=/gi)) {
       found.add('on' + m[1].toLowerCase());
     }
-    const unknown = [...found].filter(h => !allowedHandlers.has(h));
+    const unknown = [...found].filter((h) => !allowedHandlers.has(h));
     assert.deepEqual(unknown, [], `ukjente inline handlers: ${unknown.join(', ')}`);
   });
 });

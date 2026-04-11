@@ -95,8 +95,13 @@ function startWatchdog() {
     logger.warn({ WATCHDOG_USEC }, 'Watchdog-intervall er for lavt (<500ms), skipper');
     return () => {};
   }
-  logger.info({ intervalMs, timeoutMs: Math.floor(WATCHDOG_USEC / 1000) }, 'sd-notify watchdog startet');
-  watchdogTimer = setInterval(() => { watchdog(); }, intervalMs);
+  logger.info(
+    { intervalMs, timeoutMs: Math.floor(WATCHDOG_USEC / 1000) },
+    'sd-notify watchdog startet'
+  );
+  watchdogTimer = setInterval(() => {
+    watchdog();
+  }, intervalMs);
   watchdogTimer.unref();
   return stopWatchdog;
 }

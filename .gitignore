@@ -41,3 +41,10 @@ public/index.html.pre-*.bak
 # Test-artifakter
 coverage/
 .nyc_output/
+coverage.txt
+coverage.lcov
+
+# SBOM-artifakter (genereres i CI / før release)
+sbom.json
+sbom-full.json
+sbom.xml

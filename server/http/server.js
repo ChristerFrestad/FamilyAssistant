@@ -15,11 +15,7 @@ const {
   createContext,
   parseQuery,
 } = require('./middleware');
-const {
-  bearerAuth,
-  rateLimit,
-  applySecurityHeaders,
-} = require('./security');
+const { bearerAuth, rateLimit, applySecurityHeaders } = require('./security');
 const metrics = require('./metrics');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
@@ -29,9 +25,14 @@ const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 // ============================================================
 
 const MIME_TYPES = {
-  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
-  '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json',
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'text/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json',
 };
 
 function serveStatic(res, filePath) {
@@ -114,8 +115,9 @@ function createServer(router) {
 
       // Parse body for POST/PUT/DELETE
       if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-        try { ctx.body = await parseBody(req); }
-        catch (err) {
+        try {
+          ctx.body = await parseBody(req);
+        } catch (err) {
           ctx.problem(err instanceof HttpError ? err : errors.badRequest(err.message));
           const dur = Date.now() - started;
           metrics.record(req.method, routeTemplate, err.status || 400, dur);
@@ -132,7 +134,6 @@ function createServer(router) {
       const dur = Date.now() - started;
       metrics.record(req.method, routeTemplate, res.statusCode, dur);
       logRequest(ctx, res.statusCode, dur);
-
     } catch (err) {
       const dur = Date.now() - started;
       const status = err instanceof HttpError ? err.status : 500;
@@ -152,9 +153,7 @@ function handleError(ctx, err, durationMs) {
   }
   // Uventet feil \u2014 maskerer detaljer i produksjon
   ctx.log.error({ err: { message: err.message, stack: err.stack } }, 'unhandled error');
-  ctx.problem(errors.internal(
-    config.NODE_ENV === 'production' ? 'Intern feil' : err.message
-  ));
+  ctx.problem(errors.internal(config.NODE_ENV === 'production' ? 'Intern feil' : err.message));
   logRequest(ctx, 500, durationMs, err.message);
 }
 

@@ -42,8 +42,10 @@ describe('M5 · Statisk analyse', () => {
 
   test('SW bruker network-first for /api/', () => {
     const sw = fs.readFileSync(SW_PATH, 'utf8');
-    assert.ok(sw.includes('apiNetworkFirst') || sw.includes('network-first'),
-      'SW må ha network-first strategi for API');
+    assert.ok(
+      sw.includes('apiNetworkFirst') || sw.includes('network-first'),
+      'SW må ha network-first strategi for API'
+    );
   });
 
   test('SW returnerer 503 problem+json når offline uten cache', () => {
@@ -100,8 +102,12 @@ describe('M5 · Statisk analyse', () => {
 // ============================================================
 describe('M5 · HTTP headers + CSP', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('GET /sw.js serves med Service-Worker-Allowed: /', async () => {
     const res = await request(server.baseUrl, 'GET', '/sw.js');

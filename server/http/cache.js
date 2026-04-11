@@ -27,7 +27,10 @@ function createCache({ max = 200, ttlMs = 60_000 } = {}) {
 
   function get(key) {
     const entry = store.get(key);
-    if (!entry) { misses++; return undefined; }
+    if (!entry) {
+      misses++;
+      return undefined;
+    }
     if (entry.expiresAt <= Date.now()) {
       _delete(key);
       misses++;
@@ -50,7 +53,10 @@ function createCache({ max = 200, ttlMs = 60_000 } = {}) {
     store.set(key, { data, expiresAt: Date.now() + ttlMs, tags });
     for (const tag of tags) {
       let set = tagIndex.get(tag);
-      if (!set) { set = new Set(); tagIndex.set(tag, set); }
+      if (!set) {
+        set = new Set();
+        tagIndex.set(tag, set);
+      }
       set.add(key);
     }
   }
@@ -95,7 +101,10 @@ function createCache({ max = 200, ttlMs = 60_000 } = {}) {
 const responseCache = createCache({ max: 200, ttlMs: 60_000 });
 
 function cacheKey(ctx) {
-  const qs = Object.keys(ctx.query).sort().map(k => `${k}=${ctx.query[k]}`).join('&');
+  const qs = Object.keys(ctx.query)
+    .sort()
+    .map((k) => `${k}=${ctx.query[k]}`)
+    .join('&');
   return `${ctx.pathname}?${qs}`;
 }
 

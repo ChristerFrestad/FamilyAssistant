@@ -30,9 +30,7 @@ function normalizeUnit(unit) {
 function validateUnit(unit) {
   const norm = normalizeUnit(unit);
   if (!ALLOWED_UNITS.includes(norm)) {
-    throw new Error(
-      `Ugyldig enhet '${unit}'. Tillatt: ${ALLOWED_UNITS.join(', ')}`
-    );
+    throw new Error(`Ugyldig enhet '${unit}'. Tillatt: ${ALLOWED_UNITS.join(', ')}`);
   }
   return norm;
 }

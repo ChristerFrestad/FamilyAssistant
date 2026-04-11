@@ -52,19 +52,23 @@ function backupNow(db) {
       // better-sqlite3: VACUUM INTO er atomisk og kan kj\u00f8res mot en live DB
       db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
     }
-    log(`\u2713 Backup skrevet: ${path.basename(target)} (${(fs.statSync(target).size / 1024).toFixed(1)} KB)`);
+    log(
+      `\u2713 Backup skrevet: ${path.basename(target)} (${(fs.statSync(target).size / 1024).toFixed(1)} KB)`
+    );
     pruneOldBackups();
 
     // M2.1: off-site sync — feil logges men blokkerer ikke lokal backup
     if (REMOTE_PATH) {
-      syncToRemote(target).catch(err => {
+      syncToRemote(target).catch((err) => {
         log(`\u2717 Off-site sync feilet: ${err.message}`);
         // M4.3: varsle operator om off-site backup feiler
-        alerting().warning('Off-site backup feilet', {
-          detail: err.message,
-          context: { remote: REMOTE_PATH.replace(/:.*@/, ':***@') },
-          key: 'backup_remote_failed',
-        }).catch(() => {});
+        alerting()
+          .warning('Off-site backup feilet', {
+            detail: err.message,
+            context: { remote: REMOTE_PATH.replace(/:.*@/, ':***@') },
+            key: 'backup_remote_failed',
+          })
+          .catch(() => {});
       });
     }
 
@@ -72,10 +76,12 @@ function backupNow(db) {
   } catch (err) {
     log(`\u2717 Backup feilet: ${err.message}`);
     // M4.3: varsle operator — kritisk siden det betyr ingen recovery-point
-    alerting().critical('Lokal backup feilet', {
-      detail: err.message,
-      key: 'backup_local_failed',
-    }).catch(() => {});
+    alerting()
+      .critical('Lokal backup feilet', {
+        detail: err.message,
+        key: 'backup_local_failed',
+      })
+      .catch(() => {});
     return null;
   }
 }
@@ -126,11 +132,17 @@ async function syncToRemote(localFile) {
     const proc = spawn('rsync', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stderr = '';
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
-    proc.stdout.on('data', () => { /* suge */ });
+    proc.stderr.on('data', (d) => {
+      stderr += d.toString();
+    });
+    proc.stdout.on('data', () => {
+      /* suge */
+    });
 
     const killTimer = setTimeout(() => {
-      try { proc.kill('SIGKILL'); } catch {}
+      try {
+        proc.kill('SIGKILL');
+      } catch {}
       reject(new Error(`rsync timeout etter ${REMOTE_TIMEOUT_MS} ms`));
     }, REMOTE_TIMEOUT_MS);
 
@@ -158,9 +170,14 @@ async function syncToRemote(localFile) {
 
 function pruneOldBackups() {
   try {
-    const files = fs.readdirSync(BACKUP_DIR)
-      .filter(f => /^familieassistenten-\d{4}-\d{2}-\d{2}\.db$/.test(f))
-      .map(f => ({ file: f, full: path.join(BACKUP_DIR, f), mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+    const files = fs
+      .readdirSync(BACKUP_DIR)
+      .filter((f) => /^familieassistenten-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+      .map((f) => ({
+        file: f,
+        full: path.join(BACKUP_DIR, f),
+        mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs,
+      }))
       .sort((a, b) => b.mtime - a.mtime);
 
     const toRemove = files.slice(KEEP_DAYS);

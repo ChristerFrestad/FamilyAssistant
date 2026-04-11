@@ -13,22 +13,18 @@ const VERSION = 'v1.2-m5';
 const STATIC_CACHE = `fam-static-${VERSION}`;
 const API_CACHE = `fam-api-${VERSION}`;
 
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-];
+const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/icon-192.png'];
 
 // ============================================================
 // Install — pre-cache statiske assets
 // ============================================================
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then(cache => cache.addAll(STATIC_ASSETS))
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
       .then(() => self.skipWaiting())
-      .catch(err => console.warn('[sw] install cache feilet:', err))
+      .catch((err) => console.warn('[sw] install cache feilet:', err))
   );
 });
 
@@ -37,11 +33,16 @@ self.addEventListener('install', (event) => {
 // ============================================================
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys
-        .filter(k => k.startsWith('fam-') && k !== STATIC_CACHE && k !== API_CACHE)
-        .map(k => caches.delete(k))
-    )).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k.startsWith('fam-') && k !== STATIC_CACHE && k !== API_CACHE)
+            .map((k) => caches.delete(k))
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
@@ -115,7 +116,9 @@ async function staticCacheFirst(request) {
   if (cached) {
     // Oppdater i bakgrunnen så neste request får fersk kopi
     fetch(request)
-      .then(fresh => { if (fresh.ok) cache.put(request, fresh).catch(() => {}); })
+      .then((fresh) => {
+        if (fresh.ok) cache.put(request, fresh).catch(() => {});
+      })
       .catch(() => {});
     return cached;
   }
@@ -140,6 +143,6 @@ self.addEventListener('message', (event) => {
   if (!event.data) return;
   if (event.data.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data.type === 'CLEAR_CACHE') {
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
   }
 });

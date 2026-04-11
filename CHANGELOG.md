@@ -4,7 +4,152 @@ Alle endringer i dette prosjektet dokumenteres her.
 Formatet følger [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v1.2.0 (produksjons-hardening)
+## [Unreleased] — v1.3.0 (ISO/IEC 25010 forbedringsplan)
+
+### Uke 1 · CI/CD-fundament (2026-04-10)
+
+Første uke av 10-ukers planen for å heve ISO/IEC 25010-scoren fra 7.33
+til ≥ 8.0 på alle ni karakteristikker. Mål denne uken: mekanisere
+kvalitetsgatene slik at de ikke lenger er avhengige av manuell disiplin.
+
+#### Added
+
+- `.github/workflows/ci.yml` — GitHub Actions-pipeline med tre parallelle jobber:
+  - **test**: lint + format + `node --test` på matrix (Node 20.x, 22.x)
+  - **coverage**: native `--experimental-test-coverage` + blokkerende gate
+  - **security**: `npm audit --omit=dev --audit-level=high` på runtime-deps
+- `.github/dependabot.yml` — ukentlige PRs (mandag 07:00 Europe/Oslo) for
+  npm-deps (grouperte minor/patch) og GitHub Actions.
+- `eslint.config.mjs` — ESLint v9 flat config med tre zone-overrides:
+  server/scripts (CommonJS + Node globals), tests (lempeligere), public/sw.js
+  (browser + service worker). Baseline: 0 errors, 25 warnings.
+- `.prettierrc.json` + `.prettierignore` — 100-char, single quotes, ES5 trailing
+  commas. 67 filer formatert som ett "style baseline"-steg.
+- `scripts/coverage-gate.js` — blokkerende CI-gate. Parser Node
+  coverage-reporter og feiler hvis lines/branches/functions under terskel.
+- `CI.md` — 132 linjers dokumentasjon for nye bidragsytere: lokale
+  kommandoer, terskler, feilsøking, Dependabot-policy.
+- Nye npm-scripts: `lint`, `lint:fix`, `format`, `format:fix`, `ci`,
+  `test:coverage`, `test:coverage:gate`, `audit:prod`.
+
+#### Changed
+
+- `package.json` devDeps: `@eslint/js@^9`, `eslint@^9`, `globals@^15`,
+  `prettier@^3.3`. Ingen nye runtime-deps (produksjons-footprint uendret).
+- 67 filer format-korrigert (whitespace, quotes, trailing commas). Ingen
+  logikk-endringer. 408 tester fortsatt grønne etter baseline-commit.
+
+#### Kvalitetsmål nådd
+
+| Metrikk | Før | Etter | Terskel |
+|---|---|---|---|
+| Tester | 408/408 grønne | 408/408 grønne | 0 rødt |
+| ESLint errors | N/A (ingen lint) | 0 | 0 |
+| Prettier mismatch | N/A | 0 | 0 |
+| Coverage lines | ukjent | **83.26%** | ≥ 80% |
+| Coverage branches | ukjent | **71.23%** | ≥ 68% |
+| Coverage functions | ukjent | **75.83%** | ≥ 72% |
+| npm audit (prod) | ukjent | 0 vulns | 0 high+ |
+
+#### Forventet ISO-effekt
+
+- **Vedlikeholdbarhet** 6.5 → ~7.5 (+1.0)
+- **Sikkerhet** 7.5 → ~7.7 (+0.2) — supply-chain automatisk overvåket
+- **Reliability** 8.0 → ~8.2 (+0.2) — regresjoner fanges før merge
+
+Total score etter uke 1: ~7.55 (+0.22 fra 7.33).
+
+---
+
+### Uke 2 · Supply chain + SBOM (2026-04-10)
+
+Andre uke av ISO/IEC 25010-planen. Mål: oppfylle moderne
+supply-chain-compliance (NIS2/US EO 14028), innføre audit-log for
+non-repudiation, og mekanisere token-rotation.
+
+#### Added
+
+- **SBOM-1** — `@cyclonedx/cyclonedx-npm@^4.2.1` som devDep + `npm run sbom`
+  (produksjons-only) og `npm run sbom:full` (inkl. dev). CycloneDX 1.6
+  JSON-format med 50 runtime-komponenter dokumentert.
+- **SBOM-1** — `sbom`-jobb i `.github/workflows/ci.yml` som genererer,
+  validerer struktur og laster opp SBOM som 90-dagers build-artifact.
+- **SBOM-2** — `.github/workflows/release.yml` med **SLSA Level 3** keyless
+  provenance via `slsa-framework/slsa-github-generator@v2`. Ingen nøkler
+  i repoet — bruker GitHub OIDC + Sigstore Fulcio/Rekor. Release-artifacts
+  signert med `.intoto.jsonl`-provenance, SHA256SUMS + tarball + SBOM.
+- **SBOM-3** — `osv-scan`-jobb i CI via `google/osv-scanner-action@v2.0.2`.
+  Scanner `package-lock.json` mot [OSV database](https://osv.dev). SARIF
+  lastes opp til GitHub Security-tab, feiler CI ved HIGH/CRITICAL.
+- **SBOM-5** — Token-rotation: `AUTH_TOKEN_CREATED_AT` (ISO-8601) og
+  `AUTH_TOKEN_MAX_AGE_DAYS` (default 90) i `server/config.js`. `/ready`
+  eksponerer `tokenAgeDays` og flagger `auth_token_stale_<N>d` eller
+  `auth_token_age_unknown` i warnings-array. Ikke-blokkerende — hygiene.
+- **SBOM-6** — Migrasjon `012_audit_log.sql` med append-only tabell:
+  `(id, timestamp, request_id, actor, action, entity_type, entity_id,
+  route, before_hash, after_hash, metadata)`. SHA-256 hashes for
+  integritets-sporing, 3 indexes for query-ytelse.
+- **SBOM-6** — `repos.auditLog` repository med `record/getRecent/
+  getByEntity/stats`. Stille feil-håndtering (audit-feil kan aldri
+  påvirke hovedoperasjonen).
+- **SBOM-6** — `withAudit(repos, spec, handler)` wrapper i `routes.js`.
+  Snapshotter "before" pre-handler, kjører handler, logger "after" kun
+  ved success. Applikert på 4 destruktive endepunkter:
+  - `DELETE /api/pantry/:productKey`
+  - `DELETE /api/sources/:id`
+  - `DELETE /api/receipts/:id`
+  - `DELETE /api/calendar/events/:id`
+  - `PUT /api/profile` (helse-relatert: allergier)
+- **SBOM-7** — `GET /api/audit` og `GET /api/audit/stats` read-only
+  endepunkter. Støtter `?entityType=X&entityId=Y&limit=N`. Bearer-beskyttet
+  via eksisterende auth-middleware.
+- **SBOM-4** — `SECURITY.md §4 Supply-chain policy` — 7 underseksjoner
+  dekker SBOM, OSV, npm audit, SLSA provenance, token rotation, Dependabot,
+  oppdaterings-policy. CVE-reaksjonstid: 7 dager for HIGH/CRITICAL.
+- `openapi.yaml` v1.3.0 — `/api/audit` + `/api/audit/stats` dokumentert.
+- `tests/m-week2-supply-chain.test.js` — **15 nye tester** som dekker:
+  - audit_log repository unit-tester (5)
+  - withAudit-wrapper integration (3) inkl. "feilet request skal IKKE logge"
+  - /api/audit endepunkter (4)
+  - token-rotation warnings (3) med simulerte alderscenarier
+
+#### Changed
+
+- `server/config.js`: to nye env-felter (`AUTH_TOKEN_CREATED_AT`,
+  `AUTH_TOKEN_MAX_AGE_DAYS`). Bakoverkompatibel — begge valgfrie.
+- `server/routes.js`: `/ready`-respons utvidet med `tokenAgeDays`-felt.
+- `server/repositories.js`: `auditLog` lagt til return-objektet.
+- `devDeps`: +`@cyclonedx/cyclonedx-npm@^4.2.1`.
+
+#### Kvalitetsmål nådd
+
+| Metrikk | Uke 1 | Uke 2 | Terskel |
+|---|---|---|---|
+| Tester | 408 | **423** (+15) | 0 rødt |
+| ESLint errors | 0 | 0 | 0 |
+| Prettier | 0 mismatch | 0 mismatch | 0 |
+| Coverage lines | 83.26% | **83.51%** (+0.25) | ≥ 80% |
+| Coverage branches | 71.23% | **71.58%** (+0.35) | ≥ 68% |
+| Coverage functions | 75.83% | **76.26%** (+0.43) | ≥ 72% |
+| npm audit | 0 vulns | 0 vulns | 0 HIGH+ |
+| Runtime deps | 3 | 3 | 3 (uendret) |
+| SBOM-generert | — | ✅ 50 komp. | — |
+| OSV-Scanner | — | ✅ CI-gate | — |
+| SLSA provenance | — | ✅ v3 keyless | — |
+| Audit-log | — | ✅ 4 rutene | — |
+| Token rotation | — | ✅ /ready warn | — |
+
+#### Forventet ISO-effekt etter uke 2
+
+- **Sikkerhet** 7.7 → ~8.1 (+0.4) — konfidensialitet + ansvarlighet + supply-chain dekket
+- **Vedlikeholdbarhet** 7.5 → 7.5 (+0) — ingen frontend-forbedring denne uken
+- **Reliability** 8.2 → 8.3 (+0.1) — audit-log øker analyserbarhet
+
+Total score etter uke 2: ~7.70 (+0.37 fra 7.33, +0.15 fra uke 1).
+
+---
+
+## [1.2.0] — 2026-04-10 (produksjons-hardening)
 
 Total endring: **+5100 / −200 linjer** på tvers av 6 milepæler
 (M1→M6). **408 tester grønne**, null regresjoner fra v1.1.0.

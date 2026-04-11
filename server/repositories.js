@@ -9,7 +9,11 @@
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
-  try { return JSON.parse(s); } catch { return null; }
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
 }
 
 function createRepositories(db) {
@@ -43,14 +47,20 @@ function createRepositories(db) {
     },
     search(q) {
       const like = `%${q.toLowerCase()}%`;
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT * FROM products
         WHERE lower(key) LIKE ? OR lower(product_name) LIKE ?
         ORDER BY product_name LIMIT 50
-      `).all(like, like);
+      `
+        )
+        .all(like, like);
     },
     upsert(p) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         INSERT INTO products (key, product_name, category, pack_size, unit, est_price, shelf_days, store, ean, dairy_rule)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(key) DO UPDATE SET
@@ -64,11 +74,20 @@ function createRepositories(db) {
           ean=excluded.ean,
           dairy_rule=excluded.dairy_rule,
           updated_at=datetime('now')
-      `).run(
-        p.key, p.productName, p.category, p.packSize, p.unit,
-        p.estPrice ?? null, p.shelfDays ?? null, p.store ?? 'Kiwi V\u00e5gsbygd',
-        p.ean ?? null, p.dairyRule ?? null
-      );
+      `
+        )
+        .run(
+          p.key,
+          p.productName,
+          p.category,
+          p.packSize,
+          p.unit,
+          p.estPrice ?? null,
+          p.shelfDays ?? null,
+          p.store ?? 'Kiwi V\u00e5gsbygd',
+          p.ean ?? null,
+          p.dairyRule ?? null
+        );
     },
     count() {
       return db.prepare('SELECT COUNT(*) as c FROM products').get().c;
@@ -82,10 +101,14 @@ function createRepositories(db) {
     getById(id) {
       const recipe = db.prepare('SELECT * FROM recipes WHERE id = ?').get(id);
       if (!recipe) return null;
-      recipe.ingredients = db.prepare(`
+      recipe.ingredients = db
+        .prepare(
+          `
         SELECT id, product_key as productKey, name, qty, unit, optional, sort_order
         FROM recipe_ingredients WHERE recipe_id = ? ORDER BY sort_order, id
-      `).all(id);
+      `
+        )
+        .all(id);
       recipe.equipment = recipe.equipment_json ? JSON.parse(recipe.equipment_json) : [];
       // Normaliser snake_case → camelCase for frontend-parity med getAll()
       recipe.prepTime = recipe.prep_time;
@@ -95,18 +118,26 @@ function createRepositories(db) {
     getAll() {
       const rows = db.prepare('SELECT * FROM recipes ORDER BY category, name').all();
       const ingsByRecipe = {};
-      const allIngs = db.prepare(`
+      const allIngs = db
+        .prepare(
+          `
         SELECT recipe_id, id, product_key as productKey, name, qty, unit, optional, sort_order
         FROM recipe_ingredients ORDER BY sort_order, id
-      `).all();
+      `
+        )
+        .all();
       for (const i of allIngs) {
         if (!ingsByRecipe[i.recipe_id]) ingsByRecipe[i.recipe_id] = [];
         ingsByRecipe[i.recipe_id].push({
-          id: i.id, productKey: i.productKey, name: i.name,
-          qty: i.qty, unit: i.unit, optional: !!i.optional,
+          id: i.id,
+          productKey: i.productKey,
+          name: i.name,
+          qty: i.qty,
+          unit: i.unit,
+          optional: !!i.optional,
         });
       }
-      return rows.map(r => ({
+      return rows.map((r) => ({
         ...r,
         prepTime: r.prep_time,
         sourceType: r.source_type || 'manual',
@@ -115,18 +146,27 @@ function createRepositories(db) {
       }));
     },
     getByCategory(category) {
-      return recipes.getAll().filter(r => r.category === category);
+      return recipes.getAll().filter((r) => r.category === category);
     },
     insert(r) {
-      const result = db.prepare(`
+      const result = db
+        .prepare(
+          `
         INSERT INTO recipes (name, category, prep_time, source, url, pinterest_url, servings, equipment_json, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        r.name, r.category, r.prepTime ?? null, r.source ?? null, r.url ?? null,
-        r.pinterestUrl ?? null, r.servings ?? 2,
-        r.equipment ? JSON.stringify(r.equipment) : null,
-        r.notes ?? null
-      );
+      `
+        )
+        .run(
+          r.name,
+          r.category,
+          r.prepTime ?? null,
+          r.source ?? null,
+          r.url ?? null,
+          r.pinterestUrl ?? null,
+          r.servings ?? 2,
+          r.equipment ? JSON.stringify(r.equipment) : null,
+          r.notes ?? null
+        );
       const recipeId = result.lastInsertRowid;
       if (Array.isArray(r.ingredients)) {
         const ins = db.prepare(`
@@ -134,7 +174,15 @@ function createRepositories(db) {
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
         r.ingredients.forEach((ing, idx) => {
-          ins.run(recipeId, ing.productKey ?? null, ing.name, ing.qty, ing.unit, ing.optional ? 1 : 0, idx);
+          ins.run(
+            recipeId,
+            ing.productKey ?? null,
+            ing.name,
+            ing.qty,
+            ing.unit,
+            ing.optional ? 1 : 0,
+            idx
+          );
         });
       }
       return recipeId;
@@ -183,10 +231,12 @@ function createRepositories(db) {
     },
     /** Fase F2: sett total_size for en pantry-vare */
     setTotalSize(productKey, totalSize) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE inventory SET total_size = ?, updated_at = datetime('now')
         WHERE product_key = ?
-      `).run(totalSize, productKey);
+      `
+      ).run(totalSize, productKey);
     },
     addPurchase(productKey, { packSize, unit, shelfDays = null }) {
       const existing = inventory.getByKey(productKey);
@@ -196,20 +246,26 @@ function createRepositories(db) {
         : null;
 
       if (!existing) {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO inventory (product_key, qty_remaining, unit, last_purchased, last_pack_size, expires_est, purchase_count, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))
-        `).run(productKey, packSize, unit, now, packSize, expiresEst);
+        `
+        ).run(productKey, packSize, unit, now, packSize, expiresEst);
         return { qtyRemaining: packSize, unit, purchaseCount: 1, expiresEst, lastPurchased: now };
       }
 
       // Oppdater: inkrementer mengde, oppdater snittdager mellom kj\u00f8p
       let avg = existing.avgDaysBetweenPurchase;
       if (existing.lastPurchased) {
-        const days = Math.max(0, Math.round((Date.now() - new Date(existing.lastPurchased).getTime()) / 86400000));
+        const days = Math.max(
+          0,
+          Math.round((Date.now() - new Date(existing.lastPurchased).getTime()) / 86400000)
+        );
         avg = avg ? Math.round((avg + days) / 2) : days;
       }
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE inventory
            SET qty_remaining = qty_remaining + ?,
                unit = ?,
@@ -220,14 +276,17 @@ function createRepositories(db) {
                avg_days_between_purchase = ?,
                updated_at = datetime('now')
          WHERE product_key = ?
-      `).run(packSize, unit, now, packSize, expiresEst, avg, productKey);
+      `
+      ).run(packSize, unit, now, packSize, expiresEst, avg, productKey);
       return inventory.getByKey(productKey);
     },
     reduceQty(productKey, amount) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE inventory SET qty_remaining = MAX(0, qty_remaining - ?), updated_at = datetime('now')
         WHERE product_key = ?
-      `).run(amount, productKey);
+      `
+      ).run(amount, productKey);
     },
     /**
      * Legg til eller oppdater inventory uten å markere det som et kjøp.
@@ -238,20 +297,34 @@ function createRepositories(db) {
      * Returnerer { prev, next } slik at kalleren kan beregne qty_delta
      * og skrive en inventory_log-rad i samme transaksjon.
      */
-    upsertManual(productKey, { qtyAdded, unit = '', expiresEst = null, incrementPurchaseCount = false }) {
+    upsertManual(
+      productKey,
+      { qtyAdded, unit = '', expiresEst = null, incrementPurchaseCount = false }
+    ) {
       const existing = inventory.getByKey(productKey);
       const now = new Date().toISOString().split('T')[0];
 
       if (!existing) {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO inventory (product_key, qty_remaining, unit, last_purchased, last_pack_size, expires_est, purchase_count, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `).run(productKey, qtyAdded, unit, now, qtyAdded, expiresEst, incrementPurchaseCount ? 1 : 0);
+        `
+        ).run(
+          productKey,
+          qtyAdded,
+          unit,
+          now,
+          qtyAdded,
+          expiresEst,
+          incrementPurchaseCount ? 1 : 0
+        );
         return { prev: null, next: inventory.getByKey(productKey) };
       }
 
       const newQty = (existing.qtyRemaining || 0) + qtyAdded;
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE inventory
            SET qty_remaining = ?,
                unit = CASE WHEN ? = '' THEN unit ELSE ? END,
@@ -261,9 +334,16 @@ function createRepositories(db) {
                purchase_count = purchase_count + ?,
                updated_at = datetime('now')
          WHERE product_key = ?
-      `).run(
-        newQty, unit, unit, now, qtyAdded, expiresEst,
-        incrementPurchaseCount ? 1 : 0, productKey
+      `
+      ).run(
+        newQty,
+        unit,
+        unit,
+        now,
+        qtyAdded,
+        expiresEst,
+        incrementPurchaseCount ? 1 : 0,
+        productKey
       );
       return { prev: existing, next: inventory.getByKey(productKey) };
     },
@@ -274,13 +354,17 @@ function createRepositories(db) {
   // ==========================================================
   const mealPlans = {
     getWeek(weekYear) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, week_year as weekYear, day_of_week as dayOfWeek, meal_type as mealType,
                recipe_id as recipeId, status, notes
         FROM meal_plans
         WHERE week_year = ? AND meal_type = 'middag'
         ORDER BY day_of_week
-      `).all(weekYear);
+      `
+        )
+        .all(weekYear);
     },
     seedDefault(weekYear, defaultPlan) {
       const ins = db.prepare(`
@@ -295,23 +379,27 @@ function createRepositories(db) {
       tx();
     },
     setRecipe(weekYear, dayOfWeek, recipeId, status = 'planned') {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO meal_plans (week_year, day_of_week, meal_type, recipe_id, status)
         VALUES (?, ?, 'middag', ?, ?)
         ON CONFLICT(week_year, day_of_week, meal_type) DO UPDATE SET
           recipe_id = excluded.recipe_id, status = excluded.status
-      `).run(weekYear, dayOfWeek, recipeId, status);
+      `
+      ).run(weekYear, dayOfWeek, recipeId, status);
     },
     setStatus(weekYear, dayOfWeek, status) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE meal_plans SET status = ?
         WHERE week_year = ? AND day_of_week = ? AND meal_type = 'middag'
-      `).run(status, weekYear, dayOfWeek);
+      `
+      ).run(status, weekYear, dayOfWeek);
     },
     swapDays(weekYear, dayA, dayB) {
       const plan = mealPlans.getWeek(weekYear);
-      const slotA = plan.find(p => p.dayOfWeek === dayA);
-      const slotB = plan.find(p => p.dayOfWeek === dayB);
+      const slotA = plan.find((p) => p.dayOfWeek === dayA);
+      const slotB = plan.find((p) => p.dayOfWeek === dayB);
       if (!slotA || !slotB) return;
       const tx = db.transaction(() => {
         mealPlans.setRecipe(weekYear, dayA, slotB.recipeId, slotA.status);
@@ -320,7 +408,9 @@ function createRepositories(db) {
       tx();
     },
     exists(weekYear) {
-      return db.prepare('SELECT 1 FROM meal_plans WHERE week_year = ? LIMIT 1').get(weekYear) != null;
+      return (
+        db.prepare('SELECT 1 FROM meal_plans WHERE week_year = ? LIMIT 1').get(weekYear) != null
+      );
     },
     /**
      * En uke er "komplett" når alle 7 dager har tatt et eksplisitt valg:
@@ -330,19 +420,24 @@ function createRepositories(db) {
      * Returnerer false hvis uken ikke finnes i det hele tatt.
      */
     isWeekComplete(weekYear) {
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT day_of_week as dayOfWeek, recipe_id as recipeId, status
         FROM meal_plans
         WHERE week_year = ? AND meal_type = 'middag'
-      `).all(weekYear);
+      `
+        )
+        .all(weekYear);
       if (rows.length < 7) return false;
       const seen = new Set();
       for (const r of rows) {
         seen.add(r.dayOfWeek);
-        const decided = r.recipeId != null
-          || r.status === 'away'
-          || r.status === 'skipped'
-          || r.status === 'removed';
+        const decided =
+          r.recipeId != null ||
+          r.status === 'away' ||
+          r.status === 'skipped' ||
+          r.status === 'removed';
         if (!decided) return false;
       }
       // Alle 7 unike dager må være til stede
@@ -365,7 +460,15 @@ function createRepositories(db) {
       `);
       const tx = db.transaction(() => {
         for (const c of choreList) {
-          ins.run(c.id, c.task, c.details ?? null, c.frequency, c.defaultDay, c.icon ?? null, c.active ? 1 : 0);
+          ins.run(
+            c.id,
+            c.task,
+            c.details ?? null,
+            c.frequency,
+            c.defaultDay,
+            c.icon ?? null,
+            c.active ? 1 : 0
+          );
         }
       });
       tx();
@@ -374,15 +477,22 @@ function createRepositories(db) {
 
   const choreSchedules = {
     getWeek(weekYear) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, chore_id as choreId, week_year as weekYear,
                scheduled_day as scheduledDay, status, postponed_to as postponedTo,
                completed_at as completedAt, notes
         FROM chore_schedules WHERE week_year = ?
-      `).all(weekYear);
+      `
+        )
+        .all(weekYear);
     },
     exists(weekYear) {
-      return db.prepare('SELECT 1 FROM chore_schedules WHERE week_year = ? LIMIT 1').get(weekYear) != null;
+      return (
+        db.prepare('SELECT 1 FROM chore_schedules WHERE week_year = ? LIMIT 1').get(weekYear) !=
+        null
+      );
     },
     seedDefault(weekYear) {
       const all = chores.getAll();
@@ -398,22 +508,28 @@ function createRepositories(db) {
       tx();
     },
     postpone(weekYear, choreId, newDay) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE chore_schedules SET postponed_to = ?, status = 'postponed'
         WHERE week_year = ? AND chore_id = ?
-      `).run(newDay, weekYear, choreId);
+      `
+      ).run(newDay, weekYear, choreId);
     },
     markDone(weekYear, choreId) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE chore_schedules SET status = 'done', completed_at = datetime('now')
         WHERE week_year = ? AND chore_id = ?
-      `).run(weekYear, choreId);
+      `
+      ).run(weekYear, choreId);
     },
     add(weekYear, choreId, scheduledDay) {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT OR IGNORE INTO chore_schedules (chore_id, week_year, scheduled_day, status)
         VALUES (?, ?, ?, 'pending')
-      `).run(choreId, weekYear, scheduledDay);
+      `
+      ).run(choreId, weekYear, scheduledDay);
     },
   };
 
@@ -422,14 +538,22 @@ function createRepositories(db) {
   // ==========================================================
   const shoppingExtras = {
     getWeek(weekYear) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT * FROM shopping_extras WHERE week_year = ? ORDER BY created_at
-      `).all(weekYear);
+      `
+        )
+        .all(weekYear);
     },
     add(weekYear, { name, category, quantity = null }) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         INSERT INTO shopping_extras (week_year, name, category, quantity) VALUES (?, ?, ?, ?)
-      `).run(weekYear, name, category || 'T\u00f8rrvarer & annet', quantity).lastInsertRowid;
+      `
+        )
+        .run(weekYear, name, category || 'T\u00f8rrvarer & annet', quantity).lastInsertRowid;
     },
     toggleChecked(id) {
       db.prepare(`UPDATE shopping_extras SET checked = 1 - checked WHERE id = ?`).run(id);
@@ -515,7 +639,9 @@ function createRepositories(db) {
      * Hent en liste med alle items (i sort_order). Returnerer null hvis ikke funnet.
      */
     getById(id) {
-      const list = db.prepare(`
+      const list = db
+        .prepare(
+          `
         SELECT id, week_year as weekYear, status,
                generated_at as generatedAt, confirmed_at as confirmedAt,
                enrichment_status as enrichmentStatus,
@@ -523,7 +649,9 @@ function createRepositories(db) {
                enrichment_finished_at as enrichmentFinishedAt,
                total_est_price as totalEstPrice, notes
         FROM shopping_lists WHERE id = ?
-      `).get(id);
+      `
+        )
+        .get(id);
       if (!list) return null;
       list.items = shoppingLists._getItems(id);
       return list;
@@ -533,7 +661,9 @@ function createRepositories(db) {
      * Hent den aktive handlelisten for en uke, eller null.
      */
     getActive(weekYear) {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT id, week_year as weekYear, status,
                generated_at as generatedAt, confirmed_at as confirmedAt,
                enrichment_status as enrichmentStatus,
@@ -543,7 +673,9 @@ function createRepositories(db) {
         FROM shopping_lists
         WHERE week_year = ? AND status = 'active'
         LIMIT 1
-      `).get(weekYear);
+      `
+        )
+        .get(weekYear);
       if (!row) return null;
       row.items = shoppingLists._getItems(row.id);
       return row;
@@ -554,30 +686,41 @@ function createRepositories(db) {
      * Brukes av cron-jobben for å resumere berikelse etter rate-limit/crash.
      */
     listPendingEnrichment(limit = 10) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id FROM shopping_lists
         WHERE status = 'active' AND enrichment_status IN ('pending', 'partial')
         ORDER BY generated_at ASC
         LIMIT ?
-      `).all(limit).map(r => r.id);
+      `
+        )
+        .all(limit)
+        .map((r) => r.id);
     },
 
     /**
      * Lister (uten items) for en uke, nyeste først. Brukt av historikk-UI.
      */
     getByWeek(weekYear) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, week_year as weekYear, status,
                generated_at as generatedAt, confirmed_at as confirmedAt,
                enrichment_status as enrichmentStatus,
                total_est_price as totalEstPrice
         FROM shopping_lists WHERE week_year = ?
         ORDER BY generated_at DESC
-      `).all(weekYear);
+      `
+        )
+        .all(weekYear);
     },
 
     _getItems(listId) {
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT id, list_id as listId, source_type as sourceType, source_ref as sourceRef,
                ingredient_name as ingredientName, ingredient_name_no as ingredientNameNo,
                product_key as productKey, qty, unit, brand_hint as brandHint, category,
@@ -593,14 +736,17 @@ function createRepositories(db) {
         FROM shopping_list_items
         WHERE list_id = ?
         ORDER BY sort_order, id
-      `).all(listId);
-      return rows.map(r => ({
+      `
+        )
+        .all(listId);
+      return rows.map((r) => ({
         ...r,
         pantryHas: !!r.pantryHas,
         needsBuy: !!r.needsBuy,
         mealsJson: r.mealsJson ? tryParseJson(r.mealsJson) : null,
         resolutionCandidatesJson: r.resolutionCandidatesJson
-          ? tryParseJson(r.resolutionCandidatesJson) : null,
+          ? tryParseJson(r.resolutionCandidatesJson)
+          : null,
       }));
     },
 
@@ -608,7 +754,9 @@ function createRepositories(db) {
      * Hent et enkelt item med parent-liste. Returnerer { item, list } eller null.
      */
     getItemWithList(itemId) {
-      const item = db.prepare(`
+      const item = db
+        .prepare(
+          `
         SELECT id, list_id as listId, source_type as sourceType, source_ref as sourceRef,
                ingredient_name as ingredientName, product_key as productKey,
                qty, unit, pack_size as packSize, pack_unit as packUnit, pack_count as packCount,
@@ -616,13 +764,19 @@ function createRepositories(db) {
                bought_at as boughtAt, bought_qty as boughtQty,
                kassal_product_id as kassalProductId, resolution_id as resolutionId
         FROM shopping_list_items WHERE id = ?
-      `).get(itemId);
+      `
+        )
+        .get(itemId);
       if (!item) return null;
       item.pantryHas = !!item.pantryHas;
       item.needsBuy = !!item.needsBuy;
-      const list = db.prepare(`
+      const list = db
+        .prepare(
+          `
         SELECT id, week_year as weekYear, status FROM shopping_lists WHERE id = ?
-      `).get(item.listId);
+      `
+        )
+        .get(item.listId);
       return { item, list };
     },
 
@@ -633,13 +787,15 @@ function createRepositories(db) {
      * utenfor sin egen tabell.
      */
     markItemBought(itemId, boughtQty) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE shopping_list_items
         SET bought_at = datetime('now'),
             bought_qty = ?,
             needs_buy = 0
         WHERE id = ?
-      `).run(boughtQty ?? null, itemId);
+      `
+      ).run(boughtQty ?? null, itemId);
     },
 
     /**
@@ -647,22 +803,26 @@ function createRepositories(db) {
      * til må-kjøpes. needs_buy=1, pantry_has=0.
      */
     markItemUnpantry(itemId) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE shopping_list_items
         SET pantry_has = 0, needs_buy = 1
         WHERE id = ?
-      `).run(itemId);
+      `
+      ).run(itemId);
     },
 
     /**
      * Lukk en handleliste manuelt. Setter status='done' + confirmed_at.
      */
     markDone(listId) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE shopping_lists
         SET status = 'done', confirmed_at = datetime('now')
         WHERE id = ?
-      `).run(listId);
+      `
+      ).run(listId);
     },
 
     /**
@@ -671,21 +831,28 @@ function createRepositories(db) {
     setEnrichmentStatus(listId, status, { startedAt = false, finishedAt = false } = {}) {
       const fields = ['enrichment_status = ?'];
       const args = [status];
-      if (startedAt) { fields.push("enrichment_started_at = datetime('now')"); }
-      if (finishedAt) { fields.push("enrichment_finished_at = datetime('now')"); }
-      db.prepare(`
+      if (startedAt) {
+        fields.push("enrichment_started_at = datetime('now')");
+      }
+      if (finishedAt) {
+        fields.push("enrichment_finished_at = datetime('now')");
+      }
+      db.prepare(
+        `
         UPDATE shopping_lists SET ${fields.join(', ')} WHERE id = ?
-      `).run(...args, listId);
+      `
+      ).run(...args, listId);
     },
 
     /**
      * Skriv Kassal-resolusjon på et item (brukt av fase B enricher).
      */
-    attachResolution(itemId, {
-      kassalProductId, resolutionId, confidence, resolvedVia,
-      candidatesJson, estimatedPrice,
-    }) {
-      db.prepare(`
+    attachResolution(
+      itemId,
+      { kassalProductId, resolutionId, confidence, resolvedVia, candidatesJson, estimatedPrice }
+    ) {
+      db.prepare(
+        `
         UPDATE shopping_list_items
         SET kassal_product_id = ?,
             resolution_id = ?,
@@ -694,12 +861,17 @@ function createRepositories(db) {
             resolution_candidates_json = ?,
             est_price = COALESCE(?, est_price)
         WHERE id = ?
-      `).run(
+      `
+      ).run(
         kassalProductId ?? null,
         resolutionId ?? null,
         confidence ?? null,
         resolvedVia || null,
-        candidatesJson ? (typeof candidatesJson === 'string' ? candidatesJson : JSON.stringify(candidatesJson)) : null,
+        candidatesJson
+          ? typeof candidatesJson === 'string'
+            ? candidatesJson
+            : JSON.stringify(candidatesJson)
+          : null,
         estimatedPrice ?? null,
         itemId
       );
@@ -707,9 +879,13 @@ function createRepositories(db) {
 
     stats() {
       const totalLists = db.prepare('SELECT COUNT(*) as c FROM shopping_lists').get().c;
-      const activeLists = db.prepare("SELECT COUNT(*) as c FROM shopping_lists WHERE status = 'active'").get().c;
+      const activeLists = db
+        .prepare("SELECT COUNT(*) as c FROM shopping_lists WHERE status = 'active'")
+        .get().c;
       const totalItems = db.prepare('SELECT COUNT(*) as c FROM shopping_list_items').get().c;
-      const boughtItems = db.prepare('SELECT COUNT(*) as c FROM shopping_list_items WHERE bought_at IS NOT NULL').get().c;
+      const boughtItems = db
+        .prepare('SELECT COUNT(*) as c FROM shopping_list_items WHERE bought_at IS NOT NULL')
+        .get().c;
       return { totalLists, activeLists, totalItems, boughtItems };
     },
   };
@@ -719,7 +895,9 @@ function createRepositories(db) {
   // ==========================================================
   const consumables = {
     getAll() {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, product_key as productKey, name, pack_name as packName, category,
                depletion_model as depletionModel, depletion_rate as depletionRate,
                depletion_unit as depletionUnit, current_qty as currentQty, unit,
@@ -727,10 +905,13 @@ function createRepositories(db) {
                reorder_threshold as reorderThreshold, auto_add as autoAdd,
                store, notes, last_purchased as lastPurchased, purchase_count as purchaseCount
         FROM consumables ORDER BY category, name
-      `).all().map(c => ({ ...c, autoAdd: !!c.autoAdd }));
+      `
+        )
+        .all()
+        .map((c) => ({ ...c, autoAdd: !!c.autoAdd }));
     },
     getById(id) {
-      return consumables.getAll().find(c => c.id === id) || null;
+      return consumables.getAll().find((c) => c.id === id) || null;
     },
     upsertMany(list) {
       const ins = db.prepare(`
@@ -742,11 +923,23 @@ function createRepositories(db) {
       const tx = db.transaction(() => {
         for (const c of list) {
           ins.run(
-            c.id, c.productKey ?? null, c.name, c.packName ?? null, c.category,
-            c.depletionModel, c.depletionRate ?? null, c.depletionUnit ?? null,
-            c.currentQty ?? 0, c.unit, c.packSize ?? null, c.packUnit ?? null,
-            c.estPrice ?? null, c.reorderThreshold ?? null, c.autoAdd ? 1 : 0,
-            c.store ?? null, c.notes ?? null
+            c.id,
+            c.productKey ?? null,
+            c.name,
+            c.packName ?? null,
+            c.category,
+            c.depletionModel,
+            c.depletionRate ?? null,
+            c.depletionUnit ?? null,
+            c.currentQty ?? 0,
+            c.unit,
+            c.packSize ?? null,
+            c.packUnit ?? null,
+            c.estPrice ?? null,
+            c.reorderThreshold ?? null,
+            c.autoAdd ? 1 : 0,
+            c.store ?? null,
+            c.notes ?? null
           );
         }
       });
@@ -754,14 +947,22 @@ function createRepositories(db) {
     },
     update(id, fields) {
       const allowed = {
-        name: 'name', autoAdd: 'auto_add', depletionRate: 'depletion_rate',
-        reorderThreshold: 'reorder_threshold', notes: 'notes', estPrice: 'est_price',
-        packName: 'pack_name', packSize: 'pack_size',
+        name: 'name',
+        autoAdd: 'auto_add',
+        depletionRate: 'depletion_rate',
+        reorderThreshold: 'reorder_threshold',
+        notes: 'notes',
+        estPrice: 'est_price',
+        packName: 'pack_name',
+        packSize: 'pack_size',
       };
       const sets = [];
       const vals = [];
       for (const [k, v] of Object.entries(fields)) {
-        if (allowed[k]) { sets.push(`${allowed[k]} = ?`); vals.push(k === 'autoAdd' ? (v ? 1 : 0) : v); }
+        if (allowed[k]) {
+          sets.push(`${allowed[k]} = ?`);
+          vals.push(k === 'autoAdd' ? (v ? 1 : 0) : v);
+        }
       }
       if (sets.length === 0) return;
       sets.push(`updated_at = datetime('now')`);
@@ -772,14 +973,16 @@ function createRepositories(db) {
       const c = consumables.getById(id);
       if (!c) return null;
       const addQty = qty || c.packSize || 1;
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE consumables
            SET current_qty = current_qty + ?,
                last_purchased = date('now'),
                purchase_count = purchase_count + 1,
                updated_at = datetime('now')
          WHERE id = ?
-      `).run(addQty, id);
+      `
+      ).run(addQty, id);
       return consumables.getById(id);
     },
     toggleAuto(id) {
@@ -788,14 +991,18 @@ function createRepositories(db) {
     },
     reduceDaily(recipeEquipment) {
       const list = consumables.getAll();
-      const upd = db.prepare(`UPDATE consumables SET current_qty = MAX(0, current_qty - ?) WHERE id = ?`);
+      const upd = db.prepare(
+        `UPDATE consumables SET current_qty = MAX(0, current_qty - ?) WHERE id = ?`
+      );
       const tx = db.transaction(() => {
         for (const c of list) {
           if (c.depletionModel === 'daily_rate' && c.currentQty > 0) {
             upd.run(c.depletionRate || 0, c.id);
           }
           if (c.depletionModel === 'per_recipe_type' && Array.isArray(recipeEquipment)) {
-            const usesOven = recipeEquipment.some(e => ['stekeovn', 'airfryer', 'langpanne'].includes(e));
+            const usesOven = recipeEquipment.some((e) =>
+              ['stekeovn', 'airfryer', 'langpanne'].includes(e)
+            );
             if (usesOven && c.currentQty > 0) upd.run(c.depletionRate || 0, c.id);
           }
         }
@@ -809,43 +1016,71 @@ function createRepositories(db) {
   // ==========================================================
   const hasFTS = (() => {
     try {
-      return db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge_base_fts'`).get() != null;
-    } catch { return false; }
+      return (
+        db
+          .prepare(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge_base_fts'`
+          )
+          .get() != null
+      );
+    } catch {
+      return false;
+    }
   })();
 
   const kb = {
     insert(entry) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         INSERT INTO knowledge_base (timestamp, user_message, ai_response, context_json, intent, entities_json)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-        entry.timestamp || new Date().toISOString(),
-        entry.userMessage, entry.aiResponse,
-        entry.context ? JSON.stringify(entry.context) : null,
-        entry.intent || null,
-        entry.entities ? JSON.stringify(entry.entities) : null
-      ).lastInsertRowid;
+      `
+        )
+        .run(
+          entry.timestamp || new Date().toISOString(),
+          entry.userMessage,
+          entry.aiResponse,
+          entry.context ? JSON.stringify(entry.context) : null,
+          entry.intent || null,
+          entry.entities ? JSON.stringify(entry.entities) : null
+        ).lastInsertRowid;
     },
     search(query, limit = 10) {
       if (hasFTS && query && query.trim()) {
         // FTS5 BM25-s\u00f8k
-        const safe = query.replace(/["']/g, '').split(/\s+/).filter(Boolean).map(t => `${t}*`).join(' OR ');
+        const safe = query
+          .replace(/["']/g, '')
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((t) => `${t}*`)
+          .join(' OR ');
         if (!safe) return [];
         try {
-          return db.prepare(`
+          return db
+            .prepare(
+              `
             SELECT kb.* FROM knowledge_base kb
             JOIN knowledge_base_fts fts ON fts.rowid = kb.id
             WHERE knowledge_base_fts MATCH ?
             ORDER BY bm25(knowledge_base_fts) LIMIT ?
-          `).all(safe, limit);
-        } catch { /* falle tilbake til LIKE */ }
+          `
+            )
+            .all(safe, limit);
+        } catch {
+          /* falle tilbake til LIKE */
+        }
       }
       const like = `%${query}%`;
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT * FROM knowledge_base
         WHERE user_message LIKE ? OR ai_response LIKE ?
         ORDER BY timestamp DESC LIMIT ?
-      `).all(like, like, limit);
+      `
+        )
+        .all(like, like, limit);
     },
     getRecent(limit = 20) {
       return db.prepare('SELECT * FROM knowledge_base ORDER BY timestamp DESC LIMIT ?').all(limit);
@@ -860,19 +1095,33 @@ function createRepositories(db) {
   // ==========================================================
   const calendar = {
     getEvents(from, to) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, title, date, start_time as startTime, end_time as endTime, location, all_day as allDay, notes, source
         FROM calendar_events WHERE date >= ? AND date <= ? ORDER BY date, start_time
-      `).all(from, to);
+      `
+        )
+        .all(from, to);
     },
     insert(ev) {
-      const res = db.prepare(`
+      const res = db
+        .prepare(
+          `
         INSERT INTO calendar_events (title, date, start_time, end_time, location, all_day, notes, source)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        ev.title, ev.date, ev.startTime ?? null, ev.endTime ?? null,
-        ev.location ?? null, ev.allDay ? 1 : 0, ev.notes ?? null, ev.source ?? 'local'
-      );
+      `
+        )
+        .run(
+          ev.title,
+          ev.date,
+          ev.startTime ?? null,
+          ev.endTime ?? null,
+          ev.location ?? null,
+          ev.allDay ? 1 : 0,
+          ev.notes ?? null,
+          ev.source ?? 'local'
+        );
       return { id: res.lastInsertRowid, ...ev };
     },
     delete(id) {
@@ -885,12 +1134,16 @@ function createRepositories(db) {
   // ==========================================================
   const notifications = {
     insert(type, message, data = null) {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO notifications (type, message, data_json) VALUES (?, ?, ?)
-      `).run(type, message, data ? JSON.stringify(data) : null);
+      `
+      ).run(type, message, data ? JSON.stringify(data) : null);
     },
     getUnread() {
-      return db.prepare(`SELECT * FROM notifications WHERE read = 0 ORDER BY created_at DESC`).all();
+      return db
+        .prepare(`SELECT * FROM notifications WHERE read = 0 ORDER BY created_at DESC`)
+        .all();
     },
     markAllRead() {
       db.prepare(`UPDATE notifications SET read = 1 WHERE read = 0`).run();
@@ -902,10 +1155,19 @@ function createRepositories(db) {
   // ==========================================================
   const purchaseLog = {
     insert(entry) {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO purchase_log (product_key, qty, unit, price_paid, store, source)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(entry.productKey, entry.qty, entry.unit, entry.pricePaid, entry.store, entry.source || 'manual');
+      `
+      ).run(
+        entry.productKey,
+        entry.qty,
+        entry.unit,
+        entry.pricePaid,
+        entry.store,
+        entry.source || 'manual'
+      );
     },
   };
 
@@ -914,17 +1176,23 @@ function createRepositories(db) {
   // ==========================================================
   const mealHistory = {
     insert(entry) {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO meal_history (recipe_id, rating, leftovers, notes) VALUES (?, ?, ?, ?)
-      `).run(entry.recipeId, entry.rating ?? null, entry.leftovers ? 1 : 0, entry.notes ?? null);
+      `
+      ).run(entry.recipeId, entry.rating ?? null, entry.leftovers ? 1 : 0, entry.notes ?? null);
     },
     getRecent(days = 28) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT recipe_id as recipeId, cooked_at, rating, leftovers
         FROM meal_history
         WHERE cooked_at >= date('now', ?)
         ORDER BY cooked_at DESC
-      `).all(`-${days} days`);
+      `
+        )
+        .all(`-${days} days`);
     },
   };
 
@@ -938,10 +1206,12 @@ function createRepositories(db) {
       return { ...r, meals: JSON.parse(r.meals_json), accepted: !!r.accepted };
     },
     save(weekYear, meals) {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT OR REPLACE INTO sunday_drafts (week_year, meals_json, generated_at, accepted)
         VALUES (?, ?, datetime('now'), 0)
-      `).run(weekYear, JSON.stringify(meals));
+      `
+      ).run(weekYear, JSON.stringify(meals));
     },
     markAccepted(weekYear) {
       db.prepare(`UPDATE sunday_drafts SET accepted = 1 WHERE week_year = ?`).run(weekYear);
@@ -957,10 +1227,14 @@ function createRepositories(db) {
   // get/set/cleanup her.
   const llmCache = {
     get(key) {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT response, model, expires_at, tokens_in, tokens_out, hits
         FROM llm_cache WHERE key = ?
-      `).get(key);
+      `
+        )
+        .get(key);
       if (!row) return null;
       if (new Date(row.expires_at).getTime() <= Date.now()) {
         // Expired — rydd lazy og returner null
@@ -968,10 +1242,12 @@ function createRepositories(db) {
         return null;
       }
       // Oppdater hit-stats (fire-and-forget for hot path)
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE llm_cache SET hits = hits + 1, last_hit_at = datetime('now')
         WHERE key = ?
-      `).run(key);
+      `
+      ).run(key);
       return {
         response: row.response,
         model: row.model,
@@ -982,7 +1258,8 @@ function createRepositories(db) {
     },
     set(key, { model, prompt, response, tokensIn = null, tokensOut = null, ttlSeconds = 3600 }) {
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO llm_cache (key, model, prompt, response, tokens_in, tokens_out, expires_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(key) DO UPDATE SET
@@ -992,7 +1269,8 @@ function createRepositories(db) {
           expires_at = excluded.expires_at,
           hits = 0,
           last_hit_at = NULL
-      `).run(key, model, prompt, response, tokensIn, tokensOut, expiresAt);
+      `
+      ).run(key, model, prompt, response, tokensIn, tokensOut, expiresAt);
     },
     cleanup() {
       const res = db.prepare(`DELETE FROM llm_cache WHERE expires_at <= datetime('now')`).run();
@@ -1002,7 +1280,9 @@ function createRepositories(db) {
       return db.prepare('SELECT COUNT(*) as c FROM llm_cache').get().c;
     },
     stats() {
-      const total = db.prepare('SELECT COUNT(*) as c, COALESCE(SUM(hits),0) as h FROM llm_cache').get();
+      const total = db
+        .prepare('SELECT COUNT(*) as c, COALESCE(SUM(hits),0) as h FROM llm_cache')
+        .get();
       return { entries: total.c, totalHits: total.h };
     },
   };
@@ -1016,14 +1296,30 @@ function createRepositories(db) {
   // pantry-saldoen etter at hendelsen er bokført, slik at historikken kan
   // rekonstruere pantry-tilstanden uten å måtte replaye fra null.
   const inventoryLog = {
-    insert({ productKey, qtyDelta, newQty, unit = null, reason, sourceId = null, sourceTable = null, notes = null }) {
-      return db.prepare(`
+    insert({
+      productKey,
+      qtyDelta,
+      newQty,
+      unit = null,
+      reason,
+      sourceId = null,
+      sourceTable = null,
+      notes = null,
+    }) {
+      return db
+        .prepare(
+          `
         INSERT INTO inventory_log (product_key, qty_delta, new_qty, unit, reason, source_id, source_table, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(productKey, qtyDelta, newQty, unit, reason, sourceId, sourceTable, notes).lastInsertRowid;
+      `
+        )
+        .run(productKey, qtyDelta, newQty, unit, reason, sourceId, sourceTable, notes)
+        .lastInsertRowid;
     },
     getByKey(productKey, limit = 50) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, product_key as productKey, qty_delta as qtyDelta, new_qty as newQty,
                unit, reason, source_id as sourceId, source_table as sourceTable,
                notes, logged_at as loggedAt
@@ -1031,20 +1327,28 @@ function createRepositories(db) {
         WHERE product_key = ?
         ORDER BY logged_at DESC, id DESC
         LIMIT ?
-      `).all(productKey, limit);
+      `
+        )
+        .all(productKey, limit);
     },
     getRecent(limit = 100) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, product_key as productKey, qty_delta as qtyDelta, new_qty as newQty,
                unit, reason, source_id as sourceId, source_table as sourceTable,
                notes, logged_at as loggedAt
         FROM inventory_log
         ORDER BY logged_at DESC, id DESC
         LIMIT ?
-      `).all(limit);
+      `
+        )
+        .all(limit);
     },
     getByReason(reason, limit = 100) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, product_key as productKey, qty_delta as qtyDelta, new_qty as newQty,
                unit, reason, source_id as sourceId, source_table as sourceTable,
                notes, logged_at as loggedAt
@@ -1052,12 +1356,18 @@ function createRepositories(db) {
         WHERE reason = ?
         ORDER BY logged_at DESC, id DESC
         LIMIT ?
-      `).all(reason, limit);
+      `
+        )
+        .all(reason, limit);
     },
     countByReason() {
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT reason, COUNT(*) as c FROM inventory_log GROUP BY reason
-      `).all();
+      `
+        )
+        .all();
       const out = {};
       for (const r of rows) out[r.reason] = r.c;
       return out;
@@ -1073,7 +1383,9 @@ function createRepositories(db) {
   // for forretningslogikk (CPI-indeksering, Kassal-sync, lookup-prioritering).
   const priceReferences = {
     getByProductKey(productKey) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, product_key as productKey, product_name as productName, brand,
                category, pack_size as packSize, pack_unit as packUnit, ean,
                current_price as currentPrice, price_per_unit as pricePerUnit,
@@ -1083,7 +1395,9 @@ function createRepositories(db) {
         FROM price_references
         WHERE product_key = ?
         ORDER BY confidence DESC, last_verified DESC
-      `).all(productKey);
+      `
+        )
+        .all(productKey);
     },
     getBest(productKey) {
       // Returnerer beste tilgjengelige referanse: ferskest + høyest confidence
@@ -1093,18 +1407,26 @@ function createRepositories(db) {
     },
     getByEan(ean) {
       if (!ean) return null;
-      return db.prepare(`
+      return (
+        db
+          .prepare(
+            `
         SELECT id, product_key as productKey, product_name as productName, current_price as currentPrice,
                store, source, confidence, last_verified as lastVerified
         FROM price_references
         WHERE ean = ?
         ORDER BY confidence DESC, last_verified DESC
         LIMIT 1
-      `).get(ean) || null;
+      `
+          )
+          .get(ean) || null
+      );
     },
     search(q, limit = 20) {
       const like = `%${(q || '').toLowerCase()}%`;
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, product_key as productKey, product_name as productName, brand,
                current_price as currentPrice, store, source, confidence,
                last_verified as lastVerified
@@ -1112,13 +1434,16 @@ function createRepositories(db) {
         WHERE lower(product_name) LIKE ? OR lower(product_key) LIKE ? OR lower(brand) LIKE ?
         ORDER BY confidence DESC, last_verified DESC
         LIMIT ?
-      `).all(like, like, like, limit);
+      `
+        )
+        .all(like, like, like, limit);
     },
     upsert(ref) {
       // INSERT OR REPLACE ville slettet id og historikk-FK, så vi bruker
       // ON CONFLICT på UNIQUE-indeksen (product_key, store, source) og
       // oppdaterer kun felter vi faktisk vil endre.
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO price_references (
           product_key, product_name, brand, category, pack_size, pack_unit, ean,
           current_price, price_per_unit, currency, store, source, source_url,
@@ -1139,34 +1464,57 @@ function createRepositories(db) {
           last_verified = datetime('now'),
           indexed_from  = excluded.indexed_from,
           updated_at    = datetime('now')
-      `).run(
-        ref.productKey, ref.productName, ref.brand ?? null, ref.category ?? null,
-        ref.packSize ?? null, ref.packUnit ?? null, ref.ean ?? null,
-        ref.currentPrice, ref.pricePerUnit ?? null, ref.currency || 'NOK',
-        ref.store ?? null, ref.source, ref.sourceUrl ?? null,
-        ref.confidence ?? 1.0, ref.indexedFrom ?? null
+      `
+      ).run(
+        ref.productKey,
+        ref.productName,
+        ref.brand ?? null,
+        ref.category ?? null,
+        ref.packSize ?? null,
+        ref.packUnit ?? null,
+        ref.ean ?? null,
+        ref.currentPrice,
+        ref.pricePerUnit ?? null,
+        ref.currency || 'NOK',
+        ref.store ?? null,
+        ref.source,
+        ref.sourceUrl ?? null,
+        ref.confidence ?? 1.0,
+        ref.indexedFrom ?? null
       );
-      return priceReferences.getByProductKeyStoreSource(ref.productKey, ref.store ?? null, ref.source);
+      return priceReferences.getByProductKeyStoreSource(
+        ref.productKey,
+        ref.store ?? null,
+        ref.source
+      );
     },
     getByProductKeyStoreSource(productKey, store, source) {
       // Intern hjelper brukt av upsert for å returnere raden.
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT id, product_key as productKey, product_name as productName,
                current_price as currentPrice, confidence, last_verified as lastVerified,
                indexed_from as indexedFrom, source, store
         FROM price_references
         WHERE product_key = ? AND (store IS ? OR store = ?) AND source = ?
-      `).get(productKey, store, store, source);
+      `
+        )
+        .get(productKey, store, store, source);
       return row || null;
     },
     getStale(olderThanDays) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, product_key as productKey, product_name as productName,
                current_price as currentPrice, last_verified as lastVerified,
                confidence, store, source
         FROM price_references
         WHERE last_verified < datetime('now', ?)
-      `).all(`-${olderThanDays} days`);
+      `
+        )
+        .all(`-${olderThanDays} days`);
     },
     applyCpiMultiplier(multiplier, olderThanDays) {
       // Marker alle stale referanser med ny pris = pris * multiplier.
@@ -1198,14 +1546,18 @@ function createRepositories(db) {
       return db.prepare('SELECT COUNT(*) as c FROM price_references').get().c;
     },
     stats() {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           COUNT(CASE WHEN last_verified >= datetime('now','-30 days') THEN 1 END) as fresh,
           COUNT(CASE WHEN confidence < 0.8 THEN 1 END) as estimated,
           AVG(current_price) as avgPrice
         FROM price_references
-      `).get();
+      `
+        )
+        .get();
       return {
         total: row.total || 0,
         fresh: row.fresh || 0,
@@ -1220,18 +1572,26 @@ function createRepositories(db) {
   // ==========================================================
   const priceHistory = {
     insert({ priceRefId, price, source }) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         INSERT INTO price_history (price_ref_id, price, source) VALUES (?, ?, ?)
-      `).run(priceRefId, price, source).lastInsertRowid;
+      `
+        )
+        .run(priceRefId, price, source).lastInsertRowid;
     },
     getForRef(priceRefId, limit = 50) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, price, source, recorded_at as recordedAt
         FROM price_history
         WHERE price_ref_id = ?
         ORDER BY recorded_at DESC, id DESC
         LIMIT ?
-      `).all(priceRefId, limit);
+      `
+        )
+        .all(priceRefId, limit);
     },
   };
 
@@ -1245,32 +1605,44 @@ function createRepositories(db) {
   // om dataen er endret siden sist.
   const stateSnapshots = {
     insert(type, dataJson) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         INSERT INTO state_snapshots (type, data_json) VALUES (?, ?)
-      `).run(type, dataJson).lastInsertRowid;
+      `
+        )
+        .run(type, dataJson).lastInsertRowid;
     },
     getLatest(type) {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT id, type, data_json as dataJson, created_at as createdAt
         FROM state_snapshots
         WHERE type = ?
         ORDER BY created_at DESC, id DESC
         LIMIT 1
-      `).get(type);
+      `
+        )
+        .get(type);
       return row || null;
     },
     getAllForType(type) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, type, data_json as dataJson, created_at as createdAt
         FROM state_snapshots
         WHERE type = ?
         ORDER BY created_at DESC, id DESC
-      `).all(type);
+      `
+        )
+        .all(type);
     },
     trimToLast(type, keep = 2) {
       const rows = stateSnapshots.getAllForType(type);
       if (rows.length <= keep) return 0;
-      const toDelete = rows.slice(keep).map(r => r.id);
+      const toDelete = rows.slice(keep).map((r) => r.id);
       const del = db.prepare('DELETE FROM state_snapshots WHERE id = ?');
       const tx = db.transaction(() => {
         for (const id of toDelete) del.run(id);
@@ -1285,55 +1657,94 @@ function createRepositories(db) {
   // ==========================================================
   const receipts = {
     insert(rec) {
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         INSERT INTO receipts (
           file_path, mime_type, file_size_bytes, sha256, merchant,
           purchased_at, total_nok, currency, raw_text, llm_model, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        rec.filePath, rec.mimeType, rec.fileSizeBytes, rec.sha256,
-        rec.merchant ?? null, rec.purchasedAt ?? null, rec.totalNok ?? null,
-        rec.currency || 'NOK', rec.rawText ?? null, rec.llmModel ?? null,
-        rec.status || 'pending'
-      ).lastInsertRowid;
+      `
+        )
+        .run(
+          rec.filePath,
+          rec.mimeType,
+          rec.fileSizeBytes,
+          rec.sha256,
+          rec.merchant ?? null,
+          rec.purchasedAt ?? null,
+          rec.totalNok ?? null,
+          rec.currency || 'NOK',
+          rec.rawText ?? null,
+          rec.llmModel ?? null,
+          rec.status || 'pending'
+        ).lastInsertRowid;
     },
     getBySha(sha) {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT id, file_path as filePath, mime_type as mimeType, file_size_bytes as fileSizeBytes,
                sha256, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                currency, raw_text as rawText, llm_model as llmModel, status,
                error_message as errorMessage, created_at as createdAt, confirmed_at as confirmedAt
         FROM receipts WHERE sha256 = ?
-      `).get(sha);
+      `
+        )
+        .get(sha);
       return row || null;
     },
     getById(id) {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT id, file_path as filePath, mime_type as mimeType, file_size_bytes as fileSizeBytes,
                sha256, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                currency, raw_text as rawText, llm_model as llmModel, status,
                error_message as errorMessage, created_at as createdAt, confirmed_at as confirmedAt
         FROM receipts WHERE id = ?
-      `).get(id);
+      `
+        )
+        .get(id);
       return row || null;
     },
     list({ status = null, limit = 50 } = {}) {
       if (status) {
-        return db.prepare(`
+        return db
+          .prepare(
+            `
           SELECT id, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                  status, created_at as createdAt, confirmed_at as confirmedAt
           FROM receipts WHERE status = ?
           ORDER BY created_at DESC, id DESC LIMIT ?
-        `).all(status, limit);
+        `
+          )
+          .all(status, limit);
       }
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT id, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                status, created_at as createdAt, confirmed_at as confirmedAt
         FROM receipts ORDER BY created_at DESC, id DESC LIMIT ?
-      `).all(limit);
+      `
+        )
+        .all(limit);
     },
-    updateParsed(id, { merchant, purchasedAt, totalNok, rawText, llmModel, status = 'pending', errorMessage = null }) {
-      db.prepare(`
+    updateParsed(
+      id,
+      {
+        merchant,
+        purchasedAt,
+        totalNok,
+        rawText,
+        llmModel,
+        status = 'pending',
+        errorMessage = null,
+      }
+    ) {
+      db.prepare(
+        `
         UPDATE receipts
            SET merchant = COALESCE(?, merchant),
                purchased_at = COALESCE(?, purchased_at),
@@ -1343,25 +1754,43 @@ function createRepositories(db) {
                status = ?,
                error_message = ?
          WHERE id = ?
-      `).run(merchant ?? null, purchasedAt ?? null, totalNok ?? null,
-             rawText ?? null, llmModel ?? null, status, errorMessage, id);
+      `
+      ).run(
+        merchant ?? null,
+        purchasedAt ?? null,
+        totalNok ?? null,
+        rawText ?? null,
+        llmModel ?? null,
+        status,
+        errorMessage,
+        id
+      );
     },
     markStatus(id, status, { errorMessage = null } = {}) {
       const confirmedAt = status === 'confirmed' ? new Date().toISOString() : null;
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE receipts SET status = ?, error_message = ?, confirmed_at = COALESCE(?, confirmed_at)
         WHERE id = ?
-      `).run(status, errorMessage, confirmedAt, id);
+      `
+      ).run(status, errorMessage, confirmedAt, id);
     },
     remove(id) {
       db.prepare('DELETE FROM receipts WHERE id = ?').run(id);
     },
     stats() {
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT status, COUNT(*) as c FROM receipts GROUP BY status
-      `).all();
+      `
+        )
+        .all();
       const out = { total: 0 };
-      for (const r of rows) { out[r.status] = r.c; out.total += r.c; }
+      for (const r of rows) {
+        out[r.status] = r.c;
+        out.total += r.c;
+      }
       return out;
     },
   };
@@ -1378,10 +1807,18 @@ function createRepositories(db) {
       const tx = db.transaction(() => {
         for (const it of items) {
           ins.run(
-            receiptId, it.lineText || '', it.productKey ?? null,
-            it.productName || '', it.qty ?? null, it.unit ?? null,
-            it.unitPrice ?? null, it.totalPrice ?? 0, it.discount ?? 0,
-            it.ean ?? null, it.confidence ?? 0.5, it.flaggedReason ?? null,
+            receiptId,
+            it.lineText || '',
+            it.productKey ?? null,
+            it.productName || '',
+            it.qty ?? null,
+            it.unit ?? null,
+            it.unitPrice ?? null,
+            it.totalPrice ?? 0,
+            it.discount ?? 0,
+            it.ean ?? null,
+            it.confidence ?? 0.5,
+            it.flaggedReason ?? null,
             it.kassalProductId ?? null,
             it.resolutionCandidates ? JSON.stringify(it.resolutionCandidates) : null
           );
@@ -1390,7 +1827,9 @@ function createRepositories(db) {
       tx();
     },
     getByReceipt(receiptId) {
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT id, receipt_id as receiptId, line_text as lineText,
                product_key as productKey, product_name as productName,
                qty, unit, unit_price as unitPrice, total_price as totalPrice,
@@ -1398,18 +1837,27 @@ function createRepositories(db) {
                kassal_product_id as kassalProductId,
                resolution_candidates_json as resolutionCandidatesJson
         FROM receipt_items WHERE receipt_id = ? ORDER BY id
-      `).all(receiptId);
-      return rows.map(r => ({
+      `
+        )
+        .all(receiptId);
+      return rows.map((r) => ({
         ...r,
         resolutionCandidates: r.resolutionCandidatesJson
-          ? JSON.parse(r.resolutionCandidatesJson) : null,
+          ? JSON.parse(r.resolutionCandidatesJson)
+          : null,
       }));
     },
     updateItem(id, fields) {
       const allowed = {
-        productKey: 'product_key', productName: 'product_name', qty: 'qty',
-        unit: 'unit', totalPrice: 'total_price', discount: 'discount',
-        confidence: 'confidence', confirmed: 'confirmed', flaggedReason: 'flagged_reason',
+        productKey: 'product_key',
+        productName: 'product_name',
+        qty: 'qty',
+        unit: 'unit',
+        totalPrice: 'total_price',
+        discount: 'discount',
+        confidence: 'confidence',
+        confirmed: 'confirmed',
+        flaggedReason: 'flagged_reason',
         kassalProductId: 'kassal_product_id',
       };
       const sets = [];
@@ -1438,9 +1886,12 @@ function createRepositories(db) {
      * Oppdaterer last_seen_* felter hvis price/store er satt.
      */
     upsert(p) {
-      const existing = db.prepare('SELECT id FROM kassal_products WHERE kassal_id = ?').get(p.kassalId);
+      const existing = db
+        .prepare('SELECT id FROM kassal_products WHERE kassal_id = ?')
+        .get(p.kassalId);
       if (existing) {
-        db.prepare(`
+        db.prepare(
+          `
           UPDATE kassal_products
              SET ean = COALESCE(?, ean),
                  name = COALESCE(?, name),
@@ -1456,29 +1907,51 @@ function createRepositories(db) {
                  raw_json = COALESCE(?, raw_json),
                  updated_at = datetime('now')
            WHERE id = ?
-        `).run(
-          p.ean ?? null, p.name ?? null, p.brand ?? null, p.vendor ?? null,
-          p.category ?? null, p.packSize ?? null, p.packUnit ?? null,
-          p.imageUrl ?? null, p.lastSeenPrice ?? null, p.lastSeenStore ?? null,
+        `
+        ).run(
+          p.ean ?? null,
+          p.name ?? null,
+          p.brand ?? null,
+          p.vendor ?? null,
+          p.category ?? null,
+          p.packSize ?? null,
+          p.packUnit ?? null,
+          p.imageUrl ?? null,
           p.lastSeenPrice ?? null,
-          p.rawJson ?? null, existing.id
+          p.lastSeenStore ?? null,
+          p.lastSeenPrice ?? null,
+          p.rawJson ?? null,
+          existing.id
         );
         return existing.id;
       }
-      const result = db.prepare(`
+      const result = db
+        .prepare(
+          `
         INSERT INTO kassal_products (
           kassal_id, ean, name, brand, vendor, category, pack_size, pack_unit,
           image_url, last_seen_price, last_seen_store, last_seen_at,
           raw_json, capture_source
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                   CASE WHEN ? IS NOT NULL THEN datetime('now') ELSE NULL END, ?, ?)
-      `).run(
-        p.kassalId, p.ean ?? null, p.name || '', p.brand ?? null, p.vendor ?? null,
-        p.category ?? null, p.packSize ?? null, p.packUnit ?? null,
-        p.imageUrl ?? null, p.lastSeenPrice ?? null, p.lastSeenStore ?? null,
-        p.lastSeenPrice ?? null,
-        p.rawJson ?? null, p.captureSource || 'lookup'
-      );
+      `
+        )
+        .run(
+          p.kassalId,
+          p.ean ?? null,
+          p.name || '',
+          p.brand ?? null,
+          p.vendor ?? null,
+          p.category ?? null,
+          p.packSize ?? null,
+          p.packUnit ?? null,
+          p.imageUrl ?? null,
+          p.lastSeenPrice ?? null,
+          p.lastSeenStore ?? null,
+          p.lastSeenPrice ?? null,
+          p.rawJson ?? null,
+          p.captureSource || 'lookup'
+        );
       return result.lastInsertRowid;
     },
     getById(id) {
@@ -1493,19 +1966,27 @@ function createRepositories(db) {
     },
     search(q, limit = 10) {
       const like = `%${q.toLowerCase()}%`;
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT * FROM kassal_products
         WHERE lower(name) LIKE ? OR lower(brand) LIKE ?
         ORDER BY last_seen_at DESC, name LIMIT ?
-      `).all(like, like, limit);
+      `
+        )
+        .all(like, like, limit);
     },
     stats() {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT COUNT(*) as total,
                COUNT(ean) as withEan,
                COUNT(last_seen_price) as withPrice
         FROM kassal_products
-      `).get();
+      `
+        )
+        .get();
       return row;
     },
   };
@@ -1518,38 +1999,50 @@ function createRepositories(db) {
      * Registrér at vi "så" en resolution (upload-fasen). times_seen++.
      */
     upsertSeen({ productKey, kassalProductId, resolvedVia, confidence }) {
-      const existing = db.prepare(`
+      const existing = db
+        .prepare(
+          `
         SELECT id, times_seen FROM product_resolutions
         WHERE (product_key IS ? OR product_key = ?) AND kassal_product_id = ?
-      `).get(productKey ?? null, productKey ?? null, kassalProductId);
+      `
+        )
+        .get(productKey ?? null, productKey ?? null, kassalProductId);
       if (existing) {
-        db.prepare(`
+        db.prepare(
+          `
           UPDATE product_resolutions
              SET times_seen = times_seen + 1,
                  last_seen_at = datetime('now'),
                  confidence = MAX(confidence, ?)
            WHERE id = ?
-        `).run(confidence ?? 0.5, existing.id);
+        `
+        ).run(confidence ?? 0.5, existing.id);
         return existing.id;
       }
-      const r = db.prepare(`
+      const r = db
+        .prepare(
+          `
         INSERT INTO product_resolutions
           (product_key, kassal_product_id, resolved_via, confidence, times_seen)
         VALUES (?, ?, ?, ?, 1)
-      `).run(productKey ?? null, kassalProductId, resolvedVia, confidence ?? 0.5);
+      `
+        )
+        .run(productKey ?? null, kassalProductId, resolvedVia, confidence ?? 0.5);
       return r.lastInsertRowid;
     },
     /**
      * Bruker har bekreftet kvitteringen. times_confirmed++.
      */
     incrementConfirmed(id) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE product_resolutions
            SET times_confirmed = times_confirmed + 1,
                last_confirmed_at = datetime('now'),
                last_seen_at = datetime('now')
          WHERE id = ?
-      `).run(id);
+      `
+      ).run(id);
     },
     /**
      * Gi beste kjente resolution for en product_key.
@@ -1557,7 +2050,9 @@ function createRepositories(db) {
      */
     bestForProductKey(productKey) {
       if (!productKey) return null;
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT pr.*, kp.ean, kp.name as kassalName, kp.brand, kp.pack_size as packSize,
                kp.pack_unit as packUnit, kp.last_seen_price as lastSeenPrice,
                kp.last_seen_store as lastSeenStore, kp.image_url as imageUrl
@@ -1566,14 +2061,18 @@ function createRepositories(db) {
         WHERE pr.product_key = ?
         ORDER BY pr.user_locked DESC, pr.times_confirmed DESC, pr.confidence DESC
         LIMIT 1
-      `).get(productKey);
+      `
+        )
+        .get(productKey);
     },
     /**
      * Alle resolutions for en product_key (for UI-dropdown).
      */
     allForProductKey(productKey, limit = 5) {
       if (!productKey) return [];
-      return db.prepare(`
+      return db
+        .prepare(
+          `
         SELECT pr.id, pr.kassal_product_id as kassalProductId, pr.resolved_via as resolvedVia,
                pr.confidence, pr.times_confirmed as timesConfirmed, pr.times_seen as timesSeen,
                pr.user_locked as userLocked,
@@ -1585,11 +2084,15 @@ function createRepositories(db) {
         WHERE pr.product_key = ?
         ORDER BY pr.user_locked DESC, pr.times_confirmed DESC, pr.confidence DESC
         LIMIT ?
-      `).all(productKey, limit);
+      `
+        )
+        .all(productKey, limit);
     },
     setUserLocked(id, locked = true) {
-      db.prepare('UPDATE product_resolutions SET user_locked = ? WHERE id = ?')
-        .run(locked ? 1 : 0, id);
+      db.prepare('UPDATE product_resolutions SET user_locked = ? WHERE id = ?').run(
+        locked ? 1 : 0,
+        id
+      );
     },
     getById(id) {
       return db.prepare('SELECT * FROM product_resolutions WHERE id = ?').get(id);
@@ -1601,16 +2104,21 @@ function createRepositories(db) {
   // ==========================================================
   const kassalCache = {
     get(cacheKey) {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT id, cache_key as cacheKey, endpoint, response_json as responseJson,
                fetched_at as fetchedAt, expires_at as expiresAt, hit_count as hitCount
         FROM kassal_cache WHERE cache_key = ?
-      `).get(cacheKey);
+      `
+        )
+        .get(cacheKey);
       return row || null;
     },
     put({ cacheKey, endpoint, responseJson, ttlHours }) {
       const expiresAt = new Date(Date.now() + ttlHours * 3600000).toISOString();
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO kassal_cache (cache_key, endpoint, response_json, expires_at)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(cache_key) DO UPDATE SET
@@ -1619,7 +2127,8 @@ function createRepositories(db) {
           fetched_at = datetime('now'),
           expires_at = excluded.expires_at,
           hit_count = 0
-      `).run(cacheKey, endpoint, responseJson, expiresAt);
+      `
+      ).run(cacheKey, endpoint, responseJson, expiresAt);
     },
     bumpHit(id) {
       db.prepare('UPDATE kassal_cache SET hit_count = hit_count + 1 WHERE id = ?').run(id);
@@ -1629,12 +2138,16 @@ function createRepositories(db) {
       return r.changes || 0;
     },
     stats() {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT COUNT(*) as total,
                SUM(CASE WHEN expires_at >= datetime('now') THEN 1 ELSE 0 END) as fresh,
                SUM(hit_count) as totalHits
         FROM kassal_cache
-      `).get();
+      `
+        )
+        .get();
       return row;
     },
   };
@@ -1644,10 +2157,12 @@ function createRepositories(db) {
   // ==========================================================
   const llmAudit = {
     log({ toolName, arguments: args, result, success, userMessage }) {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO llm_audit (tool_name, arguments, result, success, user_message)
         VALUES (?, ?, ?, ?, ?)
-      `).run(
+      `
+      ).run(
         toolName,
         args ? JSON.stringify(args) : null,
         result ? JSON.stringify(result).slice(0, 4000) : null,
@@ -1690,7 +2205,8 @@ function createRepositories(db) {
         dislikes: profile.dislikes ?? current.dislikes,
         preferences: profile.preferences ?? current.preferences,
       };
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO family_profile (id, members, allergies, dislikes, preferences, updated_at)
         VALUES (1, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(id) DO UPDATE SET
@@ -1699,7 +2215,8 @@ function createRepositories(db) {
           dislikes = excluded.dislikes,
           preferences = excluded.preferences,
           updated_at = datetime('now')
-      `).run(
+      `
+      ).run(
         JSON.stringify(merged.members),
         JSON.stringify(merged.allergies),
         JSON.stringify(merged.dislikes),
@@ -1715,36 +2232,52 @@ function createRepositories(db) {
       const isEnable = action === 'enabled' || action === 'enable';
       const col = isEnable ? 'enable_count' : 'disable_count';
       try {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO filter_usage (filter_id, ${col}, last_used_at)
           VALUES (?, 1, datetime('now'))
           ON CONFLICT(filter_id) DO UPDATE SET
             ${col} = ${col} + 1,
             last_used_at = datetime('now')
-        `).run(filterId);
-      } catch (err) { /* robust mot eldre DB */ }
+        `
+        ).run(filterId);
+      } catch (err) {
+        /* robust mot eldre DB */
+      }
     },
     getTopN(n = 3) {
       try {
-        return db.prepare(`
+        return db
+          .prepare(
+            `
           SELECT filter_id as filterId, enable_count as enableCount,
                  disable_count as disableCount, last_used_at as lastUsedAt
           FROM filter_usage
           WHERE enable_count > 0
           ORDER BY enable_count DESC, last_used_at DESC
           LIMIT ?
-        `).all(n);
-      } catch (err) { return []; }
+        `
+          )
+          .all(n);
+      } catch (err) {
+        return [];
+      }
     },
     getAll() {
       try {
-        return db.prepare(`
+        return db
+          .prepare(
+            `
           SELECT filter_id as filterId, enable_count as enableCount,
                  disable_count as disableCount, last_used_at as lastUsedAt
           FROM filter_usage
           ORDER BY enable_count DESC
-        `).all();
-      } catch (err) { return []; }
+        `
+          )
+          .all();
+      } catch (err) {
+        return [];
+      }
     },
   };
 
@@ -1754,40 +2287,64 @@ function createRepositories(db) {
   const recipeSources = {
     getAll() {
       try {
-        return db.prepare(`
+        return db
+          .prepare(
+            `
           SELECT id, url, type, label, last_sync_at as lastSyncAt,
                  last_sync_count as lastSyncCount, enabled, added_at as addedAt
           FROM recipe_sources
           ORDER BY added_at DESC
-        `).all().map(r => ({ ...r, enabled: !!r.enabled }));
-      } catch (err) { return []; }
+        `
+          )
+          .all()
+          .map((r) => ({ ...r, enabled: !!r.enabled }));
+      } catch (err) {
+        return [];
+      }
     },
     getEnabled() {
       try {
-        return db.prepare(`
+        return db
+          .prepare(
+            `
           SELECT id, url, type, label, last_sync_at as lastSyncAt,
                  last_sync_count as lastSyncCount, enabled, added_at as addedAt
           FROM recipe_sources
           WHERE enabled = 1
           ORDER BY COALESCE(last_sync_at, '1970-01-01') ASC
-        `).all().map(r => ({ ...r, enabled: !!r.enabled }));
-      } catch (err) { return []; }
+        `
+          )
+          .all()
+          .map((r) => ({ ...r, enabled: !!r.enabled }));
+      } catch (err) {
+        return [];
+      }
     },
     getById(id) {
       try {
-        const r = db.prepare(`
+        const r = db
+          .prepare(
+            `
           SELECT id, url, type, label, last_sync_at as lastSyncAt,
                  last_sync_count as lastSyncCount, enabled, added_at as addedAt
           FROM recipe_sources WHERE id = ?
-        `).get(id);
+        `
+          )
+          .get(id);
         return r ? { ...r, enabled: !!r.enabled } : null;
-      } catch (err) { return null; }
+      } catch (err) {
+        return null;
+      }
     },
     insert({ url, type, label }) {
-      const info = db.prepare(`
+      const info = db
+        .prepare(
+          `
         INSERT INTO recipe_sources (url, type, label, enabled)
         VALUES (?, ?, ?, 1)
-      `).run(url, type, label || null);
+      `
+        )
+        .run(url, type, label || null);
       return info.lastInsertRowid;
     },
     delete(id) {
@@ -1797,24 +2354,155 @@ function createRepositories(db) {
       db.prepare('UPDATE recipe_sources SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
     },
     updateSyncMeta(id, { lastSyncAt, lastSyncCount }) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE recipe_sources
            SET last_sync_at = ?, last_sync_count = ?
          WHERE id = ?
-      `).run(lastSyncAt, lastSyncCount || 0, id);
+      `
+      ).run(lastSyncAt, lastSyncCount || 0, id);
+    },
+  };
+
+  // ==========================================================
+  // SBOM-6: Audit log repository (migration 012)
+  // Append-only log over destruktive API-operasjoner.
+  // ==========================================================
+  const auditLog = {
+    /**
+     * Registrer en audit-hendelse.
+     * @param {object} entry
+     * @param {string} entry.requestId   - X-Request-Id (uuid)
+     * @param {string} [entry.actor]     - brukeridentifikator (default: 'local')
+     * @param {string} entry.action      - 'DELETE' | 'PUT' | 'PATCH' | 'POST'
+     * @param {string} entry.entityType  - ressurs-type (f.eks. 'recipe')
+     * @param {string|number} [entry.entityId]
+     * @param {string} entry.route       - full HTTP-path, f.eks. '/api/recipes/42'
+     * @param {object} [entry.before]    - objekt før endring (hashes)
+     * @param {object} [entry.after]     - objekt etter endring (hashes)
+     * @param {object} [entry.metadata]  - ekstra context (små key-val)
+     */
+    record(entry) {
+      const crypto = require('crypto');
+      const hash = (obj) => {
+        if (obj == null) return null;
+        const s = typeof obj === 'string' ? obj : JSON.stringify(obj);
+        return 'sha256:' + crypto.createHash('sha256').update(s).digest('hex');
+      };
+      try {
+        db.prepare(
+          `
+          INSERT INTO audit_log
+            (request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        ).run(
+          entry.requestId || 'unknown',
+          entry.actor || 'local',
+          entry.action,
+          entry.entityType,
+          entry.entityId != null ? String(entry.entityId) : null,
+          entry.route,
+          hash(entry.before),
+          hash(entry.after),
+          entry.metadata ? JSON.stringify(entry.metadata).slice(0, 2000) : null
+        );
+      } catch (err) {
+        // Audit-feil skal aldri tørke ut hovedoperasjonen. Logg stille.
+        if (process.env.NODE_ENV !== 'test') {
+          console.error('[audit] kunne ikke skrive til audit_log:', err.message);
+        }
+      }
+    },
+
+    /** Hent siste N hendelser (DESC på timestamp). */
+    getRecent(limit = 100) {
+      return db
+        .prepare(
+          `SELECT id, timestamp, request_id as requestId, actor, action,
+                  entity_type as entityType, entity_id as entityId, route,
+                  before_hash as beforeHash, after_hash as afterHash, metadata
+           FROM audit_log ORDER BY id DESC LIMIT ?`
+        )
+        .all(Math.max(1, Math.min(500, limit)))
+        .map((r) => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : null }));
+    },
+
+    /** Filtrer på entity_type + (optional) entity_id. */
+    getByEntity(entityType, entityId = null, limit = 100) {
+      if (entityId != null) {
+        return db
+          .prepare(
+            `SELECT id, timestamp, request_id as requestId, actor, action,
+                    entity_type as entityType, entity_id as entityId, route,
+                    before_hash as beforeHash, after_hash as afterHash, metadata
+             FROM audit_log
+             WHERE entity_type = ? AND entity_id = ?
+             ORDER BY id DESC LIMIT ?`
+          )
+          .all(entityType, String(entityId), Math.max(1, Math.min(500, limit)))
+          .map((r) => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : null }));
+      }
+      return db
+        .prepare(
+          `SELECT id, timestamp, request_id as requestId, actor, action,
+                  entity_type as entityType, entity_id as entityId, route,
+                  before_hash as beforeHash, after_hash as afterHash, metadata
+           FROM audit_log
+           WHERE entity_type = ?
+           ORDER BY id DESC LIMIT ?`
+        )
+        .all(entityType, Math.max(1, Math.min(500, limit)))
+        .map((r) => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : null }));
+    },
+
+    /** Statistikk for /api/audit/stats — brukes av dashboards. */
+    stats() {
+      const total = db.prepare('SELECT COUNT(*) as c FROM audit_log').get().c;
+      const byAction = db
+        .prepare('SELECT action, COUNT(*) as c FROM audit_log GROUP BY action')
+        .all();
+      const byEntity = db
+        .prepare(
+          'SELECT entity_type, COUNT(*) as c FROM audit_log GROUP BY entity_type ORDER BY c DESC LIMIT 10'
+        )
+        .all();
+      return { total, byAction, byEntity };
     },
   };
 
   return {
     _db: db,
-    products, recipes, inventory, mealPlans, chores, choreSchedules,
-    shoppingExtras, shoppingLists, consumables, kb, calendar, notifications,
-    purchaseLog, mealHistory, sundayDrafts, llmAudit, llmCache,
-    inventoryLog, priceReferences, priceHistory, stateSnapshots,
-    receipts, receiptItems,
-    kassalProducts, productResolutions, kassalCache,
-    familyProfile, filterUsage,
+    products,
+    recipes,
+    inventory,
+    mealPlans,
+    chores,
+    choreSchedules,
+    shoppingExtras,
+    shoppingLists,
+    consumables,
+    kb,
+    calendar,
+    notifications,
+    purchaseLog,
+    mealHistory,
+    sundayDrafts,
+    llmAudit,
+    llmCache,
+    inventoryLog,
+    priceReferences,
+    priceHistory,
+    stateSnapshots,
+    receipts,
+    receiptItems,
+    kassalProducts,
+    productResolutions,
+    kassalCache,
+    familyProfile,
+    filterUsage,
     recipeSources,
+    auditLog,
     hasFTS,
     transaction: (fn) => db.transaction(fn),
   };

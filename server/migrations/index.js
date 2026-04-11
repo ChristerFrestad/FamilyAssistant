@@ -28,20 +28,21 @@ function ensureSchemaTable(db) {
 }
 
 function listMigrationFiles() {
-  return fs.readdirSync(MIGRATIONS_DIR)
-    .filter(f => /^\d{3}_.*\.sql$/.test(f))
+  return fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((f) => /^\d{3}_.*\.sql$/.test(f))
     .sort();
 }
 
 function appliedMigrations(db) {
   const rows = db.prepare('SELECT version FROM schema_migrations').all();
-  return new Set(rows.map(r => r.version));
+  return new Set(rows.map((r) => r.version));
 }
 
 function hasFTS5(db) {
   try {
-    db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS __fts5_probe USING fts5(x)");
-    db.exec("DROP TABLE IF EXISTS __fts5_probe");
+    db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS __fts5_probe USING fts5(x)');
+    db.exec('DROP TABLE IF EXISTS __fts5_probe');
     return true;
   } catch {
     return false;

@@ -24,7 +24,7 @@ describe('Fase F4 — jaccard', () => {
   test('halv overlapp', () => {
     // {a,b} ∩ {a,c} = {a} (1), union = {a,b,c} (3) → 1/3
     const r = sim.jaccard(['a', 'b'], ['a', 'c']);
-    assert.ok(Math.abs(r - (1 / 3)) < 0.001);
+    assert.ok(Math.abs(r - 1 / 3) < 0.001);
   });
 
   test('tomme sett → 0', () => {
@@ -74,13 +74,15 @@ describe('Fase F4 — computeSimilarity', () => {
     const b = { ...a, id: 2 };
     const r = sim.computeSimilarity(a, b);
     assert.ok(r.reasons.length > 0);
-    assert.ok(r.reasons.some(x => /felles ingredienser|overlapp/.test(x)));
+    assert.ok(r.reasons.some((x) => /felles ingredienser|overlapp/.test(x)));
   });
 });
 
 describe('Fase F4 — GET /api/recipes/:id/similar', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
   after(async () => {
     sim.clear(); // rens cache
     await ctx.close();
@@ -130,7 +132,7 @@ describe('Fase F4 — GET /api/recipes/:id/similar', () => {
     const allR = await request(ctx.baseUrl, 'GET', '/api/recipes');
     const firstId = allR.body.recipes[0].id;
     const r = await request(ctx.baseUrl, 'GET', `/api/recipes/${firstId}/similar?limit=10`);
-    const scores = r.body.similar.map(s => s.score);
+    const scores = r.body.similar.map((s) => s.score);
     for (let i = 1; i < scores.length; i++) {
       assert.ok(scores[i] <= scores[i - 1], `score skal være descending: ${scores}`);
     }
@@ -139,7 +141,9 @@ describe('Fase F4 — GET /api/recipes/:id/similar', () => {
 
 describe('Fase F4 — ytelse', () => {
   let ctx;
-  before(async () => { ctx = await startTestServer(); });
+  before(async () => {
+    ctx = await startTestServer();
+  });
   after(async () => {
     sim.clear();
     await ctx.close();

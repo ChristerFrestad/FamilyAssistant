@@ -29,7 +29,7 @@ function jaccard(a, b) {
 function ingredientKeys(recipe) {
   if (!recipe || !Array.isArray(recipe.ingredients)) return [];
   return recipe.ingredients
-    .map(i => i.productKey || (i.name || '').toLowerCase().trim())
+    .map((i) => i.productKey || (i.name || '').toLowerCase().trim())
     .filter(Boolean);
 }
 
@@ -67,7 +67,7 @@ function findSimilar(repos, recipeId, limit = 5) {
   // Cache-sjekk
   const now = Date.now();
   const cached = cache.get(id);
-  if (cached && (now - cached.at) < CACHE_TTL_MS) {
+  if (cached && now - cached.at < CACHE_TTL_MS) {
     return cached.data.slice(0, limit);
   }
 
@@ -76,8 +76,8 @@ function findSimilar(repos, recipeId, limit = 5) {
 
   const all = repos.recipes.getAll();
   const scored = all
-    .filter(r => r.id !== id)
-    .map(r => {
+    .filter((r) => r.id !== id)
+    .map((r) => {
       const sim = computeSimilarity(target, r);
       return {
         id: r.id,
@@ -89,7 +89,7 @@ function findSimilar(repos, recipeId, limit = 5) {
         reasons: sim.reasons,
       };
     })
-    .filter(r => r.score > 0)
+    .filter((r) => r.score > 0)
     .sort((a, b) => b.score - a.score);
 
   // Cache lagring

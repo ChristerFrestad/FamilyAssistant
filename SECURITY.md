@@ -59,9 +59,11 @@ Disse er akseptert risiko, dokumentert her så nye utviklere forstår:
   fil med inline-handlers (`onclick="..."`). Planen var å modularisere i M5,
   men ble utsatt til v1.3 for å unngå blast radius av en 3700-linje refaktor.
   `escapeHtml`-helperen gir bunden sikkerhet selv uten nonce/hash-baserte CSP.
-- **Ingen audit-logg** — mutasjoner på `/api/*` logges i pino, men det finnes
-  ingen separat audit-tabell for å kunne rekonstruere "hvem endret hva, når".
-  OK for single-family-bruk.
+- **~~Ingen audit-logg~~ Dedikert audit-log fra v1.3** — destruktive
+  operasjoner (DELETE/PUT på profile, pantry, sources, receipts, calendar)
+  logges i `audit_log`-tabellen med request-id, SHA-256 før/etter-hash og
+  tidsstempel. Eksponeres read-only via `/api/audit`. Append-only på
+  API-nivå. Se SBOM-6 i CHANGELOG.md.
 - **Rate-limit er in-memory** — nullstilles ved restart, ikke delt mellom
   noder. Akseptabelt for single-node RPi5.
 - **Ingen 2FA** — kun bearer-token. Token-kompromittering gir full tilgang.
@@ -69,7 +71,90 @@ Disse er akseptert risiko, dokumentert her så nye utviklere forstår:
   (meal plans, chores) men en fysisk enhet med cache-tilgang kan lese
   gammel data. Scope er samme device, så samme risiko som DB-tilgangen.
 
-## 4. Oppdaterings-policy
+## 4. Supply-chain policy (fra v1.3)
+
+### 4.1 SBOM (Software Bill of Materials)
+
+Hver release-bygging genererer en **CycloneDX 1.6** SBOM som dekker alle
+runtime-avhengigheter (produksjons-bundle, ekskluderer devDeps).
+
+- **Lokalt:** `npm run sbom` → `sbom.json`
+- **Full (inkl. dev):** `npm run sbom:full` → `sbom-full.json`
+- **CI:** `sbom`-jobben i `.github/workflows/ci.yml` genererer og laster opp
+  SBOM-en som build-artifact ved hver push. Beholdes i 90 dager.
+- **Release:** `.github/workflows/release.yml` vedhefter `sbom.json` til
+  hver GitHub Release (taggede versjoner `v*`).
+
+SBOM gir downstream-brukere muligheten til å krysssjekke egne avhengigheter,
+møte NIS2 / US EO 14028 supply-chain-krav, og rask CVE-kartlegging.
+
+### 4.2 OSV-Scanner (vulnerability feed)
+
+Google's [Open Source Vulnerabilities](https://osv.dev) database scannes
+på hvert CI-kjøring via `google/osv-scanner-action`.
+
+- **Gate:** CI feiler hvis HIGH/CRITICAL-sårbarheter finnes i `package-lock.json`.
+- **Output:** SARIF-fil lastes opp til GitHub Security-tabben (krever
+  `security-events: write`-permission).
+- **Reaksjonstid:** Hvis OSV-Scanner flagger en HIGH/CRITICAL CVE, skal
+  den patches eller workaround etableres **innen 7 dager**. Dokumenter i
+  issue eller CHANGELOG.
+
+### 4.3 npm audit
+
+Komplementerer OSV-Scanner med npm-sin egen database:
+
+- `npm audit --omit=dev --audit-level=high` kjøres som eget CI-steg
+  (`security`-jobben). Feiler ved HIGH+.
+- `npm audit --audit-level=moderate` (inkl. dev) kjøres som informativt
+  steg, ikke blokkerende.
+
+### 4.4 SLSA Level 3 provenance
+
+Release-artifacts er kryptografisk signert med build-herkomst:
+
+- `release.yml` bruker `slsa-framework/slsa-github-generator` for å generere
+  en signert `.intoto.jsonl` fil som beskriver hvem, hva, når, og hvordan
+  artifact-et ble bygget.
+- Ingen private nøkler i repoet — signeringen skjer via GitHub OIDC +
+  Sigstore Fulcio/Rekor (keyless signing).
+- Verifisering downstream:
+  ```bash
+  slsa-verifier verify-artifact \
+    --provenance-path familieassistenten-v1.3.0.intoto.jsonl \
+    --source-uri github.com/ChristerFrestad/FamilyAssistant \
+    familieassistenten-v1.3.0.tar.gz
+  ```
+
+### 4.5 Token rotation
+
+`AUTH_TOKEN` skal roteres **minst hver 90. dag**. Mekanikk:
+
+1. Operatør setter ny token i `.env` eller `systemd environment`:
+   ```bash
+   NEW_TOKEN=$(openssl rand -hex 32)
+   # Oppdater AUTH_TOKEN og AUTH_TOKEN_CREATED_AT
+   ```
+2. `AUTH_TOKEN_CREATED_AT=2026-04-10T12:00:00Z` (ISO-8601).
+3. Appen leser dette i `config.js` og /ready flagger warning
+   `auth_token_stale_<N>d` når `N > AUTH_TOKEN_MAX_AGE_DAYS` (default 90).
+4. Hvis `AUTH_TOKEN` er satt men `AUTH_TOKEN_CREATED_AT` mangler, returnerer
+   /ready en `auth_token_age_unknown`-warning i produksjon.
+
+Rate-limit CI-gate og audit-log fanger eventuell misbruk mellom rotasjoner.
+
+### 4.6 Dependabot
+
+`.github/dependabot.yml` åpner ukentlige PR-er (mandager 07:00 Europe/Oslo):
+
+- **npm (production + development)** — grupperte minor/patch for mindre støy,
+  separate PRs for major.
+- **GitHub Actions** — action-versjoner.
+
+Alle Dependabot-PRs skal kjøre gjennom vanlig CI-gate (lint + format + test
++ coverage + SBOM + OSV-scan) før merge.
+
+### 4.7 Oppdaterings-policy
 
 - **Node.js**: hold på siste LTS (20.x p.t.). Sjekk `package.json#engines`.
 - **better-sqlite3**: oppdateres ved større Node-versjoner. Fallback til
@@ -83,8 +168,8 @@ Sjekk utdaterte pakker:
 ```bash
 cd /home/pi/Familieassistenten
 npm outdated
-# Pr. v1.2 holder vi oss til stabile minor-versjoner og patcher
-# CVE-er innen 7 dager.
+npm audit
+# CVE-er innen 7 dager, minor-updates innen 30 dager.
 ```
 
 ## 5. Rapporter en sikkerhetssvakhet

@@ -36,8 +36,8 @@ const execFileAsync = promisify(execFile);
 // Fil-lagring
 // ============================================================
 
-const RECEIPTS_ROOT = process.env.RECEIPTS_DIR
-  || path.join(__dirname, '..', '..', 'data', 'receipts');
+const RECEIPTS_ROOT =
+  process.env.RECEIPTS_DIR || path.join(__dirname, '..', '..', 'data', 'receipts');
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -76,11 +76,10 @@ function saveFile(buffer, mimeType) {
  * Returnerer { text, engine } eller kaster.
  */
 async function tesseractOcr(filePath) {
-  const { stdout } = await execFileAsync(
-    'tesseract',
-    [filePath, '-', '-l', 'nor+eng'],
-    { timeout: 30000, maxBuffer: 4 * 1024 * 1024 }
-  );
+  const { stdout } = await execFileAsync('tesseract', [filePath, '-', '-l', 'nor+eng'], {
+    timeout: 30000,
+    maxBuffer: 4 * 1024 * 1024,
+  });
   return { text: stdout || '', engine: 'tesseract' };
 }
 
@@ -131,10 +130,13 @@ async function extractReceiptFromText(rawText, { signal } = {}) {
     return { error: 'Tom eller for kort OCR-tekst', raw: rawText };
   }
   try {
-    const result = await llmChat([
-      { role: 'system', content: RECEIPT_SYSTEM_PROMPT },
-      { role: 'user', content: `Tekst fra kvittering:\n\n${rawText.slice(0, 4000)}` },
-    ], { temperature: 0.1, maxTokens: 1024, signal });
+    const result = await llmChat(
+      [
+        { role: 'system', content: RECEIPT_SYSTEM_PROMPT },
+        { role: 'user', content: `Tekst fra kvittering:\n\n${rawText.slice(0, 4000)}` },
+      ],
+      { temperature: 0.1, maxTokens: 1024, signal }
+    );
 
     const match = (result.content || '').match(/\{[\s\S]*\}/);
     if (!match) {
@@ -163,8 +165,11 @@ async function extractReceiptFromText(rawText, { signal } = {}) {
  */
 function matchProductByName(repos, name) {
   if (!name) return { productKey: null, confidence: 0 };
-  const norm = name.toLowerCase().replace(/\d+\s*(g|kg|l|ml|stk)\b/g, '').trim();
-  const words = norm.split(/\s+/).filter(w => w.length > 2);
+  const norm = name
+    .toLowerCase()
+    .replace(/\d+\s*(g|kg|l|ml|stk)\b/g, '')
+    .trim();
+  const words = norm.split(/\s+/).filter((w) => w.length > 2);
   if (words.length === 0) return { productKey: null, confidence: 0 };
 
   const products = repos.products.search ? repos.products.search(norm, 5) : [];
@@ -236,18 +241,23 @@ async function processUpload(repos, { buffer, mimeType, ocrAdapter = null }) {
   }
 
   const receiptId = repos.receipts.insert({
-    filePath, mimeType, fileSizeBytes: sizeBytes, sha256: hash, status: 'pending',
+    filePath,
+    mimeType,
+    fileSizeBytes: sizeBytes,
+    sha256: hash,
+    status: 'pending',
   });
 
   // 1. OCR
   let ocr;
   try {
-    const adapter = ocrAdapter || (await isOcrAvailable() ? tesseractOcr : nullOcr);
+    const adapter = ocrAdapter || ((await isOcrAvailable()) ? tesseractOcr : nullOcr);
     ocr = await adapter(filePath);
   } catch (err) {
     logger.warn({ err: err.message, receiptId }, 'receipt: OCR feilet');
     repos.receipts.updateParsed(receiptId, {
-      status: 'failed', errorMessage: `OCR: ${err.message}`,
+      status: 'failed',
+      errorMessage: `OCR: ${err.message}`,
     });
     return { receiptId, status: 'failed', itemCount: 0, existing: false };
   }
@@ -257,14 +267,16 @@ async function processUpload(repos, { buffer, mimeType, ocrAdapter = null }) {
   if (extracted.error) {
     logger.warn({ err: extracted.error, receiptId }, 'receipt: LLM-parse feilet');
     repos.receipts.updateParsed(receiptId, {
-      rawText: ocr.text, llmModel: OLLAMA_MODEL,
-      status: 'failed', errorMessage: `LLM: ${extracted.error}`,
+      rawText: ocr.text,
+      llmModel: OLLAMA_MODEL,
+      status: 'failed',
+      errorMessage: `LLM: ${extracted.error}`,
     });
     return { receiptId, status: 'failed', itemCount: 0, existing: false };
   }
 
   // 3. Map items + match products
-  const items = (extracted.items || []).map(it => {
+  const items = (extracted.items || []).map((it) => {
     const match = matchProductByName(repos, it.name);
     const item = {
       lineText: it.name || '',
@@ -313,7 +325,10 @@ function confirmReceipt(repos, receiptId) {
 
   const tx = repos.transaction(() => {
     for (const it of items) {
-      if (!it.productKey || !it.qty || it.qty <= 0) { skipped++; continue; }
+      if (!it.productKey || !it.qty || it.qty <= 0) {
+        skipped++;
+        continue;
+      }
       try {
         addToPantry(repos, {
           productKey: it.productKey,

@@ -73,7 +73,11 @@ async function startTestServer({ dbPath, authToken } = {}) {
   async function close() {
     await new Promise((resolve) => server.close(() => resolve()));
     closeDB(dbHandle);
-    try { fs.unlinkSync(process.env.DB_PATH); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(process.env.DB_PATH);
+    } catch {
+      /* ignore */
+    }
   }
 
   return { baseUrl, close, repos, serverState, dbPath: process.env.DB_PATH };
@@ -90,29 +94,40 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
     if (body && !h['Content-Type']) h['Content-Type'] = 'application/json';
     if (token) h['Authorization'] = `Bearer ${token}`;
 
-    const req = http.request({
-      host: url.hostname,
-      port: url.port,
-      path: url.pathname + url.search,
-      method,
-      headers: h,
-    }, (res) => {
-      const chunks = [];
-      res.on('data', (c) => chunks.push(c));
-      res.on('end', () => {
-        let buf = Buffer.concat(chunks);
-        if (res.headers['content-encoding'] === 'gzip' && buf.length > 0) {
-          try { buf = zlib.gunzipSync(buf); } catch { /* leave as-is */ }
-        }
-        const text = buf.toString('utf8');
-        let parsed = text;
-        const ct = res.headers['content-type'] || '';
-        if (ct.includes('json') && text) {
-          try { parsed = JSON.parse(text); } catch { /* keep as text */ }
-        }
-        resolve({ status: res.statusCode, headers: res.headers, body: parsed, raw: text });
-      });
-    });
+    const req = http.request(
+      {
+        host: url.hostname,
+        port: url.port,
+        path: url.pathname + url.search,
+        method,
+        headers: h,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          let buf = Buffer.concat(chunks);
+          if (res.headers['content-encoding'] === 'gzip' && buf.length > 0) {
+            try {
+              buf = zlib.gunzipSync(buf);
+            } catch {
+              /* leave as-is */
+            }
+          }
+          const text = buf.toString('utf8');
+          let parsed = text;
+          const ct = res.headers['content-type'] || '';
+          if (ct.includes('json') && text) {
+            try {
+              parsed = JSON.parse(text);
+            } catch {
+              /* keep as text */
+            }
+          }
+          resolve({ status: res.statusCode, headers: res.headers, body: parsed, raw: text });
+        });
+      }
+    );
     req.on('error', reject);
     if (body != null) {
       req.write(typeof body === 'string' ? body : JSON.stringify(body));

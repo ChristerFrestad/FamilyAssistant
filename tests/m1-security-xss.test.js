@@ -19,7 +19,9 @@ function setupLlmMock(responseObj) {
     type: 'text',
     content: JSON.stringify(responseObj),
   });
-  return () => { llm.llmChat = originalChat; };
+  return () => {
+    llm.llmChat = originalChat;
+  };
 }
 
 // ============================================================
@@ -27,8 +29,12 @@ function setupLlmMock(responseObj) {
 // ============================================================
 describe('M1 · Security headers', () => {
   let server;
-  before(async () => { server = await startTestServer(); });
-  after(async () => { if (server) await server.close(); });
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   test('CSP header is set on API responses', async () => {
     const res = await request(server.baseUrl, 'GET', '/health');
@@ -90,7 +96,9 @@ describe('M1 · Recipe-import XSS/injection fuzz', () => {
     server = await startTestServer();
     importService = require('../server/services/recipe-import.service');
   });
-  after(async () => { if (server) await server.close(); });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   const XSS_PAYLOADS = [
     '<script>alert(1)</script>Bolognese',
@@ -137,7 +145,10 @@ describe('M1 · Recipe-import XSS/injection fuzz', () => {
         assert.ok(!/<iframe/i.test(saved), `navn må ikke inneholde <iframe: "${saved}"`);
         assert.ok(!/<svg/i.test(saved), `navn må ikke inneholde <svg: "${saved}"`);
         assert.ok(!/on\w+=/i.test(saved), `navn må ikke inneholde on*= handlers: "${saved}"`);
-        assert.ok(!/<object|<embed|<link|<meta|<style|<body/i.test(saved), `navn må ikke inneholde farlige tags: "${saved}"`);
+        assert.ok(
+          !/<object|<embed|<link|<meta|<style|<body/i.test(saved),
+          `navn må ikke inneholde farlige tags: "${saved}"`
+        );
       } finally {
         restore();
       }
@@ -159,7 +170,9 @@ describe('M1 · Recipe-import XSS/injection fuzz', () => {
       });
       assert.ok(r.recipeId);
       assert.equal(r.recipe.name, 'Lasagne', 'control chars skal være strippet');
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   test('Overlangt navn kappes til maks 200 tegn', async () => {
@@ -178,7 +191,9 @@ describe('M1 · Recipe-import XSS/injection fuzz', () => {
       });
       assert.ok(r.recipeId);
       assert.ok(r.recipe.name.length <= 200, `navn må være ≤200 tegn, var ${r.recipe.name.length}`);
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   test('Ingrediens-navn med script-tag renses', async () => {
@@ -203,7 +218,9 @@ describe('M1 · Recipe-import XSS/injection fuzz', () => {
         assert.ok(!/onerror=/i.test(ing.name), `ingr "${ing.name}" inneholder onerror=`);
         assert.ok(!/<img/i.test(ing.name), `ingr "${ing.name}" inneholder <img`);
       }
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   test('Unit med kontroll-tegn renses til trygg streng', async () => {
@@ -224,7 +241,9 @@ describe('M1 · Recipe-import XSS/injection fuzz', () => {
         assert.ok(!/<script/i.test(ing.unit), `unit "${ing.unit}" må ikke ha <script`);
         assert.ok(!/\x00/.test(ing.unit), `unit "${ing.unit}" må ikke ha NUL`);
       }
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   test('Ingrediens med negativ qty normaliseres', async () => {
@@ -244,7 +263,9 @@ describe('M1 · Recipe-import XSS/injection fuzz', () => {
       for (const ing of r.recipe.ingredients) {
         assert.ok(ing.qty > 0, `qty må være positiv, var ${ing.qty}`);
       }
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 });
 
@@ -259,7 +280,9 @@ describe('M1 · Recipe-import URL-validering', () => {
     server = await startTestServer();
     importService = require('../server/services/recipe-import.service');
   });
-  after(async () => { if (server) await server.close(); });
+  after(async () => {
+    if (server) await server.close();
+  });
 
   const BAD_URLS = [
     'javascript:alert(1)',
@@ -292,9 +315,11 @@ describe('M1 · Recipe-import URL-validering', () => {
         assert.ok(r.recipeId);
         assert.ok(
           r.recipe.url === null || /^https?:\/\//i.test(r.recipe.url),
-          `url må være null eller http(s), var: "${r.recipe.url}"`,
+          `url må være null eller http(s), var: "${r.recipe.url}"`
         );
-      } finally { restore(); }
+      } finally {
+        restore();
+      }
     });
   }
 
@@ -314,7 +339,9 @@ describe('M1 · Recipe-import URL-validering', () => {
       });
       assert.ok(r.recipeId);
       assert.equal(r.recipe.url, 'https://example.com/recipe/123');
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 });
 

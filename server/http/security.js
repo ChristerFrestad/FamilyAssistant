@@ -69,7 +69,10 @@ function rateLimit(ctx) {
   const cutoff = now - windowMs;
 
   let list = hits.get(ip);
-  if (!list) { list = []; hits.set(ip, list); }
+  if (!list) {
+    list = [];
+    hits.set(ip, list);
+  }
 
   // Fjern gamle timestamps
   while (list.length > 0 && list[0] < cutoff) list.shift();

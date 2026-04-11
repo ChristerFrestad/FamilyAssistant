@@ -25,8 +25,12 @@ const { startTestServer, request } = require('./helpers');
 
 let server;
 
-before(async () => { server = await startTestServer(); });
-after(async () => { if (server) await server.close(); });
+before(async () => {
+  server = await startTestServer();
+});
+after(async () => {
+  if (server) await server.close();
+});
 
 describe('M3.1 · E2E smoke — forsiden', () => {
   test('GET / serverer index.html', async () => {
@@ -155,7 +159,7 @@ describe('M3.1 · E2E smoke — Husarbeid', () => {
 
   test('PUT /api/chores/complete på første chore', async () => {
     const list = await request(server.baseUrl, 'GET', '/api/chores/current');
-    const firstChore = list.body.chores.find(c => c.status !== 'done');
+    const firstChore = list.body.chores.find((c) => c.status !== 'done');
     if (!firstChore) return; // ingenting å markere
     const res = await request(server.baseUrl, 'PUT', '/api/chores/complete', {
       body: { choreId: firstChore.choreId },

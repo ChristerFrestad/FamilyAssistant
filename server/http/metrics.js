@@ -17,9 +17,7 @@
 //   - toPrometheus() → text/plain Prometheus exposition format
 
 // Bucket-grenser i millisekunder, dekker 1ms–10s
-const LATENCY_BUCKETS_MS = [
-  1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000,
-];
+const LATENCY_BUCKETS_MS = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
 
 const state = {
   startedAt: Date.now(),
@@ -31,7 +29,7 @@ const state = {
 function makeRouteMetric() {
   return {
     count: 0,
-    sum: 0,           // sum av durations (for gjennomsnitt)
+    sum: 0, // sum av durations (for gjennomsnitt)
     min: Infinity,
     max: 0,
     byStatus: { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 },
@@ -60,7 +58,10 @@ function record(method, routeTemplate, status, durationMs) {
 
   const key = `${method} ${routeTemplate}`;
   let m = state.routes.get(key);
-  if (!m) { m = makeRouteMetric(); state.routes.set(key, m); }
+  if (!m) {
+    m = makeRouteMetric();
+    state.routes.set(key, m);
+  }
 
   m.count++;
   m.sum += durationMs;
@@ -81,7 +82,9 @@ function percentile(buckets, totalCount, p) {
   for (let i = 0; i < buckets.length; i++) {
     cum += buckets[i];
     if (cum >= target) {
-      return i < LATENCY_BUCKETS_MS.length ? LATENCY_BUCKETS_MS[i] : LATENCY_BUCKETS_MS[LATENCY_BUCKETS_MS.length - 1];
+      return i < LATENCY_BUCKETS_MS.length
+        ? LATENCY_BUCKETS_MS[i]
+        : LATENCY_BUCKETS_MS[LATENCY_BUCKETS_MS.length - 1];
     }
   }
   return LATENCY_BUCKETS_MS[LATENCY_BUCKETS_MS.length - 1];
@@ -109,9 +112,10 @@ function snapshot() {
     uptimeSec,
     totalRequests: state.totalRequests,
     totalErrors: state.totalErrors,
-    errorRate: state.totalRequests > 0
-      ? Math.round((state.totalErrors / state.totalRequests) * 10000) / 10000
-      : 0,
+    errorRate:
+      state.totalRequests > 0
+        ? Math.round((state.totalErrors / state.totalRequests) * 10000) / 10000
+        : 0,
     routes,
   };
 }
@@ -146,7 +150,9 @@ function toPrometheus() {
     const route = routeRaw.replace(/"/g, '');
     const labels = `method="${method}",route="${route}"`;
     lines.push(`familieass_http_request_duration_ms_count{${labels}} ${r.count}`);
-    lines.push(`familieass_http_request_duration_ms_sum{${labels}} ${(r.avgMs * r.count).toFixed(2)}`);
+    lines.push(
+      `familieass_http_request_duration_ms_sum{${labels}} ${(r.avgMs * r.count).toFixed(2)}`
+    );
     lines.push(`familieass_http_request_duration_ms{quantile="0.5",${labels}} ${r.p50Ms}`);
     lines.push(`familieass_http_request_duration_ms{quantile="0.95",${labels}} ${r.p95Ms}`);
     lines.push(`familieass_http_request_duration_ms{quantile="0.99",${labels}} ${r.p99Ms}`);
@@ -221,7 +227,7 @@ function hydrate(data) {
       };
     }
     if (Array.isArray(r.buckets) && r.buckets.length === LATENCY_BUCKETS_MS.length + 1) {
-      m.buckets = r.buckets.map(n => Number.isFinite(n) ? n : 0);
+      m.buckets = r.buckets.map((n) => (Number.isFinite(n) ? n : 0));
     }
     state.routes.set(r.key, m);
   }
@@ -229,7 +235,11 @@ function hydrate(data) {
 }
 
 module.exports = {
-  record, snapshot, toPrometheus, reset,
-  serialize, hydrate,
+  record,
+  snapshot,
+  toPrometheus,
+  reset,
+  serialize,
+  hydrate,
   LATENCY_BUCKETS_MS,
 };

@@ -58,13 +58,24 @@ function errResponse(status) {
 }
 
 // Sample Kassal-respons — speiler felt-navn fra deres doc
-function sampleProduct({ id = '12345', name = 'First Price Kjøttdeig 14% 400g',
-  brand = 'First Price', ean = '7038010099991', price = 49.9, weight = 400,
-  weightUnit = 'g', store = 'Kiwi' } = {}) {
+function sampleProduct({
+  id = '12345',
+  name = 'First Price Kjøttdeig 14% 400g',
+  brand = 'First Price',
+  ean = '7038010099991',
+  price = 49.9,
+  weight = 400,
+  weightUnit = 'g',
+  store = 'Kiwi',
+} = {}) {
   return {
-    id, name, brand, ean,
+    id,
+    name,
+    brand,
+    ean,
     current_price: price,
-    weight, weight_unit: weightUnit,
+    weight,
+    weight_unit: weightUnit,
     store: { name: store },
     category: { name: 'Kjøtt & fisk' },
     image: 'https://kassal.app/img/12345.jpg',
@@ -104,11 +115,15 @@ describe('kassalProducts repository', () => {
   test('upsert samme kassal_id oppdaterer eksisterende rad', () => {
     const { repos } = server;
     const id1 = repos.kassalProducts.upsert({
-      kassalId: 'k-2', name: 'Test vare', captureSource: 'lookup',
+      kassalId: 'k-2',
+      name: 'Test vare',
+      captureSource: 'lookup',
     });
     const id2 = repos.kassalProducts.upsert({
-      kassalId: 'k-2', name: 'Test vare oppdatert',
-      lastSeenPrice: 50, lastSeenStore: 'Rema',
+      kassalId: 'k-2',
+      name: 'Test vare oppdatert',
+      lastSeenPrice: 50,
+      lastSeenStore: 'Rema',
     });
     assert.equal(id1, id2);
     const got = repos.kassalProducts.getById(id1);
@@ -119,7 +134,10 @@ describe('kassalProducts repository', () => {
   test('getByEan finner rad via EAN-indeks', () => {
     const { repos } = server;
     repos.kassalProducts.upsert({
-      kassalId: 'k-3', ean: '7038010000003', name: 'EAN-vare', captureSource: 'lookup',
+      kassalId: 'k-3',
+      ean: '7038010000003',
+      name: 'EAN-vare',
+      captureSource: 'lookup',
     });
     const got = repos.kassalProducts.getByEan('7038010000003');
     assert.ok(got);
@@ -137,15 +155,21 @@ describe('productResolutions repository', () => {
   test('upsertSeen er idempotent og øker times_seen', () => {
     const { repos } = server;
     const kpId = repos.kassalProducts.upsert({
-      kassalId: 'k-res-1', name: 'Res test', captureSource: 'lookup',
+      kassalId: 'k-res-1',
+      name: 'Res test',
+      captureSource: 'lookup',
     });
     const id1 = repos.productResolutions.upsertSeen({
-      productKey: 'res-test', kassalProductId: kpId,
-      resolvedVia: 'llm_name', confidence: 0.6,
+      productKey: 'res-test',
+      kassalProductId: kpId,
+      resolvedVia: 'llm_name',
+      confidence: 0.6,
     });
     const id2 = repos.productResolutions.upsertSeen({
-      productKey: 'res-test', kassalProductId: kpId,
-      resolvedVia: 'llm_name', confidence: 0.7,
+      productKey: 'res-test',
+      kassalProductId: kpId,
+      resolvedVia: 'llm_name',
+      confidence: 0.7,
     });
     assert.equal(id1, id2);
     const got = repos.productResolutions.getById(id1);
@@ -156,11 +180,15 @@ describe('productResolutions repository', () => {
   test('incrementConfirmed øker times_confirmed og setter last_confirmed_at', () => {
     const { repos } = server;
     const kpId = repos.kassalProducts.upsert({
-      kassalId: 'k-res-2', name: 'Confirm test', captureSource: 'lookup',
+      kassalId: 'k-res-2',
+      name: 'Confirm test',
+      captureSource: 'lookup',
     });
     const id = repos.productResolutions.upsertSeen({
-      productKey: 'confirm-test', kassalProductId: kpId,
-      resolvedVia: 'ean', confidence: 1.0,
+      productKey: 'confirm-test',
+      kassalProductId: kpId,
+      resolvedVia: 'ean',
+      confidence: 1.0,
     });
     repos.productResolutions.incrementConfirmed(id);
     repos.productResolutions.incrementConfirmed(id);
@@ -171,30 +199,48 @@ describe('productResolutions repository', () => {
 
   test('bestForProductKey prioriterer user_locked > times_confirmed > confidence', () => {
     const { repos } = server;
-    const kpA = repos.kassalProducts.upsert({ kassalId: 'k-a', name: 'A', captureSource: 'lookup' });
-    const kpB = repos.kassalProducts.upsert({ kassalId: 'k-b', name: 'B', captureSource: 'lookup' });
-    const kpC = repos.kassalProducts.upsert({ kassalId: 'k-c', name: 'C', captureSource: 'lookup' });
+    const kpA = repos.kassalProducts.upsert({
+      kassalId: 'k-a',
+      name: 'A',
+      captureSource: 'lookup',
+    });
+    const kpB = repos.kassalProducts.upsert({
+      kassalId: 'k-b',
+      name: 'B',
+      captureSource: 'lookup',
+    });
+    const kpC = repos.kassalProducts.upsert({
+      kassalId: 'k-c',
+      name: 'C',
+      captureSource: 'lookup',
+    });
 
     const idA = repos.productResolutions.upsertSeen({
-      productKey: 'priority-test', kassalProductId: kpA,
-      resolvedVia: 'llm_name', confidence: 0.5,
+      productKey: 'priority-test',
+      kassalProductId: kpA,
+      resolvedVia: 'llm_name',
+      confidence: 0.5,
     });
     repos.productResolutions.incrementConfirmed(idA);
-    repos.productResolutions.incrementConfirmed(idA);  // 2 confirms
+    repos.productResolutions.incrementConfirmed(idA); // 2 confirms
 
     const idB = repos.productResolutions.upsertSeen({
-      productKey: 'priority-test', kassalProductId: kpB,
-      resolvedVia: 'llm_name', confidence: 0.9,
-    });  // 0 confirms, høy confidence
+      productKey: 'priority-test',
+      kassalProductId: kpB,
+      resolvedVia: 'llm_name',
+      confidence: 0.9,
+    }); // 0 confirms, høy confidence
 
     const idC = repos.productResolutions.upsertSeen({
-      productKey: 'priority-test', kassalProductId: kpC,
-      resolvedVia: 'user_pick', confidence: 0.4,
+      productKey: 'priority-test',
+      kassalProductId: kpC,
+      resolvedVia: 'user_pick',
+      confidence: 0.4,
     });
-    repos.productResolutions.setUserLocked(idC, true);  // user_locked
+    repos.productResolutions.setUserLocked(idC, true); // user_locked
 
     const best = repos.productResolutions.bestForProductKey('priority-test');
-    assert.equal(best.kassal_product_id, kpC);  // locked vinner
+    assert.equal(best.kassal_product_id, kpC); // locked vinner
 
     // Fjern lock — skal da velge A (2 confirms > B sin 0 confirms)
     repos.productResolutions.setUserLocked(idC, false);
@@ -204,13 +250,27 @@ describe('productResolutions repository', () => {
 
   test('allForProductKey returnerer topp-N sortert', () => {
     const { repos } = server;
-    const kp1 = repos.kassalProducts.upsert({ kassalId: 'k-list-1', name: 'L1', captureSource: 'lookup' });
-    const kp2 = repos.kassalProducts.upsert({ kassalId: 'k-list-2', name: 'L2', captureSource: 'lookup' });
-    repos.productResolutions.upsertSeen({
-      productKey: 'list-test', kassalProductId: kp1, resolvedVia: 'llm_name', confidence: 0.5,
+    const kp1 = repos.kassalProducts.upsert({
+      kassalId: 'k-list-1',
+      name: 'L1',
+      captureSource: 'lookup',
+    });
+    const kp2 = repos.kassalProducts.upsert({
+      kassalId: 'k-list-2',
+      name: 'L2',
+      captureSource: 'lookup',
     });
     repos.productResolutions.upsertSeen({
-      productKey: 'list-test', kassalProductId: kp2, resolvedVia: 'llm_name', confidence: 0.8,
+      productKey: 'list-test',
+      kassalProductId: kp1,
+      resolvedVia: 'llm_name',
+      confidence: 0.5,
+    });
+    repos.productResolutions.upsertSeen({
+      productKey: 'list-test',
+      kassalProductId: kp2,
+      resolvedVia: 'llm_name',
+      confidence: 0.8,
     });
     const list = repos.productResolutions.allForProductKey('list-test', 5);
     assert.equal(list.length, 2);
@@ -236,8 +296,18 @@ describe('kassalCache repository', () => {
 
   test('put med samme key oppdaterer rad (ON CONFLICT)', () => {
     const { repos } = server;
-    repos.kassalCache.put({ cacheKey: 'search:ost', endpoint: 'search', responseJson: '{"a":1}', ttlHours: 1 });
-    repos.kassalCache.put({ cacheKey: 'search:ost', endpoint: 'search', responseJson: '{"a":2}', ttlHours: 1 });
+    repos.kassalCache.put({
+      cacheKey: 'search:ost',
+      endpoint: 'search',
+      responseJson: '{"a":1}',
+      ttlHours: 1,
+    });
+    repos.kassalCache.put({
+      cacheKey: 'search:ost',
+      endpoint: 'search',
+      responseJson: '{"a":2}',
+      ttlHours: 1,
+    });
     const row = repos.kassalCache.get('search:ost');
     assert.equal(row.responseJson, '{"a":2}');
   });
@@ -245,11 +315,16 @@ describe('kassalCache repository', () => {
   test('purgeExpired fjerner utløpte rader', () => {
     const { repos } = server;
     // Lag en direkte "utløpt" rad
-    repos.kassalCache.put({ cacheKey: 'search:expired-x', endpoint: 'search', responseJson: '{}', ttlHours: 1 });
+    repos.kassalCache.put({
+      cacheKey: 'search:expired-x',
+      endpoint: 'search',
+      responseJson: '{}',
+      ttlHours: 1,
+    });
     // Manuelt sett expires til fortiden
-    repos._db.prepare(
-      `UPDATE kassal_cache SET expires_at = datetime('now','-1 hour') WHERE cache_key = ?`
-    ).run('search:expired-x');
+    repos._db
+      .prepare(`UPDATE kassal_cache SET expires_at = datetime('now','-1 hour') WHERE cache_key = ?`)
+      .run('search:expired-x');
     const removed = repos.kassalCache.purgeExpired();
     assert.ok(removed >= 1);
     assert.equal(repos.kassalCache.get('search:expired-x'), null);
@@ -271,7 +346,9 @@ describe('kassal-client.service', () => {
     const saved = process.env.KASSAL_API_KEY;
     delete process.env.KASSAL_API_KEY;
     try {
-      mockFetch(() => { throw new Error('fetch skulle ikke kalles'); });
+      mockFetch(() => {
+        throw new Error('fetch skulle ikke kalles');
+      });
       const result = await kc.searchByName(server.repos, 'kjøttdeig');
       assert.equal(result, null);
     } finally {
@@ -298,10 +375,12 @@ describe('kassal-client.service', () => {
 
   test('getByEan validerer EAN-format', async () => {
     const kc = require('../server/services/kassal-client.service');
-    mockFetch(() => { throw new Error('skulle ikke nå fetch'); });
+    mockFetch(() => {
+      throw new Error('skulle ikke nå fetch');
+    });
     assert.equal(await kc.getByEan(server.repos, null), null);
     assert.equal(await kc.getByEan(server.repos, 'abc'), null);
-    assert.equal(await kc.getByEan(server.repos, '123'), null);  // for kort
+    assert.equal(await kc.getByEan(server.repos, '123'), null); // for kort
   });
 
   test('getByEan cacher per EAN', async () => {
@@ -327,9 +406,9 @@ describe('kassal-client.service', () => {
       responseJson: JSON.stringify({ data: [sampleProduct({ name: 'Gammel melk' })] }),
       ttlHours: 1,
     });
-    repos._db.prepare(
-      `UPDATE kassal_cache SET expires_at = datetime('now','-1 hour') WHERE cache_key = ?`
-    ).run('search:melk');
+    repos._db
+      .prepare(`UPDATE kassal_cache SET expires_at = datetime('now','-1 hour') WHERE cache_key = ?`)
+      .run('search:melk');
 
     mockFetch(() => errResponse(500));
     const result = await kc.searchByName(server.repos, 'melk');
@@ -349,7 +428,10 @@ describe('kassal-client.service', () => {
 
     // Neste kall skal ikke treffe fetch — men vi skifter mock for å bevise det
     let reached = false;
-    mockFetch(() => { reached = true; return okResponse({ data: [] }); });
+    mockFetch(() => {
+      reached = true;
+      return okResponse({ data: [] });
+    });
     await kc.searchByName(server.repos, 'cb-test-4');
     assert.equal(reached, false);
   });
@@ -376,8 +458,8 @@ describe('product-resolver: scoring utilities', () => {
     const t = resolver.tokenize('Tine Lettmelk 1L med låg fett');
     assert.ok(t.includes('tine'));
     assert.ok(t.includes('lettmelk'));
-    assert.ok(!t.includes('og'));  // ikke stop-ord, men heller ikke i input
-    assert.ok(!t.includes('1l'));  // tokens-filter fjerner korte
+    assert.ok(!t.includes('og')); // ikke stop-ord, men heller ikke i input
+    assert.ok(!t.includes('1l')); // tokens-filter fjerner korte
   });
 
   test('wordOverlap gir høy score ved full match', () => {
@@ -430,7 +512,10 @@ describe('product-resolver: resolveByEan', () => {
       captureSource: 'bootstrap',
     });
     let reached = false;
-    mockFetch(() => { reached = true; return okResponse({ data: {} }); });
+    mockFetch(() => {
+      reached = true;
+      return okResponse({ data: {} });
+    });
     const result = await resolver.resolveByEan(repos, '7038010111111', { productKey: 'cat-test' });
     assert.ok(result);
     assert.equal(result.fromCatalog, true);
@@ -440,9 +525,11 @@ describe('product-resolver: resolveByEan', () => {
 
   test('ukjent EAN henter fra Kassal og persister', async () => {
     const { repos } = server;
-    mockFetch(() => okResponse({
-      data: sampleProduct({ id: 'new-ean-1', ean: '7038010222222' }),
-    }));
+    mockFetch(() =>
+      okResponse({
+        data: sampleProduct({ id: 'new-ean-1', ean: '7038010222222' }),
+      })
+    );
     const result = await resolver.resolveByEan(repos, '7038010222222', {
       productKey: 'ean-test-key',
       captureSource: 'receipt',
@@ -468,20 +555,44 @@ describe('product-resolver: resolveByLine', () => {
 
   test('navn-søk velger beste score og persister topp-3 kandidater', async () => {
     const { repos } = server;
-    mockFetch(() => okResponse({
-      data: [
-        sampleProduct({ id: 'hit-1', name: 'First Price Kjøttdeig 14% 400g', brand: 'First Price', weight: 400, ean: '7038010333331' }),
-        sampleProduct({ id: 'hit-2', name: 'Gilde Kjøttdeig 400g', brand: 'Gilde', weight: 400, ean: '7038010333332' }),
-        sampleProduct({ id: 'hit-3', name: 'First Price Kjøttdeig 800g', brand: 'First Price', weight: 800, ean: '7038010333333' }),
-      ],
-    }));
-    const result = await resolver.resolveByLine(repos, {
-      name: 'Kjøttdeig',
-      qty: 400,
-      unit: 'g',
-      brandHint: 'First Price',
-      productKey: 'kjottdeig-test',
-    }, { captureSource: 'receipt' });
+    mockFetch(() =>
+      okResponse({
+        data: [
+          sampleProduct({
+            id: 'hit-1',
+            name: 'First Price Kjøttdeig 14% 400g',
+            brand: 'First Price',
+            weight: 400,
+            ean: '7038010333331',
+          }),
+          sampleProduct({
+            id: 'hit-2',
+            name: 'Gilde Kjøttdeig 400g',
+            brand: 'Gilde',
+            weight: 400,
+            ean: '7038010333332',
+          }),
+          sampleProduct({
+            id: 'hit-3',
+            name: 'First Price Kjøttdeig 800g',
+            brand: 'First Price',
+            weight: 800,
+            ean: '7038010333333',
+          }),
+        ],
+      })
+    );
+    const result = await resolver.resolveByLine(
+      repos,
+      {
+        name: 'Kjøttdeig',
+        qty: 400,
+        unit: 'g',
+        brandHint: 'First Price',
+        productKey: 'kjottdeig-test',
+      },
+      { captureSource: 'receipt' }
+    );
     assert.ok(result);
     assert.equal(result.resolvedVia, 'llm_name');
     assert.ok(result.confidence > 0.3);
@@ -496,11 +607,14 @@ describe('product-resolver: resolveByLine', () => {
   test('memo-path: etter confirm brukes tidligere resolution uten API-kall', async () => {
     const { repos } = server;
     // Første kall: går via search
-    mockFetch(() => okResponse({
-      data: [sampleProduct({ id: 'memo-1', name: 'Memo vare', ean: '7038010444441' })],
-    }));
+    mockFetch(() =>
+      okResponse({
+        data: [sampleProduct({ id: 'memo-1', name: 'Memo vare', ean: '7038010444441' })],
+      })
+    );
     const first = await resolver.resolveByLine(repos, {
-      name: 'memo vare', productKey: 'memo-test-key',
+      name: 'memo vare',
+      productKey: 'memo-test-key',
     });
     assert.ok(first);
     // Bekreft resolutionen
@@ -508,9 +622,13 @@ describe('product-resolver: resolveByLine', () => {
 
     // Andre kall: skal ikke treffe fetch
     let reached = false;
-    mockFetch(() => { reached = true; return okResponse({ data: [] }); });
+    mockFetch(() => {
+      reached = true;
+      return okResponse({ data: [] });
+    });
     const second = await resolver.resolveByLine(repos, {
-      name: 'memo vare', productKey: 'memo-test-key',
+      name: 'memo vare',
+      productKey: 'memo-test-key',
     });
     assert.ok(second);
     assert.equal(second.resolvedVia, 'brand_learn');
@@ -520,13 +638,14 @@ describe('product-resolver: resolveByLine', () => {
   test('svakt treff returnerer kandidater uten autoritativ match', async () => {
     const { repos } = server;
     // Kandidater som ikke deler noen ord med query
-    mockFetch(() => okResponse({
-      data: [
-        sampleProduct({ id: 'weak-1', name: 'Helt annet produkt', brand: 'Merke' }),
-      ],
-    }));
+    mockFetch(() =>
+      okResponse({
+        data: [sampleProduct({ id: 'weak-1', name: 'Helt annet produkt', brand: 'Merke' })],
+      })
+    );
     const result = await resolver.resolveByLine(repos, {
-      name: 'xyz123 mystisk', productKey: 'weak-test',
+      name: 'xyz123 mystisk',
+      productKey: 'weak-test',
     });
     assert.ok(result);
     assert.equal(result.kassalProductRowId, null);
@@ -547,7 +666,9 @@ describe('product-resolver: resolveByLine', () => {
     const saved = process.env.KASSAL_API_KEY;
     delete process.env.KASSAL_API_KEY;
     try {
-      mockFetch(() => { throw new Error('skulle ikke nå fetch'); });
+      mockFetch(() => {
+        throw new Error('skulle ikke nå fetch');
+      });
       const result = await resolver.resolveByLine(repos, { name: 'null-safe-test' });
       assert.equal(result, null);
     } finally {

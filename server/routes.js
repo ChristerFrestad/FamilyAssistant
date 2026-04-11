@@ -15,7 +15,11 @@ const schemas = require('./schemas');
 
 const { buildShoppingList, generateForWeek } = require('./services/shopping-list.service');
 const { enrichInBackground, enrichList } = require('./services/shopping-list-enricher.service');
-const { getSwapSuggestions, checkShelfLife, generateSundayDraft } = require('./services/meal-planning.service');
+const {
+  getSwapSuggestions,
+  checkShelfLife,
+  generateSundayDraft,
+} = require('./services/meal-planning.service');
 const { ensureCurrentWeek } = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
@@ -24,10 +28,25 @@ const receiptService = require('./services/receipt.service');
 const recipeImportService = require('./services/recipe-import.service');
 const { slugifyProductKey } = require('./services/slugify');
 
-const { isLLMAvailable, chat, suggestRecipeFromText, extractIntent, OLLAMA_MODEL, LLM_BACKEND } = require('./llm');
+const {
+  isLLMAvailable,
+  chat,
+  suggestRecipeFromText,
+  extractIntent,
+  OLLAMA_MODEL,
+  LLM_BACKEND,
+} = require('./llm');
 const { transcribe, isSTTAvailable } = require('./stt');
 
-const DAY_NAMES = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'L\u00f8rdag', 'S\u00f8ndag'];
+const DAY_NAMES = [
+  'Mandag',
+  'Tirsdag',
+  'Onsdag',
+  'Torsdag',
+  'Fredag',
+  'L\u00f8rdag',
+  'S\u00f8ndag',
+];
 
 /**
  * Autogenerer handleliste hvis uken nettopp ble komplett og det ikke
@@ -51,8 +70,53 @@ function maybeAutogenerateShoppingList(repos, weekYear) {
   }
 }
 
-function registerRoutes(router, { repos, serverState }) {
+/**
+ * SBOM-6: audit-log helper. Wrapper en handler og logger til audit_log etter
+ * vellykket respons. Skal kun brukes på destruktive operasjoner (DELETE,
+ * overskrivende PUT/PATCH på sensitive ressurser).
+ *
+ * @param {object} repos
+ * @param {object} spec  { entityType, getEntityId?, getBefore?, getAfter?, metadata? }
+ * @param {function} handler  (ctx) => void
+ */
+function withAudit(repos, spec, handler) {
+  return (ctx) => {
+    // Snapshot "before" før handleren kjører (hvis spec tilbyr getBefore)
+    let before = null;
+    try {
+      if (typeof spec.getBefore === 'function') before = spec.getBefore(ctx, repos);
+    } catch {
+      /* stille: audit skal ikke blokkere */
+    }
 
+    // Kjør handler — kast feil videre slik at http/server.js fanger
+    handler(ctx);
+
+    // Registrer audit-hendelse etter at handleren har returnert uten throw.
+    // Dette sikrer at mislykkede operasjoner ikke genererer audit-støy.
+    try {
+      const entityId = typeof spec.getEntityId === 'function' ? spec.getEntityId(ctx) : null;
+      let after = null;
+      if (typeof spec.getAfter === 'function') after = spec.getAfter(ctx, repos);
+
+      repos.auditLog.record({
+        requestId: ctx.requestId || ctx.req?.headers?.['x-request-id'] || 'unknown',
+        actor: 'local',
+        action: (ctx.req?.method || 'UNKNOWN').toUpperCase(),
+        entityType: spec.entityType,
+        entityId,
+        route: ctx.req?.url || 'unknown',
+        before,
+        after,
+        metadata: typeof spec.metadata === 'function' ? spec.metadata(ctx) : spec.metadata,
+      });
+    } catch {
+      /* stille: audit-feil må aldri påvirke responsen */
+    }
+  };
+}
+
+function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // HEALTH / READY
   // ============================================================
@@ -81,7 +145,9 @@ function registerRoutes(router, { repos, serverState }) {
         // Advarsel hvis DB > 500 MB
         if (dbSizeBytes > 500 * 1024 * 1024) warnings.push('db_size_over_500mb');
       }
-    } catch { /* stille */ }
+    } catch {
+      /* stille */
+    }
 
     // Disk-space (statfs finnes bare på Linux med Node ≥18.15, så wrap i try)
     try {
@@ -91,7 +157,9 @@ function registerRoutes(router, { repos, serverState }) {
         diskFreeBytes = s.bfree * s.bsize;
         if (diskFreeBytes < 100 * 1024 * 1024) warnings.push('disk_under_100mb');
       }
-    } catch { /* stille */ }
+    } catch {
+      /* stille */
+    }
 
     // Backup-freshness — siste backup <30t gammel?
     let lastBackupAgeHours = null;
@@ -100,16 +168,19 @@ function registerRoutes(router, { repos, serverState }) {
       const path = require('path');
       const { BACKUP_DIR } = require('./backup');
       if (fs.existsSync(BACKUP_DIR)) {
-        const files = fs.readdirSync(BACKUP_DIR)
-          .filter(f => /^familieassistenten-\d{4}-\d{2}-\d{2}\.db$/.test(f))
-          .map(f => ({ f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+        const files = fs
+          .readdirSync(BACKUP_DIR)
+          .filter((f) => /^familieassistenten-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+          .map((f) => ({ f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
           .sort((a, b) => b.mtime - a.mtime);
         if (files.length > 0) {
           lastBackupAgeHours = Math.round((Date.now() - files[0].mtime) / 3600000);
           if (lastBackupAgeHours > 30) warnings.push('backup_stale_over_30h');
         }
       }
-    } catch { /* stille */ }
+    } catch {
+      /* stille */
+    }
 
     // Circuit breaker state — ikke blocker 503, bare rapporteres
     let breakersOpen = 0;
@@ -119,57 +190,92 @@ function registerRoutes(router, { repos, serverState }) {
         if (b.state === 'OPEN') breakersOpen++;
       }
       if (breakersOpen > 0) warnings.push(`breakers_open_${breakersOpen}`);
-    } catch { /* stille */ }
+    } catch {
+      /* stille */
+    }
 
-    const ready = checks.server && checks.repos && !warnings.some(w =>
-      w === 'disk_under_100mb' || w === 'db_size_over_500mb'
+    // SBOM-5: token-age-sjekk. Flagger warning hvis AUTH_TOKEN_CREATED_AT er
+    // eldre enn AUTH_TOKEN_MAX_AGE_DAYS. Blokker ikke /ready — dette er
+    // en hygiene-warning, ikke en driftsstopp.
+    let tokenAgeDays = null;
+    try {
+      const { config: cfg } = require('./config');
+      if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN_CREATED_AT) {
+        const created = Date.parse(cfg.AUTH_TOKEN_CREATED_AT);
+        if (!Number.isNaN(created)) {
+          tokenAgeDays = Math.floor((Date.now() - created) / 86_400_000);
+          if (tokenAgeDays > cfg.AUTH_TOKEN_MAX_AGE_DAYS) {
+            warnings.push(`auth_token_stale_${tokenAgeDays}d`);
+          }
+        }
+      } else if (cfg.AUTH_TOKEN && !cfg.AUTH_TOKEN_CREATED_AT && cfg.NODE_ENV === 'production') {
+        // Token er satt men alder er ukjent — noter men ikke blokker
+        warnings.push('auth_token_age_unknown');
+      }
+    } catch {
+      /* stille */
+    }
+
+    const ready =
+      checks.server &&
+      checks.repos &&
+      !warnings.some((w) => w === 'disk_under_100mb' || w === 'db_size_over_500mb');
+
+    ctx.json(
+      {
+        ready,
+        driver: serverState.driver,
+        kbEntries: repos ? repos.kb.count() : 0,
+        fts5: repos?.hasFTS || false,
+        checks,
+        dbSizeBytes,
+        dbSizeMB: dbSizeBytes != null ? Math.round(dbSizeBytes / 1024 / 1024) : null,
+        diskFreeBytes,
+        diskFreeMB: diskFreeBytes != null ? Math.round(diskFreeBytes / 1024 / 1024) : null,
+        lastBackupAgeHours,
+        breakersOpen,
+        tokenAgeDays,
+        warnings,
+      },
+      ready ? 200 : 503
     );
-
-    ctx.json({
-      ready,
-      driver: serverState.driver,
-      kbEntries: repos ? repos.kb.count() : 0,
-      fts5: repos?.hasFTS || false,
-      checks,
-      dbSizeBytes,
-      dbSizeMB: dbSizeBytes != null ? Math.round(dbSizeBytes / 1024 / 1024) : null,
-      diskFreeBytes,
-      diskFreeMB: diskFreeBytes != null ? Math.round(diskFreeBytes / 1024 / 1024) : null,
-      lastBackupAgeHours,
-      breakersOpen,
-      warnings,
-    }, ready ? 200 : 503);
   });
 
   // ============================================================
   // MEALS
   // ============================================================
-  router.get('/api/meals/week/:weekYear', withCache(['meals'], (ctx) => {
-    const wk = ctx.params.weekYear;
-    if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
-    const plan = repos.mealPlans.getWeek(wk);
-    ctx.json({
-      weekYear: wk,
-      meals: plan.map(slot => ({
-        ...slot,
-        dayName: DAY_NAMES[slot.dayOfWeek],
-        recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
-      })),
-    });
-  }));
+  router.get(
+    '/api/meals/week/:weekYear',
+    withCache(['meals'], (ctx) => {
+      const wk = ctx.params.weekYear;
+      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      const plan = repos.mealPlans.getWeek(wk);
+      ctx.json({
+        weekYear: wk,
+        meals: plan.map((slot) => ({
+          ...slot,
+          dayName: DAY_NAMES[slot.dayOfWeek],
+          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+        })),
+      });
+    })
+  );
 
-  router.get('/api/meals/current', withCache(['meals'], (ctx) => {
-    const wk = ensureCurrentWeek(repos);
-    const plan = repos.mealPlans.getWeek(wk);
-    ctx.json({
-      weekYear: wk,
-      meals: plan.map(slot => ({
-        ...slot,
-        dayName: DAY_NAMES[slot.dayOfWeek],
-        recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
-      })),
-    });
-  }));
+  router.get(
+    '/api/meals/current',
+    withCache(['meals'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const plan = repos.mealPlans.getWeek(wk);
+      ctx.json({
+        weekYear: wk,
+        meals: plan.map((slot) => ({
+          ...slot,
+          dayName: DAY_NAMES[slot.dayOfWeek],
+          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+        })),
+      });
+    })
+  );
 
   router.put('/api/meals/swap', validateBody(schemas.mealsSwapBody), (ctx) => {
     const { weekYear, dayOfWeek, recipeId } = ctx.body;
@@ -178,7 +284,11 @@ function registerRoutes(router, { repos, serverState }) {
     repos.mealPlans.setRecipe(wk, dayOfWeek, recipeId, 'planned');
     invalidate('meals', 'today', 'shopping');
     const autogen = maybeAutogenerateShoppingList(repos, wk);
-    ctx.json({ ok: true, mealPlan: repos.mealPlans.getWeek(wk), autogeneratedShoppingList: autogen });
+    ctx.json({
+      ok: true,
+      mealPlan: repos.mealPlans.getWeek(wk),
+      autogeneratedShoppingList: autogen,
+    });
   });
 
   router.put('/api/meals/status', validateBody(schemas.mealsStatusBody), (ctx) => {
@@ -199,7 +309,11 @@ function registerRoutes(router, { repos, serverState }) {
     const shelfCheck = checkShelfLife(repos, plan, fromDay, toDay);
     repos.mealPlans.swapDays(wk, fromDay, toDay);
     invalidate('meals', 'today');
-    ctx.json({ ok: true, shelfWarnings: shelfCheck.warnings, mealPlan: repos.mealPlans.getWeek(wk) });
+    ctx.json({
+      ok: true,
+      shelfWarnings: shelfCheck.warnings,
+      mealPlan: repos.mealPlans.getWeek(wk),
+    });
   });
 
   router.get('/api/meals/suggestions/:dayOfWeek', (ctx) => {
@@ -221,11 +335,11 @@ function registerRoutes(router, { repos, serverState }) {
     const all = repos.recipes.getAll();
     let filtered = all;
     if (source === 'mine') {
-      filtered = all.filter(r => (r.source_type || r.sourceType || 'manual') === 'manual');
+      filtered = all.filter((r) => (r.source_type || r.sourceType || 'manual') === 'manual');
     } else if (source === 'ai') {
-      filtered = all.filter(r => (r.source_type || r.sourceType) === 'ai');
+      filtered = all.filter((r) => (r.source_type || r.sourceType) === 'ai');
     } else if (source === 'imported') {
-      filtered = all.filter(r => (r.source_type || r.sourceType) === 'imported');
+      filtered = all.filter((r) => (r.source_type || r.sourceType) === 'imported');
     }
     // source === 'all' eller udefinert → alt
     ctx.json({ recipes: filtered });
@@ -302,10 +416,13 @@ function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // SHOPPING
   // ============================================================
-  router.get('/api/shopping/current', withCache(['shopping'], (ctx) => {
-    const wk = ensureCurrentWeek(repos);
-    ctx.json({ weekYear: wk, ...buildShoppingList(repos, wk) });
-  }));
+  router.get(
+    '/api/shopping/current',
+    withCache(['shopping'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      ctx.json({ weekYear: wk, ...buildShoppingList(repos, wk) });
+    })
+  );
 
   router.put('/api/shopping/check', validateBody(schemas.shoppingCheckBody), (ctx) => {
     const { productKey, packSize } = ctx.body;
@@ -440,7 +557,8 @@ function registerRoutes(router, { repos, serverState }) {
    * pantry via inventory.addPurchase + inventory_log (reason='shopping_bought'),
    * og hvis item har en resolution → productResolutions.incrementConfirmed.
    */
-  router.put('/api/shopping/items/:id/bought',
+  router.put(
+    '/api/shopping/items/:id/bought',
     validateBody(schemas.shoppingItemBoughtBody),
     (ctx) => {
       const itemId = parseInt(ctx.params.id, 10);
@@ -489,7 +607,8 @@ function registerRoutes(router, { repos, serverState }) {
 
       invalidate('shopping', 'inventory', 'today');
       ctx.json({ ok: true });
-    });
+    }
+  );
 
   /**
    * PUT /api/shopping/items/:id/unpantry — "jeg har ikke denne varen likevel".
@@ -542,31 +661,36 @@ function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // CHORES
   // ============================================================
-  router.get('/api/chores/current', withCache(['chores'], (ctx) => {
-    const wk = ensureCurrentWeek(repos);
-    const schedule = repos.choreSchedules.getWeek(wk);
-    const choresMap = new Map(seedChores.map(c => [c.id, c]));
-    const result = schedule.map(s => {
-      const chore = choresMap.get(s.choreId);
-      const effectiveDay = s.postponedTo !== null ? s.postponedTo : s.scheduledDay;
-      return {
-        ...s,
-        task: chore?.task || '?',
-        icon: chore?.icon || '',
-        frequency: chore?.frequency || '',
-        details: chore?.details || null,
-        effectiveDay,
-        dayName: DAY_NAMES[effectiveDay] || '',
-      };
-    }).sort((a, b) => a.effectiveDay - b.effectiveDay);
-    ctx.json({ weekYear: wk, chores: result });
-  }));
+  router.get(
+    '/api/chores/current',
+    withCache(['chores'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const schedule = repos.choreSchedules.getWeek(wk);
+      const choresMap = new Map(seedChores.map((c) => [c.id, c]));
+      const result = schedule
+        .map((s) => {
+          const chore = choresMap.get(s.choreId);
+          const effectiveDay = s.postponedTo !== null ? s.postponedTo : s.scheduledDay;
+          return {
+            ...s,
+            task: chore?.task || '?',
+            icon: chore?.icon || '',
+            frequency: chore?.frequency || '',
+            details: chore?.details || null,
+            effectiveDay,
+            dayName: DAY_NAMES[effectiveDay] || '',
+          };
+        })
+        .sort((a, b) => a.effectiveDay - b.effectiveDay);
+      ctx.json({ weekYear: wk, chores: result });
+    })
+  );
 
   router.put('/api/chores/postpone', validateBody(schemas.chorePostponeBody), (ctx) => {
     const { weekYear, choreId } = ctx.body;
     const wk = weekYear || ensureCurrentWeek(repos);
     const schedule = repos.choreSchedules.getWeek(wk);
-    const slot = schedule.find(s => s.choreId === choreId);
+    const slot = schedule.find((s) => s.choreId === choreId);
     if (!slot) throw errors.notFound('Oppgave ikke funnet');
 
     const currentDay = slot.postponedTo !== null ? slot.postponedTo : slot.scheduledDay;
@@ -593,18 +717,27 @@ function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // INVENTORY / PRODUCTS / CONSUMABLES
   // ============================================================
-  router.get('/api/inventory', withCache(['inventory'], (ctx) => {
-    ctx.json({ inventory: repos.inventory.getAll() });
-  }));
+  router.get(
+    '/api/inventory',
+    withCache(['inventory'], (ctx) => {
+      ctx.json({ inventory: repos.inventory.getAll() });
+    })
+  );
 
-  router.get('/api/products', withCache(['products'], (ctx) => {
-    if (ctx.query.q) ctx.json({ products: repos.products.search(ctx.query.q) });
-    else ctx.json({ products: repos.products.getAllAsMap() });
-  }));
+  router.get(
+    '/api/products',
+    withCache(['products'], (ctx) => {
+      if (ctx.query.q) ctx.json({ products: repos.products.search(ctx.query.q) });
+      else ctx.json({ products: repos.products.getAllAsMap() });
+    })
+  );
 
-  router.get('/api/consumables', withCache(['consumables'], (ctx) => {
-    ctx.json({ consumables: repos.consumables.getAll() });
-  }));
+  router.get(
+    '/api/consumables',
+    withCache(['consumables'], (ctx) => {
+      ctx.json({ consumables: repos.consumables.getAll() });
+    })
+  );
 
   router.put('/api/consumables/:id', validateBody(schemas.consumableUpdateBody), (ctx) => {
     const id = parseInt(ctx.params.id, 10);
@@ -688,19 +821,35 @@ function registerRoutes(router, { repos, serverState }) {
    * DELETE /api/pantry/:productKey — nullstill pantry-rad ("har ikke likevel").
    * Skriver inventory_log med reason='correction' for audit trail.
    */
-  router.delete('/api/pantry/:productKey', (ctx) => {
-    const productKey = ctx.params.productKey;
-    if (!productKey) throw errors.badRequest('productKey er påkrevd');
-    const existing = repos.inventory.getByKey(productKey);
-    if (!existing) throw errors.notFound(`Pantry-vare '${productKey}' ikke funnet`);
-    try {
-      pantryService.correctQty(repos, { productKey, newQty: 0, notes: 'UI: har ikke likevel' });
-    } catch (err) {
-      throw errors.badRequest(err.message);
-    }
-    invalidate('inventory', 'shopping', 'today');
-    ctx.json({ ok: true, productKey });
-  });
+  router.delete(
+    '/api/pantry/:productKey',
+    withAudit(
+      repos,
+      {
+        entityType: 'pantry_item',
+        getEntityId: (ctx) => ctx.params.productKey,
+        getBefore: (ctx) => repos.inventory.getByKey(ctx.params.productKey),
+        metadata: () => ({ reason: 'UI: har ikke likevel' }),
+      },
+      (ctx) => {
+        const productKey = ctx.params.productKey;
+        if (!productKey) throw errors.badRequest('productKey er påkrevd');
+        const existing = repos.inventory.getByKey(productKey);
+        if (!existing) throw errors.notFound(`Pantry-vare '${productKey}' ikke funnet`);
+        try {
+          pantryService.correctQty(repos, {
+            productKey,
+            newQty: 0,
+            notes: 'UI: har ikke likevel',
+          });
+        } catch (err) {
+          throw errors.badRequest(err.message);
+        }
+        invalidate('inventory', 'shopping', 'today');
+        ctx.json({ ok: true, productKey });
+      }
+    )
+  );
 
   router.post('/api/pantry/add', validateBody(schemas.pantryAddBody), (ctx) => {
     try {
@@ -817,13 +966,29 @@ function registerRoutes(router, { repos, serverState }) {
     }
   });
 
-  router.delete('/api/sources/:id', (ctx) => {
-    if (!repos.recipeSources) throw errors.notFound('ikke støttet');
-    const id = parseInt(ctx.params.id, 10);
-    if (!Number.isFinite(id)) throw errors.badRequest('Ugyldig id');
-    repos.recipeSources.delete(id);
-    ctx.json({ ok: true });
-  });
+  router.delete(
+    '/api/sources/:id',
+    withAudit(
+      repos,
+      {
+        entityType: 'recipe_source',
+        getEntityId: (ctx) => parseInt(ctx.params.id, 10),
+        getBefore: (ctx) => {
+          const id = parseInt(ctx.params.id, 10);
+          return Number.isFinite(id) && repos.recipeSources
+            ? repos.recipeSources.getById(id)
+            : null;
+        },
+      },
+      (ctx) => {
+        if (!repos.recipeSources) throw errors.notFound('ikke støttet');
+        const id = parseInt(ctx.params.id, 10);
+        if (!Number.isFinite(id)) throw errors.badRequest('Ugyldig id');
+        repos.recipeSources.delete(id);
+        ctx.json({ ok: true });
+      }
+    )
+  );
 
   router.post('/api/sources/:id/sync', async (ctx) => {
     if (!repos.recipeSources) throw errors.notFound('ikke støttet');
@@ -841,21 +1006,33 @@ function registerRoutes(router, { repos, serverState }) {
     ctx.json(repos.familyProfile.get());
   });
 
-  router.put('/api/profile', (ctx) => {
-    const body = ctx.body || {};
-    // Enkel validering — alt er valgfritt, tomme arrays er lov
-    if (body.members && !Array.isArray(body.members)) {
-      throw errors.badRequest('members må være en array');
-    }
-    if (body.allergies && !Array.isArray(body.allergies)) {
-      throw errors.badRequest('allergies må være en array');
-    }
-    if (body.dislikes && !Array.isArray(body.dislikes)) {
-      throw errors.badRequest('dislikes må være en array');
-    }
-    const updated = repos.familyProfile.update(body);
-    ctx.json({ ok: true, profile: updated });
-  });
+  router.put(
+    '/api/profile',
+    withAudit(
+      repos,
+      {
+        entityType: 'family_profile',
+        getEntityId: () => 'default',
+        getBefore: () => repos.familyProfile.get(),
+        getAfter: () => repos.familyProfile.get(),
+      },
+      (ctx) => {
+        const body = ctx.body || {};
+        // Enkel validering — alt er valgfritt, tomme arrays er lov
+        if (body.members && !Array.isArray(body.members)) {
+          throw errors.badRequest('members må være en array');
+        }
+        if (body.allergies && !Array.isArray(body.allergies)) {
+          throw errors.badRequest('allergies må være en array');
+        }
+        if (body.dislikes && !Array.isArray(body.dislikes)) {
+          throw errors.badRequest('dislikes må være en array');
+        }
+        const updated = repos.familyProfile.update(body);
+        ctx.json({ ok: true, profile: updated });
+      }
+    )
+  );
 
   router.get('/api/profile/defaults', (ctx) => {
     // Returner anbefalte filterforslag basert på familieprofil
@@ -863,7 +1040,7 @@ function registerRoutes(router, { repos, serverState }) {
     const suggestions = [];
 
     // Allergi-basert: hvis laktose er i allergier → foreslå "Laktosefri"
-    for (const allergy of (profile.allergies || [])) {
+    for (const allergy of profile.allergies || []) {
       const lower = String(allergy).toLowerCase();
       if (lower.includes('laktose')) suggestions.push('laktosefri');
       if (lower.includes('gluten')) suggestions.push('glutenfri');
@@ -1001,48 +1178,68 @@ function registerRoutes(router, { repos, serverState }) {
     }
   });
 
-  router.delete('/api/receipts/:id', (ctx) => {
-    const id = parseInt(ctx.params.id, 10);
-    const receipt = repos.receipts.getById(id);
-    if (!receipt) throw errors.notFound(`Receipt ${id} ikke funnet`);
-    repos.receipts.markStatus(id, 'rejected');
-    invalidate('receipts');
-    ctx.json({ ok: true, status: 'rejected' });
-  });
+  router.delete(
+    '/api/receipts/:id',
+    withAudit(
+      repos,
+      {
+        entityType: 'receipt',
+        getEntityId: (ctx) => parseInt(ctx.params.id, 10),
+        getBefore: (ctx) => {
+          const id = parseInt(ctx.params.id, 10);
+          return Number.isFinite(id) ? repos.receipts.getById(id) : null;
+        },
+        metadata: () => ({ reason: 'rejected via API' }),
+      },
+      (ctx) => {
+        const id = parseInt(ctx.params.id, 10);
+        const receipt = repos.receipts.getById(id);
+        if (!receipt) throw errors.notFound(`Receipt ${id} ikke funnet`);
+        repos.receipts.markStatus(id, 'rejected');
+        invalidate('receipts');
+        ctx.json({ ok: true, status: 'rejected' });
+      }
+    )
+  );
 
   // ============================================================
   // TODAY
   // ============================================================
-  router.get('/api/today', withCache(['today'], (ctx) => {
-    const wk = ensureCurrentWeek(repos);
-    const dayOfWeek = (new Date().getDay() + 6) % 7;
-    const plan = repos.mealPlans.getWeek(wk);
-    const todaySlot = plan.find(p => p.dayOfWeek === dayOfWeek);
-    const recipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
+  router.get(
+    '/api/today',
+    withCache(['today'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const dayOfWeek = (new Date().getDay() + 6) % 7;
+      const plan = repos.mealPlans.getWeek(wk);
+      const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
+      const recipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
 
-    const choresMap = new Map(seedChores.map(c => [c.id, c]));
-    const todayChores = repos.choreSchedules.getWeek(wk)
-      .filter(s => {
-        const effectiveDay = s.postponedTo !== null && s.postponedTo >= 0 ? s.postponedTo : s.scheduledDay;
-        return effectiveDay === dayOfWeek && s.status !== 'done';
-      })
-      .map(s => {
-        const chore = choresMap.get(s.choreId);
-        return { ...s, task: chore?.task, icon: chore?.icon };
+      const choresMap = new Map(seedChores.map((c) => [c.id, c]));
+      const todayChores = repos.choreSchedules
+        .getWeek(wk)
+        .filter((s) => {
+          const effectiveDay =
+            s.postponedTo !== null && s.postponedTo >= 0 ? s.postponedTo : s.scheduledDay;
+          return effectiveDay === dayOfWeek && s.status !== 'done';
+        })
+        .map((s) => {
+          const chore = choresMap.get(s.choreId);
+          return { ...s, task: chore?.task, icon: chore?.icon };
+        });
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const events = repos.calendar.getEvents(todayStr, todayStr);
+
+      ctx.json({
+        dayName: DAY_NAMES[dayOfWeek],
+        dayOfWeek,
+        weekYear: wk,
+        meal: todaySlot ? { ...todaySlot, recipe } : null,
+        chores: todayChores,
+        events,
       });
-
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const events = repos.calendar.getEvents(todayStr, todayStr);
-
-    ctx.json({
-      dayName: DAY_NAMES[dayOfWeek],
-      dayOfWeek,
-      weekYear: wk,
-      meal: todaySlot ? { ...todaySlot, recipe } : null,
-      chores: todayChores,
-      events,
-    });
-  }));
+    })
+  );
 
   // ============================================================
   // SUNDAY PUSH
@@ -1055,15 +1252,19 @@ function registerRoutes(router, { repos, serverState }) {
     if (!hasExisting) repos.mealPlans.seedDefault(draft.weekYear, draft.meals);
 
     const shopList = buildShoppingList(repos, draft.weekYear);
-    const meals = draft.meals.map(s => ({
+    const meals = draft.meals.map((s) => ({
       ...s,
       dayName: DAY_NAMES[s.dayOfWeek],
       recipe: repos.recipes.getById(s.recipeId),
     }));
 
     const productsMap = repos.products.getAllAsMap();
-    const freshItems = shopList.categories.flatMap(c => c.items).filter(i => i.source === 'recipe');
-    const shelfDays = freshItems.map(i => productsMap[i.key]?.shelfDays || 365).filter(x => x < 365);
+    const freshItems = shopList.categories
+      .flatMap((c) => c.items)
+      .filter((i) => i.source === 'recipe');
+    const shelfDays = freshItems
+      .map((i) => productsMap[i.key]?.shelfDays || 365)
+      .filter((x) => x < 365);
     const minShelf = shelfDays.length > 0 ? Math.min(...shelfDays) : 14;
     const handledag = minShelf <= 2 ? 'Onsdag eller torsdag (ferskvarer!)' : 'Mandag eller tirsdag';
 
@@ -1080,7 +1281,12 @@ function registerRoutes(router, { repos, serverState }) {
     const { weekYear, meals } = ctx.body;
     const tx = repos.transaction(() => {
       for (const m of meals) {
-        repos.mealPlans.setRecipe(weekYear, m.dayOfWeek, m.recipeId || m.recipe?.id, m.status || 'planned');
+        repos.mealPlans.setRecipe(
+          weekYear,
+          m.dayOfWeek,
+          m.recipeId || m.recipe?.id,
+          m.status || 'planned'
+        );
       }
       repos.sundayDrafts.markAccepted(weekYear);
     });
@@ -1097,20 +1303,22 @@ function registerRoutes(router, { repos, serverState }) {
     let migrationCount = 0;
     try {
       // Prøv å avgjøre backend ved å se etter better-sqlite3-spesifikk metode
-      driver = repos._db && typeof repos._db.name === 'string'
-        ? 'better-sqlite3'
-        : 'sql.js';
-    } catch { /* stille */ }
+      driver = repos._db && typeof repos._db.name === 'string' ? 'better-sqlite3' : 'sql.js';
+    } catch {
+      /* stille */
+    }
     try {
-      migrationCount = repos._db
-        .prepare('SELECT COUNT(*) AS c FROM schema_migrations')
-        .get().c;
-    } catch { /* tabellen finnes kanskje ikke ennå */ }
+      migrationCount = repos._db.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get().c;
+    } catch {
+      /* tabellen finnes kanskje ikke ennå */
+    }
     // M2.3: eksponer circuit-breaker-tilstand for observability
     let breakers = null;
     try {
       breakers = require('./services/circuit-breaker').snapshotAll();
-    } catch { /* modulen skal alltid finnes */ }
+    } catch {
+      /* modulen skal alltid finnes */
+    }
 
     ctx.json({
       version: '1.2.0',
@@ -1160,23 +1368,29 @@ function registerRoutes(router, { repos, serverState }) {
     const wk = ensureCurrentWeek(repos);
     const dayOfWeek = (new Date().getDay() + 6) % 7;
     const plan = repos.mealPlans.getWeek(wk);
-    const todaySlot = plan.find(p => p.dayOfWeek === dayOfWeek);
+    const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
     const todayRecipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
 
-    const choresMap = new Map(seedChores.map(c => [c.id, c]));
-    const todayChoresList = repos.choreSchedules.getWeek(wk)
-      .filter(s => {
+    const choresMap = new Map(seedChores.map((c) => [c.id, c]));
+    const todayChoresList = repos.choreSchedules
+      .getWeek(wk)
+      .filter((s) => {
         const eff = s.postponedTo !== null && s.postponedTo >= 0 ? s.postponedTo : s.scheduledDay;
         return eff === dayOfWeek && s.status !== 'done';
       })
-      .map(s => choresMap.get(s.choreId)?.task)
+      .map((s) => choresMap.get(s.choreId)?.task)
       .filter(Boolean);
 
     const dbAdapter = { kbSearch: (q, l) => repos.kb.search(q, l) };
-    const result = await chat(message, history || [], {
-      todayMeal: todayRecipe?.name,
-      todayChores: todayChoresList.join(', ') || 'Ingen',
-    }, dbAdapter);
+    const result = await chat(
+      message,
+      history || [],
+      {
+        todayMeal: todayRecipe?.name,
+        todayChores: todayChoresList.join(', ') || 'Ingen',
+      },
+      dbAdapter
+    );
 
     const executedTools = [];
     if (result.type === 'tool_calls' && result.toolCalls) {
@@ -1185,22 +1399,30 @@ function registerRoutes(router, { repos, serverState }) {
           const toolResult = executeToolCall(repos, tc.name, tc.arguments, wk);
           executedTools.push({ tool: tc.name, args: tc.arguments, result: toolResult });
           repos.llmAudit.log({
-            toolName: tc.name, arguments: tc.arguments, result: toolResult,
-            success: toolResult.ok !== false, userMessage: message,
+            toolName: tc.name,
+            arguments: tc.arguments,
+            result: toolResult,
+            success: toolResult.ok !== false,
+            userMessage: message,
           });
         } catch (err) {
           executedTools.push({ tool: tc.name, args: tc.arguments, error: err.message });
           repos.llmAudit.log({
-            toolName: tc.name, arguments: tc.arguments, result: { error: err.message },
-            success: false, userMessage: message,
+            toolName: tc.name,
+            arguments: tc.arguments,
+            result: { error: err.message },
+            success: false,
+            userMessage: message,
           });
         }
       }
     }
 
-    const responseText = result.type === 'tool_calls'
-      ? (result.textResponse || executedTools.map(t => t.result?.message || `\u2713 ${t.tool}`).join('\n'))
-      : result.content;
+    const responseText =
+      result.type === 'tool_calls'
+        ? result.textResponse ||
+          executedTools.map((t) => t.result?.message || `\u2713 ${t.tool}`).join('\n')
+        : result.content;
 
     if (saveToKB) {
       const intent = await extractIntent(message).catch(() => ({ intent: 'chat' }));
@@ -1224,14 +1446,18 @@ function registerRoutes(router, { repos, serverState }) {
     const query = ctx.body.query;
     // Persistert LLM-cache: samme oppskrift-spørsmål returnerer samme svar i 7 dager.
     // Cache-key inkluderer modellen slik at modellendringer ikke returnerer gammelt innhold.
-    const key = crypto.createHash('sha256')
+    const key = crypto
+      .createHash('sha256')
       .update(`recipe:${OLLAMA_MODEL}:${query.toLowerCase().trim()}`)
       .digest('hex');
     const hit = repos.llmCache.get(key);
     if (hit) {
       ctx.res.setHeader('X-LLM-Cache', 'HIT');
-      try { return ctx.json(JSON.parse(hit.response)); }
-      catch { /* falle gjennom til regenerering */ }
+      try {
+        return ctx.json(JSON.parse(hit.response));
+      } catch {
+        /* falle gjennom til regenerering */
+      }
     }
     const result = await suggestRecipeFromText(query);
     if (result && !result.error) {
@@ -1261,11 +1487,14 @@ function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // CALENDAR
   // ============================================================
-  router.get('/api/calendar/events', withCache(['calendar'], (ctx) => {
-    const from = ctx.query.from || new Date().toISOString().slice(0, 10);
-    const to = ctx.query.to || from;
-    ctx.json({ events: repos.calendar.getEvents(from, to) });
-  }));
+  router.get(
+    '/api/calendar/events',
+    withCache(['calendar'], (ctx) => {
+      const from = ctx.query.from || new Date().toISOString().slice(0, 10);
+      const to = ctx.query.to || from;
+      ctx.json({ events: repos.calendar.getEvents(from, to) });
+    })
+  );
 
   router.post('/api/calendar/events', validateBody(schemas.calendarEventBody), (ctx) => {
     const ev = repos.calendar.insert(ctx.body);
@@ -1273,11 +1502,47 @@ function registerRoutes(router, { repos, serverState }) {
     ctx.json({ ok: true, event: ev });
   });
 
-  router.delete('/api/calendar/events/:id', (ctx) => {
-    const evId = parseInt(ctx.params.id, 10);
-    repos.calendar.delete(evId);
-    invalidate('calendar', 'today');
-    ctx.json({ ok: true });
+  router.delete(
+    '/api/calendar/events/:id',
+    withAudit(
+      repos,
+      {
+        entityType: 'calendar_event',
+        getEntityId: (ctx) => parseInt(ctx.params.id, 10),
+      },
+      (ctx) => {
+        const evId = parseInt(ctx.params.id, 10);
+        repos.calendar.delete(evId);
+        invalidate('calendar', 'today');
+        ctx.json({ ok: true });
+      }
+    )
+  );
+
+  // ============================================================
+  // SBOM-7: Audit log (read-only) — non-repudiation for destruktive ops
+  // Krever AUTH_TOKEN i prod; /api/* er allerede bearer-beskyttet.
+  // ============================================================
+  router.get('/api/audit', (ctx) => {
+    const limit = Math.max(1, Math.min(500, parseInt(ctx.query.limit, 10) || 100));
+    const entityType = ctx.query.entityType || null;
+    const entityId = ctx.query.entityId || null;
+
+    let entries;
+    if (entityType) {
+      entries = repos.auditLog.getByEntity(entityType, entityId, limit);
+    } else {
+      entries = repos.auditLog.getRecent(limit);
+    }
+    ctx.json({
+      entries,
+      count: entries.length,
+      note: 'Append-only log. Hashes er sha256 av JSON-serialisert før/etter.',
+    });
+  });
+
+  router.get('/api/audit/stats', (ctx) => {
+    ctx.json(repos.auditLog.stats());
   });
 
   // ============================================================
@@ -1286,7 +1551,7 @@ function registerRoutes(router, { repos, serverState }) {
   router.get('/api/kb/stats', (ctx) => {
     ctx.json({
       totalInteractions: repos.kb.count(),
-      recentTopics: repos.kb.getRecent(5).map(e => (e.user_message || '').slice(0, 50)),
+      recentTopics: repos.kb.getRecent(5).map((e) => (e.user_message || '').slice(0, 50)),
     });
   });
 
@@ -1362,12 +1627,17 @@ function executeToolCall(repos, toolName, args, weekYear) {
         quantity: args.quantity || 1,
       });
       invalidate('shopping');
-      return { ok: true, message: `\u2713 Lagt til "${args.name}" i handlelisten (${args.category})` };
+      return {
+        ok: true,
+        message: `\u2713 Lagt til "${args.name}" i handlelisten (${args.category})`,
+      };
 
     case 'add_calendar_event': {
       const ev = repos.calendar.insert({
-        title: args.title, date: args.date,
-        startTime: args.startTime || null, endTime: args.endTime || null,
+        title: args.title,
+        date: args.date,
+        startTime: args.startTime || null,
+        endTime: args.endTime || null,
         location: args.location || null,
       });
       invalidate('calendar', 'today');
@@ -1387,13 +1657,20 @@ function executeToolCall(repos, toolName, args, weekYear) {
     case 'suggest_meal': {
       const all = repos.recipes.getAll();
       const criteria = (args.criteria || '').toLowerCase();
-      const matches = all.filter(r =>
-        r.name.toLowerCase().includes(criteria) ||
-        r.category.toLowerCase().includes(criteria) ||
-        (r.ingredients || []).some(i => i.name.toLowerCase().includes(criteria))
-      ).slice(0, 3);
+      const matches = all
+        .filter(
+          (r) =>
+            r.name.toLowerCase().includes(criteria) ||
+            r.category.toLowerCase().includes(criteria) ||
+            (r.ingredients || []).some((i) => i.name.toLowerCase().includes(criteria))
+        )
+        .slice(0, 3);
       return matches.length > 0
-        ? { ok: true, message: `Forslag: ${matches.map(r => `${r.name} (${r.category})`).join(', ')}`, suggestions: matches }
+        ? {
+            ok: true,
+            message: `Forslag: ${matches.map((r) => `${r.name} (${r.category})`).join(', ')}`,
+            suggestions: matches,
+          }
         : { ok: true, message: 'Fant ingen oppskrifter som matcher.' };
     }
 

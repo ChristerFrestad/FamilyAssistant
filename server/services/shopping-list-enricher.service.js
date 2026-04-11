@@ -38,7 +38,7 @@ const MAX_ITEMS_PER_RUN = 200;
 
 function sleep(ms) {
   if (!ms || ms <= 0) return Promise.resolve();
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -54,38 +54,77 @@ function sleep(ms) {
  * @param {string} [opts.apiKey]        — override env-nøkkel (tester)
  * @returns {Promise<{listId, enriched, skipped, bailed, finalStatus, reason?}>}
  */
-async function enrichList(repos, listId, {
-  delayMs = DEFAULT_INTER_REQUEST_DELAY_MS,
-  maxItems = MAX_ITEMS_PER_RUN,
-  apiKey = process.env.KASSAL_API_KEY,
-} = {}) {
+async function enrichList(
+  repos,
+  listId,
+  {
+    delayMs = DEFAULT_INTER_REQUEST_DELAY_MS,
+    maxItems = MAX_ITEMS_PER_RUN,
+    apiKey = process.env.KASSAL_API_KEY,
+  } = {}
+) {
   const list = repos.shoppingLists.getById(listId);
   if (!list) {
-    return { listId, enriched: 0, skipped: 0, bailed: false, finalStatus: 'missing', reason: 'not_found' };
+    return {
+      listId,
+      enriched: 0,
+      skipped: 0,
+      bailed: false,
+      finalStatus: 'missing',
+      reason: 'not_found',
+    };
   }
 
   // Fast-exit: allerede ferdig eller kjører (idempotens)
   if (list.enrichmentStatus === 'done') {
-    return { listId, enriched: 0, skipped: 0, bailed: false, finalStatus: 'done', reason: 'already_done' };
+    return {
+      listId,
+      enriched: 0,
+      skipped: 0,
+      bailed: false,
+      finalStatus: 'done',
+      reason: 'already_done',
+    };
   }
   if (list.enrichmentStatus === 'running') {
-    return { listId, enriched: 0, skipped: 0, bailed: false, finalStatus: 'running', reason: 'already_running' };
+    return {
+      listId,
+      enriched: 0,
+      skipped: 0,
+      bailed: false,
+      finalStatus: 'running',
+      reason: 'already_running',
+    };
   }
 
   // Ingen API-nøkkel → marker done, ingenting å gjøre
   if (!apiKey) {
     repos.shoppingLists.setEnrichmentStatus(listId, 'done', { startedAt: true, finishedAt: true });
-    return { listId, enriched: 0, skipped: 0, bailed: false, finalStatus: 'done', reason: 'no_api_key' };
+    return {
+      listId,
+      enriched: 0,
+      skipped: 0,
+      bailed: false,
+      finalStatus: 'done',
+      reason: 'no_api_key',
+    };
   }
 
-  const toEnrich = (list.items || []).filter(it =>
-    it.needsBuy && !it.kassalProductId && it.ingredientName
-  ).slice(0, maxItems);
+  const toEnrich = (list.items || [])
+    .filter((it) => it.needsBuy && !it.kassalProductId && it.ingredientName)
+    .slice(0, maxItems);
 
   // Ingenting å berike → done
   if (toEnrich.length === 0) {
     repos.shoppingLists.setEnrichmentStatus(listId, 'done', { startedAt: true, finishedAt: true });
-    return { listId, enriched: 0, skipped: 0, bailed: false, finalStatus: 'done', reason: 'nothing_to_enrich' };
+    return {
+      listId,
+      enriched: 0,
+      skipped: 0,
+      bailed: false,
+      finalStatus: 'done',
+      reason: 'nothing_to_enrich',
+    };
   }
 
   repos.shoppingLists.setEnrichmentStatus(listId, 'running', { startedAt: true });
@@ -120,13 +159,17 @@ async function enrichList(repos, listId, {
     let resolution = null;
     let resolverThrew = false;
     try {
-      resolution = await productResolver.resolveByLine(repos, {
-        name: searchName,
-        productKey: item.productKey || null,
-        qty: item.qty,
-        unit: item.unit,
-        brandHint: item.brandHint || null,
-      }, { captureSource: 'lookup' });
+      resolution = await productResolver.resolveByLine(
+        repos,
+        {
+          name: searchName,
+          productKey: item.productKey || null,
+          qty: item.qty,
+          unit: item.unit,
+          brandHint: item.brandHint || null,
+        },
+        { captureSource: 'lookup' }
+      );
     } catch (err) {
       logger.warn({ err: err.message, itemId: item.id }, 'enricher: resolver kastet');
       resolverThrew = true;
@@ -141,10 +184,12 @@ async function enrichList(repos, listId, {
 
     if (resolution && resolution.kassalProductRowId) {
       // Hent ev. pris fra beste kandidat for estimated_price oppdatering
-      const bestCand = Array.isArray(resolution.candidates) && resolution.candidates.length > 0
-        ? resolution.candidates[0] : null;
-      const estPrice = bestCand && Number.isFinite(bestCand.price)
-        ? bestCand.price * (item.packCount || 1) : null;
+      const bestCand =
+        Array.isArray(resolution.candidates) && resolution.candidates.length > 0
+          ? resolution.candidates[0]
+          : null;
+      const estPrice =
+        bestCand && Number.isFinite(bestCand.price) ? bestCand.price * (item.packCount || 1) : null;
 
       repos.shoppingLists.attachResolution(item.id, {
         kassalProductId: resolution.kassalProductRowId,
@@ -179,10 +224,7 @@ async function enrichList(repos, listId, {
   const finalStatus = bailed ? 'partial' : 'done';
   repos.shoppingLists.setEnrichmentStatus(listId, finalStatus, { finishedAt: !bailed });
 
-  logger.info(
-    { listId, enriched, skipped, bailed, bailReason, finalStatus },
-    'enricher: ferdig'
-  );
+  logger.info({ listId, enriched, skipped, bailed, bailReason, finalStatus }, 'enricher: ferdig');
 
   return { listId, enriched, skipped, bailed, finalStatus, reason: bailReason };
 }
@@ -210,7 +252,7 @@ async function enrichPendingLists(repos, opts = {}) {
  */
 function enrichInBackground(repos, listId, opts = {}) {
   setImmediate(() => {
-    enrichList(repos, listId, opts).catch(err => {
+    enrichList(repos, listId, opts).catch((err) => {
       logger.error({ err: err.message, listId }, 'enricher: bakgrunnsfeil');
     });
   });

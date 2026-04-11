@@ -26,13 +26,13 @@ const units = require('./units');
  */
 const CATEGORY_SHELF_DAYS = {
   'Kjøtt & fisk': 3,
-  'Meieri': 10,
+  Meieri: 10,
   'Frukt & grønt': 5,
   'Brød & bakst': 4,
   'Tørrvarer & annet': 365,
-  'Drikkevarer': 180,
-  'Husholdning': 730,
-  'Barn': 365,
+  Drikkevarer: 180,
+  Husholdning: 730,
+  Barn: 365,
   'Personlig pleie': 730,
 };
 
@@ -69,9 +69,15 @@ function calculateExpiresEst(product, providedDays, overrideCategory) {
  */
 function addToPantry(repos, opts) {
   const {
-    productKey, qty, total, unit,
-    shelfDays, expiresEst: explicitExpires,
-    category, notes, reason = 'manual',
+    productKey,
+    qty,
+    total,
+    unit,
+    shelfDays,
+    expiresEst: explicitExpires,
+    category,
+    notes,
+    reason = 'manual',
   } = opts;
 
   if (!productKey || !Number.isFinite(qty) || qty <= 0) {
@@ -108,7 +114,7 @@ function addToPantry(repos, opts) {
       repos.inventory.setTotalSize(productKey, total);
     }
     const prevQty = prev?.qtyRemaining || 0;
-    const newQty = next?.qtyRemaining || (prevQty + qty);
+    const newQty = next?.qtyRemaining || prevQty + qty;
     repos.inventoryLog.insert({
       productKey,
       qtyDelta: qty,
@@ -167,13 +173,17 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
         incrementPurchaseCount: false,
       });
     } else if (delta !== 0 || resolvedUnit) {
-      repos._db.prepare(`
+      repos._db
+        .prepare(
+          `
         UPDATE inventory
            SET qty_remaining = ?,
                unit = CASE WHEN ? = '' THEN unit ELSE ? END,
                updated_at = datetime('now')
          WHERE product_key = ?
-      `).run(newQty, resolvedUnit || '', resolvedUnit || '', productKey);
+      `
+        )
+        .run(newQty, resolvedUnit || '', resolvedUnit || '', productKey);
     }
     // Fase F2: oppdater total_size hvis oppgitt
     if (Number.isFinite(newTotal) && newTotal > 0) {
@@ -189,14 +199,25 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
     });
   });
   tx();
-  logger.info({ productKey, prevQty, newQty, newTotal, newUnit: resolvedUnit, delta }, 'pantry: correction');
+  logger.info(
+    { productKey, prevQty, newQty, newTotal, newUnit: resolvedUnit, delta },
+    'pantry: correction'
+  );
 
   // Fase F2: sjekk lav-beholdning og trigger auto-add til handleliste
   const afterState = repos.inventory.getByKey(productKey);
   const total = afterState?.totalSize;
   const lowResult = checkAndTriggerLowStock(repos, productKey, newQty, total);
 
-  return { productKey, prevQty, newQty, newTotal, newUnit: resolvedUnit, delta, lowStock: lowResult };
+  return {
+    productKey,
+    prevQty,
+    newQty,
+    newTotal,
+    newUnit: resolvedUnit,
+    delta,
+    lowStock: lowResult,
+  };
 }
 
 /**
@@ -220,7 +241,9 @@ function checkAndTriggerLowStock(repos, productKey, qty, total) {
 
     // Sjekk om varen allerede er på listen
     const existingItems = repos.shoppingLists.getItems(active.id) || [];
-    const alreadyThere = existingItems.some(i => i.productKey === productKey || i.product_key === productKey);
+    const alreadyThere = existingItems.some(
+      (i) => i.productKey === productKey || i.product_key === productKey
+    );
     if (alreadyThere) return { triggered: false, reason: 'already-on-list' };
 
     // Legg til
@@ -237,7 +260,10 @@ function checkAndTriggerLowStock(repos, productKey, qty, total) {
         needsBuy: 1,
         pantryHas: 0,
       });
-      logger.info({ productKey, qty, total, ratio: qty / total }, 'pantry: lav-beholdning → lagt til handleliste');
+      logger.info(
+        { productKey, qty, total, ratio: qty / total },
+        'pantry: lav-beholdning → lagt til handleliste'
+      );
       return { triggered: true, listId: active.id };
     }
     return { triggered: false, reason: 'no-addItem-method' };
@@ -262,10 +288,14 @@ function removeExpired(repos) {
       if (!inv.expiresEst || !inv.qtyRemaining || inv.qtyRemaining <= 0) continue;
       if (inv.expiresEst > todayStr) continue;
       const qtyRemoved = inv.qtyRemaining;
-      repos._db.prepare(`
+      repos._db
+        .prepare(
+          `
         UPDATE inventory SET qty_remaining = 0, updated_at = datetime('now')
         WHERE product_key = ?
-      `).run(key);
+      `
+        )
+        .run(key);
       repos.inventoryLog.insert({
         productKey: key,
         qtyDelta: -qtyRemoved,

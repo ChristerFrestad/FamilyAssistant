@@ -145,9 +145,13 @@ describe('Calendar', () => {
     const id = created.body.event.id;
     assert.ok(id);
 
-    const list = await request(server.baseUrl, 'GET', '/api/calendar/events?from=2026-04-15&to=2026-04-15');
+    const list = await request(
+      server.baseUrl,
+      'GET',
+      '/api/calendar/events?from=2026-04-15&to=2026-04-15'
+    );
     assert.equal(list.status, 200);
-    assert.ok(list.body.events.some(e => e.id === id));
+    assert.ok(list.body.events.some((e) => e.id === id));
 
     const del = await request(server.baseUrl, 'DELETE', `/api/calendar/events/${id}`);
     assert.equal(del.status, 200);
@@ -194,7 +198,7 @@ describe('Metrics', () => {
     assert.equal(res.status, 200);
     assert.ok(typeof res.body.totalRequests === 'number');
     assert.ok(Array.isArray(res.body.routes));
-    const todayRoute = res.body.routes.find(r => r.route.includes('/api/today'));
+    const todayRoute = res.body.routes.find((r) => r.route.includes('/api/today'));
     assert.ok(todayRoute, 'should track /api/today');
     assert.ok(todayRoute.p50Ms >= 0);
   });
@@ -213,17 +217,22 @@ describe('Error handling', () => {
     const http = require('http');
     const url = new URL(server.baseUrl + '/api/shopping/add');
     const res = await new Promise((resolve, reject) => {
-      const req = http.request({
-        host: url.hostname,
-        port: url.port,
-        path: url.pathname,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      }, (r) => {
-        const chunks = [];
-        r.on('data', c => chunks.push(c));
-        r.on('end', () => resolve({ status: r.statusCode, body: Buffer.concat(chunks).toString() }));
-      });
+      const req = http.request(
+        {
+          host: url.hostname,
+          port: url.port,
+          path: url.pathname,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+        (r) => {
+          const chunks = [];
+          r.on('data', (c) => chunks.push(c));
+          r.on('end', () =>
+            resolve({ status: r.statusCode, body: Buffer.concat(chunks).toString() })
+          );
+        }
+      );
       req.on('error', reject);
       req.write('{not valid json');
       req.end();

@@ -55,7 +55,10 @@ function sanitizeString(s, maxLen) {
   // Fjern NUL og ASCII-kontrolltegn (unntatt nyelinje/tabulator)
   out = out.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
   // Strip ut alle HTML/script/tag-lignende konstruksjoner
-  out = out.replace(/<\s*\/?\s*(script|iframe|object|embed|style|link|meta|img|svg|math|base)\b[^>]*>/gi, '');
+  out = out.replace(
+    /<\s*\/?\s*(script|iframe|object|embed|style|link|meta|img|svg|math|base)\b[^>]*>/gi,
+    ''
+  );
   // Fjern gjenværende <...>-mønstre (generic HTML tags) — vi vil ha ren tekst
   out = out.replace(/<[^>]*>/g, '');
   // Trim + kapp lengde
@@ -119,14 +122,15 @@ function buildUserPrompt({ title, text, sourceUrl }) {
 
 async function parseRecipeWithLlm({ title, text, sourceUrl }) {
   try {
-    const result = await llm.llmChat([
-      { role: 'system', content: IMPORT_SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt({ title, text, sourceUrl }) },
-    ], { temperature: 0.2, maxTokens: 2048 });
+    const result = await llm.llmChat(
+      [
+        { role: 'system', content: IMPORT_SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt({ title, text, sourceUrl }) },
+      ],
+      { temperature: 0.2, maxTokens: 2048 }
+    );
 
-    const content = typeof result === 'string'
-      ? result
-      : (result && result.content) || '';
+    const content = typeof result === 'string' ? result : (result && result.content) || '';
     if (!content) return { error: 'Tomt LLM-svar' };
 
     // Først: prøv å matche et JSON-objekt i svaret (kan være innpakket i markdown)
@@ -168,9 +172,7 @@ function sanitizeIngredients(rawIngredients) {
     // Hvis LLM-en allerede har gitt qty/unit respekterer vi det og
     // bruker normalizer kun til å oversette navnet.
     const llmQty = Number.isFinite(ing.qty) && ing.qty > 0 ? ing.qty : null;
-    const llmUnit = typeof ing.unit === 'string' && ing.unit
-      ? sanitizeString(ing.unit, 20)
-      : null;
+    const llmUnit = typeof ing.unit === 'string' && ing.unit ? sanitizeString(ing.unit, 20) : null;
 
     const norm = normalizer.normalizeSync({
       name,
@@ -191,7 +193,7 @@ function sanitizeIngredients(rawIngredients) {
 function sanitizeSteps(rawSteps) {
   if (!Array.isArray(rawSteps)) return [];
   return rawSteps
-    .map(s => sanitizeString(s, MAX_STEP_CHARS))
+    .map((s) => sanitizeString(s, MAX_STEP_CHARS))
     .filter(Boolean)
     .slice(0, 30);
 }
@@ -211,16 +213,21 @@ function sanitizeSteps(rawSteps) {
  * @param {string} [input.language]          — 'no'|'en'|'auto' (default auto)
  * @returns {Promise<{recipeId?, recipe?, error?, raw?}>}
  */
-async function importFromText(repos, { text, title = null, sourceUrl = null, language = 'auto' } = {}) {
+async function importFromText(
+  repos,
+  { text, title = null, sourceUrl = null, language = 'auto' } = {}
+) {
   if (!text || typeof text !== 'string' || text.trim().length < 20) {
     return { error: 'Oppskriftstekst er for kort (minimum 20 tegn)' };
   }
 
-  const detectedLang = language === 'auto'
-    ? normalizer.detectLanguage(text.slice(0, 400))
-    : language;
+  const detectedLang =
+    language === 'auto' ? normalizer.detectLanguage(text.slice(0, 400)) : language;
 
-  logger.info({ titleHint: title, len: text.length, language: detectedLang }, 'recipe-import: start');
+  logger.info(
+    { titleHint: title, len: text.length, language: detectedLang },
+    'recipe-import: start'
+  );
 
   const llmRes = await parseRecipeWithLlm({ title, text, sourceUrl });
   if (llmRes.error) {
@@ -240,12 +247,14 @@ async function importFromText(repos, { text, title = null, sourceUrl = null, lan
 
   const steps = sanitizeSteps(parsed.steps);
   const category = sanitizeCategory(parsed.category);
-  const prepTime = Number.isFinite(parsed.prepTimeMin) && parsed.prepTimeMin > 0
-    ? `${Math.min(Math.round(parsed.prepTimeMin), 9999)} min`
-    : null;
-  const servings = Number.isFinite(parsed.servings) && parsed.servings > 0
-    ? Math.min(Math.round(parsed.servings), 99)
-    : 2;
+  const prepTime =
+    Number.isFinite(parsed.prepTimeMin) && parsed.prepTimeMin > 0
+      ? `${Math.min(Math.round(parsed.prepTimeMin), 9999)} min`
+      : null;
+  const servings =
+    Number.isFinite(parsed.servings) && parsed.servings > 0
+      ? Math.min(Math.round(parsed.servings), 99)
+      : 2;
   const safeSourceUrl = sanitizeUrl(sourceUrl);
 
   const recipeId = repos.recipes.insert({
@@ -273,9 +282,7 @@ async function importFromText(repos, { text, title = null, sourceUrl = null, lan
 // Public: importFromImage
 // ============================================================
 
-const ALLOWED_IMAGE_MIMES = new Set([
-  'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
-]);
+const ALLOWED_IMAGE_MIMES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 
 function extForMime(mime) {
   if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
@@ -313,8 +320,9 @@ async function importFromImage(repos, { buffer, mime, title = null, ocrAdapter =
   fs.writeFileSync(tmpPath, buffer);
 
   try {
-    const adapter = ocrAdapter
-      || ((await receiptService.isOcrAvailable())
+    const adapter =
+      ocrAdapter ||
+      ((await receiptService.isOcrAvailable())
         ? receiptService.tesseractOcr
         : receiptService.nullOcr);
     const ocr = await adapter(tmpPath);
@@ -329,7 +337,11 @@ async function importFromImage(repos, { buffer, mime, title = null, ocrAdapter =
     return { error: `OCR feilet: ${err.message}` };
   } finally {
     // Rydd temp-fil best-effort
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      /* ignore */
+    }
   }
 }
 

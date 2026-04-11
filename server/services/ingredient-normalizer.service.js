@@ -40,15 +40,19 @@ function loadDictionary() {
     const raw = fs.readFileSync(filePath, 'utf8');
     _dict = JSON.parse(raw);
     // Pre-compute sorted multi-word keys (lengste først) for match-prioritet
-    _dict._multiWordKeysSorted = Object.keys(_dict.multi_word || {})
-      .sort((a, b) => b.length - a.length);
+    _dict._multiWordKeysSorted = Object.keys(_dict.multi_word || {}).sort(
+      (a, b) => b.length - a.length
+    );
     _dict._stopWordsSet = new Set(_dict.stop_words || []);
   } catch (err) {
     logger.error({ err: err.message, filePath }, 'normalizer: kunne ikke laste ordbok');
     _dict = {
-      multi_word: {}, single_word: {}, stop_words: [],
+      multi_word: {},
+      single_word: {},
+      stop_words: [],
       unit_conversions: {},
-      _multiWordKeysSorted: [], _stopWordsSet: new Set(),
+      _multiWordKeysSorted: [],
+      _stopWordsSet: new Set(),
     };
   }
   return _dict;
@@ -91,23 +95,44 @@ function tokenize(text) {
   if (!text) return [];
   return text
     .toLowerCase()
-    .replace(/[()[\],;]/g, ' ')  // tegn som splitter ord
+    .replace(/[()[\],;]/g, ' ') // tegn som splitter ord
     .split(/\s+/)
     .filter(Boolean);
 }
 
 // Regex som fanger "400g", "1.5 kg", "2 cups", "1/2 tsp", "3 stk"
-const QTY_UNIT_REGEX = /(\d+(?:[.,]\d+)?(?:\/\d+)?)\s*(kg|kilo|kilogram|g|gram|mg|l|liter|dl|cl|ml|stk|pcs|piece|pieces|cup|cups|tbsp|tsp|tablespoon|teaspoon|tablespoons|teaspoons|oz|lb|lbs|pound|pounds)\b/i;
+const QTY_UNIT_REGEX =
+  /(\d+(?:[.,]\d+)?(?:\/\d+)?)\s*(kg|kilo|kilogram|g|gram|mg|l|liter|dl|cl|ml|stk|pcs|piece|pieces|cup|cups|tbsp|tsp|tablespoon|teaspoon|tablespoons|teaspoons|oz|lb|lbs|pound|pounds)\b/i;
 
 const UNIT_CANONICAL = {
-  kg: 'kg', kilo: 'kg', kilogram: 'kg',
-  g: 'g', gram: 'g', mg: 'mg',
-  l: 'l', liter: 'l', dl: 'dl', cl: 'cl', ml: 'ml',
-  stk: 'stk', pcs: 'stk', piece: 'stk', pieces: 'stk',
-  cup: 'cup', cups: 'cup',
-  tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp',
-  tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp',
-  oz: 'oz', lb: 'lb', lbs: 'lb', pound: 'lb', pounds: 'lb',
+  kg: 'kg',
+  kilo: 'kg',
+  kilogram: 'kg',
+  g: 'g',
+  gram: 'g',
+  mg: 'mg',
+  l: 'l',
+  liter: 'l',
+  dl: 'dl',
+  cl: 'cl',
+  ml: 'ml',
+  stk: 'stk',
+  pcs: 'stk',
+  piece: 'stk',
+  pieces: 'stk',
+  cup: 'cup',
+  cups: 'cup',
+  tbsp: 'tbsp',
+  tablespoon: 'tbsp',
+  tablespoons: 'tbsp',
+  tsp: 'tsp',
+  teaspoon: 'tsp',
+  teaspoons: 'tsp',
+  oz: 'oz',
+  lb: 'lb',
+  lbs: 'lb',
+  pound: 'lb',
+  pounds: 'lb',
 };
 
 function parseFraction(str) {
@@ -138,7 +163,7 @@ function extractQtyUnit(text) {
  */
 function stripStopWords(tokens) {
   const dict = loadDictionary();
-  return tokens.filter(t => !dict._stopWordsSet.has(t));
+  return tokens.filter((t) => !dict._stopWordsSet.has(t));
 }
 
 /**
@@ -174,7 +199,7 @@ function translateViaDict(text) {
   const tokens = tokenize(working);
   const significant = stripStopWords(tokens);
 
-  const translated = significant.map(tok => {
+  const translated = significant.map((tok) => {
     // Allerede dekket av multi-word replacement — ikke dobbelt-tell
     if (replacedTokenSet.has(tok)) return tok;
     if (dict.single_word[tok]) {
@@ -185,9 +210,7 @@ function translateViaDict(text) {
     return tok;
   });
 
-  const coverage = origSignificantCount > 0
-    ? Math.min(1, hits / origSignificantCount)
-    : 0;
+  const coverage = origSignificantCount > 0 ? Math.min(1, hits / origSignificantCount) : 0;
 
   return {
     name: translated.join(' ').trim(),
@@ -241,33 +264,47 @@ async function translateViaLlm(repos, rawText) {
     try {
       const parsed = JSON.parse(cached.response);
       return { name: parsed.name, source: 'llm_cache' };
-    } catch { /* ignorer, fall through */ }
+    } catch {
+      /* ignorer, fall through */
+    }
   }
 
   // Dynamisk import av llm for å unngå require-syklus (llm bruker repos)
   let llm;
-  try { llm = require('../llm'); } catch { return null; }
+  try {
+    llm = require('../llm');
+  } catch {
+    return null;
+  }
   if (!llm || typeof llm.isLLMAvailable !== 'function') return null;
 
   try {
     const available = await llm.isLLMAvailable();
     if (!available) return null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 
   const prompt = `Oversett følgende matvare/ingrediens fra engelsk til norsk. Svar KUN med JSON på formen {"name":"..."} uten ekstra tekst. Ingrediens: "${rawText}"`;
 
   try {
     // llmChat er den generelle low-level chat-funksjonen i llm.js
     if (typeof llm.llmChat !== 'function') return null;
-    const result = await llm.llmChat([
-      { role: 'system', content: 'Du er en oversettelses-assistent for matvarer.' },
-      { role: 'user', content: prompt },
-    ], { temperature: 0.1, maxTokens: 64 });
+    const result = await llm.llmChat(
+      [
+        { role: 'system', content: 'Du er en oversettelses-assistent for matvarer.' },
+        { role: 'user', content: prompt },
+      ],
+      { temperature: 0.1, maxTokens: 64 }
+    );
 
     // llmChat returnerer { type, content } — vi vil kun ha tekst-svar
-    const responseText = typeof result === 'string'
-      ? result
-      : (result && result.type === 'text' ? result.content : null);
+    const responseText =
+      typeof result === 'string'
+        ? result
+        : result && result.type === 'text'
+          ? result.content
+          : null;
     if (!responseText) return null;
 
     // Prøv å parse JSON fra svaret (kan være innpakket i markdown-fence)
@@ -310,7 +347,15 @@ const DICT_COVERAGE_THRESHOLD = 0.8;
 function normalizeSync({ name, qty = null, unit = null }) {
   const nameOriginal = (name || '').trim();
   if (!nameOriginal) {
-    return { nameOriginal: '', nameNo: '', qty, unit, language: 'unknown', confidence: 0, source: 'passthrough' };
+    return {
+      nameOriginal: '',
+      nameNo: '',
+      qty,
+      unit,
+      language: 'unknown',
+      confidence: 0,
+      source: 'passthrough',
+    };
   }
 
   // Utvinn qty/unit hvis ikke oppgitt
@@ -332,7 +377,8 @@ function normalizeSync({ name, qty = null, unit = null }) {
     return {
       nameOriginal,
       nameNo: cleaned.toLowerCase(),
-      qty, unit,
+      qty,
+      unit,
       language,
       confidence: language === 'no' ? 1.0 : 0.5,
       source: 'passthrough',

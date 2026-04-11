@@ -65,7 +65,12 @@ beforeEach(() => {
  * Mock Kassal-respons som produkt-søk. Returnerer en enkelt varenummer-match
  * for navn='Kjøttdeig' som gir høy score (>0.3).
  */
-function mockFetchWithKassalProduct({ id = 'kp-mock-1', name = 'Kjøttdeig 400g', price = 55, ean = null } = {}) {
+function mockFetchWithKassalProduct({
+  id = 'kp-mock-1',
+  name = 'Kjøttdeig 400g',
+  price = 55,
+  ean = null,
+} = {}) {
   const responseBody = {
     data: [
       {
@@ -168,7 +173,7 @@ describe('enrichList happy path', () => {
     // Nullstill state i denne testen (top-level beforeEach propagerer ikke alltid i describe)
     kassalClient.resetState();
 
-    mockFetchWithKassalProduct({ id: 'kp-happy-1', name: 'Gilde Kjøttdeig 400g', price: 69.90 });
+    mockFetchWithKassalProduct({ id: 'kp-happy-1', name: 'Gilde Kjøttdeig 400g', price: 69.9 });
 
     const result = await enricher.enrichList(repos, listId, { delayMs: 0 });
 
@@ -188,27 +193,31 @@ describe('enrichList happy path', () => {
     const { repos } = server;
     const wk = '2099-WE03';
     // Item med et helt ukjent navn slik at overlap blir 0
-    const { listId } = repos.shoppingLists.createActive(wk, [{
-      sourceType: 'meal_ingredient',
-      ingredientName: 'Zxqwerty ukjentvare',
-      qty: 1,
-      unit: 'stk',
-      category: 'Tørrvarer & annet',
-      needsBuy: true,
-    }]);
+    const { listId } = repos.shoppingLists.createActive(wk, [
+      {
+        sourceType: 'meal_ingredient',
+        ingredientName: 'Zxqwerty ukjentvare',
+        qty: 1,
+        unit: 'stk',
+        category: 'Tørrvarer & annet',
+        needsBuy: true,
+      },
+    ]);
 
     // Mock response: et produkt som ikke har tokens til felles med søket
     global.fetch = async () => ({
       ok: true,
       status: 200,
       json: async () => ({
-        data: [{
-          id: 'kp-weak-1',
-          name: 'Helt Annen Vare',
-          brand: null,
-          vendor: null,
-          current_price: 10,
-        }],
+        data: [
+          {
+            id: 'kp-weak-1',
+            name: 'Helt Annen Vare',
+            brand: null,
+            vendor: null,
+            current_price: 10,
+          },
+        ],
       }),
     });
 
@@ -222,7 +231,11 @@ describe('enrichList happy path', () => {
     const list = repos.shoppingLists.getById(listId);
     assert.equal(list.items[0].kassalProductId, null);
     // resolvedVia skal være satt når vi har kandidater
-    assert.ok(list.items[0].resolvedVia || list.items[0].resolutionConfidence === 0 || list.items[0].resolutionConfidence !== null);
+    assert.ok(
+      list.items[0].resolvedVia ||
+        list.items[0].resolutionConfidence === 0 ||
+        list.items[0].resolutionConfidence !== null
+    );
   });
 });
 
@@ -238,7 +251,10 @@ describe('enrichList idempotens', () => {
     repos.shoppingLists.setEnrichmentStatus(listId, 'done', { finishedAt: true });
 
     let fetchCalls = 0;
-    global.fetch = async () => { fetchCalls++; return { ok: true, status: 200, json: async () => ({ data: [] }) }; };
+    global.fetch = async () => {
+      fetchCalls++;
+      return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    };
 
     const result = await enricher.enrichList(repos, listId, { delayMs: 0 });
     assert.equal(result.finalStatus, 'done');
@@ -260,14 +276,16 @@ describe('enrichList idempotens', () => {
   test('ingen items som trenger berikelse → done nothing_to_enrich', async () => {
     const { repos } = server;
     const wk = '2099-WE06';
-    const { listId } = repos.shoppingLists.createActive(wk, [{
-      sourceType: 'meal_ingredient',
-      ingredientName: 'Ost',
-      productKey: 'ost_1',
-      pantryHas: true,
-      needsBuy: false,
-      category: 'Meieri',
-    }]);
+    const { listId } = repos.shoppingLists.createActive(wk, [
+      {
+        sourceType: 'meal_ingredient',
+        ingredientName: 'Ost',
+        productKey: 'ost_1',
+        pantryHas: true,
+        needsBuy: false,
+        category: 'Meieri',
+      },
+    ]);
 
     const result = await enricher.enrichList(repos, listId, { delayMs: 0 });
     assert.equal(result.finalStatus, 'done');
@@ -295,7 +313,10 @@ describe('enrichList circuit breaker bail', () => {
 
     // Fetch skal ikke kalles mer etter at enricher ser circuit open
     let fetchCalls = 0;
-    global.fetch = async () => { fetchCalls++; return { ok: false, status: 429, json: async () => ({}) }; };
+    global.fetch = async () => {
+      fetchCalls++;
+      return { ok: false, status: 429, json: async () => ({}) };
+    };
 
     const result = await enricher.enrichList(repos, listId, { delayMs: 0 });
     assert.equal(result.finalStatus, 'partial');
@@ -330,7 +351,7 @@ describe('enrichPendingLists', () => {
     mockFetchWithKassalProduct({ id: 'kp-pending-1', name: 'Gilde Kjøttdeig 400g' });
 
     const results = await enricher.enrichPendingLists(repos, { delayMs: 0, maxLists: 10 });
-    const processedIds = results.map(r => r.listId);
+    const processedIds = results.map((r) => r.listId);
 
     assert.ok(processedIds.includes(idA), 'pending liste skal være med');
     assert.ok(processedIds.includes(idB), 'partial liste skal være med');
@@ -355,14 +376,13 @@ describe('POST /api/shopping/list/:id/enrich', () => {
 
     mockFetchWithKassalProduct({ id: 'kp-retry-1', name: 'Gilde Kjøttdeig 400g' });
 
-    const res = await request(server.baseUrl, 'POST',
-      `/api/shopping/list/${listId}/enrich`);
+    const res = await request(server.baseUrl, 'POST', `/api/shopping/list/${listId}/enrich`);
     assert.equal(res.status, 202);
     assert.equal(res.body.listId, listId);
 
     // enrichInBackground kjører via setImmediate — gi den en mikrotick
     // (bruker en kort sleep for å la den fullføre)
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 50));
 
     const after = repos.shoppingLists.getById(listId);
     // Statusen skal ha beveget seg vekk fra 'partial' (enten 'done' eller
@@ -372,14 +392,12 @@ describe('POST /api/shopping/list/:id/enrich', () => {
   });
 
   test('ukjent listId → 404', async () => {
-    const res = await request(server.baseUrl, 'POST',
-      '/api/shopping/list/9999999/enrich');
+    const res = await request(server.baseUrl, 'POST', '/api/shopping/list/9999999/enrich');
     assert.equal(res.status, 404);
   });
 
   test('ugyldig id → 400', async () => {
-    const res = await request(server.baseUrl, 'POST',
-      '/api/shopping/list/abc/enrich');
+    const res = await request(server.baseUrl, 'POST', '/api/shopping/list/abc/enrich');
     assert.equal(res.status, 400);
   });
 });

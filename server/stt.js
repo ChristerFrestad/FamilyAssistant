@@ -21,7 +21,8 @@ const http = require('http');
 // === Konfigurasjon ===
 const STT_BACKEND = process.env.STT_BACKEND || 'whisper_cpp'; // 'whisper_cpp' eller 'faster_whisper'
 const WHISPER_CPP_PATH = process.env.WHISPER_CPP_PATH || '/opt/whisper.cpp/main';
-const WHISPER_MODEL_PATH = process.env.WHISPER_MODEL_PATH || '/opt/whisper.cpp/models/ggml-nb-whisper-base.bin';
+const WHISPER_MODEL_PATH =
+  process.env.WHISPER_MODEL_PATH || '/opt/whisper.cpp/models/ggml-nb-whisper-base.bin';
 const FASTER_WHISPER_HOST = process.env.FASTER_WHISPER_HOST || 'http://localhost:8787';
 const WHISPER_LANGUAGE = process.env.WHISPER_LANGUAGE || 'no';
 const WHISPER_THREADS = parseInt(process.env.WHISPER_THREADS || '3'); // Hold nede for temperatur
@@ -52,12 +53,16 @@ function transcribeWithWhisperCpp(audioBuffer, format = 'wav') {
 
     const doTranscribe = () => {
       const args = [
-        '-m', WHISPER_MODEL_PATH,
-        '-f', wavFile,
-        '-l', WHISPER_LANGUAGE,
-        '-t', String(WHISPER_THREADS),
+        '-m',
+        WHISPER_MODEL_PATH,
+        '-f',
+        wavFile,
+        '-l',
+        WHISPER_LANGUAGE,
+        '-t',
+        String(WHISPER_THREADS),
         '--no-timestamps',
-        '-otxt',  // Output som ren tekst
+        '-otxt', // Output som ren tekst
       ];
 
       log(`Starter transkribering: ${WHISPER_CPP_PATH} ${args.join(' ')}`);
@@ -65,9 +70,17 @@ function transcribeWithWhisperCpp(audioBuffer, format = 'wav') {
 
       execFile(WHISPER_CPP_PATH, args, { timeout: 30000 }, (error, stdout, stderr) => {
         // Rydd opp temp-filer
-        try { fs.unlinkSync(tempFile); } catch {}
-        if (needsConvert) { try { fs.unlinkSync(wavFile); } catch {} }
-        try { fs.unlinkSync(wavFile + '.txt'); } catch {} // whisper output
+        try {
+          fs.unlinkSync(tempFile);
+        } catch {}
+        if (needsConvert) {
+          try {
+            fs.unlinkSync(wavFile);
+          } catch {}
+        }
+        try {
+          fs.unlinkSync(wavFile + '.txt');
+        } catch {} // whisper output
 
         if (error) {
           log(`Transkribering feilet: ${error.message}`);
@@ -90,20 +103,31 @@ function transcribeWithWhisperCpp(audioBuffer, format = 'wav') {
 
     if (needsConvert) {
       // Bruk ffmpeg for konvertering (finnes på de fleste RPI-installasjoner)
-      execFile('ffmpeg', [
-        '-i', tempFile,
-        '-ar', '16000',    // 16kHz
-        '-ac', '1',        // mono
-        '-c:a', 'pcm_s16le',
-        wavFile,
-        '-y',              // overwrite
-      ], { timeout: 10000 }, (err) => {
-        if (err) {
-          try { fs.unlinkSync(tempFile); } catch {}
-          return reject(new Error(`ffmpeg konvertering feilet: ${err.message}`));
+      execFile(
+        'ffmpeg',
+        [
+          '-i',
+          tempFile,
+          '-ar',
+          '16000', // 16kHz
+          '-ac',
+          '1', // mono
+          '-c:a',
+          'pcm_s16le',
+          wavFile,
+          '-y', // overwrite
+        ],
+        { timeout: 10000 },
+        (err) => {
+          if (err) {
+            try {
+              fs.unlinkSync(tempFile);
+            } catch {}
+            return reject(new Error(`ffmpeg konvertering feilet: ${err.message}`));
+          }
+          doTranscribe();
         }
-        doTranscribe();
-      });
+      );
     } else {
       doTranscribe();
     }
@@ -118,11 +142,7 @@ function transcribeWithFasterWhisper(audioBuffer) {
     const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.wav"\r\nContent-Type: audio/wav\r\n\r\n`;
     const footer = `\r\n--${boundary}--\r\n`;
 
-    const body = Buffer.concat([
-      Buffer.from(header),
-      audioBuffer,
-      Buffer.from(footer),
-    ]);
+    const body = Buffer.concat([Buffer.from(header), audioBuffer, Buffer.from(footer)]);
 
     const url = new URL(FASTER_WHISPER_HOST + '/v1/audio/transcriptions');
     const reqOpts = {
@@ -140,7 +160,9 @@ function transcribeWithFasterWhisper(audioBuffer) {
     const startTime = Date.now();
     const req = http.request(reqOpts, (res) => {
       let data = '';
-      res.on('data', c => { data += c; });
+      res.on('data', (c) => {
+        data += c;
+      });
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
@@ -159,7 +181,10 @@ function transcribeWithFasterWhisper(audioBuffer) {
     });
 
     req.on('error', (e) => reject(new Error(`faster-whisper feil: ${e.message}`)));
-    req.on('timeout', () => { req.destroy(); reject(new Error('faster-whisper timeout')); });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('faster-whisper timeout'));
+    });
     req.write(body);
     req.end();
   });
@@ -184,16 +209,22 @@ async function isSTTAvailable() {
   // faster-whisper — ping health endpoint
   return new Promise((resolve) => {
     const url = new URL(FASTER_WHISPER_HOST);
-    const req = http.get({
-      hostname: url.hostname,
-      port: url.port,
-      path: '/health',
-      timeout: 3000,
-    }, (res) => {
-      resolve({ available: res.statusCode === 200, backend: 'faster-whisper' });
-    });
+    const req = http.get(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: '/health',
+        timeout: 3000,
+      },
+      (res) => {
+        resolve({ available: res.statusCode === 200, backend: 'faster-whisper' });
+      }
+    );
     req.on('error', () => resolve({ available: false, backend: 'faster-whisper' }));
-    req.on('timeout', () => { req.destroy(); resolve({ available: false, backend: 'faster-whisper' }); });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ available: false, backend: 'faster-whisper' });
+    });
   });
 }
 

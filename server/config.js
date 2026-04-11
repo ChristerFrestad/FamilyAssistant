@@ -12,6 +12,12 @@ const envSchema = z.object({
   MAX_BODY_BYTES: z.coerce.number().int().positive().default(1_048_576), // 1 MB
   ALLOWED_ORIGINS: z.string().default('*'),
   AUTH_TOKEN: z.string().optional(),
+  // SBOM-5: token-rotation. ISO-8601 dato når AUTH_TOKEN sist ble rotert.
+  // Settes manuelt i .env etter rotering. Hvis ikke satt: tolkes som "ukjent".
+  AUTH_TOKEN_CREATED_AT: z.string().optional(),
+  // Antall dager før en token anses "stale" og /ready flagger warning.
+  // Default 90 dager (kvartalsvis rotering).
+  AUTH_TOKEN_MAX_AGE_DAYS: z.coerce.number().int().positive().default(90),
 
   // LLM
   LLM_BACKEND: z.enum(['ollama', 'llamacpp']).default('ollama'),
@@ -49,7 +55,9 @@ function autoDetectTestEnv() {
     return;
   }
   // Fallback: scan argv for --test
-  if (process.argv.some(a => a === '--test' || a === '--test-reporter' || a.startsWith('--test='))) {
+  if (
+    process.argv.some((a) => a === '--test' || a === '--test-reporter' || a.startsWith('--test='))
+  ) {
     process.env.NODE_ENV = 'test';
   }
 }
@@ -72,9 +80,12 @@ function loadConfig() {
   }
 
   // ALLOWED_ORIGINS kan v\u00e6re komma-separert liste eller '*'
-  cfg.ALLOWED_ORIGINS_LIST = cfg.ALLOWED_ORIGINS === '*'
-    ? '*'
-    : cfg.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean);
+  cfg.ALLOWED_ORIGINS_LIST =
+    cfg.ALLOWED_ORIGINS === '*'
+      ? '*'
+      : cfg.ALLOWED_ORIGINS.split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
 
   // Produksjons-krav: AUTH_TOKEN MÅ v\u00e6re satt hvis NODE_ENV=production.
   // Hindrer \u00e5pen RPi5 p\u00e5 nettet uten autentisering.

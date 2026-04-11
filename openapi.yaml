@@ -5,7 +5,7 @@ info:
     REST API for Familieassistenten — en familie-husassistent for RPi5.
     Dekker måltidsplanlegging, handleliste, husarbeid, kalender, inventory,
     og LLM-chat. Alle feilsvar bruker RFC 7807 (application/problem+json).
-  version: 1.2.0
+  version: 1.3.0
   license:
     name: Privat
 servers:
@@ -598,3 +598,78 @@ paths:
                     properties:
                       entries: { type: integer }
                       totalHits: { type: integer }
+
+  /api/audit:
+    get:
+      summary: Audit log (SBOM-6) - read-only append-only log over destruktive ops
+      description: |
+        Returnerer de siste N audit-entries. Hver entry inneholder request-id,
+        sha256 before/after-hashes, entity-type + id, og metadata. Eksponeres
+        i produksjon for inspeksjon av hvem som gjorde hva, nar.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+        - name: entityType
+          in: query
+          required: false
+          schema: { type: string }
+          description: Filtrer paa entity-type, f.eks. "recipe", "family_profile"
+        - name: entityId
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        timestamp: { type: string }
+                        requestId: { type: string }
+                        actor: { type: string }
+                        action: { type: string, enum: [DELETE, PUT, PATCH, POST] }
+                        entityType: { type: string }
+                        entityId: { type: string, nullable: true }
+                        route: { type: string }
+                        beforeHash: { type: string, nullable: true }
+                        afterHash: { type: string, nullable: true }
+                        metadata: { type: object, nullable: true }
+                  count: { type: integer }
+                  note: { type: string }
+
+  /api/audit/stats:
+    get:
+      summary: Audit log statistikk (SBOM-6) - aggregater
+      responses:
+        '200':
+          description: Audit stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  byAction:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        action: { type: string }
+                        c: { type: integer }
+                  byEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entity_type: { type: string }
+                        c: { type: integer }
