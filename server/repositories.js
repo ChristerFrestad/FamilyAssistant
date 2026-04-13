@@ -2185,7 +2185,14 @@ function createRepositories(db) {
       try {
         const r = db.prepare('SELECT * FROM family_profile WHERE id = 1').get();
         if (!r) {
-          return { members: [], allergies: [], dislikes: [], preferences: {}, preferredChain: null, secondaryChain: null };
+          return {
+            members: [],
+            allergies: [],
+            dislikes: [],
+            preferences: {},
+            preferredChain: null,
+            secondaryChain: null,
+          };
         }
         return {
           members: JSON.parse(r.members || '[]'),
@@ -2198,7 +2205,14 @@ function createRepositories(db) {
         };
       } catch (err) {
         // Fallback hvis tabellen ikke finnes (eldre DB)
-        return { members: [], allergies: [], dislikes: [], preferences: {}, preferredChain: null, secondaryChain: null };
+        return {
+          members: [],
+          allergies: [],
+          dislikes: [],
+          preferences: {},
+          preferredChain: null,
+          secondaryChain: null,
+        };
       }
     },
     update(profile) {
@@ -2208,8 +2222,10 @@ function createRepositories(db) {
         allergies: profile.allergies ?? current.allergies,
         dislikes: profile.dislikes ?? current.dislikes,
         preferences: profile.preferences ?? current.preferences,
-        preferredChain: profile.preferredChain !== undefined ? profile.preferredChain : current.preferredChain,
-        secondaryChain: profile.secondaryChain !== undefined ? profile.secondaryChain : current.secondaryChain,
+        preferredChain:
+          profile.preferredChain !== undefined ? profile.preferredChain : current.preferredChain,
+        secondaryChain:
+          profile.secondaryChain !== undefined ? profile.secondaryChain : current.secondaryChain,
       };
       db.prepare(
         `

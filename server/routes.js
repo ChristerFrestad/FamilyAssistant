@@ -1107,10 +1107,18 @@ function registerRoutes(router, { repos, serverState }) {
         if (body.dislikes && !Array.isArray(body.dislikes)) {
           throw errors.badRequest('dislikes må være en array');
         }
-        if (body.preferredChain !== undefined && body.preferredChain !== null && typeof body.preferredChain !== 'string') {
+        if (
+          body.preferredChain !== undefined &&
+          body.preferredChain !== null &&
+          typeof body.preferredChain !== 'string'
+        ) {
           throw errors.badRequest('preferredChain må være en streng eller null');
         }
-        if (body.secondaryChain !== undefined && body.secondaryChain !== null && typeof body.secondaryChain !== 'string') {
+        if (
+          body.secondaryChain !== undefined &&
+          body.secondaryChain !== null &&
+          typeof body.secondaryChain !== 'string'
+        ) {
           throw errors.badRequest('secondaryChain må være en streng eller null');
         }
         const updated = repos.familyProfile.update(body);
