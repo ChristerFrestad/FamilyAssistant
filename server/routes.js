@@ -27,6 +27,7 @@ const priceReferenceService = require('./services/price-reference.service');
 const receiptService = require('./services/receipt.service');
 const recipeImportService = require('./services/recipe-import.service');
 const { slugifyProductKey } = require('./services/slugify');
+const { extractChain } = require('./services/product-resolver.service');
 
 const {
   isLLMAvailable,
@@ -585,6 +586,24 @@ function registerRoutes(router, { repos, serverState }) {
       });
       total += it.estPrice || 0;
     }
+
+    // Sorter items innenfor hver kategori etter kjede-preferanse
+    const profile = repos.familyProfile ? repos.familyProfile.get() : {};
+    const prefChain = (profile.preferredChain || '').toLowerCase();
+    const secChain = (profile.secondaryChain || '').toLowerCase();
+    if (prefChain || secChain) {
+      for (const [, items] of categoriesMap) {
+        items.sort((a, b) => {
+          const aChain = (extractChain(a.lastSeenStore) || '').toLowerCase();
+          const bChain = (extractChain(b.lastSeenStore) || '').toLowerCase();
+          const aRank = aChain === prefChain ? 0 : aChain === secChain ? 1 : 2;
+          const bRank = bChain === prefChain ? 0 : bChain === secChain ? 1 : 2;
+          if (aRank !== bRank) return aRank - bRank;
+          return (a.name || '').localeCompare(b.name || '', 'nb');
+        });
+      }
+    }
+
     ctx.json({
       id: list.id,
       weekYear: list.weekYear,
@@ -1087,6 +1106,12 @@ function registerRoutes(router, { repos, serverState }) {
         }
         if (body.dislikes && !Array.isArray(body.dislikes)) {
           throw errors.badRequest('dislikes må være en array');
+        }
+        if (body.preferredChain !== undefined && body.preferredChain !== null && typeof body.preferredChain !== 'string') {
+          throw errors.badRequest('preferredChain må være en streng eller null');
+        }
+        if (body.secondaryChain !== undefined && body.secondaryChain !== null && typeof body.secondaryChain !== 'string') {
+          throw errors.badRequest('secondaryChain må være en streng eller null');
         }
         const updated = repos.familyProfile.update(body);
         ctx.json({ ok: true, profile: updated });

@@ -721,21 +721,23 @@ function createRepositories(db) {
       const rows = db
         .prepare(
           `
-        SELECT id, list_id as listId, source_type as sourceType, source_ref as sourceRef,
-               ingredient_name as ingredientName, ingredient_name_no as ingredientNameNo,
-               product_key as productKey, qty, unit, brand_hint as brandHint, category,
-               pack_size as packSize, pack_unit as packUnit, pack_count as packCount,
-               est_price as estPrice,
-               pantry_has as pantryHas, pantry_qty as pantryQty, needs_buy as needsBuy,
-               bought_at as boughtAt, bought_qty as boughtQty,
-               kassal_product_id as kassalProductId, resolution_id as resolutionId,
-               resolution_candidates_json as resolutionCandidatesJson,
-               resolution_confidence as resolutionConfidence,
-               resolved_via as resolvedVia,
-               meals_json as mealsJson, dairy_note as dairyNote, sort_order as sortOrder, notes
-        FROM shopping_list_items
-        WHERE list_id = ?
-        ORDER BY sort_order, id
+        SELECT si.id, si.list_id as listId, si.source_type as sourceType, si.source_ref as sourceRef,
+               si.ingredient_name as ingredientName, si.ingredient_name_no as ingredientNameNo,
+               si.product_key as productKey, si.qty, si.unit, si.brand_hint as brandHint, si.category,
+               si.pack_size as packSize, si.pack_unit as packUnit, si.pack_count as packCount,
+               si.est_price as estPrice,
+               si.pantry_has as pantryHas, si.pantry_qty as pantryQty, si.needs_buy as needsBuy,
+               si.bought_at as boughtAt, si.bought_qty as boughtQty,
+               si.kassal_product_id as kassalProductId, si.resolution_id as resolutionId,
+               si.resolution_candidates_json as resolutionCandidatesJson,
+               si.resolution_confidence as resolutionConfidence,
+               si.resolved_via as resolvedVia,
+               si.meals_json as mealsJson, si.dairy_note as dairyNote, si.sort_order as sortOrder, si.notes,
+               kp.last_seen_store as lastSeenStore
+        FROM shopping_list_items si
+        LEFT JOIN kassal_products kp ON kp.id = si.kassal_product_id
+        WHERE si.list_id = ?
+        ORDER BY si.sort_order, si.id
       `
         )
         .all(listId);
@@ -2183,18 +2185,20 @@ function createRepositories(db) {
       try {
         const r = db.prepare('SELECT * FROM family_profile WHERE id = 1').get();
         if (!r) {
-          return { members: [], allergies: [], dislikes: [], preferences: {} };
+          return { members: [], allergies: [], dislikes: [], preferences: {}, preferredChain: null, secondaryChain: null };
         }
         return {
           members: JSON.parse(r.members || '[]'),
           allergies: JSON.parse(r.allergies || '[]'),
           dislikes: JSON.parse(r.dislikes || '[]'),
           preferences: JSON.parse(r.preferences || '{}'),
+          preferredChain: r.preferred_chain || null,
+          secondaryChain: r.secondary_chain || null,
           updatedAt: r.updated_at,
         };
       } catch (err) {
         // Fallback hvis tabellen ikke finnes (eldre DB)
-        return { members: [], allergies: [], dislikes: [], preferences: {} };
+        return { members: [], allergies: [], dislikes: [], preferences: {}, preferredChain: null, secondaryChain: null };
       }
     },
     update(profile) {
@@ -2204,23 +2208,29 @@ function createRepositories(db) {
         allergies: profile.allergies ?? current.allergies,
         dislikes: profile.dislikes ?? current.dislikes,
         preferences: profile.preferences ?? current.preferences,
+        preferredChain: profile.preferredChain !== undefined ? profile.preferredChain : current.preferredChain,
+        secondaryChain: profile.secondaryChain !== undefined ? profile.secondaryChain : current.secondaryChain,
       };
       db.prepare(
         `
-        INSERT INTO family_profile (id, members, allergies, dislikes, preferences, updated_at)
-        VALUES (1, ?, ?, ?, ?, datetime('now'))
+        INSERT INTO family_profile (id, members, allergies, dislikes, preferences, preferred_chain, secondary_chain, updated_at)
+        VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(id) DO UPDATE SET
           members = excluded.members,
           allergies = excluded.allergies,
           dislikes = excluded.dislikes,
           preferences = excluded.preferences,
+          preferred_chain = excluded.preferred_chain,
+          secondary_chain = excluded.secondary_chain,
           updated_at = datetime('now')
       `
       ).run(
         JSON.stringify(merged.members),
         JSON.stringify(merged.allergies),
         JSON.stringify(merged.dislikes),
-        JSON.stringify(merged.preferences)
+        JSON.stringify(merged.preferences),
+        merged.preferredChain || null,
+        merged.secondaryChain || null
       );
       return merged;
     },
