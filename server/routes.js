@@ -118,6 +118,12 @@ function withAudit(repos, spec, handler) {
 }
 
 function registerRoutes(router, { repos, serverState }) {
+  function requirePositiveInt(value, name = 'id') {
+    const n = parseInt(value, 10);
+    if (!Number.isInteger(n) || n <= 0) throw errors.badRequest(`${name} must be a positive integer`);
+    return n;
+  }
+
   // ============================================================
   // HEALTH / READY
   // ============================================================
@@ -370,7 +376,7 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   router.get('/api/recipes/:id', (ctx) => {
-    const id = parseInt(ctx.params.id, 10);
+    const id = requirePositiveInt(ctx.params.id);
     const recipe = repos.recipes.getById(id);
     if (!recipe) throw errors.notFound(`Oppskrift ${id} ikke funnet`);
     // Uke 9 SAF-2: annoter med safety-sjekk
@@ -806,7 +812,9 @@ function registerRoutes(router, { repos, serverState }) {
   router.get(
     '/api/products',
     withCache(['products'], (ctx) => {
-      if (ctx.query.q) ctx.json({ products: repos.products.search(ctx.query.q) });
+      const q = ctx.query.q || '';
+      if (q.length > 500) throw errors.badRequest('q max 500 tegn');
+      if (q) ctx.json({ products: repos.products.search(q) });
       else ctx.json({ products: repos.products.getAllAsMap() });
     })
   );
@@ -819,7 +827,7 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   router.put('/api/consumables/:id', validateBody(schemas.consumableUpdateBody), (ctx) => {
-    const id = parseInt(ctx.params.id, 10);
+    const id = requirePositiveInt(ctx.params.id);
     repos.consumables.update(id, ctx.body);
     const c = repos.consumables.getById(id);
     if (!c) throw errors.notFound(`Consumable ${id} ikke funnet`);
@@ -836,7 +844,7 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   router.post('/api/consumables/toggle-auto/:id', (ctx) => {
-    const id = parseInt(ctx.params.id, 10);
+    const id = requirePositiveInt(ctx.params.id);
     const c = repos.consumables.toggleAuto(id);
     if (!c) throw errors.notFound(`Consumable ${id} ikke funnet`);
     invalidate('consumables', 'shopping');
@@ -1061,8 +1069,7 @@ function registerRoutes(router, { repos, serverState }) {
       },
       (ctx) => {
         if (!repos.recipeSources) throw errors.notFound('ikke støttet');
-        const id = parseInt(ctx.params.id, 10);
-        if (!Number.isFinite(id)) throw errors.badRequest('Ugyldig id');
+        const id = requirePositiveInt(ctx.params.id);
         repos.recipeSources.delete(id);
         ctx.json({ ok: true });
       }
@@ -1071,8 +1078,7 @@ function registerRoutes(router, { repos, serverState }) {
 
   router.post('/api/sources/:id/sync', async (ctx) => {
     if (!repos.recipeSources) throw errors.notFound('ikke støttet');
-    const id = parseInt(ctx.params.id, 10);
-    if (!Number.isFinite(id)) throw errors.badRequest('Ugyldig id');
+    const id = requirePositiveInt(ctx.params.id);
     const recipeSourcesService = require('./services/recipe-sources.service');
     const result = await recipeSourcesService.syncSource(repos, id);
     ctx.json(result);
@@ -1166,6 +1172,7 @@ function registerRoutes(router, { repos, serverState }) {
   router.get('/api/prices/search', (ctx) => {
     const q = ctx.query.q || '';
     if (!q || q.length < 1) throw errors.badRequest('q er påkrevd');
+    if (q.length > 500) throw errors.badRequest('q max 500 tegn');
     const results = repos.priceReferences.search(q, 20);
     ctx.json({ query: q, results });
   });
@@ -1653,6 +1660,7 @@ function registerRoutes(router, { repos, serverState }) {
 
   router.get('/api/kb/search', (ctx) => {
     const q = ctx.query.q || '';
+    if (q.length > 500) throw errors.badRequest('q max 500 tegn');
     ctx.json({ results: repos.kb.search(q, 10) });
   });
 

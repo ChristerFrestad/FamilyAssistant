@@ -144,6 +144,7 @@ const llmChatBody = z.object({
         content: z.string(),
       })
     )
+    .max(100)
     .optional(),
   saveToKB: z.boolean().optional(),
 });
@@ -252,7 +253,7 @@ const priceSearchQuery = z.object({
 
 const profileMember = z.union([
   z.string(),
-  z.object({ name: z.string(), age: z.number().optional() }).passthrough(),
+  z.object({ name: z.string(), age: z.number().optional() }),
 ]);
 
 const profileUpdateBody = z.object({

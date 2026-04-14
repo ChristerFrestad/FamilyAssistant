@@ -29,18 +29,6 @@ after(async () => {
 // Helpers
 // ============================================================
 
-function currentWeekYear() {
-  return server.repos.mealPlans
-    ? server.repos.mealPlans.getWeek
-      ? (function () {
-          // finn en week_year fra en tilfeldig eksisterende rad
-          const rows = server.repos.mealPlans.getWeek;
-          return null;
-        })()
-      : null
-    : null;
-}
-
 async function getCurrentWeek() {
   const r = await request(server.baseUrl, 'GET', '/api/meals/current');
   return r.body.weekYear;
