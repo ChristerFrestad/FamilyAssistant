@@ -127,9 +127,11 @@ function estimatePantryValue(repos) {
       continue;
     }
     knownCount++;
-    // Heuristisk: tilsett full pris per "pakke" hvis vi har pack_size.
-    // Uten pack_size bruker vi qtyRemaining * pris-per-enhet hvis tilgjengelig.
-    total += ref.price;
+    // Skaler prisen med beholdning: qtyRemaining / pack_size gir antall "pakker".
+    // Hvis pack_size er ukjent, bruk 1 pakke som fallback.
+    const packSize = ref.packSize || 1;
+    const packs = Math.max(1, Math.ceil(inv.qtyRemaining / packSize));
+    total += ref.price * packs;
   }
   return {
     totalEstimated: Math.round(total * 100) / 100,

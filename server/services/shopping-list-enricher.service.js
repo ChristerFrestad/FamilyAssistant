@@ -114,6 +114,13 @@ async function enrichList(
     .filter((it) => it.needsBuy && !it.kassalProductId && it.ingredientName)
     .slice(0, maxItems);
 
+  // Last kjede-preferanser fra familieprofil (Migration 013)
+  const profile = repos.familyProfile ? repos.familyProfile.get() : {};
+  const chainPrefs = {
+    preferredChain: profile.preferredChain || null,
+    secondaryChain: profile.secondaryChain || null,
+  };
+
   // Ingenting å berike → done
   if (toEnrich.length === 0) {
     repos.shoppingLists.setEnrichmentStatus(listId, 'done', { startedAt: true, finishedAt: true });
@@ -168,7 +175,7 @@ async function enrichList(
           unit: item.unit,
           brandHint: item.brandHint || null,
         },
-        { captureSource: 'lookup' }
+        { captureSource: 'lookup', chainPrefs }
       );
     } catch (err) {
       logger.warn({ err: err.message, itemId: item.id }, 'enricher: resolver kastet');

@@ -204,11 +204,13 @@ function scheduleDailyBackup(db) {
   function runAndReschedule() {
     backupNow(db);
     backupTimer = setTimeout(runAndReschedule, nextRunMs());
+    backupTimer.unref?.();
   }
 
   const ms = nextRunMs();
   log(`Daglig backup planlagt om ${Math.round(ms / 3600000)} timer (03:00)`);
   backupTimer = setTimeout(runAndReschedule, ms);
+  backupTimer.unref?.();
 }
 
 function stopBackupScheduler() {

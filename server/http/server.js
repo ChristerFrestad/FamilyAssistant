@@ -87,15 +87,16 @@ function createServer(router) {
     let routeTemplate = pathname; // overridet etter dispatch
 
     try {
-      // Fase 4: rate limit + auth f\u00f8r routing
+      // Fase 4: rate limit + auth ALLTID først (inkl. statiske filer)
       rateLimit(ctx);
       bearerAuth(ctx);
 
       const dispatched = router.dispatch(req.method, pathname);
 
       if (!dispatched) {
-        // /api/* og /metrics g\u00e5r aldri gjennom SPA-fallback \u2014 returner 404.
-        // Ellers pr\u00f8v SPA-fallback for GET (klient-navigasjon).
+        // /api/* og /metrics går aldri gjennom SPA-fallback — returner 404.
+        // Ellers prøv SPA-fallback for GET (klient-navigasjon).
+        // NB: Rate limit og auth er allerede sjekket over.
         const isApi = pathname.startsWith('/api/') || pathname === '/metrics';
         if (!isApi && req.method === 'GET' && tryServeSpaFallback(pathname, res)) {
           const dur = Date.now() - started;

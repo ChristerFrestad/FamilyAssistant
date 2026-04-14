@@ -382,12 +382,9 @@ async function renderSettingsProfil() {
     if (!arr || arr.length === 0) {
       return `<span class="profile-tag" style="opacity:0.5">${escapeHtml(emptyText)}</span>`;
     }
-    // JSON.stringify gir trygg JS-literal for onclick-arg (escaper ", \, etc.),
-    // escapeHtml på attributet selv beskytter mot > og <.
+    // Bruk data-attributter i stedet for inline onclick for å unngå XSS
     return arr.map(t => {
-      const jsArg = JSON.stringify(String(t));
-      const attrEsc = escapeHtml(`removeProfileTag('${fieldKey}',${jsArg})`);
-      return `<span class="profile-tag" onclick="${attrEsc}" title="Klikk for å fjerne">${escapeHtml(t)} ✕</span>`;
+      return `<span class="profile-tag" data-action="remove-tag" data-field="${escapeHtml(fieldKey)}" data-value="${escapeHtml(String(t))}" title="Klikk for å fjerne">${escapeHtml(t)} ✕</span>`;
     }).join('');
   };
 
@@ -449,6 +446,16 @@ async function addProfileTag(field) {
     alert('Kunne ikke lagre: ' + err.message);
   }
 }
+
+// Event delegation for profil-tagger (erstatter inline onclick — XSS-sikring)
+document.addEventListener('click', (e) => {
+  const tag = e.target.closest('[data-action="remove-tag"]');
+  if (tag) {
+    const field = tag.dataset.field;
+    const value = tag.dataset.value;
+    if (field && value) removeProfileTag(field, value);
+  }
+});
 
 async function removeProfileTag(field, value) {
   try {

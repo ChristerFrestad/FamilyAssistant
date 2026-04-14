@@ -33,6 +33,9 @@
 # ============================================================================
 # Stage 1: Builder
 # ============================================================================
+# TODO: Pin til spesifikk SHA256 digest for reproducerbare builds:
+#   FROM node:20-bookworm-slim@sha256:<hash> AS builder
+# Oppdater digest ved Node.js-oppdateringer.
 FROM node:20-bookworm-slim AS builder
 
 # Installer minimum build-toolchain for better-sqlite3
@@ -63,6 +66,8 @@ RUN NODE_ENV=test node -e "require('./server/config')"
 # ============================================================================
 # Stage 2: Runtime (distroless)
 # ============================================================================
+# TODO: Pin til spesifikk SHA256 digest for reproducerbare builds:
+#   FROM gcr.io/distroless/nodejs20-debian12@sha256:<hash> AS runtime
 FROM gcr.io/distroless/nodejs20-debian12 AS runtime
 
 # Labels for OCI image metadata
@@ -74,12 +79,12 @@ LABEL org.opencontainers.image.source="https://github.com/ChristerFrestad/Family
 
 WORKDIR /app
 
-# Kopier node_modules og app fra builder
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/server ./server
-COPY --from=builder /build/public ./public
-COPY --from=builder /build/scripts ./scripts
-COPY --from=builder /build/package.json ./package.json
+# Kopier node_modules og app fra builder (--chown sikrer nonroot eierskap)
+COPY --from=builder --chown=nonroot:nonroot /build/node_modules ./node_modules
+COPY --from=builder --chown=nonroot:nonroot /build/server ./server
+COPY --from=builder --chown=nonroot:nonroot /build/public ./public
+COPY --from=builder --chown=nonroot:nonroot /build/scripts ./scripts
+COPY --from=builder --chown=nonroot:nonroot /build/package.json ./package.json
 
 # Data-volum for SQLite-DB og backups. Mountes som named volume
 # eller bind mount til host /home/pi/Familieassistenten/data.

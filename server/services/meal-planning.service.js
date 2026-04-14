@@ -98,11 +98,16 @@ function generateSundayDraft(repos) {
   const allComfort = all.filter((r) => r.category === 'comfort');
   const allHelg = all.filter((r) => r.category === 'helg');
 
+  const usedIds = new Set();
   function pick(arr, fallback) {
-    const src = arr.length > 0 ? arr : fallback.length > 0 ? fallback : all;
+    // Filtrer bort allerede valgte for å unngå duplikater uten array-mutasjon
+    let src = arr.filter((r) => !usedIds.has(r.id));
+    if (src.length === 0) src = fallback.filter((r) => !usedIds.has(r.id));
+    if (src.length === 0) src = all.filter((r) => !usedIds.has(r.id));
     if (src.length === 0) return null;
-    const idx = Math.floor(Math.random() * src.length);
-    return src.splice(idx, 1)[0] || src[0];
+    const chosen = src[Math.floor(Math.random() * src.length)];
+    usedIds.add(chosen.id);
+    return chosen;
   }
 
   const suggested = [

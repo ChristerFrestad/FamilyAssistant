@@ -1,5 +1,16 @@
 /* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
 // === UKESMENY ===
+
+// Event delegation for oppskrift-handlinger (erstatter inline onclick — XSS-sikring)
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('[data-action="show-similar"]');
+  if (link) {
+    e.preventDefault();
+    const id = Number(link.dataset.recipeId);
+    const name = link.dataset.recipeName || '';
+    if (id) showSimilarRecipes(id, name);
+  }
+});
 async function loadMeals() {
   const data = await api('/api/meals/current');
   mealsData = data;
@@ -27,8 +38,6 @@ function renderMeals() {
       `;
     } else if (r) {
       const expanded = expandedRecipes.has(slot.dayOfWeek);
-      // Bruk JSON.stringify for onclick-literal slik at apostrofer/quotes ikke bryter markup
-      const nameForJs = JSON.stringify(String(r.name || '')).replace(/</g, '\\u003c');
       // Uke 9 SAF-4: safety-advarsel hvis deterministisk filter fant allergener
       let safetyWarning = '';
       if (r.safeForProfile === false && Array.isArray(r.blockedIngredients) && r.blockedIngredients.length > 0) {
@@ -71,7 +80,7 @@ function renderMeals() {
           <button class="btn btn-ghost btn-small" onclick="setMealStatus(${Number(slot.dayOfWeek)},'away')">🏖️ Borte</button>
         </div>
         <div class="similar-link-row">
-          <a href="#" class="similar-link" onclick="showSimilarRecipes(${Number(r.id)}, ${nameForJs}); return false;">↻ Lignende oppskrift →</a>
+          <a href="#" class="similar-link" data-action="show-similar" data-recipe-id="${Number(r.id)}" data-recipe-name="${escapeHtml(r.name || '')}">↻ Lignende oppskrift →</a>
         </div>
       `;
     }

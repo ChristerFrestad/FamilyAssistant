@@ -81,9 +81,16 @@ async function initDB() {
   const better = tryBetterSqlite3();
   if (better) return better;
 
-  // 2. Fallback: sql.js (pure JS)
+  // 2. Fallback: sql.js (pure JS) — ADVARSEL: ikke anbefalt for produksjon
   const sqljs = await trySqlJs();
-  if (sqljs) return sqljs;
+  if (sqljs) {
+    if (process.env.NODE_ENV === 'production') {
+      log(
+        '⚠ sql.js i produksjon: transaksjoner er ikke trådsikre, og data kan tapes ved krasj. Installer better-sqlite3.'
+      );
+    }
+    return sqljs;
+  }
 
   // 3. Ingen SQLite tilgjengelig
   throw new Error(
