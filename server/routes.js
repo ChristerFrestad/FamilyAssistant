@@ -593,12 +593,12 @@ function registerRoutes(router, { repos, serverState }) {
     const secChain = (profile.secondaryChain || '').toLowerCase();
     if (prefChain || secChain) {
       for (const [, items] of categoriesMap) {
+        for (const it of items) {
+          const chain = (extractChain(it.lastSeenStore) || '').toLowerCase();
+          it._chainRank = chain === prefChain ? 0 : chain === secChain ? 1 : 2;
+        }
         items.sort((a, b) => {
-          const aChain = (extractChain(a.lastSeenStore) || '').toLowerCase();
-          const bChain = (extractChain(b.lastSeenStore) || '').toLowerCase();
-          const aRank = aChain === prefChain ? 0 : aChain === secChain ? 1 : 2;
-          const bRank = bChain === prefChain ? 0 : bChain === secChain ? 1 : 2;
-          if (aRank !== bRank) return aRank - bRank;
+          if (a._chainRank !== b._chainRank) return a._chainRank - b._chainRank;
           return (a.name || '').localeCompare(b.name || '', 'nb');
         });
       }

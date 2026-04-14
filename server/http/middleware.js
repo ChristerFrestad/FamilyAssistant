@@ -114,8 +114,10 @@ function writeJsonWithETag(req, res, data, status) {
       res.writeHead(status, headers);
       res.end(gz);
       return;
-    } catch {
+    } catch (gzErr) {
       // Fall tilbake til ukomprimert ved minne-press
+      const log = childWithRequestId(req);
+      log.debug({ err: gzErr.message }, 'gzip feilet, sender ukomprimert');
     }
   }
 
