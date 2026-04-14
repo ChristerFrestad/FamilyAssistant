@@ -250,10 +250,15 @@ const priceSearchQuery = z.object({
 // Family profile (Fase F3 + Migration 013)
 // ============================================================
 
+const profileMember = z.union([
+  z.string(),
+  z.object({ name: z.string(), age: z.number().optional() }).passthrough(),
+]);
+
 const profileUpdateBody = z.object({
-  members: z.array(z.unknown()).optional(),
-  allergies: z.array(z.unknown()).optional(),
-  dislikes: z.array(z.unknown()).optional(),
+  members: z.array(profileMember).optional(),
+  allergies: z.array(z.string()).optional(),
+  dislikes: z.array(z.string()).optional(),
   preferences: z.record(z.string(), z.unknown()).optional(),
   preferredChain: z.string().min(1).max(100).nullable().optional(),
   secondaryChain: z.string().min(1).max(100).nullable().optional(),
