@@ -247,16 +247,15 @@ document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action="remove-pantry"]');
   if (btn) {
     const key = btn.dataset.key;
-    if (key) removeFromPantry(encodeURIComponent(key));
+    if (key) removeFromPantry(key);
   }
 });
 
 async function removeFromPantry(productKey) {
   if (!productKey) return;
   // Uke 4 (FE-8): confirm før destructive
-  const decodedKey = decodeURIComponent(productKey);
-  const item = pantryData?.items?.find((i) => i.productKey === decodedKey);
-  const name = item ? (item.ingredientNameNo || item.ingredientName || item.name) : decodedKey;
+  const item = pantryData?.items?.find((i) => i.productKey === productKey);
+  const name = item ? (item.ingredientNameNo || item.ingredientName || item.name) : productKey;
   const ok = await showConfirm({
     title: 'Fjerne fra pantry?',
     message: `"${name}" blir fjernet fra det du har hjemme.`,
@@ -265,7 +264,7 @@ async function removeFromPantry(productKey) {
   });
   if (!ok) return;
   try {
-    await api(`/api/pantry/${productKey}`, { method: 'DELETE' });
+    await api(`/api/pantry/${encodeURIComponent(productKey)}`, { method: 'DELETE' });
     showToast('Fjernet fra pantry', 'success');
     await loadPantry();
   } catch (err) {

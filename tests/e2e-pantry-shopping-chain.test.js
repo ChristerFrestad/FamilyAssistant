@@ -491,12 +491,12 @@ describe('pantry-fradrag fungerer korrekt', () => {
       reason: 'manual',
     });
 
-    // Hent inventory og verifiser
+    // Verifiser at inventory inneholder riktig produkt med riktig mengde
     const inv = repos.inventory.getAll();
-    const item = inv.find
-      ? Array.from(Object.values(inv)).find((i) => true)
-      : inv['kjottdeig_400g'];
-    assert.ok(item || inv.kjottdeig_400g, 'Pantry skal ha kjottdeig');
+    const item = inv['kjottdeig_400g'];
+    assert.ok(item, 'Pantry skal ha kjottdeig_400g');
+    assert.equal(item.qtyRemaining, 500, 'Pantry skal ha 500g kjottdeig');
+    assert.equal(item.unit, 'g', 'Enhet skal vaere gram');
   });
 });
 

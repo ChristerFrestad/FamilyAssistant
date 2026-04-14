@@ -8,6 +8,7 @@
 //
 // Alt er null-dependency og fungerer med node:http direkte.
 
+const net = require('net');
 const { config } = require('../config');
 const { errors } = require('./errors');
 
@@ -64,8 +65,7 @@ function getClientIp(req) {
     const fwd = req.headers['x-forwarded-for'];
     if (fwd) {
       const ip = fwd.split(',')[0].trim();
-      // Valider at det ser ut som en IP-adresse (v4 eller v6)
-      if (/^[\d.:a-fA-F]+$/.test(ip)) return ip;
+      if (net.isIP(ip)) return ip;
     }
   }
   return req.socket.remoteAddress || 'unknown';
