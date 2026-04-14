@@ -343,6 +343,7 @@ function confirmReceipt(repos, receiptId) {
         if (it.totalPrice > 0 && it.qty > 0) {
           const unitPrice = it.totalPrice / it.qty;
           if (!Number.isFinite(unitPrice)) continue; // Unngå NaN/Infinity i DB
+          if (unitPrice < 0) continue;
           repos.priceReferences.upsert({
             productKey: it.productKey,
             productName: it.productName,

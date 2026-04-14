@@ -142,50 +142,82 @@ function createRepositories(db) {
         prepTime: r.prep_time,
         sourceType: r.source_type || 'manual',
         ingredients: ingsByRecipe[r.id] || [],
-        equipment: r.equipment_json ? JSON.parse(r.equipment_json) : [],
+        equipment: r.equipment_json ? tryParseJson(r.equipment_json) || [] : [],
       }));
     },
     getByCategory(category) {
-      return recipes.getAll().filter((r) => r.category === category);
-    },
-    insert(r) {
-      const result = db
+      const rows = db
+        .prepare('SELECT * FROM recipes WHERE category = ? ORDER BY name')
+        .all(category);
+      if (rows.length === 0) return [];
+      const ids = rows.map((r) => r.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const allIngs = db
         .prepare(
-          `
-        INSERT INTO recipes (name, category, prep_time, source, url, pinterest_url, servings, equipment_json, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `
+          `SELECT recipe_id, id, product_key as productKey, name, qty, unit, optional, sort_order
+           FROM recipe_ingredients WHERE recipe_id IN (${placeholders}) ORDER BY sort_order, id`
         )
-        .run(
-          r.name,
-          r.category,
-          r.prepTime ?? null,
-          r.source ?? null,
-          r.url ?? null,
-          r.pinterestUrl ?? null,
-          r.servings ?? 2,
-          r.equipment ? JSON.stringify(r.equipment) : null,
-          r.notes ?? null
-        );
-      const recipeId = result.lastInsertRowid;
-      if (Array.isArray(r.ingredients)) {
-        const ins = db.prepare(`
-          INSERT INTO recipe_ingredients (recipe_id, product_key, name, qty, unit, optional, sort_order)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
-        r.ingredients.forEach((ing, idx) => {
-          ins.run(
-            recipeId,
-            ing.productKey ?? null,
-            ing.name,
-            ing.qty,
-            ing.unit,
-            ing.optional ? 1 : 0,
-            idx
-          );
+        .all(...ids);
+      const ingsByRecipe = {};
+      for (const i of allIngs) {
+        if (!ingsByRecipe[i.recipe_id]) ingsByRecipe[i.recipe_id] = [];
+        ingsByRecipe[i.recipe_id].push({
+          id: i.id,
+          productKey: i.productKey,
+          name: i.name,
+          qty: i.qty,
+          unit: i.unit,
+          optional: !!i.optional,
         });
       }
-      return recipeId;
+      return rows.map((r) => ({
+        ...r,
+        prepTime: r.prep_time,
+        sourceType: r.source_type || 'manual',
+        ingredients: ingsByRecipe[r.id] || [],
+        equipment: r.equipment_json ? tryParseJson(r.equipment_json) || [] : [],
+      }));
+    },
+    insert(r) {
+      return db.transaction(() => {
+        const result = db
+          .prepare(
+            `
+          INSERT INTO recipes (name, category, prep_time, source, url, pinterest_url, servings, equipment_json, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+          )
+          .run(
+            r.name,
+            r.category,
+            r.prepTime ?? null,
+            r.source ?? null,
+            r.url ?? null,
+            r.pinterestUrl ?? null,
+            r.servings ?? 2,
+            r.equipment ? JSON.stringify(r.equipment) : null,
+            r.notes ?? null
+          );
+        const recipeId = result.lastInsertRowid;
+        if (Array.isArray(r.ingredients)) {
+          const ins = db.prepare(`
+            INSERT INTO recipe_ingredients (recipe_id, product_key, name, qty, unit, optional, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `);
+          r.ingredients.forEach((ing, idx) => {
+            ins.run(
+              recipeId,
+              ing.productKey ?? null,
+              ing.name,
+              ing.qty,
+              ing.unit,
+              ing.optional ? 1 : 0,
+              idx
+            );
+          });
+        }
+        return recipeId;
+      })();
     },
     count() {
       return db.prepare('SELECT COUNT(*) as c FROM recipes').get().c;
@@ -1217,7 +1249,7 @@ function createRepositories(db) {
     get(weekYear) {
       const r = db.prepare(`SELECT * FROM sunday_drafts WHERE week_year = ?`).get(weekYear);
       if (!r) return null;
-      return { ...r, meals: JSON.parse(r.meals_json), accepted: !!r.accepted };
+      return { ...r, meals: tryParseJson(r.meals_json) || [], accepted: !!r.accepted };
     },
     save(weekYear, meals) {
       db.prepare(
@@ -2478,7 +2510,7 @@ function createRepositories(db) {
            FROM audit_log ORDER BY timestamp DESC, id DESC LIMIT ?`
         )
         .all(Math.max(1, Math.min(500, limit)))
-        .map((r) => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : null }));
+        .map((r) => ({ ...r, metadata: r.metadata ? tryParseJson(r.metadata) : null }));
     },
 
     /** Filtrer på entity_type + (optional) entity_id.
@@ -2495,7 +2527,7 @@ function createRepositories(db) {
              ORDER BY timestamp DESC, id DESC LIMIT ?`
           )
           .all(entityType, String(entityId), Math.max(1, Math.min(500, limit)))
-          .map((r) => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : null }));
+          .map((r) => ({ ...r, metadata: r.metadata ? tryParseJson(r.metadata) : null }));
       }
       return db
         .prepare(
@@ -2507,7 +2539,7 @@ function createRepositories(db) {
            ORDER BY timestamp DESC, id DESC LIMIT ?`
         )
         .all(entityType, Math.max(1, Math.min(500, limit)))
-        .map((r) => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : null }));
+        .map((r) => ({ ...r, metadata: r.metadata ? tryParseJson(r.metadata) : null }));
     },
 
     /** Statistikk for /api/audit/stats — brukes av dashboards. */

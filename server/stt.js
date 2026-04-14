@@ -230,8 +230,10 @@ async function isSTTAvailable() {
 
 // === Hovedfunksjon ===
 
+const VALID_FORMATS = new Set(['wav', 'mp3', 'ogg', 'flac', 'webm', 'm4a']);
+
 async function transcribe(audioBuffer, options = {}) {
-  const format = options.format || 'wav';
+  const format = VALID_FORMATS.has(options.format) ? options.format : 'wav';
 
   if (STT_BACKEND === 'faster_whisper') {
     return transcribeWithFasterWhisper(audioBuffer);

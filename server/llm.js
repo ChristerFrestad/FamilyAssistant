@@ -150,10 +150,16 @@ function httpRequest(url, payload, timeout = 60000) {
       timeout,
     };
 
+    const MAX_RESPONSE_SIZE = 2 * 1024 * 1024;
     const req = http.request(reqOpts, (res) => {
       let data = '';
       res.on('data', (chunk) => {
         data += chunk;
+        if (data.length > MAX_RESPONSE_SIZE) {
+          req.destroy();
+          reject(new Error('Response exceeded 2MB size limit'));
+          return;
+        }
       });
       res.on('end', () => {
         try {
@@ -229,10 +235,12 @@ async function ollamaChat(messages, options = {}) {
   if (json.message?.tool_calls && json.message.tool_calls.length > 0) {
     return {
       type: 'tool_calls',
-      toolCalls: json.message.tool_calls.map((tc) => ({
-        name: tc.function.name,
-        arguments: tc.function.arguments,
-      })),
+      toolCalls: json.message.tool_calls
+        .filter(tc => tc?.function?.name)
+        .map((tc) => ({
+          name: tc.function.name,
+          arguments: tc.function.arguments,
+        })),
       content: json.message.content || '',
     };
   }
@@ -267,13 +275,19 @@ async function llamaCppChat(messages, options = {}) {
   if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
     return {
       type: 'tool_calls',
-      toolCalls: choice.message.tool_calls.map((tc) => ({
-        name: tc.function.name,
-        arguments:
-          typeof tc.function.arguments === 'string'
-            ? JSON.parse(tc.function.arguments)
-            : tc.function.arguments,
-      })),
+      toolCalls: choice.message.tool_calls
+        .filter(tc => tc?.function?.name)
+        .map((tc) => {
+          let args = tc.function.arguments;
+          if (typeof args === 'string') {
+            try {
+              args = JSON.parse(args);
+            } catch {
+              args = {};
+            }
+          }
+          return { name: tc.function.name, arguments: args };
+        }),
       content: choice.message.content || '',
     };
   }
@@ -363,7 +377,13 @@ function getSanitizer() {
   try {
     _sanitize = require('./http/security').sanitizeForPrompt;
   } catch {
-    _sanitize = (s) => (s || '').slice(0, 500);
+    _sanitize = (s) => {
+      let clean = (s || '').slice(0, 500);
+      clean = clean.replace(/ignore previous/gi, '');
+      clean = clean.replace(/you are now/gi, '');
+      clean = clean.replace(/system:/gi, '');
+      return clean;
+    };
   }
   return _sanitize;
 }
@@ -547,7 +567,13 @@ Svar i dette JSON-formatet:
     );
 
     const jsonMatch = (result.content || '').match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        return { raw: result.content, error: 'Kunne ikke parse JSON' };
+      }
+    }
     return { raw: result.content, error: 'Kunne ikke parse JSON' };
   } catch (err) {
     log(`Feil i generateMealSuggestions: ${err.message}`);
@@ -573,7 +599,13 @@ Svar i JSON: { "name": "...", "category": "rask|comfort|helg", "prepTime": "25 m
     );
 
     const jsonMatch = (result.content || '').match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        return { raw: result.content, error: 'Kunne ikke parse JSON' };
+      }
+    }
     return { raw: result.content, error: 'Kunne ikke parse JSON' };
   } catch (err) {
     return { error: err.message };
@@ -606,7 +638,13 @@ async function extractIntent(userMessage) {
     );
 
     const jsonMatch = (result.content || '').match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        return { intent: 'chat', entities: {}, action: 'none' };
+      }
+    }
     return { intent: 'chat', entities: {}, action: 'none' };
   } catch {
     return { intent: 'chat', entities: {}, action: 'none' };

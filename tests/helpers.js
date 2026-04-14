@@ -103,6 +103,7 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
         headers: h,
       },
       (res) => {
+        clearTimeout(timeout);
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => {
@@ -128,7 +129,13 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
         });
       }
     );
-    req.on('error', reject);
+    const timeout = setTimeout(() => {
+      req.destroy(new Error('Request timed out after 10000ms'));
+    }, 10_000);
+    req.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
     if (body != null) {
       req.write(typeof body === 'string' ? body : JSON.stringify(body));
     }
