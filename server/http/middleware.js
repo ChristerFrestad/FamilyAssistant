@@ -18,7 +18,13 @@ const COMPRESSION_THRESHOLD = 1024;
 function applyCorsHeaders(res, origin) {
   if (config.ALLOWED_ORIGINS_LIST === '*') {
     res.setHeader('Access-Control-Allow-Origin', '*');
-  } else if (origin && config.ALLOWED_ORIGINS_LIST.includes(origin)) {
+  } else if (
+    origin &&
+    origin !== 'null' &&
+    !origin.includes('\n') &&
+    !origin.includes('\r') &&
+    config.ALLOWED_ORIGINS_LIST.includes(origin)
+  ) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }

@@ -342,6 +342,7 @@ function confirmReceipt(repos, receiptId) {
         // Skriv observert pris til price_history (via upsert som lager en ny rad hvis nødvendig)
         if (it.totalPrice > 0 && it.qty > 0) {
           const unitPrice = it.totalPrice / it.qty;
+          if (!Number.isFinite(unitPrice)) continue; // Unngå NaN/Infinity i DB
           repos.priceReferences.upsert({
             productKey: it.productKey,
             productName: it.productName,
