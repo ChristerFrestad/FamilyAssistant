@@ -229,7 +229,7 @@ function renderPantryList() {
           <div class="pantry-item-name">${escapeHtml(name)}${it.isLow ? ' <span class="pantry-low-badge">⚠ lav</span>' : ''}</div>
           <div class="pantry-item-qty">${qtyLabel}</div>
         </div>
-        <button class="btn btn-ghost btn-small" onclick="removeFromPantry('${pk}')" title="Har ikke likevel">
+        <button class="btn btn-ghost btn-small" data-action="remove-pantry" data-key="${escapeHtml(it.productKey)}" title="Har ikke likevel">
           ✗
         </button>
       </div>
@@ -241,6 +241,15 @@ function renderPantryList() {
 // Fase F1: klient-side slugify er fjernet. Server resolver kanonisk productKey
 // via /api/pantry/suggest og /api/pantry/add (query-basert).
 // Gammel addToPantry() er erstattet av confirmAddPantry() — se Fase F1-combobox.
+
+// Event delegation for pantry-knapper (unngår inline onclick med XSS-risiko)
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action="remove-pantry"]');
+  if (btn) {
+    const key = btn.dataset.key;
+    if (key) removeFromPantry(encodeURIComponent(key));
+  }
+});
 
 async function removeFromPantry(productKey) {
   if (!productKey) return;
