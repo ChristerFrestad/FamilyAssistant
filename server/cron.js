@@ -6,8 +6,10 @@ const { generateSundayDraft } = require('./services/meal-planning.service');
 const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
 const { enrichPendingLists } = require('./services/shopping-list-enricher.service');
+const { logger } = require('./logger');
 
 const activeTimers = new Set();
+let cronStopped = false;
 
 function log(msg) {
   const ts = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -175,24 +177,39 @@ function shoppingEnrichmentJob(repos) {
 }
 
 // === Scheduler ===
+
+function logCronError(name, err) {
+  log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
+  logger.error({ err: { message: err.message, stack: err.stack }, job: name }, 'cron job feilet');
+}
+
+function addTimer(t) {
+  if (cronStopped) {
+    clearTimeout(t);
+    return;
+  }
+  activeTimers.add(t);
+}
+
 function scheduleJob(name, dayOfWeek, hour, minute, jobFn, repos) {
   function runAndReschedule() {
     try {
       jobFn(repos);
     } catch (err) {
-      log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
+      logCronError(name, err);
     }
+    if (cronStopped) return;
     const ms = msUntilNext(dayOfWeek, hour, minute);
-    log(`${name}: Neste kj\u00f8ring om ${Math.round(ms / 3600000)} timer`);
+    log(`${name}: Neste kjøring om ${Math.round(ms / 3600000)} timer`);
     const t = setTimeout(runAndReschedule, ms);
-    activeTimers.add(t);
+    addTimer(t);
   }
   const ms = msUntilNext(dayOfWeek, hour, minute);
   log(
     `${name}: Planlagt om ${Math.round(ms / 3600000)} timer (${new Date(Date.now() + ms).toLocaleString('no-NO')})`
   );
   const t = setTimeout(runAndReschedule, ms);
-  activeTimers.add(t);
+  addTimer(t);
 }
 
 function scheduleDailyJob(name, hour, minute, jobFn, repos) {
@@ -200,10 +217,11 @@ function scheduleDailyJob(name, hour, minute, jobFn, repos) {
     try {
       jobFn(repos);
     } catch (err) {
-      log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
+      logCronError(name, err);
     }
+    if (cronStopped) return;
     const t = setTimeout(runAndReschedule, 24 * 3600000);
-    activeTimers.add(t);
+    addTimer(t);
   }
   const now = new Date();
   const target = new Date(now);
@@ -212,7 +230,7 @@ function scheduleDailyJob(name, hour, minute, jobFn, repos) {
   if (ms < 0) ms += 24 * 3600000;
   log(`${name}: Planlagt om ${Math.round(ms / 3600000)} timer`);
   const t = setTimeout(runAndReschedule, ms);
-  activeTimers.add(t);
+  addTimer(t);
 }
 
 // Interval-basert scheduler for hyppige jobber (f.eks. enrichment hvert 10 min).
@@ -222,14 +240,15 @@ function scheduleIntervalJob(name, intervalMs, jobFn, repos) {
     try {
       jobFn(repos);
     } catch (err) {
-      log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
+      logCronError(name, err);
     }
+    if (cronStopped) return;
     const t = setTimeout(runAndReschedule, intervalMs);
-    activeTimers.add(t);
+    addTimer(t);
   }
   log(`${name}: Planlagt hvert ${Math.round(intervalMs / 60000)}. minutt`);
   const t = setTimeout(runAndReschedule, intervalMs);
-  activeTimers.add(t);
+  addTimer(t);
 }
 
 // === Fase F7: Synk av oppskriftskilder ===
@@ -263,6 +282,7 @@ function startCronJobs(repos) {
 }
 
 function stopCronJobs() {
+  cronStopped = true;
   for (const t of activeTimers) clearTimeout(t);
   activeTimers.clear();
   log('=== Cron-jobber stoppet ===');

@@ -107,12 +107,16 @@ function writeJsonWithETag(req, res, data, status) {
 
   // gzip kun for GET-lignende responser over terskel
   if (status === 200 && payload.length >= COMPRESSION_THRESHOLD && acceptsGzip(req)) {
-    const gz = zlib.gzipSync(payload);
-    headers['Content-Encoding'] = 'gzip';
-    headers['Content-Length'] = String(gz.length);
-    res.writeHead(status, headers);
-    res.end(gz);
-    return;
+    try {
+      const gz = zlib.gzipSync(payload);
+      headers['Content-Encoding'] = 'gzip';
+      headers['Content-Length'] = String(gz.length);
+      res.writeHead(status, headers);
+      res.end(gz);
+      return;
+    } catch {
+      // Fall tilbake til ukomprimert ved minne-press
+    }
   }
 
   headers['Content-Length'] = String(payload.length);

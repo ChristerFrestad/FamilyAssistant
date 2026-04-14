@@ -1087,6 +1087,7 @@ function registerRoutes(router, { repos, serverState }) {
 
   router.put(
     '/api/profile',
+    validateBody(schemas.profileUpdateBody),
     withAudit(
       repos,
       {
@@ -1097,30 +1098,6 @@ function registerRoutes(router, { repos, serverState }) {
       },
       (ctx) => {
         const body = ctx.body || {};
-        // Enkel validering — alt er valgfritt, tomme arrays er lov
-        if (body.members && !Array.isArray(body.members)) {
-          throw errors.badRequest('members må være en array');
-        }
-        if (body.allergies && !Array.isArray(body.allergies)) {
-          throw errors.badRequest('allergies må være en array');
-        }
-        if (body.dislikes && !Array.isArray(body.dislikes)) {
-          throw errors.badRequest('dislikes må være en array');
-        }
-        if (
-          body.preferredChain !== undefined &&
-          body.preferredChain !== null &&
-          typeof body.preferredChain !== 'string'
-        ) {
-          throw errors.badRequest('preferredChain må være en streng eller null');
-        }
-        if (
-          body.secondaryChain !== undefined &&
-          body.secondaryChain !== null &&
-          typeof body.secondaryChain !== 'string'
-        ) {
-          throw errors.badRequest('secondaryChain må være en streng eller null');
-        }
         const updated = repos.familyProfile.update(body);
         ctx.json({ ok: true, profile: updated });
       }

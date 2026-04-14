@@ -97,19 +97,19 @@ function createRepositories(db) {
   // ==========================================================
   // RECIPES (+ ingredients)
   // ==========================================================
+  // Pre-compiled prepared statements for hyppige queries (unngår gjentatt compile)
+  const _recipeByIdStmt = db.prepare('SELECT * FROM recipes WHERE id = ?');
+  const _recipeIngsStmt = db.prepare(
+    `SELECT id, product_key as productKey, name, qty, unit, optional, sort_order
+     FROM recipe_ingredients WHERE recipe_id = ? ORDER BY sort_order, id`
+  );
+
   const recipes = {
     getById(id) {
-      const recipe = db.prepare('SELECT * FROM recipes WHERE id = ?').get(id);
+      const recipe = _recipeByIdStmt.get(id);
       if (!recipe) return null;
-      recipe.ingredients = db
-        .prepare(
-          `
-        SELECT id, product_key as productKey, name, qty, unit, optional, sort_order
-        FROM recipe_ingredients WHERE recipe_id = ? ORDER BY sort_order, id
-      `
-        )
-        .all(id);
-      recipe.equipment = recipe.equipment_json ? JSON.parse(recipe.equipment_json) : [];
+      recipe.ingredients = _recipeIngsStmt.all(id);
+      recipe.equipment = recipe.equipment_json ? tryParseJson(recipe.equipment_json) || [] : [];
       // Normaliser snake_case → camelCase for frontend-parity med getAll()
       recipe.prepTime = recipe.prep_time;
       recipe.sourceType = recipe.source_type || 'manual';
@@ -913,7 +913,19 @@ function createRepositories(db) {
         .map((c) => ({ ...c, autoAdd: !!c.autoAdd }));
     },
     getById(id) {
-      return consumables.getAll().find((c) => c.id === id) || null;
+      const c = db
+        .prepare(
+          `SELECT id, product_key as productKey, name, pack_name as packName, category,
+                  depletion_model as depletionModel, depletion_rate as depletionRate,
+                  depletion_unit as depletionUnit, current_qty as currentQty, unit,
+                  pack_size as packSize, pack_unit as packUnit, est_price as estPrice,
+                  reorder_threshold as reorderThreshold, auto_add as autoAdd, store, notes
+           FROM consumables WHERE id = ?`
+        )
+        .get(id);
+      if (!c) return null;
+      c.autoAdd = !!c.autoAdd;
+      return c;
     },
     upsertMany(list) {
       const ins = db.prepare(`

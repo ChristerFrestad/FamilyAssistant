@@ -33,6 +33,9 @@
 # ============================================================================
 # Stage 1: Builder
 # ============================================================================
+# TODO: Pin til spesifikk SHA256 digest for reproducerbare builds:
+#   FROM node:20-bookworm-slim@sha256:<hash> AS builder
+# Oppdater digest ved Node.js-oppdateringer.
 FROM node:20-bookworm-slim AS builder
 
 # Installer minimum build-toolchain for better-sqlite3
@@ -63,6 +66,8 @@ RUN NODE_ENV=test node -e "require('./server/config')"
 # ============================================================================
 # Stage 2: Runtime (distroless)
 # ============================================================================
+# TODO: Pin til spesifikk SHA256 digest for reproducerbare builds:
+#   FROM gcr.io/distroless/nodejs20-debian12@sha256:<hash> AS runtime
 FROM gcr.io/distroless/nodejs20-debian12 AS runtime
 
 # Labels for OCI image metadata

@@ -247,6 +247,19 @@ const priceSearchQuery = z.object({
 });
 
 // ============================================================
+// Family profile (Fase F3 + Migration 013)
+// ============================================================
+
+const profileUpdateBody = z.object({
+  members: z.array(z.unknown()).optional(),
+  allergies: z.array(z.unknown()).optional(),
+  dislikes: z.array(z.unknown()).optional(),
+  preferences: z.record(z.string(), z.unknown()).optional(),
+  preferredChain: z.string().min(1).max(100).nullable().optional(),
+  secondaryChain: z.string().min(1).max(100).nullable().optional(),
+});
+
+// ============================================================
 // Sunday push
 // ============================================================
 
@@ -294,6 +307,7 @@ module.exports = {
   pantryCorrectBody,
   priceLookupQuery,
   priceSearchQuery,
+  profileUpdateBody,
   receiptConfirmBody,
   receiptListQuery,
   recipeImportTextBody,

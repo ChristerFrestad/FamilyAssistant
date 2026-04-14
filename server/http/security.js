@@ -151,9 +151,9 @@ function applySecurityHeaders(res) {
   res.setHeader('Content-Security-Policy', CSP_POLICY);
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-  // HSTS settes bare n\u00e5r vi er bak HTTPS (Caddy) — det sjekker vi via env
+  // HSTS settes bare når vi er bak HTTPS (Caddy) — det sjekker vi via env
   if (config.NODE_ENV === 'production' && process.env.HTTPS_TERMINATED === 'true') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
 }
 
