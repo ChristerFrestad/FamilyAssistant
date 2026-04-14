@@ -55,9 +55,15 @@ function bearerAuth(ctx) {
 const hits = new Map();
 
 function getClientIp(req) {
-  // Prefer X-Forwarded-For hvis satt (reverse proxy), ellers remoteAddress
-  const fwd = req.headers['x-forwarded-for'];
-  if (fwd) return fwd.split(',')[0].trim();
+  // Kun stol på X-Forwarded-For hvis TRUST_PROXY er eksplisitt satt (reverse proxy)
+  if (process.env.TRUST_PROXY === 'true') {
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) {
+      const ip = fwd.split(',')[0].trim();
+      // Valider at det ser ut som en IP-adresse (v4 eller v6)
+      if (/^[\d.:a-fA-F]+$/.test(ip)) return ip;
+    }
+  }
   return req.socket.remoteAddress || 'unknown';
 }
 

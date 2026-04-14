@@ -2256,17 +2256,30 @@ function createRepositories(db) {
     recordUsage(filterId, action) {
       if (!filterId) return;
       const isEnable = action === 'enabled' || action === 'enable';
-      const col = isEnable ? 'enable_count' : 'disable_count';
       try {
-        db.prepare(
+        // Bruk separate prepared statements i stedet for template literal
+        // for å unngå SQL-injeksjonsrisiko via kolonne-interpolering.
+        if (isEnable) {
+          db.prepare(
+            `
+            INSERT INTO filter_usage (filter_id, enable_count, last_used_at)
+            VALUES (?, 1, datetime('now'))
+            ON CONFLICT(filter_id) DO UPDATE SET
+              enable_count = enable_count + 1,
+              last_used_at = datetime('now')
           `
-          INSERT INTO filter_usage (filter_id, ${col}, last_used_at)
-          VALUES (?, 1, datetime('now'))
-          ON CONFLICT(filter_id) DO UPDATE SET
-            ${col} = ${col} + 1,
-            last_used_at = datetime('now')
-        `
-        ).run(filterId);
+          ).run(filterId);
+        } else {
+          db.prepare(
+            `
+            INSERT INTO filter_usage (filter_id, disable_count, last_used_at)
+            VALUES (?, 1, datetime('now'))
+            ON CONFLICT(filter_id) DO UPDATE SET
+              disable_count = disable_count + 1,
+              last_used_at = datetime('now')
+          `
+          ).run(filterId);
+        }
       } catch (err) {
         /* robust mot eldre DB */
       }

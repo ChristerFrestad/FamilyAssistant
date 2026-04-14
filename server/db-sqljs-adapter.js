@@ -128,7 +128,15 @@ function createAdapter(rawDb, filePath) {
     }
   }
 
+  function flush() {
+    if (pendingWrite) {
+      pendingWrite = false;
+      persist();
+    }
+  }
+
   function close() {
+    flush();
     persist();
     closed = true;
     rawDb.close();
@@ -140,6 +148,7 @@ function createAdapter(rawDb, filePath) {
     transaction,
     pragma,
     close,
+    flush,
     _persist: persist,
     _isSqlJs: true,
   };

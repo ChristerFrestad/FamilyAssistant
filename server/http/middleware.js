@@ -40,7 +40,7 @@ function handleCorsPreflight(req, res) {
 
 function parseBody(req, { maxBytes = config.MAX_BODY_BYTES } = {}) {
   return new Promise((resolve, reject) => {
-    let data = '';
+    const chunks = [];
     let bytes = 0;
     let aborted = false;
     req.on('data', (chunk) => {
@@ -51,13 +51,13 @@ function parseBody(req, { maxBytes = config.MAX_BODY_BYTES } = {}) {
         req.destroy();
         return reject(errors.payloadTooLarge(`Request body exceeds ${maxBytes} bytes`));
       }
-      data += chunk;
+      chunks.push(chunk);
     });
     req.on('end', () => {
       if (aborted) return;
-      if (!data) return resolve({});
+      if (chunks.length === 0) return resolve({});
       try {
-        resolve(JSON.parse(data));
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
       } catch {
         reject(errors.badRequest('Invalid JSON body'));
       }

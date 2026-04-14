@@ -79,7 +79,11 @@ async function startServer() {
   repos = createRepositories(dbHandle.db);
 
   // 2. Seed og sikre current week
-  seedIfEmpty(repos);
+  try {
+    seedIfEmpty(repos);
+  } catch (e) {
+    throw new Error(`Seed feilet — DB kan være korrupt: ${e.message}`);
+  }
   ensureCurrentWeek(repos);
 
   // 2b. Hydratiser persistert state (metrics) fra forrige run
@@ -126,20 +130,24 @@ async function startServer() {
   stopStateSnapshot = stateSnapshot.startSnapshotScheduler(repos);
 
   // 7. Sjekk LLM/STT-tilgjengelighet (ikke-blokkerende)
-  isLLMAvailable().then((status) => {
-    if (status.available) {
-      logger.info({ backend: status.backend, models: status.models }, 'LLM tilgjengelig');
-    } else {
-      logger.warn({ backend: status.backend }, 'LLM ikke tilgjengelig \u2014 chat er deaktivert');
-    }
-  });
-  isSTTAvailable().then((status) => {
-    if (status.available) {
-      logger.info({ backend: status.backend }, 'STT tilgjengelig');
-    } else {
-      logger.info('STT ikke installert \u2014 bruker nettleser Web Speech API');
-    }
-  });
+  isLLMAvailable()
+    .then((status) => {
+      if (status.available) {
+        logger.info({ backend: status.backend, models: status.models }, 'LLM tilgjengelig');
+      } else {
+        logger.warn({ backend: status.backend }, 'LLM ikke tilgjengelig — chat er deaktivert');
+      }
+    })
+    .catch((err) => logger.warn({ err: err.message }, 'LLM tilgjengelighetssjekk feilet'));
+  isSTTAvailable()
+    .then((status) => {
+      if (status.available) {
+        logger.info({ backend: status.backend }, 'STT tilgjengelig');
+      } else {
+        logger.info('STT ikke installert — bruker nettleser Web Speech API');
+      }
+    })
+    .catch((err) => logger.warn({ err: err.message }, 'STT tilgjengelighetssjekk feilet'));
 }
 
 // ============================================================
@@ -197,6 +205,13 @@ async function gracefulShutdown(signal) {
     logger.warn({ err: e.message }, 'State-snapshot ved shutdown feilet');
   }
 
+  // Flush eventuelle pending writes (sql.js adapter) før backup
+  try {
+    if (dbHandle?.db?.flush) dbHandle.db.flush();
+  } catch (e) {
+    logger.warn({ err: e.message }, 'sql.js flush feilet');
+  }
+
   try {
     if (dbHandle?.db) backupNow(dbHandle.db);
   } catch (e) {
@@ -209,10 +224,11 @@ async function gracefulShutdown(signal) {
     logger.error({ err: e }, 'DB close feilet');
   }
 
+  const shutdownTimeoutMs = Number(process.env.SHUTDOWN_TIMEOUT_MS || 5000);
   setTimeout(() => {
     logger.info('Shutdown komplett');
     process.exit(0);
-  }, 500).unref();
+  }, shutdownTimeoutMs).unref();
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

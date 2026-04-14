@@ -74,12 +74,12 @@ LABEL org.opencontainers.image.source="https://github.com/ChristerFrestad/Family
 
 WORKDIR /app
 
-# Kopier node_modules og app fra builder
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/server ./server
-COPY --from=builder /build/public ./public
-COPY --from=builder /build/scripts ./scripts
-COPY --from=builder /build/package.json ./package.json
+# Kopier node_modules og app fra builder (--chown sikrer nonroot eierskap)
+COPY --from=builder --chown=nonroot:nonroot /build/node_modules ./node_modules
+COPY --from=builder --chown=nonroot:nonroot /build/server ./server
+COPY --from=builder --chown=nonroot:nonroot /build/public ./public
+COPY --from=builder --chown=nonroot:nonroot /build/scripts ./scripts
+COPY --from=builder --chown=nonroot:nonroot /build/package.json ./package.json
 
 # Data-volum for SQLite-DB og backups. Mountes som named volume
 # eller bind mount til host /home/pi/Familieassistenten/data.
