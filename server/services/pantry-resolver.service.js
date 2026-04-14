@@ -82,18 +82,19 @@ function resolvePantryInput(repos, query) {
   //    (qty_remaining = 0) men brukeren har hatt før
   try {
     if (repos._db && typeof repos._db.prepare === 'function') {
+      const escapedQ = q.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
       const rows = repos._db
         .prepare(
           `
           SELECT product_key, COUNT(*) as cnt, MAX(created_at) as last_used
           FROM inventory_log
-          WHERE lower(product_key) LIKE ?
+          WHERE lower(product_key) LIKE ? ESCAPE '\\'
           GROUP BY product_key
           ORDER BY cnt DESC
           LIMIT 20
         `
         )
-        .all(`%${q}%`);
+        .all(`%${escapedQ}%`);
       for (const r of rows) {
         if (seenKeys.has(r.product_key)) continue;
         seenKeys.add(r.product_key);

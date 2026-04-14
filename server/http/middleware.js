@@ -46,6 +46,10 @@ function handleCorsPreflight(req, res) {
 
 function parseBody(req, { maxBytes = config.MAX_BODY_BYTES } = {}) {
   return new Promise((resolve, reject) => {
+    const contentType = req.headers['content-type'];
+    if (contentType && !contentType.includes('application/json')) {
+      return reject(errors.badRequest('Content-Type must be application/json'));
+    }
     const chunks = [];
     let bytes = 0;
     let aborted = false;

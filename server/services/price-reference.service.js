@@ -166,7 +166,7 @@ function applyCpiIndexing(
   let count = 0;
   for (const row of stale) {
     const age = daysSince(row.lastVerified);
-    if (age <= olderThanDays) continue;
+    if (age < olderThanDays) continue;
     const mult = cpiMultiplier(age, annualPct);
     const newPrice = Math.round(row.currentPrice * mult * 100) / 100;
     if (newPrice === row.currentPrice) continue;

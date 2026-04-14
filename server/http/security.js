@@ -8,6 +8,7 @@
 //
 // Alt er null-dependency og fungerer med node:http direkte.
 
+const crypto = require('crypto');
 const net = require('net');
 const { config } = require('../config');
 const { errors } = require('./errors');
@@ -23,13 +24,13 @@ const { errors } = require('./errors');
 const PUBLIC_PATHS = new Set(['/health', '/ready', '/metrics']);
 
 function constantTimeEquals(a, b) {
-  // Unngå å lekke lengde via early return — inkluder lengdeforskjell i resultatet
-  const maxLen = Math.max(a.length, b.length);
-  let r = a.length ^ b.length;
-  for (let i = 0; i < maxLen; i++) {
-    r |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
-  }
-  return r === 0;
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  const lengthsMatch = bufA.length === bufB.length;
+  const padded = lengthsMatch ? bufB : Buffer.alloc(bufA.length);
+  if (!lengthsMatch) padded.fill(0);
+  const equal = crypto.timingSafeEqual(bufA, padded);
+  return lengthsMatch && equal;
 }
 
 function bearerAuth(ctx) {

@@ -124,14 +124,13 @@ describe('Chores', () => {
   test('PUT /api/chores/complete marks done + invalidates', async () => {
     const before = await request(server.baseUrl, 'GET', '/api/chores/current');
     const choreId = before.body.chores[0]?.choreId;
-    if (choreId) {
-      const done = await request(server.baseUrl, 'PUT', '/api/chores/complete', {
-        body: { choreId },
-      });
-      assert.equal(done.status, 200);
-      const after = await request(server.baseUrl, 'GET', '/api/chores/current');
-      assert.equal(after.headers['x-cache'], 'MISS');
-    }
+    assert.ok(choreId, 'Expected at least one chore with choreId');
+    const done = await request(server.baseUrl, 'PUT', '/api/chores/complete', {
+      body: { choreId },
+    });
+    assert.equal(done.status, 200);
+    const after = await request(server.baseUrl, 'GET', '/api/chores/current');
+    assert.equal(after.headers['x-cache'], 'MISS');
   });
 });
 
