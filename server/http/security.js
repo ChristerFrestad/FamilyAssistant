@@ -22,9 +22,12 @@ const { errors } = require('./errors');
 const PUBLIC_PATHS = new Set(['/health', '/ready', '/metrics']);
 
 function constantTimeEquals(a, b) {
-  if (a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  // Unngå å lekke lengde via early return — inkluder lengdeforskjell i resultatet
+  const maxLen = Math.max(a.length, b.length);
+  let r = a.length ^ b.length;
+  for (let i = 0; i < maxLen; i++) {
+    r |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
   return r === 0;
 }
 
@@ -53,11 +56,18 @@ function bearerAuth(ctx) {
 // Egnet for single-node. Nullstilles ved restart (OK for RPi5).
 
 const hits = new Map();
+const RATE_LIMIT_MAX_IPS = 10000; // Maks antall IP-er i map før eviction
 
 function getClientIp(req) {
-  // Prefer X-Forwarded-For hvis satt (reverse proxy), ellers remoteAddress
-  const fwd = req.headers['x-forwarded-for'];
-  if (fwd) return fwd.split(',')[0].trim();
+  // Kun stol på X-Forwarded-For hvis TRUST_PROXY er eksplisitt satt (reverse proxy)
+  if (process.env.TRUST_PROXY === 'true') {
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) {
+      const ip = fwd.split(',')[0].trim();
+      // Valider at det ser ut som en IP-adresse (v4 eller v6)
+      if (/^[\d.:a-fA-F]+$/.test(ip)) return ip;
+    }
+  }
   return req.socket.remoteAddress || 'unknown';
 }
 
@@ -70,6 +80,11 @@ function rateLimit(ctx) {
 
   let list = hits.get(ip);
   if (!list) {
+    // Evict eldste entry hvis map er for stort (DDoS-beskyttelse)
+    if (hits.size >= RATE_LIMIT_MAX_IPS) {
+      const oldest = hits.keys().next().value;
+      if (oldest !== undefined) hits.delete(oldest);
+    }
     list = [];
     hits.set(ip, list);
   }
@@ -136,9 +151,9 @@ function applySecurityHeaders(res) {
   res.setHeader('Content-Security-Policy', CSP_POLICY);
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-  // HSTS settes bare n\u00e5r vi er bak HTTPS (Caddy) — det sjekker vi via env
+  // HSTS settes bare når vi er bak HTTPS (Caddy) — det sjekker vi via env
   if (config.NODE_ENV === 'production' && process.env.HTTPS_TERMINATED === 'true') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
 }
 

@@ -91,15 +91,73 @@ function toGrams(size, unit) {
   return null;
 }
 
+// ============================================================
+// Kjede-ekstraksjon (Migration 013)
+// ============================================================
+
 /**
- * Beregn en samlet score 0–1 for en Kassal-kandidat gitt et behov.
+ * Norske dagligvarekjeder, sortert lengste navn først for å unngå
+ * at f.eks. "Extra" matcher før "Coop Extra".
+ */
+const KNOWN_CHAINS = [
+  'Coop Extra',
+  'Coop Prix',
+  'Coop Mega',
+  'Coop Obs',
+  'Coop Marked',
+  'Rema 1000',
+  'Nærbutikken',
+  'Bunnpris',
+  'Europris',
+  'Joker',
+  'Kiwi',
+  'Meny',
+  'Spar',
+  'Extra',
+];
+
+/**
+ * Ekstraher kjedenavn fra et butikknavn.
+ *   "Kiwi Vågsbygd" → "Kiwi"
+ *   "Rema 1000 Lund" → "Rema 1000"
+ *   "Coop Extra Sørdal" → "Coop Extra"
+ *   null / ukjent → null
+ */
+function extractChain(storeName) {
+  if (!storeName) return null;
+  const s = storeName.trim().toLowerCase();
+  for (const chain of KNOWN_CHAINS) {
+    if (s.startsWith(chain.toLowerCase())) return chain;
+  }
+  return null;
+}
+
+/**
+ * Additiv boost for kjede-preferanse. Brukes som tiebreaker i scoring.
+ * Foretrukket kjede: +0.15, sekundærkjede: +0.07, annet: 0.
+ */
+function chainBoost(candidate, preferredChain, secondaryChain) {
+  if (!preferredChain && !secondaryChain) return 0;
+  const store = candidate.store?.name || candidate.store || candidate.last_seen_store || null;
+  const chain = extractChain(store);
+  if (!chain) return 0;
+  const cl = chain.toLowerCase();
+  if (preferredChain && cl === preferredChain.toLowerCase()) return 0.15;
+  if (secondaryChain && cl === secondaryChain.toLowerCase()) return 0.07;
+  return 0;
+}
+
+/**
+ * Beregn en samlet score 0–1+ for en Kassal-kandidat gitt et behov.
  * Vekter:
  *   - 0.50 ordoverlapp i navn
  *   - 0.25 merkehint treff
  *   - 0.20 pakkestørrelse-nærhet
  *   - 0.05 priskjennskap (har current_price)
+ *   - +0.15 foretrukket kjede (additiv bonus)
+ *   - +0.07 sekundærkjede (additiv bonus)
  */
-function scoreCandidate(candidate, { name, brandHint, qty, unit }) {
+function scoreCandidate(candidate, { name, brandHint, qty, unit }, chainPrefs = {}) {
   const queryTokens = tokenize(name);
   const candTokens = tokenize(
     `${candidate.name || ''} ${candidate.brand || ''} ${candidate.vendor || ''}`
@@ -124,7 +182,8 @@ function scoreCandidate(candidate, { name, brandHint, qty, unit }) {
 
   const priceKnown = Number.isFinite(candidate.current_price) ? 1 : 0;
 
-  return overlap * 0.5 + brandMatch * 0.25 + prox * 0.2 + priceKnown * 0.05;
+  const base = overlap * 0.5 + brandMatch * 0.25 + prox * 0.2 + priceKnown * 0.05;
+  return base + chainBoost(candidate, chainPrefs.preferredChain, chainPrefs.secondaryChain);
 }
 
 // ============================================================
@@ -246,7 +305,7 @@ async function resolveByEan(repos, ean, { productKey = null, captureSource = 'lo
  * @param {string} [captureSource]
  * @returns {Promise<object|null>}
  */
-async function resolveByLine(repos, need, { captureSource = 'lookup' } = {}) {
+async function resolveByLine(repos, need, { captureSource = 'lookup', chainPrefs = {} } = {}) {
   if (!need || !need.name) return null;
 
   // Fast path 1: EAN
@@ -282,7 +341,7 @@ async function resolveByLine(repos, need, { captureSource = 'lookup' } = {}) {
 
   // Score og velg
   const scored = products
-    .map((p) => ({ p, score: scoreCandidate(p, need) }))
+    .map((p) => ({ p, score: scoreCandidate(p, need, chainPrefs) }))
     .sort((a, b) => b.score - a.score);
 
   // Hvis beste treff er for svakt, returner kandidater men ingen autoritativ match
@@ -347,6 +406,7 @@ function persistAndDescribe(repos, rawProduct, score, captureSource) {
     kassalId: persisted.kassalId,
     name: rawProduct.name || '',
     brand: rawProduct.brand || null,
+    store: rawProduct.store?.name || rawProduct.store || null,
     packSize: rawProduct.weight ?? rawProduct.pack_size ?? null,
     packUnit: rawProduct.weight_unit ?? rawProduct.pack_unit ?? null,
     price: Number.isFinite(rawProduct.current_price) ? rawProduct.current_price : null,
@@ -365,4 +425,8 @@ module.exports = {
   packSizeProximity,
   persistKassalProduct,
   asProductArray,
+  // Kjede-preferanser (Migration 013)
+  extractChain,
+  chainBoost,
+  KNOWN_CHAINS,
 };

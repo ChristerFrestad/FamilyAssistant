@@ -27,6 +27,7 @@ const priceReferenceService = require('./services/price-reference.service');
 const receiptService = require('./services/receipt.service');
 const recipeImportService = require('./services/recipe-import.service');
 const { slugifyProductKey } = require('./services/slugify');
+const { extractChain } = require('./services/product-resolver.service');
 
 const {
   isLLMAvailable,
@@ -585,6 +586,24 @@ function registerRoutes(router, { repos, serverState }) {
       });
       total += it.estPrice || 0;
     }
+
+    // Sorter items innenfor hver kategori etter kjede-preferanse
+    const profile = repos.familyProfile ? repos.familyProfile.get() : {};
+    const prefChain = (profile.preferredChain || '').toLowerCase();
+    const secChain = (profile.secondaryChain || '').toLowerCase();
+    if (prefChain || secChain) {
+      for (const [, items] of categoriesMap) {
+        items.sort((a, b) => {
+          const aChain = (extractChain(a.lastSeenStore) || '').toLowerCase();
+          const bChain = (extractChain(b.lastSeenStore) || '').toLowerCase();
+          const aRank = aChain === prefChain ? 0 : aChain === secChain ? 1 : 2;
+          const bRank = bChain === prefChain ? 0 : bChain === secChain ? 1 : 2;
+          if (aRank !== bRank) return aRank - bRank;
+          return (a.name || '').localeCompare(b.name || '', 'nb');
+        });
+      }
+    }
+
     ctx.json({
       id: list.id,
       weekYear: list.weekYear,
@@ -1068,6 +1087,7 @@ function registerRoutes(router, { repos, serverState }) {
 
   router.put(
     '/api/profile',
+    validateBody(schemas.profileUpdateBody),
     withAudit(
       repos,
       {
@@ -1078,16 +1098,6 @@ function registerRoutes(router, { repos, serverState }) {
       },
       (ctx) => {
         const body = ctx.body || {};
-        // Enkel validering — alt er valgfritt, tomme arrays er lov
-        if (body.members && !Array.isArray(body.members)) {
-          throw errors.badRequest('members må være en array');
-        }
-        if (body.allergies && !Array.isArray(body.allergies)) {
-          throw errors.badRequest('allergies må være en array');
-        }
-        if (body.dislikes && !Array.isArray(body.dislikes)) {
-          throw errors.badRequest('dislikes må være en array');
-        }
         const updated = repos.familyProfile.update(body);
         ctx.json({ ok: true, profile: updated });
       }

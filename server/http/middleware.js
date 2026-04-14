@@ -18,7 +18,13 @@ const COMPRESSION_THRESHOLD = 1024;
 function applyCorsHeaders(res, origin) {
   if (config.ALLOWED_ORIGINS_LIST === '*') {
     res.setHeader('Access-Control-Allow-Origin', '*');
-  } else if (origin && config.ALLOWED_ORIGINS_LIST.includes(origin)) {
+  } else if (
+    origin &&
+    origin !== 'null' &&
+    !origin.includes('\n') &&
+    !origin.includes('\r') &&
+    config.ALLOWED_ORIGINS_LIST.includes(origin)
+  ) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
@@ -40,7 +46,7 @@ function handleCorsPreflight(req, res) {
 
 function parseBody(req, { maxBytes = config.MAX_BODY_BYTES } = {}) {
   return new Promise((resolve, reject) => {
-    let data = '';
+    const chunks = [];
     let bytes = 0;
     let aborted = false;
     req.on('data', (chunk) => {
@@ -51,13 +57,13 @@ function parseBody(req, { maxBytes = config.MAX_BODY_BYTES } = {}) {
         req.destroy();
         return reject(errors.payloadTooLarge(`Request body exceeds ${maxBytes} bytes`));
       }
-      data += chunk;
+      chunks.push(chunk);
     });
     req.on('end', () => {
       if (aborted) return;
-      if (!data) return resolve({});
+      if (chunks.length === 0) return resolve({});
       try {
-        resolve(JSON.parse(data));
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
       } catch {
         reject(errors.badRequest('Invalid JSON body'));
       }
@@ -101,12 +107,16 @@ function writeJsonWithETag(req, res, data, status) {
 
   // gzip kun for GET-lignende responser over terskel
   if (status === 200 && payload.length >= COMPRESSION_THRESHOLD && acceptsGzip(req)) {
-    const gz = zlib.gzipSync(payload);
-    headers['Content-Encoding'] = 'gzip';
-    headers['Content-Length'] = String(gz.length);
-    res.writeHead(status, headers);
-    res.end(gz);
-    return;
+    try {
+      const gz = zlib.gzipSync(payload);
+      headers['Content-Encoding'] = 'gzip';
+      headers['Content-Length'] = String(gz.length);
+      res.writeHead(status, headers);
+      res.end(gz);
+      return;
+    } catch {
+      // Fall tilbake til ukomprimert ved minne-press
+    }
   }
 
   headers['Content-Length'] = String(payload.length);

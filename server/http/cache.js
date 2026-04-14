@@ -104,7 +104,7 @@ const responseCache = createCache({ max: 200, ttlMs: 60_000 });
 function cacheKey(ctx) {
   const qs = Object.keys(ctx.query)
     .sort()
-    .map((k) => `${k}=${ctx.query[k]}`)
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(ctx.query[k])}`)
     .join('&');
   return `${ctx.pathname}?${qs}`;
 }
