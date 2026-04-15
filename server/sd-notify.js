@@ -14,7 +14,6 @@
 //   sd.startWatchdog();           // hvis WATCHDOG_USEC er satt i env
 //   sd.stopping();                // ved graceful shutdown start
 
-const net = require('net');
 const { logger } = require('./logger');
 
 const NOTIFY_SOCKET = process.env.NOTIFY_SOCKET || '';

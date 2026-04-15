@@ -9,7 +9,7 @@
 // ctx-objektet:
 //   { req, res, params, query, body, log, state: {} }
 
-const { HttpError, errors } = require('./errors');
+// errors module available via middleware chain — not needed directly in router
 
 // ============================================================
 // Path matching med :param og *

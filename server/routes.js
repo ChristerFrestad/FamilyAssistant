@@ -14,7 +14,7 @@ const metrics = require('./http/metrics');
 const schemas = require('./schemas');
 
 const { buildShoppingList, generateForWeek } = require('./services/shopping-list.service');
-const { enrichInBackground, enrichList } = require('./services/shopping-list-enricher.service');
+const { enrichInBackground } = require('./services/shopping-list-enricher.service');
 const {
   getSwapSuggestions,
   checkShelfLife,
@@ -941,7 +941,7 @@ function registerRoutes(router, { repos, serverState }) {
   router.post('/api/pantry/add', validateBody(schemas.pantryAddBody), (ctx) => {
     try {
       // Fase F: resolve query → productKey hvis klient ikke oppgir productKey
-      let body = { ...ctx.body };
+      const body = { ...ctx.body };
       let resolved = null;
       if (!body.productKey && body.query) {
         resolved = pantryResolver.resolveOrCreate(repos, body.query);

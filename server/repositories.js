@@ -2247,7 +2247,7 @@ function createRepositories(db) {
           secondaryChain: r.secondary_chain || null,
           updatedAt: r.updated_at,
         };
-      } catch (err) {
+      } catch {
         // Fallback hvis tabellen ikke finnes (eldre DB)
         return {
           members: [],
@@ -2324,7 +2324,7 @@ function createRepositories(db) {
           `
           ).run(filterId);
         }
-      } catch (err) {
+      } catch {
         /* robust mot eldre DB */
       }
     },
@@ -2342,7 +2342,7 @@ function createRepositories(db) {
         `
           )
           .all(n);
-      } catch (err) {
+      } catch {
         return [];
       }
     },
@@ -2358,7 +2358,7 @@ function createRepositories(db) {
         `
           )
           .all();
-      } catch (err) {
+      } catch {
         return [];
       }
     },
@@ -2381,7 +2381,7 @@ function createRepositories(db) {
           )
           .all()
           .map((r) => ({ ...r, enabled: !!r.enabled }));
-      } catch (err) {
+      } catch {
         return [];
       }
     },
@@ -2399,7 +2399,7 @@ function createRepositories(db) {
           )
           .all()
           .map((r) => ({ ...r, enabled: !!r.enabled }));
-      } catch (err) {
+      } catch {
         return [];
       }
     },
@@ -2415,7 +2415,7 @@ function createRepositories(db) {
           )
           .get(id);
         return r ? { ...r, enabled: !!r.enabled } : null;
-      } catch (err) {
+      } catch {
         return null;
       }
     },

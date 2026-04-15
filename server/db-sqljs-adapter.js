@@ -42,7 +42,6 @@ function createAdapter(rawDb, filePath) {
 
   function prepare(sql) {
     const isWrite = /^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)/i.test(sql);
-    const isSelect = /^\s*SELECT/i.test(sql);
 
     return {
       run(...params) {

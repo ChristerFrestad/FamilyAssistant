@@ -45,7 +45,7 @@ const FORMAT_VALIDATORS = {
   OPENAI_API_KEY: /^sk-[a-zA-Z0-9_\-.]{10,200}$/,
   XAI_API_KEY: /^xai-[a-zA-Z0-9_\-.]{10,200}$/,
   ANTHROPIC_API_KEY: /^sk-ant-[a-zA-Z0-9_\-.]{10,200}$/,
-  OLLAMA_URL: /^https?:\/\/[a-zA-Z0-9.:/_\-]{3,200}$/,
+  OLLAMA_URL: /^https?:\/\/[a-zA-Z0-9.:/_-]{3,200}$/,
   LLM_BACKEND: /^(anthropic|openai|xai|ollama|none|disabled)$/,
 };
 
@@ -141,7 +141,7 @@ function readMasked() {
   let content = '';
   try {
     content = fs.readFileSync(ENV_PATH, 'utf8');
-  } catch (err) {
+  } catch {
     // Fil finnes ikke → returner null for alle whitelisted
     for (const key of WHITELIST) result[key] = null;
     return result;
@@ -174,7 +174,7 @@ async function write(key, value) {
     if (fs.existsSync(ENV_PATH)) {
       try {
         fs.copyFileSync(ENV_PATH, BACKUP_PATH);
-      } catch (err) {
+      } catch {
         // Ikke fatal — fortsett
       }
     }

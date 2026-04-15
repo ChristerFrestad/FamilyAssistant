@@ -529,7 +529,7 @@ function extractToolCallsFromText(text) {
 
 // 2. Smart ukemenyforslag med RAG
 async function generateMealSuggestions(context) {
-  const { currentMeals, recentHistory, inventory, preferences, season } = context;
+  const { currentMeals, recentHistory, inventory, season } = context;
 
   const systemPrompt = `${FAMILY_CONTEXT}
 
