@@ -316,7 +316,7 @@ Service worker har mistet kontakt med backend. Prøv:
 Alle data ligger i SQLite-filen på RPi5:
 
 ```
-/home/pi/Familieassistenten/data/familieassistenten.db
+$APP_ROOT/data/familieassistenten.db
 ```
 
 **Ingen data sendes til tredjepart** med mindre du:

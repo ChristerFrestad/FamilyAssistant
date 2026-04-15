@@ -31,7 +31,7 @@ statsaktører.
 | | Uendelig backup-loop | Schedule-driven, én gang per 24t, prune etter 14 dager |
 | | Massive payloads | `MAX_BODY_BYTES=1MB` (configurable) |
 | **E**levation of privilege | systemd prosess kompromittert | `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictSUIDSGID` |
-| | Symbolic link attack | `ReadWritePaths=/home/pi/Familieassistenten/data` — DB-filen er eneste skriving |
+| | Symbolic link attack | `ReadWritePaths=$APP_ROOT/data` — DB-filen er eneste skriving |
 
 ---
 
@@ -190,7 +190,7 @@ Alle Dependabot-PRs skal kjøre gjennom vanlig CI-gate (lint + format + test
 
 Sjekk utdaterte pakker:
 ```bash
-cd /home/pi/Familieassistenten
+cd $APP_ROOT
 npm outdated
 npm audit
 # CVE-er innen 7 dager, minor-updates innen 30 dager.
