@@ -130,7 +130,7 @@ async function acceptSundayPush(weekYear) {
     body: { weekYear, meals: data.meals },
   });
   closeModal();
-  alert('✅ Uke ' + weekYear.split('-W')[1] + ' er planlagt!');
+  showToast('Uke ' + weekYear.split('-W')[1] + ' er planlagt!', 'success');
   await loadToday();
 }
 

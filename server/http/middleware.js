@@ -97,7 +97,7 @@ function writeJsonWithETag(req, res, data, status) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     ETag: etag,
-    Vary: 'Accept-Encoding',
+    Vary: 'Accept-Encoding, Origin',
     'Cache-Control': 'private, max-age=0, must-revalidate',
   };
 
@@ -188,6 +188,7 @@ function createContext(req, res, pathname, query) {
       res.writeHead(problem.status, {
         'Content-Type': 'application/problem+json; charset=utf-8',
         'Content-Length': String(payload.length),
+        Vary: 'Accept-Encoding, Origin',
       });
       res.end(payload);
     },

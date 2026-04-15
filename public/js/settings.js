@@ -362,10 +362,10 @@ async function addRecipeSource() {
       renderSettingsKilder();
     } else {
       const err = await r.json().catch(() => ({}));
-      alert('Kunne ikke legge til kilde: ' + (err.error?.message || r.statusText));
+      showToast('Kunne ikke legge til kilde: ' + (err.error?.message || r.statusText), 'error');
     }
   } catch (err) {
-    alert('Kunne ikke legge til kilde: ' + err.message);
+    showToast('Kunne ikke legge til kilde: ' + err.message, 'error');
   }
 }
 
@@ -443,7 +443,7 @@ async function addProfileTag(field) {
     input.value = '';
     renderSettingsProfil();
   } catch (err) {
-    alert('Kunne ikke lagre: ' + err.message);
+    showToast('Kunne ikke lagre: ' + err.message, 'error');
   }
 }
 
@@ -468,7 +468,7 @@ async function removeProfileTag(field, value) {
     });
     renderSettingsProfil();
   } catch (err) {
-    alert('Kunne ikke lagre: ' + err.message);
+    showToast('Kunne ikke lagre: ' + err.message, 'error');
   }
 }
 

@@ -1194,9 +1194,14 @@ function registerRoutes(router, { repos, serverState }) {
       throw errors.badRequest(`Ugyldig MIME-type: ${mimeType}. Støttet: ${allowed.join(', ')}`);
     }
 
+    const MAX = 10 * 1024 * 1024;
+    const declaredLength = parseInt(ctx.req.headers['content-length'], 10);
+    if (declaredLength > MAX) {
+      throw errors.payloadTooLarge(`Content-Length ${declaredLength} overstiger maks ${MAX} bytes`);
+    }
+
     const chunks = [];
     let total = 0;
-    const MAX = 10 * 1024 * 1024;
     for await (const chunk of ctx.req) {
       total += chunk.length;
       if (total > MAX) throw errors.payloadTooLarge(`Fil > ${MAX} bytes`);

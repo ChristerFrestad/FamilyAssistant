@@ -194,7 +194,7 @@ async function confirmAddPantry() {
     document.getElementById('pantryQtyRow').style.display = 'none';
     await loadPantry();
   } catch (err) {
-    alert('Kunne ikke legge til: ' + (err.message || err));
+    showToast('Kunne ikke legge til: ' + (err.message || err), 'error');
   }
 }
 

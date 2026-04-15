@@ -69,7 +69,7 @@ async function handleRecipeImageSelect(event) {
     recipeImportImageB64 = await resizeImageToBase64(file, 800, 0.8);
     renderRecipeImportModal();
   } catch (err) {
-    alert('Kunne ikke lese bilde: ' + (err.message || err));
+    showToast('Kunne ikke lese bilde: ' + (err.message || err), 'error');
   }
 }
 
