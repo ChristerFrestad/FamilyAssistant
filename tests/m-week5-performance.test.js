@@ -105,7 +105,7 @@ describe('Uke5 · PERF-3 audit_log ORDER BY optimalisering', () => {
   test('auditLog.getRecent bruker timestamp DESC, id DESC', () => {
     // Statisk sjekk i repositories.js — se etter alle ORDER BY-strenger
     // innenfor auditLog-objektet
-    const js = fs.readFileSync(path.join(ROOT, 'server', 'repositories.js'), 'utf8');
+    const js = fs.readFileSync(path.join(ROOT, 'server', 'repositories', 'system.repo.js'), 'utf8');
     const auditLogStart = js.indexOf('const auditLog = {');
     assert.ok(auditLogStart > 0, 'auditLog repository mangler');
     // Ta resten av filen fra auditLog-start
