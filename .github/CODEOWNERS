@@ -1,0 +1,44 @@
+# CODEOWNERS
+#
+# Dette filformatet er definert av GitHub. Se:
+# https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Syntaks: <glob> <@user-or-team> [@additional-reviewers...]
+#
+# Den siste matchende linja avgjør eierskap. Ved branch protection med
+# "Require review from Code Owners" vil GitHub automatisk be om review
+# fra de listede eierne når en PR endrer matchende filer.
+
+# Default: alt eies av repo-eieren
+*                           @ChristerFrestad
+
+# Kritiske filer som krever ekstra nøyaktighet. Redundant siden det samme
+# mønsteret matcher default-regelen over, men listes eksplisitt slik at
+# eierskapet er åpenbart når nye co-maintainere eventuelt legges til.
+
+# Sikkerhet og drift
+/SECURITY.md                @ChristerFrestad
+/DEPLOY.md                  @ChristerFrestad
+/RUNBOOK.md                 @ChristerFrestad
+/Caddyfile                  @ChristerFrestad
+/Dockerfile                 @ChristerFrestad
+/docker-compose.yml         @ChristerFrestad
+/install.sh                 @ChristerFrestad
+/upgrade.sh                 @ChristerFrestad
+/setup-rpi5.sh              @ChristerFrestad
+/start.sh                   @ChristerFrestad
+/familieassistenten.service @ChristerFrestad
+
+# CI/CD og kvalitetsgates
+/.github/                   @ChristerFrestad
+/eslint.config.mjs          @ChristerFrestad
+/.prettierrc.json           @ChristerFrestad
+/tsconfig.json              @ChristerFrestad
+/scripts/coverage-gate.js   @ChristerFrestad
+
+# Pakke-manifester (endringer her påvirker hele supply chain)
+/package.json               @ChristerFrestad
+/package-lock.json          @ChristerFrestad
+
+# OpenAPI-kontrakt — endringer her er eksterne API-brudd
+/openapi.yaml               @ChristerFrestad
