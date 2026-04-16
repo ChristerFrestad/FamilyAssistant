@@ -130,3 +130,9 @@ Ikke slå av regler globalt uten diskusjon i PR.
   - 408 tester + lint + format + coverage-gate + npm audit
   - Baseline coverage: 83.26% / 71.23% / 75.83%
   - 4 nye devDeps: eslint, @eslint/js, globals, prettier
+
+- **2026-04-16** — `@eslint/js` oppgradert fra v9.38.0 til v10.0.1
+  (post-v1.3.0 cleanup; punkt 3 i gjenstående tekniske gjeld).
+  De to nye error-reglene i `js.configs.recommended` —
+  `no-useless-assignment` og `preserve-caught-error` — avdekket 8
+  kode-brudd som ble fikset i kilden. Ingen regler ble deaktivert.

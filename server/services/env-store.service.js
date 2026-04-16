@@ -138,7 +138,7 @@ function parseEnvFile(content) {
 
 function readMasked() {
   const result = {};
-  let content = '';
+  let content;
   try {
     content = fs.readFileSync(ENV_PATH, 'utf8');
   } catch {

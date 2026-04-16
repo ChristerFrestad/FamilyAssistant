@@ -68,7 +68,7 @@ async function send({ level = 'warning', title, detail = '', context = {}, key =
   // Truncate context — trim string-verdier så hele payload-en holder seg
   // under MAX_PAYLOAD_BYTES. Hvis context ikke kan serialiseres, dropper vi
   // det og legger en liten markør i stedet.
-  let safeContext = {};
+  let safeContext;
   try {
     const raw = JSON.stringify(context);
     if (raw.length <= MAX_PAYLOAD_BYTES) {

@@ -189,8 +189,13 @@ forbedres i v1.4+:
    ubrukte `err`-variabler i catch-blocks). Ikke-blokkerende, men bør
    ryddes.
 
-3. **`@eslint/js v10`** — utsatt fra uke 1 fordi den introduserer to
-   nye error-regler som krever ~5-6 kode-fixes.
+3. ~~**`@eslint/js v10`** — utsatt fra uke 1 fordi den introduserer to
+   nye error-regler som krever ~5-6 kode-fixes.~~
+   **Løst 2026-04-16** (branch `claude/next-natural-step-KrjXT`):
+   oppgradert til `@eslint/js@^10.0.1`. De to nye `recommended`-reglene
+   viste seg å være `no-useless-assignment` (4 treff) og
+   `preserve-caught-error` (4 treff) — 8 totalt, fikset uten
+   `eslint-disable`.
 
 4. **Regenerere `perf-baseline.json` på ubuntu-runner** for å fjerne
    50%-bufferen og strammere gate.

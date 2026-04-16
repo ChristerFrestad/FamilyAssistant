@@ -120,7 +120,8 @@ function withAudit(repos, spec, handler) {
 function registerRoutes(router, { repos, serverState }) {
   function requirePositiveInt(value, name = 'id') {
     const n = parseInt(value, 10);
-    if (!Number.isInteger(n) || n <= 0) throw errors.badRequest(`${name} must be a positive integer`);
+    if (!Number.isInteger(n) || n <= 0)
+      throw errors.badRequest(`${name} must be a positive integer`);
     return n;
   }
 
@@ -1433,7 +1434,7 @@ function registerRoutes(router, { repos, serverState }) {
   // fra Kontrollrommet. Cleanup tar <10ms for hundrevis av entries.
   router.post('/api/llm/warm', (ctx) => {
     const entriesBefore = repos.llmCache.count();
-    let pruned = 0;
+    let pruned;
     try {
       pruned = repos.llmCache.cleanup();
     } catch (err) {
