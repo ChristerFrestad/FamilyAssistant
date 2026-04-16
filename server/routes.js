@@ -19,6 +19,8 @@ const {
   getSwapSuggestions,
   checkShelfLife,
   generateSundayDraft,
+  generatePantryRestOfWeek,
+  computeMissingForRestOfWeek,
 } = require('./services/meal-planning.service');
 const { ensureCurrentWeek } = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
@@ -352,6 +354,42 @@ function registerRoutes(router, { repos, serverState }) {
     const wk = ensureCurrentWeek(repos);
     ctx.json({ suggestions: getSwapSuggestions(repos, dow, wk) });
   });
+
+  // "Hva kan jeg lage n\u00e5?" \u2014 returnerer 5 oppskrifter i valgt kategori,
+  // rangert etter pantry-dekning. Brukeren velger hvilken dag den legges p\u00e5.
+  router.post(
+    '/api/meals/pantry-suggestions',
+    validateBody(schemas.pantrySuggestionBody),
+    (ctx) => {
+      ensureCurrentWeek(repos);
+      const result = generatePantryRestOfWeek(repos, { category: ctx.body.category });
+      ctx.json(result);
+    }
+  );
+
+  // Bruker aksepterer ett eller flere valg \u2014 lagrer dem i ukeplanen og
+  // poster et 'missing_ingredients'-varsel for resten av uka.
+  router.post(
+    '/api/meals/pantry-suggestions/accept',
+    validateBody(schemas.pantrySuggestionAcceptBody),
+    (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      for (const m of ctx.body.meals) {
+        repos.mealPlans.setRecipe(wk, m.dayOfWeek, m.recipeId, 'planned');
+      }
+      invalidate('meals', 'today', 'shopping');
+
+      const missing = computeMissingForRestOfWeek(repos, wk);
+      if (missing.length > 0) {
+        repos.notifications.insert(
+          'missing_ingredients',
+          `${missing.length} ingredienser mangler for resten av uka`,
+          { weekYear: wk, items: missing }
+        );
+      }
+      ctx.json({ ok: true, missing, weekYear: wk });
+    }
+  );
 
   // ============================================================
   // RECIPES

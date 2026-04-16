@@ -388,6 +388,9 @@ async function renderSettingsProfil() {
     }).join('');
   };
 
+  const suggestionMode = (profile.preferences && profile.preferences.suggestionMode) || 'default';
+  const modeChecked = (m) => (suggestionMode === m ? 'checked' : '');
+
   body.innerHTML = `
     <div class="profile-editor-row">
       <div class="profile-editor-label">Medlemmer</div>
@@ -419,8 +422,45 @@ async function renderSettingsProfil() {
         </div>
       </div>
     </div>
+    <div class="profile-editor-row">
+      <div class="profile-editor-label">Middagsforslag</div>
+      <div class="profile-editor-value">
+        <label class="suggestion-mode-row" style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;cursor:pointer">
+          <input type="radio" name="suggestionMode" value="default" ${modeChecked('default')} onchange="updateSuggestionMode('default')">
+          <span><strong>Standard</strong> — variasjon og tilfeldig utvalg</span>
+        </label>
+        <label class="suggestion-mode-row" style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;cursor:pointer">
+          <input type="radio" name="suggestionMode" value="maksimer" ${modeChecked('maksimer')} onchange="updateSuggestionMode('maksimer')">
+          <span><strong>Maksimer pantry</strong> — foreslå retter hvor flest ingredienser er hjemme</span>
+        </label>
+        <label class="suggestion-mode-row" style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;cursor:pointer">
+          <input type="radio" name="suggestionMode" value="balansert" ${modeChecked('balansert')} onchange="updateSuggestionMode('balansert')">
+          <span><strong>Balansert</strong> — som Maksimer, men prioriterer varer som snart går ut på dato</span>
+        </label>
+        <div class="api-key-status" style="font-size:0.8rem;color:var(--text2);margin-top:8px">
+          Påvirker søndagspush og "Bytt middag"-forslag.
+        </div>
+      </div>
+    </div>
     <div class="api-key-status ok" style="margin-top:12px">✓ Endringer lagres umiddelbart</div>
   `;
+}
+
+async function updateSuggestionMode(mode) {
+  if (!['default', 'maksimer', 'balansert'].includes(mode)) return;
+  try {
+    const current = await fetch('/api/profile').then(r => r.json());
+    const prefs = { ...(current.preferences || {}), suggestionMode: mode };
+    const res = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferences: prefs }),
+    });
+    if (res.ok) showToast('Forslags-modus oppdatert', 'success', 2000);
+    else showToast('Kunne ikke lagre modus', 'error');
+  } catch (err) {
+    showToast('Kunne ikke lagre modus: ' + err.message, 'error');
+  }
 }
 
 async function addProfileTag(field) {
