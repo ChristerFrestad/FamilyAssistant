@@ -82,7 +82,7 @@ async function startServer() {
   try {
     seedIfEmpty(repos);
   } catch (e) {
-    throw new Error(`Seed feilet — DB kan være korrupt: ${e.message}`);
+    throw new Error(`Seed feilet — DB kan være korrupt: ${e.message}`, { cause: e });
   }
   ensureCurrentWeek(repos);
 

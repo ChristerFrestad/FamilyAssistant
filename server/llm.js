@@ -201,7 +201,8 @@ async function llmChat(messages, options = {}) {
     if (err instanceof CircuitOpenError) {
       log(`LLM circuit open (${err.retryAfterMs}ms retry): ${err.message}`);
       throw new Error(
-        `LLM midlertidig utilgjengelig (circuit open ${Math.round(err.retryAfterMs / 1000)}s)`
+        `LLM midlertidig utilgjengelig (circuit open ${Math.round(err.retryAfterMs / 1000)}s)`,
+        { cause: err }
       );
     }
     throw err;
@@ -236,7 +237,7 @@ async function ollamaChat(messages, options = {}) {
     return {
       type: 'tool_calls',
       toolCalls: json.message.tool_calls
-        .filter(tc => tc?.function?.name)
+        .filter((tc) => tc?.function?.name)
         .map((tc) => ({
           name: tc.function.name,
           arguments: tc.function.arguments,
@@ -276,7 +277,7 @@ async function llamaCppChat(messages, options = {}) {
     return {
       type: 'tool_calls',
       toolCalls: choice.message.tool_calls
-        .filter(tc => tc?.function?.name)
+        .filter((tc) => tc?.function?.name)
         .map((tc) => {
           let args = tc.function.arguments;
           if (typeof args === 'string') {
