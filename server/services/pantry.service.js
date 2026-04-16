@@ -90,7 +90,7 @@ function addToPantry(repos, opts) {
     try {
       resolvedUnit = units.validateUnit(unit);
     } catch (err) {
-      throw new Error(err.message);
+      throw new Error(err.message, { cause: err });
     }
   }
 
@@ -156,7 +156,7 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
     try {
       resolvedUnit = units.validateUnit(newUnit);
     } catch (err) {
-      throw new Error(err.message);
+      throw new Error(err.message, { cause: err });
     }
   }
 

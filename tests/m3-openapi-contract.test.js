@@ -37,7 +37,7 @@ function extractDocumentedRoutes(yamlText) {
   const lines = yamlText.split('\n');
   let inPaths = false;
   let currentPath = null;
-  let currentMethod = null;
+  let currentMethod;
   let currentResponses = null;
 
   for (let i = 0; i < lines.length; i++) {
