@@ -68,6 +68,15 @@ async function loadToday() {
     html += `<div class="card"><div class="card-title">Husarbeid i dag</div><p style="color:var(--text2)">Ingen oppgaver i dag 🎉</p></div>`;
   }
 
+  // "Hva kan jeg lage nå?" — 2-stegs pantry-basert forslag for denne uka
+  html += `
+    <div class="card">
+      <div class="card-title">Denne uka</div>
+      <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px">Få 5 forslag basert på det du har hjemme nå.</p>
+      <button class="btn btn-primary" onclick="openPantryNowModal()">🥘 Hva kan jeg lage nå?</button>
+    </div>
+  `;
+
   // Søndagspush — automatisk søndag 14:00 via cron, manuell knapp som backup
   html += `
     <div class="card">
@@ -132,5 +141,117 @@ async function acceptSundayPush(weekYear) {
   closeModal();
   showToast('Uke ' + weekYear.split('-W')[1] + ' er planlagt!', 'success');
   await loadToday();
+}
+
+// === "Hva kan jeg lage nå?" — to-stegs pantry-basert forslag ===
+const _DAY_LABELS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
+
+function openPantryNowModal() {
+  const html = `
+    <h2 style="margin-top:0">🥘 Hva har du lyst på?</h2>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:16px">
+      Vi finner oppskriftene med flest varer allerede på lager.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-secondary" onclick="loadPantrySuggestions('rask')">⚡ Light &amp; easy</button>
+      <button class="btn btn-secondary" onclick="loadPantrySuggestions('comfort')">🛋 Comfort food</button>
+      <button class="btn btn-secondary" onclick="loadPantrySuggestions('helg')">🎉 Søndagsmiddag</button>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="closeModal()">Avbryt</button>
+  `;
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalBg').style.display = 'flex';
+}
+
+async function loadPantrySuggestions(category) {
+  try {
+    const data = await api('/api/meals/pantry-suggestions', {
+      method: 'POST',
+      body: { category },
+    });
+    window._pantrySuggestionsData = data;
+    renderPantrySuggestions(data);
+  } catch (err) {
+    showToast('Kunne ikke hente forslag: ' + err.message, 'error');
+  }
+}
+
+function renderPantrySuggestions(data) {
+  const remaining = Array.isArray(data.remainingDays) ? data.remainingDays : [];
+  const catLabel = { rask: 'Light & easy', comfort: 'Comfort food', helg: 'Søndagsmiddag' }[data.category] || data.category;
+
+  let html = `
+    <h2 style="margin-top:0">🥘 Topp ${Number(data.suggestions?.length) || 0} forslag — ${escapeHtml(catLabel)}</h2>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">
+      Sortert etter mest pantry-dekning${data.mode === 'balansert' ? ' (med bonus for utløpsnære varer)' : ''}.
+    </p>
+  `;
+
+  if (!data.suggestions || data.suggestions.length === 0) {
+    html += `<p style="color:var(--text2)">Ingen oppskrifter i denne kategorien som ikke allerede er brukt i uka.</p>`;
+  } else if (remaining.length === 0) {
+    html += `<p style="color:var(--text2)">Alle dager resten av uka er allerede bestemt (borte/hoppet over). Prøv igjen neste uke.</p>`;
+  } else {
+    for (let i = 0; i < data.suggestions.length; i++) {
+      const s = data.suggestions[i];
+      const badgeClass = s.category === 'rask' ? 'badge-rask' : s.category === 'comfort' ? 'badge-comfort' : 'badge-helg';
+      const pct = s.totalIngredients > 0 ? Math.round((s.ingredientsAtHome / s.totalIngredients) * 100) : 0;
+      const dayOptions = remaining
+        .map((d, idx) => `<option value="${d}" ${idx === 0 ? 'selected' : ''}>${escapeHtml(_DAY_LABELS[d] || '?')}</option>`)
+        .join('');
+      html += `
+        <div class="suggestion-item" style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="flex:1">
+              <div class="suggestion-name" style="font-weight:600">${escapeHtml(s.name)}</div>
+              <div class="suggestion-meta" style="font-size:0.8rem;color:var(--text2);margin-top:4px">
+                <span class="meal-badge ${badgeClass}" style="font-size:0.65rem">${escapeHtml(s.category)}</span>
+                ⏱ ${escapeHtml(s.prepTime || '?')} ·
+                ${Number(s.ingredientsAtHome)}/${Number(s.totalIngredients)} hjemme (${pct}%)
+                ${Number(s.expiringUsed) > 0 ? ` · ♻ bruker ${Number(s.expiringUsed)} utløpsnær vare` : ''}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
+            <label style="font-size:0.8rem;color:var(--text2)">Legg på:</label>
+            <select id="pantryDayFor-${Number(s.recipeId)}" style="flex:1;padding:4px">${dayOptions}</select>
+            <button class="btn btn-primary btn-small" onclick="acceptPantrySuggestion(${Number(s.recipeId)})">Velg</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  html += `<button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="openPantryNowModal()">← Tilbake</button>`;
+  html += `<button class="btn btn-ghost" style="margin-top:4px;width:100%" onclick="closeModal()">Lukk</button>`;
+
+  document.getElementById('modalContent').innerHTML = html;
+}
+
+async function acceptPantrySuggestion(recipeId) {
+  const sel = document.getElementById(`pantryDayFor-${recipeId}`);
+  if (!sel) return;
+  const dayOfWeek = Number(sel.value);
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+    showToast('Ugyldig dag', 'error');
+    return;
+  }
+  try {
+    const res = await api('/api/meals/pantry-suggestions/accept', {
+      method: 'POST',
+      body: { meals: [{ dayOfWeek, recipeId }] },
+    });
+    closeModal();
+    const dayLabel = _DAY_LABELS[dayOfWeek] || '';
+    const missingCount = (res.missing || []).length;
+    const msg = missingCount > 0
+      ? `Lagt til ${dayLabel.toLowerCase()}! ${missingCount} ingredienser mangler for resten av uka.`
+      : `Lagt til ${dayLabel.toLowerCase()}! Alt du trenger er hjemme. 🎉`;
+    showToast(msg, 'success', 5000);
+    if (typeof loadToday === 'function') await loadToday();
+    if (typeof loadMeals === 'function') await loadMeals();
+  } catch (err) {
+    showToast('Kunne ikke lagre: ' + err.message, 'error');
+  }
 }
 
