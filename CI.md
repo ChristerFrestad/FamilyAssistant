@@ -97,8 +97,36 @@ Konfig: `.github/dependabot.yml`.
 git clone <repo>
 cd Familieassistenten
 npm ci              # ikke 'npm install' — bruker package-lock.json
+                    # `prepare`-scriptet aktiverer husky pre-commit-hook
 npm run ci          # verifisér at alt er grønt lokalt før første commit
 ```
+
+---
+
+## Pre-commit hook (husky + lint-staged)
+
+`npm ci` (eller `npm install`) trigger `prepare`-scriptet som aktiverer
+husky. På hvert `git commit` kjøres `.husky/pre-commit` som igjen kaller
+`npx lint-staged`. Staged filer auto-fikses før commit:
+
+| Glob | Kommandoer |
+|---|---|
+| `server/**/*.js`, `scripts/**/*.js`, `tests/**/*.js` | `eslint --fix` + `prettier --write` |
+| `public/sw.js` | `eslint --fix` + `prettier --write` |
+| `public/js/**/*.js` | `eslint --fix` (ikke i `format`-globbet) |
+| `public/manifest.json`, `package.json` | `prettier --write` |
+
+**Hvorfor:** Forhindrer at format/lint-rettelser må gjøres i separate
+follow-up-commits (som skjedde med PR #22 etter at PR #20 merget inn 2
+uformatterte filer).
+
+**Overstyring:** `git commit --no-verify` hopper over hooken — men bruk
+kun ved WIP-stash eller unntakstilfeller. Hvis hooken feilaktig blokkerer
+en commit, rapportér det som en issue.
+
+**CI-kompatibilitet:** `prepare`-scriptet er `"husky || true"` slik at
+det ikke feiler i Docker-builds hvor husky ikke installeres
+(`npm ci --omit=dev`).
 
 ---
 
@@ -136,3 +164,8 @@ Ikke slå av regler globalt uten diskusjon i PR.
   De to nye error-reglene i `js.configs.recommended` —
   `no-useless-assignment` og `preserve-caught-error` — avdekket 8
   kode-brudd som ble fikset i kilden. Ingen regler ble deaktivert.
+
+- **2026-04-16** — pre-commit hook lagt til (husky + lint-staged).
+  Kjører `eslint --fix` og `prettier --write` på staged filer før
+  commit. Introdusert etter at PR #20 merget 2 uformaterte filer som
+  brøt main CI i et lite vindu.
