@@ -509,8 +509,16 @@ function createSystemRepos(db, tryParseJson) {
   };
 
   return {
-    kb, calendar, notifications, llmCache, llmAudit, stateSnapshots,
-    familyProfile, filterUsage, auditLog, hasFTS,
+    kb,
+    calendar,
+    notifications,
+    llmCache,
+    llmAudit,
+    stateSnapshots,
+    familyProfile,
+    filterUsage,
+    auditLog,
+    hasFTS,
   };
 }
 
