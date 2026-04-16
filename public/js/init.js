@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef -- classic script shares globals across public/js/*.js */
 // === Init ===
 loadTheme();
 loadToday();

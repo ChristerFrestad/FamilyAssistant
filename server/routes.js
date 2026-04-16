@@ -14,7 +14,7 @@ const metrics = require('./http/metrics');
 const schemas = require('./schemas');
 
 const { buildShoppingList, generateForWeek } = require('./services/shopping-list.service');
-const { enrichInBackground, enrichList } = require('./services/shopping-list-enricher.service');
+const { enrichInBackground } = require('./services/shopping-list-enricher.service');
 const {
   getSwapSuggestions,
   checkShelfLife,
@@ -941,7 +941,7 @@ function registerRoutes(router, { repos, serverState }) {
   router.post('/api/pantry/add', validateBody(schemas.pantryAddBody), (ctx) => {
     try {
       // Fase F: resolve query → productKey hvis klient ikke oppgir productKey
-      let body = { ...ctx.body };
+      const body = { ...ctx.body };
       let resolved = null;
       if (!body.productKey && body.query) {
         resolved = pantryResolver.resolveOrCreate(repos, body.query);
@@ -1194,9 +1194,14 @@ function registerRoutes(router, { repos, serverState }) {
       throw errors.badRequest(`Ugyldig MIME-type: ${mimeType}. Støttet: ${allowed.join(', ')}`);
     }
 
+    const MAX = 10 * 1024 * 1024;
+    const declaredLength = parseInt(ctx.req.headers['content-length'], 10);
+    if (declaredLength > MAX) {
+      throw errors.payloadTooLarge(`Content-Length ${declaredLength} overstiger maks ${MAX} bytes`);
+    }
+
     const chunks = [];
     let total = 0;
-    const MAX = 10 * 1024 * 1024;
     for await (const chunk of ctx.req) {
       total += chunk.length;
       if (total > MAX) throw errors.payloadTooLarge(`Fil > ${MAX} bytes`);

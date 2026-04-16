@@ -110,7 +110,7 @@ async function apiNetworkFirst(request) {
       cache.put(request, fresh.clone()).catch(() => {});
     }
     return fresh;
-  } catch (err) {
+  } catch {
     // Offline: prøv cache
     const cached = await cache.match(request);
     if (cached) {

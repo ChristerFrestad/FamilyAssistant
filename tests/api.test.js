@@ -176,7 +176,7 @@ describe('HTTP: ETag + gzip + 304', () => {
     });
     assert.equal(res.status, 200);
     assert.equal(res.headers['content-encoding'], 'gzip');
-    assert.equal(res.headers.vary, 'Accept-Encoding');
+    assert.equal(res.headers.vary, 'Accept-Encoding, Origin');
   });
 });
 

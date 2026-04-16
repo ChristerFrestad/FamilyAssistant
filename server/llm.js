@@ -491,10 +491,29 @@ ${ragContext}`;
   }
 }
 
+// Bygg oppslagstabell for tool-validering: { name → Set(requiredArgs) }
+const VALID_TOOL_NAMES = new Set(AVAILABLE_TOOLS.map((t) => t.function.name));
+const TOOL_REQUIRED_ARGS = Object.fromEntries(
+  AVAILABLE_TOOLS.map((t) => [t.function.name, new Set(t.function.parameters.required || [])])
+);
+
 // Ekstraher tool-calls fra tekst (for modeller uten native support)
 function extractToolCallsFromText(text) {
   const toolCalls = [];
   let cleanedText = text;
+
+  function validateAndPush(name, args) {
+    if (!VALID_TOOL_NAMES.has(name)) return false;
+    if (typeof args !== 'object' || args === null || Array.isArray(args)) return false;
+    const required = TOOL_REQUIRED_ARGS[name];
+    if (required) {
+      for (const key of required) {
+        if (args[key] === undefined || args[key] === null || args[key] === '') return false;
+      }
+    }
+    toolCalls.push({ name, arguments: args });
+    return true;
+  }
 
   // Finn JSON-blokker som matcher tool-format
   const jsonPattern = /```json\s*(\{[\s\S]*?\})\s*```/g;
@@ -502,8 +521,7 @@ function extractToolCallsFromText(text) {
   while ((match = jsonPattern.exec(text)) !== null) {
     try {
       const parsed = JSON.parse(match[1]);
-      if (parsed.tool && parsed.arguments) {
-        toolCalls.push({ name: parsed.tool, arguments: parsed.arguments });
+      if (parsed.tool && parsed.arguments && validateAndPush(parsed.tool, parsed.arguments)) {
         cleanedText = cleanedText.replace(match[0], '');
       }
     } catch {
@@ -517,8 +535,9 @@ function extractToolCallsFromText(text) {
   while ((match = fnPattern.exec(text)) !== null) {
     try {
       const args = JSON.parse(match[2] || '{}');
-      toolCalls.push({ name: match[1], arguments: args });
-      cleanedText = cleanedText.replace(match[0], '');
+      if (validateAndPush(match[1], args)) {
+        cleanedText = cleanedText.replace(match[0], '');
+      }
     } catch {
       /* kan ikke parse args */
     }
@@ -529,7 +548,7 @@ function extractToolCallsFromText(text) {
 
 // 2. Smart ukemenyforslag med RAG
 async function generateMealSuggestions(context) {
-  const { currentMeals, recentHistory, inventory, preferences, season } = context;
+  const { currentMeals, recentHistory, inventory, season } = context;
 
   const systemPrompt = `${FAMILY_CONTEXT}
 

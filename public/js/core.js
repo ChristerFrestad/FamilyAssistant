@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-unused-vars, no-empty -- classic script shares globals across public/js/*.js */
 const API = '';  // Same origin
 const DAYS = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
 

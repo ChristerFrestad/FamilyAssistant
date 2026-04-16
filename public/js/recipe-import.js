@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-unused-vars -- classic script shares globals across public/js/*.js */
 // ============================================================================
 // === OPPSKRIFTS-IMPORT MODAL (nås via FAB i Ukesmeny-fanen) ===
 // ============================================================================
@@ -69,7 +69,7 @@ async function handleRecipeImageSelect(event) {
     recipeImportImageB64 = await resizeImageToBase64(file, 800, 0.8);
     renderRecipeImportModal();
   } catch (err) {
-    alert('Kunne ikke lese bilde: ' + (err.message || err));
+    showToast('Kunne ikke lese bilde: ' + (err.message || err), 'error');
   }
 }
 

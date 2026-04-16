@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-unused-vars -- classic script shares globals across public/js/*.js */
 // ============================================================================
 // === PANTRY (vises som sub-view av Handletur) ===
 // ============================================================================
@@ -194,7 +194,7 @@ async function confirmAddPantry() {
     document.getElementById('pantryQtyRow').style.display = 'none';
     await loadPantry();
   } catch (err) {
-    alert('Kunne ikke legge til: ' + (err.message || err));
+    showToast('Kunne ikke legge til: ' + (err.message || err), 'error');
   }
 }
 

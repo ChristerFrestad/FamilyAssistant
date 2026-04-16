@@ -244,7 +244,7 @@ describe('generateForWeek', () => {
 
 describe('Shopping routes', () => {
   test('POST /api/shopping/generate uten komplett uke → 400 WEEK_NOT_COMPLETE', async () => {
-    const wk = '2099-W60';
+    const wk = '2080-W10';
     // Kun én dag
     server.repos.mealPlans.setRecipe(wk, 0, 1, 'planned');
 
@@ -256,7 +256,7 @@ describe('Shopping routes', () => {
   });
 
   test('POST /api/shopping/generate med force → 200 og listId', async () => {
-    const wk = '2099-W61';
+    const wk = '2080-W11';
     const res = await request(server.baseUrl, 'POST', '/api/shopping/generate', {
       body: { weekYear: wk, force: true },
     });
@@ -266,7 +266,7 @@ describe('Shopping routes', () => {
   });
 
   test('GET /api/shopping/list/:id returnerer full liste med items', async () => {
-    const wk = '2099-W62';
+    const wk = '2080-W12';
     fillWeek(server.repos, wk);
     const gen = await request(server.baseUrl, 'POST', '/api/shopping/generate', {
       body: { weekYear: wk },
@@ -285,7 +285,7 @@ describe('Shopping routes', () => {
   });
 
   test('PUT /api/shopping/items/:id/bought oppdaterer pantry + inventory_log', async () => {
-    const wk = '2099-W63';
+    const wk = '2080-W13';
     // Opprett en liste med et item som har product_key satt
     const { listId } = server.repos.shoppingLists.createActive(wk, [
       {
@@ -322,7 +322,7 @@ describe('Shopping routes', () => {
 
   test('PUT /api/shopping/items/:id/bought øker times_confirmed hvis resolutionId finnes', async () => {
     const { repos } = server;
-    const wk = '2099-W64';
+    const wk = '2080-W14';
 
     // Lag en kassal_product + resolution
     const kpId = repos.kassalProducts.upsert({
@@ -374,7 +374,7 @@ describe('Shopping routes', () => {
 
   test('PUT /api/shopping/items/:id/unpantry flipper pantry_has → needs_buy', async () => {
     const { repos } = server;
-    const wk = '2099-W65';
+    const wk = '2080-W15';
     const { listId } = repos.shoppingLists.createActive(wk, [
       {
         sourceType: 'meal_ingredient',
@@ -399,7 +399,7 @@ describe('Shopping routes', () => {
 
   test('POST /api/shopping/list/:id/done lukker lista', async () => {
     const { repos } = server;
-    const wk = '2099-W66';
+    const wk = '2080-W16';
     const { listId } = repos.shoppingLists.createActive(wk, [
       { sourceType: 'extra', ingredientName: 'Epler', category: 'Frukt & grønt', needsBuy: true },
     ]);
@@ -417,7 +417,7 @@ describe('Shopping routes', () => {
 describe('Autogenerer-hook', () => {
   test('PUT /api/meals/status autogenererer liste når uken blir komplett', async () => {
     const { repos } = server;
-    const wk = '2099-W70';
+    const wk = '2080-W20';
 
     // Fyll 6 dager; siste settes via API slik at hook-et trigges
     for (let d = 0; d < 5; d++) {
@@ -446,7 +446,7 @@ describe('Autogenerer-hook', () => {
 
   test('Andre oppdatering etter at lista finnes skal IKKE autogenerere på nytt', async () => {
     const { repos } = server;
-    const wk = '2099-W71';
+    const wk = '2080-W21';
     for (let d = 0; d < 7; d++) {
       repos.mealPlans.setRecipe(wk, d, 1, 'planned');
     }

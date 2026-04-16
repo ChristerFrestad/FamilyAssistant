@@ -1,8 +1,10 @@
 # Familieassistenten — Runbook
 
 **Sist oppdatert:** 2026-04-10
-**Målgruppe:** Christer (operatør). Dette dokumentet er for feilsøking og
+**Målgruppe:** Operatør. Dette dokumentet er for feilsøking og
 daglig drift av Familieassistenten på Raspberry Pi 5.
+
+> **Stier:** `$APP_ROOT` = installasjonssti (standard: `$APP_ROOT`)
 
 > For førstegangs-installasjon, se [DEPLOY.md](./DEPLOY.md).
 
@@ -44,7 +46,7 @@ curl -s -H "Authorization: Bearer $AUTH_TOKEN" https://familieassistenten.local/
 
 ### 2.1 Backup-lokasjoner
 
-- **Lokal:** `/home/pi/Familieassistenten/data/backups/familieassistenten-YYYY-MM-DD.db`
+- **Lokal:** `$APP_ROOT/data/backups/familieassistenten-YYYY-MM-DD.db`
 - **Off-site:** avhenger av `BACKUP_REMOTE_PATH` i service-env (NAS-mount, SSH-host, rsync-daemon)
 - **Schedule:** daglig kl. 03:00, beholder 14 dager
 - **På shutdown:** en siste backup tas automatisk før DB stenger
@@ -54,16 +56,16 @@ curl -s -H "Authorization: Bearer $AUTH_TOKEN" https://familieassistenten.local/
 ```bash
 # Enkleste — kaller samme backupNow() som cron
 sudo systemctl stop familieassistenten
-cp /home/pi/Familieassistenten/data/familieassistenten.db \
-   /home/pi/Familieassistenten/data/backups/manual-$(date +%F).db
+cp $APP_ROOT/data/familieassistenten.db \
+   $APP_ROOT/data/backups/manual-$(date +%F).db
 sudo systemctl start familieassistenten
 ```
 
 Eller via en SQL-konsoll mot live DB (trygt på better-sqlite3):
 
 ```bash
-sqlite3 /home/pi/Familieassistenten/data/familieassistenten.db \
-  "VACUUM INTO '/home/pi/Familieassistenten/data/backups/manual-$(date +%F).db'"
+sqlite3 $APP_ROOT/data/familieassistenten.db \
+  "VACUUM INTO '$APP_ROOT/data/backups/manual-$(date +%F).db'"
 ```
 
 ### 2.3 Restore fra backup
@@ -73,13 +75,13 @@ sqlite3 /home/pi/Familieassistenten/data/familieassistenten.db \
 sudo systemctl stop familieassistenten
 
 # 2. Lag en safety-kopi av nåværende DB (før du skriver over)
-cp /home/pi/Familieassistenten/data/familieassistenten.db \
-   /home/pi/Familieassistenten/data/familieassistenten.db.pre-restore
+cp $APP_ROOT/data/familieassistenten.db \
+   $APP_ROOT/data/familieassistenten.db.pre-restore
 
 # 3. Kopier backupen inn
-cp /home/pi/Familieassistenten/data/backups/familieassistenten-2026-04-09.db \
-   /home/pi/Familieassistenten/data/familieassistenten.db
-chown pi:pi /home/pi/Familieassistenten/data/familieassistenten.db
+cp $APP_ROOT/data/backups/familieassistenten-YYYY-MM-DD.db \
+   $APP_ROOT/data/familieassistenten.db
+chown pi:pi $APP_ROOT/data/familieassistenten.db
 
 # 4. Start serveren
 sudo systemctl start familieassistenten
@@ -91,8 +93,8 @@ journalctl -u familieassistenten -n 20 --no-pager | grep -i 'migrasjon\|ready\|e
 
 **Hvis restore feiler:** flytt tilbake safety-kopien:
 ```bash
-mv /home/pi/Familieassistenten/data/familieassistenten.db.pre-restore \
-   /home/pi/Familieassistenten/data/familieassistenten.db
+mv $APP_ROOT/data/familieassistenten.db.pre-restore \
+   $APP_ROOT/data/familieassistenten.db
 sudo systemctl start familieassistenten
 ```
 
@@ -234,7 +236,7 @@ Familieassistenten bruker typisk <100 MB DB + backups. Hvis disken fylles opp:
 sudo journalctl --vacuum-size=200M
 
 # Gamle backups (automatisk cleanup skulle beholde 14)
-ls -lh /home/pi/Familieassistenten/data/backups/
+ls -lh $APP_ROOT/data/backups/
 
 # Ollama-modeller
 du -sh ~/.ollama/models/
@@ -257,7 +259,7 @@ Midlertidig: endre `CSP_POLICY` i `server/http/security.js`, restart.
 ### 5.1 Standard upgrade-flow
 
 ```bash
-cd /home/pi/Familieassistenten
+cd $APP_ROOT
 
 # 1. Ta en safety-backup
 sqlite3 data/familieassistenten.db \
@@ -295,12 +297,12 @@ API-nøkler lagres i `.env` via Settings-UI eller manuelt:
 
 ```bash
 # Les uten å vise (bare finnes/ikke)
-grep -E '^(KASSAL|OPENAI|ANTHROPIC|XAI)_API_KEY=' /home/pi/Familieassistenten/.env | cut -d= -f1
+grep -E '^(KASSAL|OPENAI|ANTHROPIC|XAI)_API_KEY=' $APP_ROOT/.env | cut -d= -f1
 
 # Rediger trygt
-sudo nano /home/pi/Familieassistenten/.env
+sudo nano $APP_ROOT/.env
 # Permissions skal være 600 og eier pi:pi
-ls -l /home/pi/Familieassistenten/.env
+ls -l $APP_ROOT/.env
 
 sudo systemctl restart familieassistenten
 ```
@@ -341,7 +343,7 @@ journalctl -u familieassistenten -o cat | jq -r 'select(.msg) | "\(.time) \(.lev
 2. Flash ny SD med Raspberry Pi OS
 3. Kjør installasjonen (se DEPLOY.md §1–§7)
 4. Stopp serveren: `sudo systemctl stop familieassistenten`
-5. Kopier backup inn: `cp backup.db /home/pi/Familieassistenten/data/familieassistenten.db`
+5. Kopier backup inn: `cp backup.db $APP_ROOT/data/familieassistenten.db`
 6. Gjenopprett `.env`, `AUTH_TOKEN` og Caddy-config
 7. Start: `sudo systemctl start familieassistenten`
 
@@ -349,7 +351,7 @@ journalctl -u familieassistenten -o cat | jq -r 'select(.msg) | "\(.time) \(.lev
 
 ```bash
 # Sjekk integritet
-sqlite3 /home/pi/Familieassistenten/data/familieassistenten.db "PRAGMA integrity_check;"
+sqlite3 $APP_ROOT/data/familieassistenten.db "PRAGMA integrity_check;"
 
 # Hvis feil: restore fra siste backup (se §2.3)
 # Eller forsøk reparasjon:
@@ -437,7 +439,7 @@ Etter en endring bør disse alltid sjekkes:
 
 ```bash
 # 1. Tester grønne
-cd /home/pi/Familieassistenten && npm test
+cd $APP_ROOT && npm test
 
 # 2. Server starter
 sudo systemctl restart familieassistenten
@@ -584,7 +586,7 @@ sudo journalctl -u familieassistenten -n 100 --no-pager
 sudo journalctl -u familieassistenten --since "1 hour ago" | grep -i "fatal\|uncaught\|unhandled"
 
 # Verifiser DB-integritet
-sqlite3 /home/pi/Familieassistenten/data/familieassistenten.db "PRAGMA integrity_check"
+sqlite3 $APP_ROOT/data/familieassistenten.db "PRAGMA integrity_check"
 ```
 
 **Escalation:** Hvis restart ikke hjelper → restore fra siste backup
@@ -606,7 +608,7 @@ sudo journalctl -u familieassistenten --since "15 min ago" | grep -c "Started Fa
 
 # Kjør i foreground for å se hele feilmeldingen
 sudo systemctl stop familieassistenten
-cd /home/pi/Familieassistenten
+cd $APP_ROOT
 sudo -u pi NODE_ENV=production node server/index.js
 # (Ctrl-C når du har sett feilen)
 
@@ -759,11 +761,11 @@ returnerer 503 ved <100 MB.
 **First-response:**
 ```bash
 # Hvor går plassen?
-sudo du -sh /home/pi/Familieassistenten/data/*
+sudo du -sh $APP_ROOT/data/*
 df -h
 
 # Prune gamle backups hvis >14 dager
-find /home/pi/Familieassistenten/data/backups -name "*.db" -mtime +14 -print -delete
+find $APP_ROOT/data/backups -name "*.db" -mtime +14 -print -delete
 
 # Prune journalctl hvis stort
 sudo journalctl --vacuum-time=7d
@@ -794,7 +796,7 @@ curl -s http://localhost:3000/metrics | grep -A1 "quantile=\"0.95\"" | grep -B1 
 # Se docs/DB_INDEXES.md
 
 # Er DB full?
-ls -lh /home/pi/Familieassistenten/data/familieassistenten.db
+ls -lh $APP_ROOT/data/familieassistenten.db
 ```
 
 **Root-cause kandidater:**

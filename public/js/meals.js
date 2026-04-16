@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-unused-vars, no-empty -- classic script shares globals across public/js/*.js */
 // === UKESMENY ===
 
 // Event delegation for oppskrift-handlinger (erstatter inline onclick — XSS-sikring)
@@ -94,7 +94,7 @@ function renderMeals() {
 async function showSimilarRecipes(recipeId, recipeName) {
   try {
     const r = await fetch(`/api/recipes/${recipeId}/similar?limit=5`);
-    if (!r.ok) { alert('Kunne ikke hente lignende oppskrifter'); return; }
+    if (!r.ok) { showToast('Kunne ikke hente lignende oppskrifter', 'error'); return; }
     const data = await r.json();
     const modalBg = document.getElementById('modalBg');
     const modalContent = document.getElementById('modalContent');
@@ -134,7 +134,7 @@ async function showSimilarRecipes(recipeId, recipeName) {
     modalContent.innerHTML = html;
     modalBg.style.display = 'flex';
   } catch (err) {
-    alert('Feil ved henting av lignende: ' + err.message);
+    showToast('Feil ved henting av lignende: ' + err.message, 'error');
   }
 }
 
@@ -153,7 +153,7 @@ async function reorderMeal(fromDay, toDay) {
   const data = await api('/api/meals/reorder', { method: 'PUT', body: { weekYear: currentWeek, fromDay, toDay } });
   if (data.shelfWarnings && data.shelfWarnings.length > 0) {
     const msgs = data.shelfWarnings.map(w => w.message).join('\n');
-    alert('⚠️ Holdbarhetsvarsel:\n\n' + msgs + '\n\nByttet er utført, men vurder å flytte tilbake.');
+    showToast('Holdbarhetsvarsel: ' + msgs.replace(/\n/g, ' ') + ' — vurder å flytte tilbake.', 'warn', 8000);
   }
   await loadMeals();
 }
@@ -202,7 +202,7 @@ async function customSwap(dayOfWeek) {
   if (match) {
     await swapMeal(dayOfWeek, match.id);
   } else {
-    alert('Fant ikke oppskrift for "' + name + '". Prøv et av forslagene, eller be om at oppskriften legges til.');
+    showToast('Fant ikke oppskrift for "' + name + '". Prøv et av forslagene.', 'warn');
     input.focus();
   }
 }

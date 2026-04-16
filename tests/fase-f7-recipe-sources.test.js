@@ -81,7 +81,7 @@ describe('Fase F7 — CRUD /api/sources', () => {
 
   test('POST /api/sources med gyldig URL', async () => {
     const r = await request(ctx.baseUrl, 'POST', '/api/sources', {
-      body: { url: 'https://pinterest.com/frestad-mat' },
+      body: { url: 'https://pinterest.com/example-recipes' },
     });
     assert.equal(r.status, 200);
     assert.equal(r.body.ok, true);
