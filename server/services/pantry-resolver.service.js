@@ -50,7 +50,7 @@ function resolvePantryInput(repos, query) {
         confidence: isExact ? 1.0 : isPrefix ? 0.85 : 0.6,
       });
     }
-  } catch (err) {
+  } catch {
     // Robust mot repo-feil — fortsett med andre kilder
   }
 
@@ -74,7 +74,7 @@ function resolvePantryInput(repos, query) {
         confidence: lk.startsWith(q) ? 0.7 : 0.5,
       });
     }
-  } catch (err) {
+  } catch {
     // Robust
   }
 
@@ -111,7 +111,7 @@ function resolvePantryInput(repos, query) {
         });
       }
     }
-  } catch (err) {
+  } catch {
     // Robust
   }
 

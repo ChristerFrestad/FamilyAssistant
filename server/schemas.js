@@ -8,10 +8,26 @@ const { z } = require('zod');
 // ============================================================
 
 const dayOfWeek = z.number().int().min(0).max(6);
-const weekYear = z.string().regex(/^\d{4}-W\d{2}$/, 'Ugyldig weekYear (f.eks. 2026-W15)');
+const weekYear = z
+  .string()
+  .regex(/^\d{4}-W\d{2}$/, 'Ugyldig weekYear (f.eks. 2026-W15)')
+  .refine(
+    (v) => {
+      const w = Number(v.slice(6));
+      return w >= 1 && w <= 53;
+    },
+    { message: 'Ukenummer må være mellom 01 og 53' }
+  );
 const positiveId = z.number().int().positive();
 const category = z.string().min(1).max(50);
 const mealStatus = z.enum(['planned', 'cooked', 'skipped', 'away', 'removed']);
+
+/** Validate that a YYYY-MM-DD string represents a real date */
+function isValidDate(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
 
 // ============================================================
 // Meals
@@ -104,7 +120,10 @@ const consumableBoughtBody = z.object({
 
 const calendarEventBody = z.object({
   title: z.string().min(1).max(200),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)'),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+    .refine(isValidDate, { message: 'Datoen finnes ikke' }),
   startTime: z
     .string()
     .regex(/^\d{2}:\d{2}$/, 'Ugyldig tid (HH:MM)')
@@ -124,10 +143,12 @@ const calendarQuerySchema = z.object({
   from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine(isValidDate, { message: 'Ugyldig fra-dato' })
     .optional(),
   to: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine(isValidDate, { message: 'Ugyldig til-dato' })
     .optional(),
 });
 
@@ -188,6 +209,7 @@ const pantryAddBody = z
     expiresEst: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .refine(isValidDate, { message: 'Datoen finnes ikke' })
       .optional(),
     category: z.string().min(1).max(50).optional(),
     notes: z.string().max(500).optional(),

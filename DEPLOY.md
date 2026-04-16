@@ -1,5 +1,8 @@
 # Familieassistenten v1.2 — Deploy på Raspberry Pi 5
 
+> **Stier i dette dokumentet** bruker `$APP_ROOT` som plassholder.
+> Standard: `export APP_ROOT=$APP_ROOT`
+
 > ## ⚠️ Produksjons-krav (M1)
 >
 > Før du setter `NODE_ENV=production` må følgende være på plass:
@@ -17,7 +20,7 @@
 ## 1. Kopier filene
 
 ```bash
-scp -r Familieassistenten/ pi@raspberrypi.local:/home/pi/
+scp -r Familieassistenten/ pi@raspberrypi.local:~
 ```
 
 ## 2. Installer Node.js
@@ -30,7 +33,7 @@ sudo apt install -y nodejs
 ## 3. Installer SQLite-støtte (anbefalt)
 
 ```bash
-cd /home/pi/Familieassistenten
+cd $APP_ROOT
 npm init -y
 npm install better-sqlite3
 # Eller om bedre-sqlite3 feiler:
@@ -42,7 +45,7 @@ Uten SQLite bruker serveren JSON-fallback (fungerer, men tregere og ingen vektor
 ## 4. Start manuelt (for testing)
 
 ```bash
-cd /home/pi/Familieassistenten
+cd $APP_ROOT
 chmod +x start.sh
 ./start.sh
 ```
@@ -121,7 +124,7 @@ Uten whisper.cpp brukes nettleserens Web Speech API (krever internett).
 
 ## 8. Miljøvariabler
 
-Opprett `/home/pi/Familieassistenten/.env` eller sett i systemd:
+Opprett `$APP_ROOT/.env` eller sett i systemd:
 
 ```bash
 PORT=3000
@@ -193,7 +196,7 @@ sudo apt update && sudo apt install -y caddy
 ### 13.2 Installer Caddyfile
 
 ```bash
-sudo cp /home/pi/Familieassistenten/Caddyfile /etc/caddy/Caddyfile
+sudo cp $APP_ROOT/Caddyfile /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
@@ -207,10 +210,10 @@ Alternativ A bruker Caddys lokale CA. iPhone må godkjenne rot-sertifikatet én 
 ```bash
 # På RPi5:
 sudo caddy trust
-sudo cp /etc/caddy/pki/authorities/local/root.crt /home/pi/caddy-root.crt
+sudo cp /etc/caddy/pki/authorities/local/root.crt ~/caddy-root.crt
 ```
 
-Kopier `/home/pi/caddy-root.crt` til iPhone (AirDrop/mail), åpne det, og:
+Kopier `~/caddy-root.crt` til iPhone (AirDrop/mail), åpne det, og:
 **Innstillinger → Profiler → Godkjenn → Innstillinger → Generelt → VPN og enhetsadministrering → Sertifikat-innstillinger → Slå på "Familieassistenten"**.
 
 Etter dette åpner du `https://familieassistenten.local` i Safari og får grønt hengelåsikon.

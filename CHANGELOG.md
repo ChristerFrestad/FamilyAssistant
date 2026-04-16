@@ -19,8 +19,7 @@ Alle 9 karakteristikker nå over målet 8.0.
 - **Cross-platform bugs fanget:** 3 (alle rettet, CI-verifisert)
 
 Se `docs/RELEASE_V1_3_0.md` for full uke-for-uke oppsummering og
-`C:\Users\kommi\PILOTUTVIKLKING\Resultat\Familieassistenten_ISO25010_v2_re_audit.pdf`
-for den formelle re-audit-rapporten.
+den formelle re-audit-rapporten (`Familieassistenten_ISO25010_v2_re_audit.pdf`).
 
 **Commit-historikk v1.3.0:**
 - uke 1+2: CI/CD + supply chain + audit-log (`8f0db2e`)

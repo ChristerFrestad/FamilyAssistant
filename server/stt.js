@@ -13,7 +13,7 @@
 //   # For NB-Whisper (norsk-optimalisert):
 //   wget https://huggingface.co/NbAiLab/nb-whisper-base/resolve/main/ggml-model.bin -O models/ggml-nb-whisper-base.bin
 
-const { execFile, spawn } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -68,7 +68,7 @@ function transcribeWithWhisperCpp(audioBuffer, format = 'wav') {
       log(`Starter transkribering: ${WHISPER_CPP_PATH} ${args.join(' ')}`);
       const startTime = Date.now();
 
-      execFile(WHISPER_CPP_PATH, args, { timeout: 30000 }, (error, stdout, stderr) => {
+      execFile(WHISPER_CPP_PATH, args, { timeout: 30000 }, (error, stdout, _stderr) => {
         // Rydd opp temp-filer
         try {
           fs.unlinkSync(tempFile);

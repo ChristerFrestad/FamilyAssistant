@@ -2095,7 +2095,7 @@ const consumables = [
   // === PERSONLIG PLEIE ===
   {
     id: 29,
-    name: 'Shampoo Christer',
+    name: 'Shampoo voksen',
     category: 'Personlig pleie',
     depletionModel: 'fixed_interval',
     depletionRate: 30,
@@ -2197,7 +2197,7 @@ const consumables = [
   },
   {
     id: 35,
-    name: 'Deodorant Christer',
+    name: 'Deodorant voksen',
     category: 'Personlig pleie',
     depletionModel: 'fixed_interval',
     depletionRate: 45,

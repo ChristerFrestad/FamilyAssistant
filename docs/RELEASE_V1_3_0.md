@@ -2,7 +2,7 @@
 
 **Release-dato:** 2026-04-11
 **Base-versjon:** v1.2.0 (produksjons-hardening)
-**Plan-dokument:** `C:\Users\kommi\PILOTUTVIKLKING\Resultat\Familieassistenten_ISO25010_v1_2_0.pdf`
+**Plan-dokument:** `Familieassistenten_ISO25010_v1_2_0.pdf`
 
 ---
 

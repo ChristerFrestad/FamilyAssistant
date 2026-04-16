@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-unused-vars -- classic script shares globals across public/js/*.js */
 // ===== FASE_E_BEGIN shopping-pantry-recipe-import =====
 // === HANDLETUR (Fase E) ===
 // ============================================================================
@@ -117,7 +117,7 @@ async function retryEnrichment() {
     await api(`/api/shopping/list/${currentShoppingListId}/enrich`, { method: 'POST' });
     await loadShopping();
   } catch (err) {
-    alert('Kunne ikke starte berikelse på nytt.');
+    showToast('Kunne ikke starte berikelse på nytt.', 'error');
   }
 }
 
@@ -235,7 +235,7 @@ async function markItemBought(itemId) {
     await api(`/api/shopping/items/${itemId}/bought`, { method: 'PUT' });
     await loadShopping();
   } catch (err) {
-    alert('Kunne ikke markere som kjøpt: ' + (err.message || err));
+    showToast('Kunne ikke markere som kjøpt: ' + (err.message || err), 'error');
   }
 }
 
@@ -244,7 +244,7 @@ async function unpantryItem(itemId) {
     await api(`/api/shopping/items/${itemId}/unpantry`, { method: 'PUT' });
     await loadShopping();
   } catch (err) {
-    alert('Kunne ikke flytte tilbake: ' + (err.message || err));
+    showToast('Kunne ikke flytte tilbake: ' + (err.message || err), 'error');
   }
 }
 

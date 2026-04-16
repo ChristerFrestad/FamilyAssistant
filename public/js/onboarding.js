@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-empty -- classic script shares globals across public/js/*.js */
 // === Uke 4 (FE-11): Onboarding wizard ===
 //
 // Enkel 4-stegs velkomst-tour som vises første gang brukeren åpner appen.

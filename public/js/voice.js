@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-unused-vars, no-empty -- classic script shares globals across public/js/*.js */
 // === VOICE — prøver backend STT (whisper.cpp) først, fallback til Web Speech API ===
 let useBackendSTT = false; // Settes av checkLlmStatus
 let mediaRecorder = null;

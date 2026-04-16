@@ -1,4 +1,4 @@
-/* eslint-disable no-undef, no-unused-vars, no-empty, no-redeclare, no-prototype-builtins -- classic script shares globals across public/js/*.js, see week-3 modularization */
+/* eslint-disable no-undef, no-unused-vars -- classic script shares globals across public/js/*.js */
 // === I DAG ===
 async function loadToday() {
   const data = await api('/api/today');
@@ -130,7 +130,7 @@ async function acceptSundayPush(weekYear) {
     body: { weekYear, meals: data.meals },
   });
   closeModal();
-  alert('✅ Uke ' + weekYear.split('-W')[1] + ' er planlagt!');
+  showToast('Uke ' + weekYear.split('-W')[1] + ' er planlagt!', 'success');
   await loadToday();
 }
 

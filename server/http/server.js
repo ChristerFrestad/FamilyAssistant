@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 
 const { config } = require('../config');
-const { logger } = require('../logger');
 const { HttpError, errors } = require('./errors');
 const {
   handleCorsPreflight,
@@ -57,7 +56,7 @@ function serveStatic(res, filePath) {
 }
 
 function tryServeSpaFallback(pathname, res) {
-  let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+  const filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
   const resolved = path.resolve(filePath);
   if (path.relative(PUBLIC_DIR, resolved).startsWith('..')) return false;
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
