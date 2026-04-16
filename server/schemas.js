@@ -51,6 +51,26 @@ const mealsReorderBody = z.object({
   toDay: dayOfWeek,
 });
 
+const pantrySuggestionBody = z
+  .object({
+    category: z.enum(['rask', 'comfort', 'helg']),
+  })
+  .strict();
+
+const pantrySuggestionAcceptBody = z
+  .object({
+    meals: z
+      .array(
+        z.object({
+          dayOfWeek,
+          recipeId: positiveId,
+        })
+      )
+      .min(1)
+      .max(7),
+  })
+  .strict();
+
 // ============================================================
 // Shopping
 // ============================================================
@@ -317,6 +337,8 @@ module.exports = {
   mealsSwapBody,
   mealsStatusBody,
   mealsReorderBody,
+  pantrySuggestionBody,
+  pantrySuggestionAcceptBody,
   shoppingCheckBody,
   shoppingAddBody,
   shoppingGenerateBody,
