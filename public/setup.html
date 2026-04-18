@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Setup — Familieassistenten</title>
+    <link rel="icon" href="/icon-192.png" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #eef2ff 0%, #f5f6fa 100%);
+        color: #111827;
+        display: grid;
+        place-items: center;
+        padding: 2rem 1rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+          color: #e5e7eb;
+        }
+        .card {
+          background: #111827;
+          border-color: #1f2937;
+        }
+        input,
+        select {
+          background: #1f2937;
+          color: #e5e7eb;
+          border-color: #374151;
+        }
+        .note {
+          background: #1e293b;
+          border-color: #334155;
+        }
+      }
+      .card {
+        width: min(560px, 100%);
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 2rem 1.75rem;
+        box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.6rem;
+      }
+      p.sub {
+        margin: 0 0 1.5rem;
+        opacity: 0.8;
+      }
+      .note {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+        font-size: 0.9rem;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+      }
+      input,
+      select {
+        padding: 0.6rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        font: inherit;
+      }
+      input[readonly] {
+        background: #f3f4f6;
+        cursor: text;
+      }
+      .token-row {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .token-row input {
+        flex: 1;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 0.85rem;
+      }
+      button {
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        cursor: pointer;
+        font: inherit;
+      }
+      button.primary {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+      }
+      button.primary:hover {
+        background: #1d4ed8;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 0.5rem;
+      }
+      .status {
+        min-height: 1.25rem;
+        font-size: 0.9rem;
+        margin-top: 1rem;
+      }
+      .status.ok {
+        color: #047857;
+      }
+      .status.err {
+        color: #b91c1c;
+      }
+      .restart-panel {
+        text-align: center;
+        padding: 1.5rem 0 0.5rem;
+      }
+      .restart-panel h2 {
+        margin: 0 0 0.5rem;
+        color: #047857;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #d1d5db;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        vertical-align: middle;
+        margin-right: 0.5rem;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .hint {
+        font-size: 0.8rem;
+        opacity: 0.75;
+        margin: -0.2rem 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1 id="title">Familieassistenten Setup</h1>
+      <p class="sub" id="subtitle">
+        Looks like this is a fresh install. Fill out the form below to generate and persist a
+        shared auth token for your stack.
+      </p>
+
+      <div class="note" id="statusNote">
+        Checking setup status…
+      </div>
+
+      <form id="setupForm" hidden>
+        <label>
+          Auth token (≥ 16 chars — serves as bearer for `/api/*`)
+          <div class="token-row">
+            <input
+              id="authToken"
+              name="authToken"
+              type="text"
+              required
+              minlength="16"
+              maxlength="256"
+              autocomplete="off"
+            />
+            <button type="button" id="genBtn" title="Generate a random 32-hex token">
+              Generate
+            </button>
+          </div>
+          <p class="hint">
+            Saved to `/app/data/bootstrap.json` with 0600 permissions. Shown here one time only —
+            copy it somewhere safe.
+          </p>
+        </label>
+
+        <label>
+          Allowed origins (comma-separated, no wildcards)
+          <input
+            id="allowedOrigins"
+            name="allowedOrigins"
+            type="text"
+            required
+            placeholder="https://familieassistenten.local, https://raspberrypi.local"
+          />
+        </label>
+
+        <label>
+          LLM backend
+          <select id="llmBackend" name="llmBackend">
+            <option value="ollama">Ollama (recommended)</option>
+            <option value="llamacpp">llama.cpp</option>
+          </select>
+        </label>
+
+        <label>
+          Ollama host (skip if running llama.cpp)
+          <input
+            id="ollamaHost"
+            name="ollamaHost"
+            type="text"
+            value="http://host.docker.internal:11434"
+          />
+        </label>
+
+        <label>
+          Log level
+          <select id="logLevel" name="logLevel">
+            <option value="info" selected>info</option>
+            <option value="debug">debug</option>
+            <option value="warn">warn</option>
+            <option value="error">error</option>
+          </select>
+        </label>
+
+        <div class="actions">
+          <button type="submit" class="primary" id="submitBtn">Complete setup</button>
+        </div>
+
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </form>
+
+      <div class="restart-panel" id="restartPanel" hidden>
+        <h2>✅ Setup saved</h2>
+        <p>
+          <span class="spinner" aria-hidden="true"></span>Waiting for the container to restart…
+        </p>
+        <p class="hint">This page will reload once the app is back up (~10 seconds).</p>
+      </div>
+
+      <div class="restart-panel" id="alreadyPanel" hidden>
+        <h2>Already configured</h2>
+        <p>
+          This instance is not in bootstrap mode. Head back to
+          <a href="/">the main app</a>.
+        </p>
+      </div>
+    </main>
+
+    <script src="/js/setup.js"></script>
+  </body>
+</html>

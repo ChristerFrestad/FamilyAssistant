@@ -94,7 +94,11 @@ function createServer(router, { authenticate } = {}) {
       // When authenticate is injected it performs bearer-token fallback,
       // session-cookie lookup and attaches ctx.user / ctx.familyId.
       rateLimit(ctx);
-      if (authenticate) authenticate(ctx);
+      // Phase 22 — in BOOTSTRAP_MODE we deliberately skip auth. There is
+      // no AUTH_TOKEN yet; the setup wizard has to be reachable, and the
+      // catch-all in routes.js blocks every non-bootstrap API path with
+      // a 503 that points at /setup.html.
+      if (authenticate && !config.BOOTSTRAP_MODE) authenticate(ctx);
 
       // Wrap routing + handler execution in the family async-local context so
       // that every repo query inside the handler picks up the caller's family.

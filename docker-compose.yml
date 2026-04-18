@@ -1,18 +1,18 @@
 # Familieassistenten — Docker Compose
 #
-# Uke 7 av ISO/IEC 25010-planen (PORT-2).
+# Zero-config deploy: kjør `docker compose up -d` uten variabler, åpne
+# http://<host>:3000 i nettleseren, og fullfør setup-wizarden. Serveren
+# starter i bootstrap-mode når AUTH_TOKEN og bootstrap.json mangler, og
+# generer begge via UI-en. Caddy (HTTPS reverse proxy) er gatet bak
+# `--profile production` slik at den ikke startes før brukeren har
+# konfigurert domene.
 #
 # Kjørmåter:
-#   docker compose up              # kjør begge tjenester i foreground
-#   docker compose up -d           # detached
-#   docker compose logs -f app     # follow appens logger
-#   docker compose down            # stopp alt
-#   docker compose pull            # oppdater til siste tagget versjon
-#
-# Før du starter:
-#   1. Kopier .env.example til .env og sett AUTH_TOKEN (obligatorisk i prod)
-#   2. mkdir data (eller la compose lage volum)
-#   3. (valgfritt) juster Caddyfile for domenet ditt
+#   docker compose up -d                        # app kun (bootstrap-flyt klar)
+#   docker compose --profile production up -d   # app + Caddy (etter bootstrap)
+#   docker compose logs -f app                  # følg loggen
+#   docker compose down                         # stopp alt
+#   docker compose pull                         # oppdater til siste tagget versjon
 
 services:
   # --------------------------------------------------------------------------
@@ -26,18 +26,26 @@ services:
     #   dockerfile: Dockerfile
     container_name: familieassistenten
     restart: unless-stopped
-    # Single-user home setup — bind til localhost slik at Caddy
-    # eksponerer eksternt. Bytt til "3000:3000" for direkte-tilgang.
+    # Direkte LAN-tilgang på port 3000. Etter bootstrap + Caddy-aktivering
+    # kan dette endres til "127.0.0.1:3000:3000" for å tvinge all trafikk
+    # via Caddy-reverse-proxy.
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     volumes:
       - ./data:/app/data
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
-      # Disse MÅ settes i .env for produksjon
-      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN er påkrevd i prod (min 16 tegn)}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localhost}
+      # Bootstrap-modus: hvis AUTH_TOKEN mangler OG /app/data/bootstrap.json
+      # mangler OG data-volumet ikke har en DB, starter serveren en
+      # setup-wizard på /setup.html. BOOTSTRAP_ALLOWED=true signaliserer
+      # at vi er i en container-kontekst der dette er trygt (volum-mount
+      # for å persiste valgt token).
+      BOOTSTRAP_ALLOWED: "true"
+      # AUTH_TOKEN er valgfri ved første deploy — bootstrap-wizarden genererer
+      # og persiserer den. Sett her hvis du vil hoppe over wizarden.
+      AUTH_TOKEN: ${AUTH_TOKEN:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
       AUTH_TOKEN_CREATED_AT: ${AUTH_TOKEN_CREATED_AT:-}
       # LLM-backend (valgfritt — single-user kan bruke ollama på host)
       LLM_BACKEND: ${LLM_BACKEND:-ollama}
@@ -48,7 +56,8 @@ services:
       MAX_BODY_BYTES: ${MAX_BODY_BYTES:-1048576}
       MEMORY_BUDGET_MB: ${MEMORY_BUDGET_MB:-512}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      HTTPS_TERMINATED: "true"  # Caddy terminerer HTTPS foran
+      # Settes til "true" først når Caddy står foran (production-profil)
+      HTTPS_TERMINATED: ${HTTPS_TERMINATED:-false}
     # Ressursgrenser — reflekterer RPi5 4GB budsjett
     deploy:
       resources:
@@ -73,11 +82,20 @@ services:
 
   # --------------------------------------------------------------------------
   # Caddy — reverse proxy med HTTPS
+  #
+  # Gated bak profilen "production". Start kun med:
+  #   docker compose --profile production up -d
+  # Første-gangs-deploy bør kjøres uten denne profilen slik at bootstrap-
+  # wizarden kan gjennomføres på http://<host>:3000. Etter wizarden er
+  # ferdig og AUTH_TOKEN persistert, aktiver Caddy og sett
+  # HTTPS_TERMINATED=true i .env.
   # --------------------------------------------------------------------------
   caddy:
     image: caddy:2-alpine
     container_name: familieass-caddy
     restart: unless-stopped
+    profiles:
+      - production
     ports:
       - "80:80"
       - "443:443"

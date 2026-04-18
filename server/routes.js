@@ -15,6 +15,8 @@ const { registerLlmConfigRoutes } = require('./auth/llm-routes');
 const { registerGdprRoutes } = require('./auth/gdpr-routes');
 const { registerOnboardingRoutes } = require('./auth/onboarding-routes');
 const { registerFeedbackRoutes } = require('./http/feedback-routes');
+const { registerBootstrapRoutes } = require('./http/bootstrap');
+const { config } = require('./config');
 const { requireRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
@@ -132,6 +134,38 @@ function registerRoutes(router, { repos, serverState }) {
     if (!Number.isInteger(n) || n <= 0)
       throw errors.badRequest(`${name} must be a positive integer`);
     return n;
+  }
+
+  // ============================================================
+  // BOOTSTRAP (phase 22 — zero-config first-run wizard)
+  // ============================================================
+  // Always register the bootstrap status endpoint so the frontend
+  // (and test suite) can introspect mode. Complete/generate-token are
+  // gated by config.BOOTSTRAP_MODE inside the handlers, so even outside
+  // bootstrap-mode a malicious caller gets 403, not a write.
+  registerBootstrapRoutes(router, { config });
+
+  // When in bootstrap-mode, block everything else under /api/* so a
+  // half-configured server can't be used accidentally. /health and
+  // /ready still respond below. Static /setup.html + manifest + icons
+  // are served via the tryServeSpaFallback path in server.js.
+  if (config.BOOTSTRAP_MODE) {
+    router.all('/api/*', (ctx) => {
+      // Carve-out: bootstrap endpoints already matched above and returned
+      // before the catch-all would run, so this only fires for other /api/*
+      // paths.
+      if (ctx.pathname.startsWith('/api/bootstrap/')) return;
+      ctx.json(
+        {
+          type: 'about:blank',
+          title: 'Setup required',
+          status: 503,
+          detail: 'Instance not configured. Complete setup at /setup.html.',
+          setupUrl: '/setup.html',
+        },
+        503
+      );
+    });
   }
 
   // ============================================================
