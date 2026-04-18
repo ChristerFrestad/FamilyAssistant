@@ -1,97 +1,103 @@
 # Familieassistenten
 
-Selvhostet husholdningsassistent for norske familier — planlegger ukesmeny,
-handleliste, pantry-inventory og husarbeid. Kjører enten lokalt på en
-Raspberry Pi 5 eller som multi-tenant SaaS på Railway.
+Self-hosted household assistant for Norwegian families — plans the weekly
+menu, shopping list, pantry inventory, and chore rotation. Runs either
+locally on a Raspberry Pi 5 or as a multi-tenant SaaS on Railway.
 
-## Hovedfunksjoner
+The UI is Norwegian; the codebase is English.
 
-- **Ukesmeny** med porsjons-skalering per familiemedlem
-- **Pantry-inventory** koblet til handleliste — vet hva du har hjemme
-- **Handleliste** auto-generert når uken er komplett
-- **Husarbeid** med timeplan og «huk av»-logg
-- **Oppskrifts-import** fra URL, med AI-parsing
-- **Allergi-filter** to-lags (LLM-kontekst + deterministisk post-filter)
-- **Kvittering-OCR** mot Kassal-katalogen
-- **AI-chat** som bruker familiens pantry og menyhistorikk som kontekst
-- **Multi-tenant**: hver familie har egen data, rolle-basert tilgang
-  (`owner`/`adult`/`child`), valgfri Google OAuth eller magic-link-innlogging
-- **Per-familie LLM**: velg Anthropic, OpenAI, xAI eller Ollama — hver
-  familie bruker egen API-nøkkel (AES-256-GCM-kryptert)
-- **PWA**: installeres på mobil, fungerer offline for lesing
-- **GDPR**: eksport, soft-delete med 30-dagers grace, kaskade-slett ved
-  familie-sletting
+## Features
+
+- **Weekly menu** with per-member portion scaling
+- **Pantry inventory** wired to the shopping list — knows what's already
+  in the house
+- **Shopping list** auto-generated when the week is complete
+- **Chores** with schedules and completion log
+- **Recipe import** from URLs, with AI parsing
+- **Two-layer allergy filter** (LLM context + deterministic post-filter)
+- **Receipt OCR** against the Kassal catalogue
+- **AI chat** grounded in the family's pantry and menu history
+- **Multi-tenant**: each family has its own data, role-based access
+  (`owner` / `adult` / `child`), optional Google OAuth or magic-link sign-in
+- **Per-family LLM**: choose Anthropic, OpenAI, xAI, or Ollama — each
+  family brings its own API key (AES-256-GCM encrypted at rest)
+- **PWA**: installable on mobile, works offline for reads
+- **GDPR**: data export, soft-delete with 30-day grace, cascade-delete on
+  family removal
 
 ## Quickstart
 
-To kjøremåter — begge bruker samme kodebase.
+Two deployment modes — same codebase.
 
-### 1) Raspberry Pi 5 (lokal-bare-metal)
+### 1) Raspberry Pi 5 (bare-metal, single-family)
 
-Én familie, `AUTH_TOKEN` i stedet for innlogging, valgfri Google-OAuth for
-fjern-tilgang. Se [`DEPLOY.md` §1–14](DEPLOY.md) for full oppskrift.
+One family, `AUTH_TOKEN` instead of user sign-in, optional Google OAuth
+for remote access. See [`DEPLOY.md` §1–14](DEPLOY.md) for the full
+walkthrough.
 
 ```bash
 git clone <repo>
 cd FamilyAssistant
-cp .env.example .env      # fyll inn AUTH_TOKEN + ALLOWED_ORIGINS
+cp .env.example .env      # set AUTH_TOKEN + ALLOWED_ORIGINS
 chmod 600 .env
 npm ci --omit=dev
 npm start
 ```
 
-### 2) Railway (sky, multi-tenant)
+### 2) Railway (cloud, multi-tenant)
 
-Google OAuth + magic-link, per-familie LLM-konfig, Sentry valgfritt.
-Se [`DEPLOY.md` §15](DEPLOY.md) for full oppskrift inkludert DNS, Resend,
-volume-mount og backup.
+Google OAuth + magic-link, per-family LLM config, optional Sentry.
+See [`DEPLOY.md` §15](DEPLOY.md) for the full walkthrough including
+DNS, Resend, volume mount, and backup.
 
 ```bash
-# I Railway-dashbordet:
-#   1. Opprett prosjekt fra denne repoen
-#   2. Mount volume på /app/data
-#   3. Sett env-variabler (se .env.example)
-#   4. Push til main → CI → auto-deploy
+# In the Railway dashboard:
+#   1. New project from this repo
+#   2. Mount a volume at /app/data
+#   3. Set environment variables (see .env.example)
+#   4. Push to main → CI → auto-deploy
 ```
 
-## Dokumentasjon
+## Documentation
 
-| Fil | Beskrivelse |
+| File | Purpose |
 |---|---|
-| [`DEPLOY.md`](DEPLOY.md) | Deploy på RPi5 eller Railway |
-| [`RUNBOOK.md`](RUNBOOK.md) | Drift, on-call, backup/restore |
-| [`SECURITY.md`](SECURITY.md) | Trusselsmodell, sårbarhets-rapportering |
-| [`CI.md`](CI.md) | CI-gates, test/lint/coverage-kommandoer |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Bidrag, PR-flyt, kodestil |
-| [`CHANGELOG.md`](CHANGELOG.md) | Versjonshistorikk |
-| [`docs/DB_INDEXES.md`](docs/DB_INDEXES.md) | SQLite-indekser og EXPLAIN QUERY PLAN |
+| [`DEPLOY.md`](DEPLOY.md) | Deploy on RPi5 or Railway |
+| [`RUNBOOK.md`](RUNBOOK.md) | Operations, on-call, backup/restore |
+| [`SECURITY.md`](SECURITY.md) | Threat model, vulnerability reporting |
+| [`CI.md`](CI.md) | CI gates, test/lint/coverage commands |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution flow, coding style |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history |
+| [`docs/DB_INDEXES.md`](docs/DB_INDEXES.md) | SQLite indexes and query plans |
 
-## Teknologi
+## Stack
 
-- **Node.js ≥ 20**, ingen rammeverk — `node:http` med egen router
-- **SQLite** via `better-sqlite3` (synkron, raskest på RPi5)
-- **Validering**: Zod
+- **Node.js ≥ 20**, no framework — `node:http` with a hand-rolled router
+- **SQLite** via `better-sqlite3` (synchronous, fastest on an RPi5)
+- **Validation**: Zod
 - **Logging**: pino
-- **Frontend**: klassisk HTML/CSS/JS + service worker, ingen build-steg
-- **LLM-abstraksjon**: per-familie valg mellom Anthropic, OpenAI, xAI, Ollama
-  og lokal llama.cpp
+- **Frontend**: plain HTML / CSS / JS + a service worker, no build step
+- **LLM abstraction**: per-family backend — Anthropic, OpenAI, xAI,
+  Ollama, or a local llama.cpp server
 
-## Produksjons-krav
+## Production requirements
 
-`NODE_ENV=production` krever minimum:
+`NODE_ENV=production` requires at minimum:
 
-1. `AUTH_TOKEN` (minst 16, helst 32+ tegn) — `openssl rand -hex 32`
-2. `ALLOWED_ORIGINS` — komma-separert liste, ikke `*`
-3. HTTPS (via Caddy for RPi5, eller automatisk på Railway) og
+1. `AUTH_TOKEN` (≥ 16, ideally 32+ characters) — generate with
+   `openssl rand -hex 32`
+2. `ALLOWED_ORIGINS` — comma-separated allowlist, `*` is rejected
+3. HTTPS (Caddy on RPi5, automatic on Railway) and
    `HTTPS_TERMINATED=true`
-4. For multi-tenant: `SESSION_SECRET`, `ENCRYPTION_KEY`, `APP_URL`
+4. For the multi-tenant path: `SESSION_SECRET`, `ENCRYPTION_KEY`,
+   `APP_URL`
 
-Serveren nekter oppstart hvis 1 eller 2 mangler.
+The server refuses to start if 1 or 2 are missing.
 
-## Lisens
+## License
 
-MIT — se [`LICENSE`](LICENSE). © Christer Frestad.
+MIT — see [`LICENSE`](LICENSE). © Christer Frestad.
 
-## Sikkerhetsrapporter
+## Security reports
 
-Se [`SECURITY.md`](SECURITY.md) for ansvarlig rapportering av sårbarheter.
+See [`SECURITY.md`](SECURITY.md) for responsible disclosure.
