@@ -10,6 +10,7 @@ const { getWeekYear, chores: seedChores } = require('./seed');
 const { errors } = require('./http/errors');
 const { validateBody } = require('./http/validate');
 const { registerAuthRoutes } = require('./auth/routes');
+const { registerFamilyRoutes } = require('./auth/family-routes');
 const { requireRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
@@ -169,6 +170,11 @@ function registerRoutes(router, { repos, serverState }) {
   // AUTH (Google OAuth, magic-link, sessions)
   // ============================================================
   registerAuthRoutes(router, { repos });
+
+  // ============================================================
+  // FAMILY + INVITATIONS (phase 7)
+  // ============================================================
+  registerFamilyRoutes(router, { repos });
 
   // ============================================================
   // HEALTH / READY

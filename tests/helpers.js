@@ -100,6 +100,17 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
     if (body && !h['Content-Type']) h['Content-Type'] = 'application/json';
     if (token) h['Authorization'] = `Bearer ${token}`;
 
+    // Pre-serialize body and set Content-Length so DELETE (and others)
+    // reliably transmit the body. Node's http client will silently drop
+    // the body on DELETE requests that have neither Content-Length nor
+    // Transfer-Encoding: chunked.
+    let bodyBuf = null;
+    if (body != null) {
+      const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+      bodyBuf = Buffer.from(bodyStr, 'utf8');
+      if (!h['Content-Length']) h['Content-Length'] = String(bodyBuf.length);
+    }
+
     const req = http.request(
       {
         host: url.hostname,
@@ -142,8 +153,8 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
       clearTimeout(timeout);
       reject(err);
     });
-    if (body != null) {
-      req.write(typeof body === 'string' ? body : JSON.stringify(body));
+    if (bodyBuf) {
+      req.write(bodyBuf);
     }
     req.end();
   });
