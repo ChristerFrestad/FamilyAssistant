@@ -532,3 +532,54 @@ body.settings-mode .fab.visible {
   color: var(--text);
 }
 /* ===== UKE_9_END safety-warning ===== */
+
+/* ===== PHASE_11 user-badge + logout ===== */
+.user-badge {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.user-chip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--surface, #fff);
+  color: var(--text, #111827);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.user-chip:hover {
+  background: var(--surface-alt, #f9fafb);
+}
+.user-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--blue, #2563eb);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.user-name {
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout-btn {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--surface, #fff);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.logout-btn:hover {
+  background: var(--surface-alt, #f9fafb);
+}
+/* ===== END PHASE_11 ===== */
