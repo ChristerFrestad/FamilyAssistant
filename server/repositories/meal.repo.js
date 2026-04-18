@@ -1,49 +1,55 @@
 'use strict';
 
+const { getFamilyId } = require('../auth/family-context');
+
 function createMealRepos(db, tryParseJson) {
   const mealPlans = {
     getWeek(weekYear) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
         SELECT id, week_year as weekYear, day_of_week as dayOfWeek, meal_type as mealType,
                recipe_id as recipeId, status, notes
         FROM meal_plans
-        WHERE week_year = ? AND meal_type = 'middag'
+        WHERE family_id = ? AND week_year = ? AND meal_type = 'middag'
         ORDER BY day_of_week
       `
         )
-        .all(weekYear);
+        .all(familyId, weekYear);
     },
     seedDefault(weekYear, defaultPlan) {
+      const familyId = getFamilyId();
       const ins = db.prepare(`
-        INSERT OR IGNORE INTO meal_plans (week_year, day_of_week, meal_type, recipe_id, status)
-        VALUES (?, ?, 'middag', ?, ?)
+        INSERT OR IGNORE INTO meal_plans (family_id, week_year, day_of_week, meal_type, recipe_id, status)
+        VALUES (?, ?, ?, 'middag', ?, ?)
       `);
       const tx = db.transaction(() => {
         for (const slot of defaultPlan) {
-          ins.run(weekYear, slot.dayOfWeek, slot.recipeId, slot.status || 'planned');
+          ins.run(familyId, weekYear, slot.dayOfWeek, slot.recipeId, slot.status || 'planned');
         }
       });
       tx();
     },
     setRecipe(weekYear, dayOfWeek, recipeId, status = 'planned') {
+      const familyId = getFamilyId();
       db.prepare(
         `
-        INSERT INTO meal_plans (week_year, day_of_week, meal_type, recipe_id, status)
-        VALUES (?, ?, 'middag', ?, ?)
+        INSERT INTO meal_plans (family_id, week_year, day_of_week, meal_type, recipe_id, status)
+        VALUES (?, ?, ?, 'middag', ?, ?)
         ON CONFLICT(family_id, week_year, day_of_week, meal_type) DO UPDATE SET
           recipe_id = excluded.recipe_id, status = excluded.status
       `
-      ).run(weekYear, dayOfWeek, recipeId, status);
+      ).run(familyId, weekYear, dayOfWeek, recipeId, status);
     },
     setStatus(weekYear, dayOfWeek, status) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE meal_plans SET status = ?
-        WHERE week_year = ? AND day_of_week = ? AND meal_type = 'middag'
+        WHERE family_id = ? AND week_year = ? AND day_of_week = ? AND meal_type = 'middag'
       `
-      ).run(status, weekYear, dayOfWeek);
+      ).run(status, familyId, weekYear, dayOfWeek);
     },
     swapDays(weekYear, dayA, dayB) {
       const plan = mealPlans.getWeek(weekYear);
@@ -57,8 +63,11 @@ function createMealRepos(db, tryParseJson) {
       tx();
     },
     exists(weekYear) {
+      const familyId = getFamilyId();
       return (
-        db.prepare('SELECT 1 FROM meal_plans WHERE week_year = ? LIMIT 1').get(weekYear) != null
+        db
+          .prepare('SELECT 1 FROM meal_plans WHERE family_id = ? AND week_year = ? LIMIT 1')
+          .get(familyId, weekYear) != null
       );
     },
     /**
@@ -69,15 +78,16 @@ function createMealRepos(db, tryParseJson) {
      * Returnerer false hvis uken ikke finnes i det hele tatt.
      */
     isWeekComplete(weekYear) {
+      const familyId = getFamilyId();
       const rows = db
         .prepare(
           `
         SELECT day_of_week as dayOfWeek, recipe_id as recipeId, status
         FROM meal_plans
-        WHERE week_year = ? AND meal_type = 'middag'
+        WHERE family_id = ? AND week_year = ? AND meal_type = 'middag'
       `
         )
-        .all(weekYear);
+        .all(familyId, weekYear);
       if (rows.length < 7) return false;
       const seen = new Set();
       for (const r of rows) {
@@ -89,7 +99,6 @@ function createMealRepos(db, tryParseJson) {
           r.status === 'removed';
         if (!decided) return false;
       }
-      // Alle 7 unike dager må være til stede
       for (let d = 0; d < 7; d++) if (!seen.has(d)) return false;
       return true;
     },
@@ -97,42 +106,58 @@ function createMealRepos(db, tryParseJson) {
 
   const mealHistory = {
     insert(entry) {
+      const familyId = getFamilyId();
       db.prepare(
         `
-        INSERT INTO meal_history (recipe_id, rating, leftovers, notes) VALUES (?, ?, ?, ?)
+        INSERT INTO meal_history (family_id, recipe_id, rating, leftovers, notes) VALUES (?, ?, ?, ?, ?)
       `
-      ).run(entry.recipeId, entry.rating ?? null, entry.leftovers ? 1 : 0, entry.notes ?? null);
+      ).run(
+        familyId,
+        entry.recipeId,
+        entry.rating ?? null,
+        entry.leftovers ? 1 : 0,
+        entry.notes ?? null
+      );
     },
     getRecent(days = 28) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
         SELECT recipe_id as recipeId, cooked_at, rating, leftovers
         FROM meal_history
-        WHERE cooked_at >= date('now', ?)
+        WHERE family_id = ? AND cooked_at >= date('now', ?)
         ORDER BY cooked_at DESC
       `
         )
-        .all(`-${days} days`);
+        .all(familyId, `-${days} days`);
     },
   };
 
   const sundayDrafts = {
     get(weekYear) {
-      const r = db.prepare(`SELECT * FROM sunday_drafts WHERE week_year = ?`).get(weekYear);
+      const familyId = getFamilyId();
+      const r = db
+        .prepare(`SELECT * FROM sunday_drafts WHERE family_id = ? AND week_year = ?`)
+        .get(familyId, weekYear);
       if (!r) return null;
       return { ...r, meals: tryParseJson(r.meals_json) || [], accepted: !!r.accepted };
     },
     save(weekYear, meals) {
+      const familyId = getFamilyId();
       db.prepare(
         `
-        INSERT OR REPLACE INTO sunday_drafts (week_year, meals_json, generated_at, accepted)
-        VALUES (?, ?, datetime('now'), 0)
+        INSERT OR REPLACE INTO sunday_drafts (family_id, week_year, meals_json, generated_at, accepted)
+        VALUES (?, ?, ?, datetime('now'), 0)
       `
-      ).run(weekYear, JSON.stringify(meals));
+      ).run(familyId, weekYear, JSON.stringify(meals));
     },
     markAccepted(weekYear) {
-      db.prepare(`UPDATE sunday_drafts SET accepted = 1 WHERE week_year = ?`).run(weekYear);
+      const familyId = getFamilyId();
+      db.prepare(`UPDATE sunday_drafts SET accepted = 1 WHERE family_id = ? AND week_year = ?`).run(
+        familyId,
+        weekYear
+      );
     },
   };
 

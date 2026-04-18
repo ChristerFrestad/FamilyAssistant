@@ -1,5 +1,7 @@
 'use strict';
 
+const { getFamilyId } = require('../auth/family-context');
+
 function createSystemRepos(db, tryParseJson) {
   const hasFTS = (() => {
     try {
@@ -17,14 +19,16 @@ function createSystemRepos(db, tryParseJson) {
 
   const kb = {
     insert(entry) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
-        INSERT INTO knowledge_base (timestamp, user_message, ai_response, context_json, intent, entities_json)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO knowledge_base (family_id, timestamp, user_message, ai_response, context_json, intent, entities_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `
         )
         .run(
+          familyId,
           entry.timestamp || new Date().toISOString(),
           entry.userMessage,
           entry.aiResponse,
@@ -34,8 +38,8 @@ function createSystemRepos(db, tryParseJson) {
         ).lastInsertRowid;
     },
     search(query, limit = 10) {
+      const familyId = getFamilyId();
       if (hasFTS && query && query.trim()) {
-        // FTS5 BM25-søk
         const safe = query
           .replace(/["']/g, '')
           .split(/\s+/)
@@ -49,13 +53,13 @@ function createSystemRepos(db, tryParseJson) {
               `
             SELECT kb.* FROM knowledge_base kb
             JOIN knowledge_base_fts fts ON fts.rowid = kb.id
-            WHERE knowledge_base_fts MATCH ?
+            WHERE kb.family_id = ? AND knowledge_base_fts MATCH ?
             ORDER BY bm25(knowledge_base_fts) LIMIT ?
           `
             )
-            .all(safe, limit);
+            .all(familyId, safe, limit);
         } catch {
-          /* falle tilbake til LIKE */
+          /* fall through to LIKE */
         }
       }
       const like = `%${query}%`;
@@ -63,40 +67,51 @@ function createSystemRepos(db, tryParseJson) {
         .prepare(
           `
         SELECT * FROM knowledge_base
-        WHERE user_message LIKE ? OR ai_response LIKE ?
+        WHERE family_id = ? AND (user_message LIKE ? OR ai_response LIKE ?)
         ORDER BY timestamp DESC LIMIT ?
       `
         )
-        .all(like, like, limit);
+        .all(familyId, like, like, limit);
     },
     getRecent(limit = 20) {
-      return db.prepare('SELECT * FROM knowledge_base ORDER BY timestamp DESC LIMIT ?').all(limit);
+      const familyId = getFamilyId();
+      return db
+        .prepare('SELECT * FROM knowledge_base WHERE family_id = ? ORDER BY timestamp DESC LIMIT ?')
+        .all(familyId, limit);
     },
     count() {
-      return db.prepare('SELECT COUNT(*) as c FROM knowledge_base').get().c;
+      const familyId = getFamilyId();
+      return db
+        .prepare('SELECT COUNT(*) as c FROM knowledge_base WHERE family_id = ?')
+        .get(familyId).c;
     },
   };
 
   const calendar = {
     getEvents(from, to) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
         SELECT id, title, date, start_time as startTime, end_time as endTime, location, all_day as allDay, notes, source
-        FROM calendar_events WHERE date >= ? AND date <= ? ORDER BY date, start_time
+        FROM calendar_events
+        WHERE family_id = ? AND date >= ? AND date <= ?
+        ORDER BY date, start_time
       `
         )
-        .all(from, to);
+        .all(familyId, from, to);
     },
     insert(ev) {
+      const familyId = getFamilyId();
       const res = db
         .prepare(
           `
-        INSERT INTO calendar_events (title, date, start_time, end_time, location, all_day, notes, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO calendar_events (family_id, title, date, start_time, end_time, location, all_day, notes, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
         )
         .run(
+          familyId,
           ev.title,
           ev.date,
           ev.startTime ?? null,
@@ -109,25 +124,33 @@ function createSystemRepos(db, tryParseJson) {
       return { id: res.lastInsertRowid, ...ev };
     },
     delete(id) {
-      db.prepare('DELETE FROM calendar_events WHERE id = ?').run(id);
+      const familyId = getFamilyId();
+      db.prepare('DELETE FROM calendar_events WHERE family_id = ? AND id = ?').run(familyId, id);
     },
   };
 
   const notifications = {
     insert(type, message, data = null) {
+      const familyId = getFamilyId();
       db.prepare(
         `
-        INSERT INTO notifications (type, message, data_json) VALUES (?, ?, ?)
+        INSERT INTO notifications (family_id, type, message, data_json) VALUES (?, ?, ?, ?)
       `
-      ).run(type, message, data ? JSON.stringify(data) : null);
+      ).run(familyId, type, message, data ? JSON.stringify(data) : null);
     },
     getUnread() {
+      const familyId = getFamilyId();
       return db
-        .prepare(`SELECT * FROM notifications WHERE read = 0 ORDER BY created_at DESC`)
-        .all();
+        .prepare(
+          `SELECT * FROM notifications WHERE family_id = ? AND read = 0 ORDER BY created_at DESC`
+        )
+        .all(familyId);
     },
     markAllRead() {
-      db.prepare(`UPDATE notifications SET read = 1 WHERE read = 0`).run();
+      const familyId = getFamilyId();
+      db.prepare(`UPDATE notifications SET read = 1 WHERE family_id = ? AND read = 0`).run(
+        familyId
+      );
     },
   };
 
@@ -195,12 +218,14 @@ function createSystemRepos(db, tryParseJson) {
 
   const llmAudit = {
     log({ toolName, arguments: args, result, success, userMessage }) {
+      const familyId = getFamilyId();
       db.prepare(
         `
-        INSERT INTO llm_audit (tool_name, arguments, result, success, user_message)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO llm_audit (family_id, tool_name, arguments, result, success, user_message)
+        VALUES (?, ?, ?, ?, ?, ?)
       `
       ).run(
+        familyId,
         toolName,
         args ? JSON.stringify(args) : null,
         result ? JSON.stringify(result).slice(0, 4000) : null,
@@ -209,7 +234,10 @@ function createSystemRepos(db, tryParseJson) {
       );
     },
     getRecent(limit = 50) {
-      return db.prepare(`SELECT * FROM llm_audit ORDER BY timestamp DESC LIMIT ?`).all(limit);
+      const familyId = getFamilyId();
+      return db
+        .prepare(`SELECT * FROM llm_audit WHERE family_id = ? ORDER BY timestamp DESC LIMIT ?`)
+        .all(familyId, limit);
     },
   };
 
@@ -264,8 +292,9 @@ function createSystemRepos(db, tryParseJson) {
 
   const familyProfile = {
     get() {
+      const familyId = getFamilyId();
       try {
-        const r = db.prepare('SELECT * FROM family_profile WHERE id = 1').get();
+        const r = db.prepare('SELECT * FROM family_profile WHERE family_id = ?').get(familyId);
         if (!r) {
           return {
             members: [],
@@ -286,7 +315,7 @@ function createSystemRepos(db, tryParseJson) {
           updatedAt: r.updated_at,
         };
       } catch {
-        // Fallback hvis tabellen ikke finnes (eldre DB)
+        // Fallback if the table does not exist yet (very old DB).
         return {
           members: [],
           allergies: [],
@@ -298,6 +327,7 @@ function createSystemRepos(db, tryParseJson) {
       }
     },
     update(profile) {
+      const familyId = getFamilyId();
       const current = familyProfile.get();
       const merged = {
         members: profile.members ?? current.members,
@@ -311,9 +341,9 @@ function createSystemRepos(db, tryParseJson) {
       };
       db.prepare(
         `
-        INSERT INTO family_profile (id, members, allergies, dislikes, preferences, preferred_chain, secondary_chain, updated_at)
-        VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now'))
-        ON CONFLICT(id) DO UPDATE SET
+        INSERT INTO family_profile (id, family_id, members, allergies, dislikes, preferences, preferred_chain, secondary_chain, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(family_id) DO UPDATE SET
           members = excluded.members,
           allergies = excluded.allergies,
           dislikes = excluded.dislikes,
@@ -323,6 +353,8 @@ function createSystemRepos(db, tryParseJson) {
           updated_at = datetime('now')
       `
       ).run(
+        familyId,
+        familyId,
         JSON.stringify(merged.members),
         JSON.stringify(merged.allergies),
         JSON.stringify(merged.dislikes),
@@ -337,36 +369,36 @@ function createSystemRepos(db, tryParseJson) {
   const filterUsage = {
     recordUsage(filterId, action) {
       if (!filterId) return;
+      const familyId = getFamilyId();
       const isEnable = action === 'enabled' || action === 'enable';
       try {
-        // Bruk separate prepared statements i stedet for template literal
-        // for å unngå SQL-injeksjonsrisiko via kolonne-interpolering.
         if (isEnable) {
           db.prepare(
             `
-            INSERT INTO filter_usage (filter_id, enable_count, last_used_at)
-            VALUES (?, 1, datetime('now'))
+            INSERT INTO filter_usage (family_id, filter_id, enable_count, last_used_at)
+            VALUES (?, ?, 1, datetime('now'))
             ON CONFLICT(family_id, filter_id) DO UPDATE SET
               enable_count = enable_count + 1,
               last_used_at = datetime('now')
           `
-          ).run(filterId);
+          ).run(familyId, filterId);
         } else {
           db.prepare(
             `
-            INSERT INTO filter_usage (filter_id, disable_count, last_used_at)
-            VALUES (?, 1, datetime('now'))
+            INSERT INTO filter_usage (family_id, filter_id, disable_count, last_used_at)
+            VALUES (?, ?, 1, datetime('now'))
             ON CONFLICT(family_id, filter_id) DO UPDATE SET
               disable_count = disable_count + 1,
               last_used_at = datetime('now')
           `
-          ).run(filterId);
+          ).run(familyId, filterId);
         }
       } catch {
         /* robust mot eldre DB */
       }
     },
     getTopN(n = 3) {
+      const familyId = getFamilyId();
       try {
         return db
           .prepare(
@@ -374,17 +406,18 @@ function createSystemRepos(db, tryParseJson) {
           SELECT filter_id as filterId, enable_count as enableCount,
                  disable_count as disableCount, last_used_at as lastUsedAt
           FROM filter_usage
-          WHERE enable_count > 0
+          WHERE family_id = ? AND enable_count > 0
           ORDER BY enable_count DESC, last_used_at DESC
           LIMIT ?
         `
           )
-          .all(n);
+          .all(familyId, n);
       } catch {
         return [];
       }
     },
     getAll() {
+      const familyId = getFamilyId();
       try {
         return db
           .prepare(
@@ -392,10 +425,11 @@ function createSystemRepos(db, tryParseJson) {
           SELECT filter_id as filterId, enable_count as enableCount,
                  disable_count as disableCount, last_used_at as lastUsedAt
           FROM filter_usage
+          WHERE family_id = ?
           ORDER BY enable_count DESC
         `
           )
-          .all();
+          .all(familyId);
       } catch {
         return [];
       }
@@ -417,6 +451,7 @@ function createSystemRepos(db, tryParseJson) {
      * @param {object} [entry.metadata]  - ekstra context (små key-val)
      */
     record(entry) {
+      const familyId = getFamilyId();
       const crypto = require('crypto');
       const hash = (obj) => {
         if (obj == null) return null;
@@ -427,10 +462,11 @@ function createSystemRepos(db, tryParseJson) {
         db.prepare(
           `
           INSERT INTO audit_log
-            (request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (family_id, request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
+          familyId,
           entry.requestId || 'unknown',
           entry.actor || 'local',
           entry.action,
@@ -442,31 +478,28 @@ function createSystemRepos(db, tryParseJson) {
           entry.metadata ? JSON.stringify(entry.metadata).slice(0, 2000) : null
         );
       } catch (err) {
-        // Audit-feil skal aldri tørke ut hovedoperasjonen. Logg stille.
         if (process.env.NODE_ENV !== 'test') {
-          console.error('[audit] kunne ikke skrive til audit_log:', err.message);
+          console.error('[audit] could not write to audit_log:', err.message);
         }
       }
     },
 
-    /** Hent siste N hendelser (DESC på timestamp).
-     *  Uke 5 PERF-3: ORDER BY timestamp DESC, id DESC bruker
-     *  idx_audit_log_timestamp i stedet for full SCAN. */
     getRecent(limit = 100) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `SELECT id, timestamp, request_id as requestId, actor, action,
                   entity_type as entityType, entity_id as entityId, route,
                   before_hash as beforeHash, after_hash as afterHash, metadata
-           FROM audit_log ORDER BY timestamp DESC, id DESC LIMIT ?`
+           FROM audit_log WHERE family_id = ?
+           ORDER BY timestamp DESC, id DESC LIMIT ?`
         )
-        .all(Math.max(1, Math.min(500, limit)))
+        .all(familyId, Math.max(1, Math.min(500, limit)))
         .map((r) => ({ ...r, metadata: r.metadata ? tryParseJson(r.metadata) : null }));
     },
 
-    /** Filtrer på entity_type + (optional) entity_id.
-     *  Uke 5 PERF-3: ORDER BY timestamp DESC bruker index. */
     getByEntity(entityType, entityId = null, limit = 100) {
+      const familyId = getFamilyId();
       if (entityId != null) {
         return db
           .prepare(
@@ -474,10 +507,10 @@ function createSystemRepos(db, tryParseJson) {
                     entity_type as entityType, entity_id as entityId, route,
                     before_hash as beforeHash, after_hash as afterHash, metadata
              FROM audit_log
-             WHERE entity_type = ? AND entity_id = ?
+             WHERE family_id = ? AND entity_type = ? AND entity_id = ?
              ORDER BY timestamp DESC, id DESC LIMIT ?`
           )
-          .all(entityType, String(entityId), Math.max(1, Math.min(500, limit)))
+          .all(familyId, entityType, String(entityId), Math.max(1, Math.min(500, limit)))
           .map((r) => ({ ...r, metadata: r.metadata ? tryParseJson(r.metadata) : null }));
       }
       return db
@@ -486,24 +519,26 @@ function createSystemRepos(db, tryParseJson) {
                   entity_type as entityType, entity_id as entityId, route,
                   before_hash as beforeHash, after_hash as afterHash, metadata
            FROM audit_log
-           WHERE entity_type = ?
+           WHERE family_id = ? AND entity_type = ?
            ORDER BY timestamp DESC, id DESC LIMIT ?`
         )
-        .all(entityType, Math.max(1, Math.min(500, limit)))
+        .all(familyId, entityType, Math.max(1, Math.min(500, limit)))
         .map((r) => ({ ...r, metadata: r.metadata ? tryParseJson(r.metadata) : null }));
     },
 
-    /** Statistikk for /api/audit/stats — brukes av dashboards. */
     stats() {
-      const total = db.prepare('SELECT COUNT(*) as c FROM audit_log').get().c;
+      const familyId = getFamilyId();
+      const total = db
+        .prepare('SELECT COUNT(*) as c FROM audit_log WHERE family_id = ?')
+        .get(familyId).c;
       const byAction = db
-        .prepare('SELECT action, COUNT(*) as c FROM audit_log GROUP BY action')
-        .all();
+        .prepare('SELECT action, COUNT(*) as c FROM audit_log WHERE family_id = ? GROUP BY action')
+        .all(familyId);
       const byEntity = db
         .prepare(
-          'SELECT entity_type, COUNT(*) as c FROM audit_log GROUP BY entity_type ORDER BY c DESC LIMIT 10'
+          'SELECT entity_type, COUNT(*) as c FROM audit_log WHERE family_id = ? GROUP BY entity_type ORDER BY c DESC LIMIT 10'
         )
-        .all();
+        .all(familyId);
       return { total, byAction, byEntity };
     },
   };

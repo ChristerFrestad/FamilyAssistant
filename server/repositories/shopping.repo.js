@@ -1,30 +1,41 @@
 'use strict';
 
+const { getFamilyId } = require('../auth/family-context');
+
 function createShoppingRepos(db, tryParseJson) {
   const shoppingExtras = {
     getWeek(weekYear) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
-        SELECT * FROM shopping_extras WHERE week_year = ? ORDER BY created_at
+        SELECT * FROM shopping_extras
+        WHERE family_id = ? AND week_year = ?
+        ORDER BY created_at
       `
         )
-        .all(weekYear);
+        .all(familyId, weekYear);
     },
     add(weekYear, { name, category, quantity = null }) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
-        INSERT INTO shopping_extras (week_year, name, category, quantity) VALUES (?, ?, ?, ?)
+        INSERT INTO shopping_extras (family_id, week_year, name, category, quantity)
+        VALUES (?, ?, ?, ?, ?)
       `
         )
-        .run(weekYear, name, category || 'Tørrvarer & annet', quantity).lastInsertRowid;
+        .run(familyId, weekYear, name, category || 'Tørrvarer & annet', quantity).lastInsertRowid;
     },
     toggleChecked(id) {
-      db.prepare(`UPDATE shopping_extras SET checked = 1 - checked WHERE id = ?`).run(id);
+      const familyId = getFamilyId();
+      db.prepare(
+        `UPDATE shopping_extras SET checked = 1 - checked WHERE family_id = ? AND id = ?`
+      ).run(familyId, id);
     },
     remove(id) {
-      db.prepare('DELETE FROM shopping_extras WHERE id = ?').run(id);
+      const familyId = getFamilyId();
+      db.prepare('DELETE FROM shopping_extras WHERE family_id = ? AND id = ?').run(familyId, id);
     },
   };
 
@@ -35,33 +46,37 @@ function createShoppingRepos(db, tryParseJson) {
      * Returnerer { listId, itemCount, needsBuyCount }.
      */
     createActive(weekYear, items, { totalEstPrice = null, notes = null } = {}) {
+      const familyId = getFamilyId();
       const supersede = db.prepare(`
         UPDATE shopping_lists SET status = 'superseded'
-        WHERE week_year = ? AND status = 'active'
+        WHERE family_id = ? AND week_year = ? AND status = 'active'
       `);
       const insertList = db.prepare(`
-        INSERT INTO shopping_lists (week_year, status, total_est_price, notes)
-        VALUES (?, 'active', ?, ?)
+        INSERT INTO shopping_lists (family_id, week_year, status, total_est_price, notes)
+        VALUES (?, ?, 'active', ?, ?)
       `);
       const insertItem = db.prepare(`
         INSERT INTO shopping_list_items (
-          list_id, source_type, source_ref, ingredient_name, ingredient_name_no,
+          family_id, list_id, source_type, source_ref, ingredient_name, ingredient_name_no,
           product_key, qty, unit, brand_hint, category,
           pack_size, pack_unit, pack_count, est_price,
           pantry_has, pantry_qty, needs_buy,
           meals_json, dairy_note, sort_order, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const tx = db.transaction(() => {
-        supersede.run(weekYear);
-        const listId = Number(insertList.run(weekYear, totalEstPrice, notes).lastInsertRowid);
+        supersede.run(familyId, weekYear);
+        const listId = Number(
+          insertList.run(familyId, weekYear, totalEstPrice, notes).lastInsertRowid
+        );
         let needsBuyCount = 0;
         let sort = 0;
         for (const it of items) {
           const needsBuy = it.needsBuy ? 1 : 0;
           if (needsBuy) needsBuyCount++;
           insertItem.run(
+            familyId,
             listId,
             it.sourceType,
             it.sourceRef || null,
@@ -94,6 +109,7 @@ function createShoppingRepos(db, tryParseJson) {
      * Hent en liste med alle items (i sort_order). Returnerer null hvis ikke funnet.
      */
     getById(id) {
+      const familyId = getFamilyId();
       const list = db
         .prepare(
           `
@@ -103,10 +119,10 @@ function createShoppingRepos(db, tryParseJson) {
                enrichment_started_at as enrichmentStartedAt,
                enrichment_finished_at as enrichmentFinishedAt,
                total_est_price as totalEstPrice, notes
-        FROM shopping_lists WHERE id = ?
+        FROM shopping_lists WHERE family_id = ? AND id = ?
       `
         )
-        .get(id);
+        .get(familyId, id);
       if (!list) return null;
       list.items = shoppingLists._getItems(id);
       return list;
@@ -116,6 +132,7 @@ function createShoppingRepos(db, tryParseJson) {
      * Hent den aktive handlelisten for en uke, eller null.
      */
     getActive(weekYear) {
+      const familyId = getFamilyId();
       const row = db
         .prepare(
           `
@@ -126,11 +143,11 @@ function createShoppingRepos(db, tryParseJson) {
                enrichment_finished_at as enrichmentFinishedAt,
                total_est_price as totalEstPrice, notes
         FROM shopping_lists
-        WHERE week_year = ? AND status = 'active'
+        WHERE family_id = ? AND week_year = ? AND status = 'active'
         LIMIT 1
       `
         )
-        .get(weekYear);
+        .get(familyId, weekYear);
       if (!row) return null;
       row.items = shoppingLists._getItems(row.id);
       return row;
@@ -139,18 +156,23 @@ function createShoppingRepos(db, tryParseJson) {
     /**
      * Finn aktive handlelister som trenger berikelse (pending eller partial).
      * Brukes av cron-jobben for å resumere berikelse etter rate-limit/crash.
+     * NB: Cron-bruk kjører per-family via runWithFamily, så family_id-filtret
+     * her er basert på gjeldende kontekst.
      */
     listPendingEnrichment(limit = 10) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
         SELECT id FROM shopping_lists
-        WHERE status = 'active' AND enrichment_status IN ('pending', 'partial')
+        WHERE family_id = ?
+          AND status = 'active'
+          AND enrichment_status IN ('pending', 'partial')
         ORDER BY generated_at ASC
         LIMIT ?
       `
         )
-        .all(limit)
+        .all(familyId, limit)
         .map((r) => r.id);
     },
 
@@ -158,6 +180,7 @@ function createShoppingRepos(db, tryParseJson) {
      * Lister (uten items) for en uke, nyeste først. Brukt av historikk-UI.
      */
     getByWeek(weekYear) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
@@ -165,14 +188,15 @@ function createShoppingRepos(db, tryParseJson) {
                generated_at as generatedAt, confirmed_at as confirmedAt,
                enrichment_status as enrichmentStatus,
                total_est_price as totalEstPrice
-        FROM shopping_lists WHERE week_year = ?
+        FROM shopping_lists WHERE family_id = ? AND week_year = ?
         ORDER BY generated_at DESC
       `
         )
-        .all(weekYear);
+        .all(familyId, weekYear);
     },
 
     _getItems(listId) {
+      const familyId = getFamilyId();
       const rows = db
         .prepare(
           `
@@ -191,11 +215,11 @@ function createShoppingRepos(db, tryParseJson) {
                kp.last_seen_store as lastSeenStore
         FROM shopping_list_items si
         LEFT JOIN kassal_products kp ON kp.id = si.kassal_product_id
-        WHERE si.list_id = ?
+        WHERE si.family_id = ? AND si.list_id = ?
         ORDER BY si.sort_order, si.id
       `
         )
-        .all(listId);
+        .all(familyId, listId);
       return rows.map((r) => ({
         ...r,
         pantryHas: !!r.pantryHas,
@@ -211,6 +235,7 @@ function createShoppingRepos(db, tryParseJson) {
      * Hent et enkelt item med parent-liste. Returnerer { item, list } eller null.
      */
     getItemWithList(itemId) {
+      const familyId = getFamilyId();
       const item = db
         .prepare(
           `
@@ -220,20 +245,21 @@ function createShoppingRepos(db, tryParseJson) {
                pantry_has as pantryHas, needs_buy as needsBuy,
                bought_at as boughtAt, bought_qty as boughtQty,
                kassal_product_id as kassalProductId, resolution_id as resolutionId
-        FROM shopping_list_items WHERE id = ?
+        FROM shopping_list_items WHERE family_id = ? AND id = ?
       `
         )
-        .get(itemId);
+        .get(familyId, itemId);
       if (!item) return null;
       item.pantryHas = !!item.pantryHas;
       item.needsBuy = !!item.needsBuy;
       const list = db
         .prepare(
           `
-        SELECT id, week_year as weekYear, status FROM shopping_lists WHERE id = ?
+        SELECT id, week_year as weekYear, status FROM shopping_lists
+        WHERE family_id = ? AND id = ?
       `
         )
-        .get(item.listId);
+        .get(familyId, item.listId);
       return { item, list };
     },
 
@@ -244,15 +270,16 @@ function createShoppingRepos(db, tryParseJson) {
      * utenfor sin egen tabell.
      */
     markItemBought(itemId, boughtQty) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE shopping_list_items
         SET bought_at = datetime('now'),
             bought_qty = ?,
             needs_buy = 0
-        WHERE id = ?
+        WHERE family_id = ? AND id = ?
       `
-      ).run(boughtQty ?? null, itemId);
+      ).run(boughtQty ?? null, familyId, itemId);
     },
 
     /**
@@ -260,32 +287,35 @@ function createShoppingRepos(db, tryParseJson) {
      * til må-kjøpes. needs_buy=1, pantry_has=0.
      */
     markItemUnpantry(itemId) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE shopping_list_items
         SET pantry_has = 0, needs_buy = 1
-        WHERE id = ?
+        WHERE family_id = ? AND id = ?
       `
-      ).run(itemId);
+      ).run(familyId, itemId);
     },
 
     /**
      * Lukk en handleliste manuelt. Setter status='done' + confirmed_at.
      */
     markDone(listId) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE shopping_lists
         SET status = 'done', confirmed_at = datetime('now')
-        WHERE id = ?
+        WHERE family_id = ? AND id = ?
       `
-      ).run(listId);
+      ).run(familyId, listId);
     },
 
     /**
      * Oppdater berikelse-status (brukt av fase B enricher).
      */
     setEnrichmentStatus(listId, status, { startedAt = false, finishedAt = false } = {}) {
+      const familyId = getFamilyId();
       const fields = ['enrichment_status = ?'];
       const args = [status];
       if (startedAt) {
@@ -296,9 +326,9 @@ function createShoppingRepos(db, tryParseJson) {
       }
       db.prepare(
         `
-        UPDATE shopping_lists SET ${fields.join(', ')} WHERE id = ?
+        UPDATE shopping_lists SET ${fields.join(', ')} WHERE family_id = ? AND id = ?
       `
-      ).run(...args, listId);
+      ).run(...args, familyId, listId);
     },
 
     /**
@@ -308,6 +338,7 @@ function createShoppingRepos(db, tryParseJson) {
       itemId,
       { kassalProductId, resolutionId, confidence, resolvedVia, candidatesJson, estimatedPrice }
     ) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE shopping_list_items
@@ -317,7 +348,7 @@ function createShoppingRepos(db, tryParseJson) {
             resolved_via = ?,
             resolution_candidates_json = ?,
             est_price = COALESCE(?, est_price)
-        WHERE id = ?
+        WHERE family_id = ? AND id = ?
       `
       ).run(
         kassalProductId ?? null,
@@ -330,19 +361,29 @@ function createShoppingRepos(db, tryParseJson) {
             : JSON.stringify(candidatesJson)
           : null,
         estimatedPrice ?? null,
+        familyId,
         itemId
       );
     },
 
     stats() {
-      const totalLists = db.prepare('SELECT COUNT(*) as c FROM shopping_lists').get().c;
+      const familyId = getFamilyId();
+      const totalLists = db
+        .prepare('SELECT COUNT(*) as c FROM shopping_lists WHERE family_id = ?')
+        .get(familyId).c;
       const activeLists = db
-        .prepare("SELECT COUNT(*) as c FROM shopping_lists WHERE status = 'active'")
-        .get().c;
-      const totalItems = db.prepare('SELECT COUNT(*) as c FROM shopping_list_items').get().c;
+        .prepare(
+          "SELECT COUNT(*) as c FROM shopping_lists WHERE family_id = ? AND status = 'active'"
+        )
+        .get(familyId).c;
+      const totalItems = db
+        .prepare('SELECT COUNT(*) as c FROM shopping_list_items WHERE family_id = ?')
+        .get(familyId).c;
       const boughtItems = db
-        .prepare('SELECT COUNT(*) as c FROM shopping_list_items WHERE bought_at IS NOT NULL')
-        .get().c;
+        .prepare(
+          'SELECT COUNT(*) as c FROM shopping_list_items WHERE family_id = ? AND bought_at IS NOT NULL'
+        )
+        .get(familyId).c;
       return { totalLists, activeLists, totalItems, boughtItems };
     },
   };

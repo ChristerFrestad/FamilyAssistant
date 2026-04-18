@@ -1,9 +1,12 @@
 'use strict';
 
+const { getFamilyId } = require('../auth/family-context');
+
 function createInventoryRepos(db) {
   const inventory = {
     getAll() {
-      const rows = db.prepare('SELECT * FROM inventory').all();
+      const familyId = getFamilyId();
+      const rows = db.prepare('SELECT * FROM inventory WHERE family_id = ?').all(familyId);
       const map = {};
       for (const r of rows) {
         map[r.product_key] = {
@@ -21,7 +24,10 @@ function createInventoryRepos(db) {
       return map;
     },
     getByKey(productKey) {
-      const r = db.prepare('SELECT * FROM inventory WHERE product_key = ?').get(productKey);
+      const familyId = getFamilyId();
+      const r = db
+        .prepare('SELECT * FROM inventory WHERE family_id = ? AND product_key = ?')
+        .get(familyId, productKey);
       if (!r) return null;
       return {
         qtyRemaining: r.qty_remaining,
@@ -37,14 +43,16 @@ function createInventoryRepos(db) {
     },
     /** Fase F2: sett total_size for en pantry-vare */
     setTotalSize(productKey, totalSize) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE inventory SET total_size = ?, updated_at = datetime('now')
-        WHERE product_key = ?
+        WHERE family_id = ? AND product_key = ?
       `
-      ).run(totalSize, productKey);
+      ).run(totalSize, familyId, productKey);
     },
     addPurchase(productKey, { packSize, unit, shelfDays = null }) {
+      const familyId = getFamilyId();
       const existing = inventory.getByKey(productKey);
       const now = new Date().toISOString().split('T')[0];
       const expiresEst = shelfDays
@@ -54,10 +62,10 @@ function createInventoryRepos(db) {
       if (!existing) {
         db.prepare(
           `
-          INSERT INTO inventory (product_key, qty_remaining, unit, last_purchased, last_pack_size, expires_est, purchase_count, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))
+          INSERT INTO inventory (family_id, product_key, qty_remaining, unit, last_purchased, last_pack_size, expires_est, purchase_count, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
         `
-        ).run(productKey, packSize, unit, now, packSize, expiresEst);
+        ).run(familyId, productKey, packSize, unit, now, packSize, expiresEst);
         return { qtyRemaining: packSize, unit, purchaseCount: 1, expiresEst, lastPurchased: now };
       }
 
@@ -81,18 +89,19 @@ function createInventoryRepos(db) {
                purchase_count = purchase_count + 1,
                avg_days_between_purchase = ?,
                updated_at = datetime('now')
-         WHERE product_key = ?
+         WHERE family_id = ? AND product_key = ?
       `
-      ).run(packSize, unit, now, packSize, expiresEst, avg, productKey);
+      ).run(packSize, unit, now, packSize, expiresEst, avg, familyId, productKey);
       return inventory.getByKey(productKey);
     },
     reduceQty(productKey, amount) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE inventory SET qty_remaining = MAX(0, qty_remaining - ?), updated_at = datetime('now')
-        WHERE product_key = ?
+        WHERE family_id = ? AND product_key = ?
       `
-      ).run(amount, productKey);
+      ).run(amount, familyId, productKey);
     },
     /**
      * Legg til eller oppdater inventory uten å markere det som et kjøp.
@@ -107,16 +116,18 @@ function createInventoryRepos(db) {
       productKey,
       { qtyAdded, unit = '', expiresEst = null, incrementPurchaseCount = false }
     ) {
+      const familyId = getFamilyId();
       const existing = inventory.getByKey(productKey);
       const now = new Date().toISOString().split('T')[0];
 
       if (!existing) {
         db.prepare(
           `
-          INSERT INTO inventory (product_key, qty_remaining, unit, last_purchased, last_pack_size, expires_est, purchase_count, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          INSERT INTO inventory (family_id, product_key, qty_remaining, unit, last_purchased, last_pack_size, expires_est, purchase_count, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         `
         ).run(
+          familyId,
           productKey,
           qtyAdded,
           unit,
@@ -139,7 +150,7 @@ function createInventoryRepos(db) {
                expires_est = COALESCE(?, expires_est),
                purchase_count = purchase_count + ?,
                updated_at = datetime('now')
-         WHERE product_key = ?
+         WHERE family_id = ? AND product_key = ?
       `
       ).run(
         newQty,
@@ -149,6 +160,7 @@ function createInventoryRepos(db) {
         qtyAdded,
         expiresEst,
         incrementPurchaseCount ? 1 : 0,
+        familyId,
         productKey
       );
       return { prev: existing, next: inventory.getByKey(productKey) };
@@ -166,17 +178,19 @@ function createInventoryRepos(db) {
       sourceTable = null,
       notes = null,
     }) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
-        INSERT INTO inventory_log (product_key, qty_delta, new_qty, unit, reason, source_id, source_table, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO inventory_log (family_id, product_key, qty_delta, new_qty, unit, reason, source_id, source_table, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
         )
-        .run(productKey, qtyDelta, newQty, unit, reason, sourceId, sourceTable, notes)
+        .run(familyId, productKey, qtyDelta, newQty, unit, reason, sourceId, sourceTable, notes)
         .lastInsertRowid;
     },
     getByKey(productKey, limit = 50) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
@@ -184,14 +198,15 @@ function createInventoryRepos(db) {
                unit, reason, source_id as sourceId, source_table as sourceTable,
                notes, logged_at as loggedAt
         FROM inventory_log
-        WHERE product_key = ?
+        WHERE family_id = ? AND product_key = ?
         ORDER BY logged_at DESC, id DESC
         LIMIT ?
       `
         )
-        .all(productKey, limit);
+        .all(familyId, productKey, limit);
     },
     getRecent(limit = 100) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
@@ -199,13 +214,15 @@ function createInventoryRepos(db) {
                unit, reason, source_id as sourceId, source_table as sourceTable,
                notes, logged_at as loggedAt
         FROM inventory_log
+        WHERE family_id = ?
         ORDER BY logged_at DESC, id DESC
         LIMIT ?
       `
         )
-        .all(limit);
+        .all(familyId, limit);
     },
     getByReason(reason, limit = 100) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
@@ -213,21 +230,22 @@ function createInventoryRepos(db) {
                unit, reason, source_id as sourceId, source_table as sourceTable,
                notes, logged_at as loggedAt
         FROM inventory_log
-        WHERE reason = ?
+        WHERE family_id = ? AND reason = ?
         ORDER BY logged_at DESC, id DESC
         LIMIT ?
       `
         )
-        .all(reason, limit);
+        .all(familyId, reason, limit);
     },
     countByReason() {
+      const familyId = getFamilyId();
       const rows = db
         .prepare(
           `
-        SELECT reason, COUNT(*) as c FROM inventory_log GROUP BY reason
+        SELECT reason, COUNT(*) as c FROM inventory_log WHERE family_id = ? GROUP BY reason
       `
         )
-        .all();
+        .all(familyId);
       const out = {};
       for (const r of rows) out[r.reason] = r.c;
       return out;

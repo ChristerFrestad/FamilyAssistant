@@ -34,6 +34,10 @@ async function startTestServer({ dbPath, authToken } = {}) {
   // VIKTIG: require moduler ETTER at env er satt, slik at config.js og db.js
   // plukker opp riktig konfig. Og clear modul-cache slik at neste test får ny DB.
   for (const key of Object.keys(require.cache)) {
+    // Keep the family-context module so that test code calling runWithFamily
+    // shares the AsyncLocalStorage instance with the repos loaded here.
+    if (key.includes(path.join('server', 'auth', 'family-context'))) continue;
+    if (key.includes('server/auth/family-context')) continue;
     if (key.includes(path.join('server', '')) || key.includes('server/')) {
       delete require.cache[key];
     }

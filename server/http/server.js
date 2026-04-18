@@ -15,6 +15,7 @@ const {
   parseQuery,
 } = require('./middleware');
 const { rateLimit, applySecurityHeaders } = require('./security');
+const { runWithFamily } = require('../auth/family-context');
 const metrics = require('./metrics');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
@@ -94,50 +95,58 @@ function createServer(router, { authenticate } = {}) {
       rateLimit(ctx);
       if (authenticate) authenticate(ctx);
 
-      const dispatched = router.dispatch(req.method, pathname);
+      // Wrap routing + handler execution in the family async-local context so
+      // that every repo query inside the handler picks up the caller's family.
+      const familyId = Number.isInteger(ctx.familyId) && ctx.familyId > 0 ? ctx.familyId : null;
+      const runRouted = async () => {
+        const dispatched = router.dispatch(req.method, pathname);
 
-      if (!dispatched) {
-        // /api/* og /metrics går aldri gjennom SPA-fallback — returner 404.
-        // Ellers prøv SPA-fallback for GET (klient-navigasjon).
-        // NB: Rate limit og auth er allerede sjekket over.
-        const isApi = pathname.startsWith('/api/') || pathname === '/metrics';
-        if (!isApi && req.method === 'GET' && tryServeSpaFallback(pathname, res)) {
+        if (!dispatched) {
+          // /api/* and /metrics are never served as SPA fallback — return 404.
+          const isApi = pathname.startsWith('/api/') || pathname === '/metrics';
+          if (!isApi && req.method === 'GET' && tryServeSpaFallback(pathname, res)) {
+            const dur = Date.now() - started;
+            metrics.record(req.method, 'static', 200, dur);
+            logRequest(ctx, 200, dur, 'static');
+            return;
+          }
+          ctx.problem(errors.notFound(`Route ${req.method} ${pathname} not found`));
           const dur = Date.now() - started;
-          metrics.record(req.method, 'static', 200, dur);
-          logRequest(ctx, 200, dur, 'static');
+          metrics.record(req.method, 'not_found', 404, dur);
+          logRequest(ctx, 404, dur);
           return;
         }
-        ctx.problem(errors.notFound(`Route ${req.method} ${pathname} not found`));
+
+        routeTemplate = dispatched.route.path;
+        ctx.params = dispatched.params;
+
+        // Parse body for POST/PUT/DELETE.
+        if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+          try {
+            ctx.body = await parseBody(req);
+          } catch (err) {
+            ctx.problem(err instanceof HttpError ? err : errors.badRequest(err.message));
+            const dur = Date.now() - started;
+            metrics.record(req.method, routeTemplate, err.status || 400, dur);
+            logRequest(ctx, err.status || 400, dur);
+            return;
+          }
+        }
+
+        await router.runHandlers(ctx, dispatched.route.handlers);
+        if (!res.writableEnded) {
+          ctx.json({ ok: true });
+        }
         const dur = Date.now() - started;
-        metrics.record(req.method, 'not_found', 404, dur);
-        logRequest(ctx, 404, dur);
-        return;
-      }
+        metrics.record(req.method, routeTemplate, res.statusCode, dur);
+        logRequest(ctx, res.statusCode, dur);
+      };
 
-      routeTemplate = dispatched.route.path;
-      ctx.params = dispatched.params;
-
-      // Parse body for POST/PUT/DELETE
-      if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-        try {
-          ctx.body = await parseBody(req);
-        } catch (err) {
-          ctx.problem(err instanceof HttpError ? err : errors.badRequest(err.message));
-          const dur = Date.now() - started;
-          metrics.record(req.method, routeTemplate, err.status || 400, dur);
-          logRequest(ctx, err.status || 400, dur);
-          return;
-        }
+      if (familyId) {
+        await runWithFamily(familyId, runRouted);
+      } else {
+        await runRouted();
       }
-
-      await router.runHandlers(ctx, dispatched.route.handlers);
-      if (!res.writableEnded) {
-        // Handler returnerte undefined uten \u00e5 skrive respons
-        ctx.json({ ok: true });
-      }
-      const dur = Date.now() - started;
-      metrics.record(req.method, routeTemplate, res.statusCode, dur);
-      logRequest(ctx, res.statusCode, dur);
     } catch (err) {
       const dur = Date.now() - started;
       const status = err instanceof HttpError ? err.status : 500;

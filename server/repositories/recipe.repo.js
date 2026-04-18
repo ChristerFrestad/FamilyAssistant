@@ -1,35 +1,40 @@
 'use strict';
 
+const { getFamilyId } = require('../auth/family-context');
+
 function createRecipeRepos(db, tryParseJson) {
-  // Pre-compiled prepared statements for hyppige queries (unngår gjentatt compile)
-  const _recipeByIdStmt = db.prepare('SELECT * FROM recipes WHERE id = ?');
+  // Pre-compiled prepared statements for hot queries.
+  const _recipeByIdStmt = db.prepare('SELECT * FROM recipes WHERE family_id = ? AND id = ?');
   const _recipeIngsStmt = db.prepare(
     `SELECT id, product_key as productKey, name, qty, unit, optional, sort_order
-     FROM recipe_ingredients WHERE recipe_id = ? ORDER BY sort_order, id`
+     FROM recipe_ingredients WHERE family_id = ? AND recipe_id = ? ORDER BY sort_order, id`
   );
 
   const recipes = {
     getById(id) {
-      const recipe = _recipeByIdStmt.get(id);
+      const familyId = getFamilyId();
+      const recipe = _recipeByIdStmt.get(familyId, id);
       if (!recipe) return null;
-      recipe.ingredients = _recipeIngsStmt.all(id);
+      recipe.ingredients = _recipeIngsStmt.all(familyId, id);
       recipe.equipment = recipe.equipment_json ? tryParseJson(recipe.equipment_json) || [] : [];
-      // Normaliser snake_case → camelCase for frontend-parity med getAll()
       recipe.prepTime = recipe.prep_time;
       recipe.sourceType = recipe.source_type || 'manual';
       return recipe;
     },
     getAll() {
-      const rows = db.prepare('SELECT * FROM recipes ORDER BY category, name').all();
+      const familyId = getFamilyId();
+      const rows = db
+        .prepare('SELECT * FROM recipes WHERE family_id = ? ORDER BY category, name')
+        .all(familyId);
       const ingsByRecipe = {};
       const allIngs = db
         .prepare(
           `
         SELECT recipe_id, id, product_key as productKey, name, qty, unit, optional, sort_order
-        FROM recipe_ingredients ORDER BY sort_order, id
+        FROM recipe_ingredients WHERE family_id = ? ORDER BY sort_order, id
       `
         )
-        .all();
+        .all(familyId);
       for (const i of allIngs) {
         if (!ingsByRecipe[i.recipe_id]) ingsByRecipe[i.recipe_id] = [];
         ingsByRecipe[i.recipe_id].push({
@@ -50,18 +55,21 @@ function createRecipeRepos(db, tryParseJson) {
       }));
     },
     getByCategory(category) {
+      const familyId = getFamilyId();
       const rows = db
-        .prepare('SELECT * FROM recipes WHERE category = ? ORDER BY name')
-        .all(category);
+        .prepare('SELECT * FROM recipes WHERE family_id = ? AND category = ? ORDER BY name')
+        .all(familyId, category);
       if (rows.length === 0) return [];
       const ids = rows.map((r) => r.id);
       const placeholders = ids.map(() => '?').join(',');
       const allIngs = db
         .prepare(
           `SELECT recipe_id, id, product_key as productKey, name, qty, unit, optional, sort_order
-           FROM recipe_ingredients WHERE recipe_id IN (${placeholders}) ORDER BY sort_order, id`
+           FROM recipe_ingredients
+           WHERE family_id = ? AND recipe_id IN (${placeholders})
+           ORDER BY sort_order, id`
         )
-        .all(...ids);
+        .all(familyId, ...ids);
       const ingsByRecipe = {};
       for (const i of allIngs) {
         if (!ingsByRecipe[i.recipe_id]) ingsByRecipe[i.recipe_id] = [];
@@ -83,15 +91,17 @@ function createRecipeRepos(db, tryParseJson) {
       }));
     },
     insert(r) {
+      const familyId = getFamilyId();
       return db.transaction(() => {
         const result = db
           .prepare(
             `
-          INSERT INTO recipes (name, category, prep_time, source, url, pinterest_url, servings, equipment_json, notes)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO recipes (family_id, name, category, prep_time, source, url, pinterest_url, servings, equipment_json, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
           )
           .run(
+            familyId,
             r.name,
             r.category,
             r.prepTime ?? null,
@@ -105,11 +115,12 @@ function createRecipeRepos(db, tryParseJson) {
         const recipeId = result.lastInsertRowid;
         if (Array.isArray(r.ingredients)) {
           const ins = db.prepare(`
-            INSERT INTO recipe_ingredients (recipe_id, product_key, name, qty, unit, optional, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO recipe_ingredients (family_id, recipe_id, product_key, name, qty, unit, optional, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `);
           r.ingredients.forEach((ing, idx) => {
             ins.run(
+              familyId,
               recipeId,
               ing.productKey ?? null,
               ing.name,
@@ -124,12 +135,14 @@ function createRecipeRepos(db, tryParseJson) {
       })();
     },
     count() {
-      return db.prepare('SELECT COUNT(*) as c FROM recipes').get().c;
+      const familyId = getFamilyId();
+      return db.prepare('SELECT COUNT(*) as c FROM recipes WHERE family_id = ?').get(familyId).c;
     },
   };
 
   const recipeSources = {
     getAll() {
+      const familyId = getFamilyId();
       try {
         return db
           .prepare(
@@ -137,16 +150,18 @@ function createRecipeRepos(db, tryParseJson) {
           SELECT id, url, type, label, last_sync_at as lastSyncAt,
                  last_sync_count as lastSyncCount, enabled, added_at as addedAt
           FROM recipe_sources
+          WHERE family_id = ?
           ORDER BY added_at DESC
         `
           )
-          .all()
+          .all(familyId)
           .map((r) => ({ ...r, enabled: !!r.enabled }));
       } catch {
         return [];
       }
     },
     getEnabled() {
+      const familyId = getFamilyId();
       try {
         return db
           .prepare(
@@ -154,57 +169,66 @@ function createRecipeRepos(db, tryParseJson) {
           SELECT id, url, type, label, last_sync_at as lastSyncAt,
                  last_sync_count as lastSyncCount, enabled, added_at as addedAt
           FROM recipe_sources
-          WHERE enabled = 1
+          WHERE family_id = ? AND enabled = 1
           ORDER BY COALESCE(last_sync_at, '1970-01-01') ASC
         `
           )
-          .all()
+          .all(familyId)
           .map((r) => ({ ...r, enabled: !!r.enabled }));
       } catch {
         return [];
       }
     },
     getById(id) {
+      const familyId = getFamilyId();
       try {
         const r = db
           .prepare(
             `
           SELECT id, url, type, label, last_sync_at as lastSyncAt,
                  last_sync_count as lastSyncCount, enabled, added_at as addedAt
-          FROM recipe_sources WHERE id = ?
+          FROM recipe_sources WHERE family_id = ? AND id = ?
         `
           )
-          .get(id);
+          .get(familyId, id);
         return r ? { ...r, enabled: !!r.enabled } : null;
       } catch {
         return null;
       }
     },
     insert({ url, type, label }) {
+      const familyId = getFamilyId();
       const info = db
         .prepare(
           `
-        INSERT INTO recipe_sources (url, type, label, enabled)
-        VALUES (?, ?, ?, 1)
+        INSERT INTO recipe_sources (family_id, url, type, label, enabled)
+        VALUES (?, ?, ?, ?, 1)
       `
         )
-        .run(url, type, label || null);
+        .run(familyId, url, type, label || null);
       return info.lastInsertRowid;
     },
     delete(id) {
-      db.prepare('DELETE FROM recipe_sources WHERE id = ?').run(id);
+      const familyId = getFamilyId();
+      db.prepare('DELETE FROM recipe_sources WHERE family_id = ? AND id = ?').run(familyId, id);
     },
     setEnabled(id, enabled) {
-      db.prepare('UPDATE recipe_sources SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
+      const familyId = getFamilyId();
+      db.prepare('UPDATE recipe_sources SET enabled = ? WHERE family_id = ? AND id = ?').run(
+        enabled ? 1 : 0,
+        familyId,
+        id
+      );
     },
     updateSyncMeta(id, { lastSyncAt, lastSyncCount }) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE recipe_sources
            SET last_sync_at = ?, last_sync_count = ?
-         WHERE id = ?
+         WHERE family_id = ? AND id = ?
       `
-      ).run(lastSyncAt, lastSyncCount || 0, id);
+      ).run(lastSyncAt, lastSyncCount || 0, familyId, id);
     },
   };
 
