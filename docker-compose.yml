@@ -26,11 +26,13 @@ services:
     #   dockerfile: Dockerfile
     container_name: familieassistenten
     restart: unless-stopped
-    # Direkte LAN-tilgang på port 3000. Etter bootstrap + Caddy-aktivering
-    # kan dette endres til "127.0.0.1:3000:3000" for å tvinge all trafikk
-    # via Caddy-reverse-proxy.
+    # Direkte LAN-tilgang. Host-porten 13000 er valgt for å unngå kollisjon
+    # med andre vanlige self-hosted apper (Grafana og Node-defaults kaprer 3000
+    # ofte; n8n bruker 5678; Jellyfin 8096; Sonarr 8989). Intern container-port
+    # er fortsatt 3000. Etter bootstrap + Caddy-aktivering kan dette endres til
+    # "127.0.0.1:13000:3000" for å tvinge all trafikk via Caddy-reverse-proxy.
     ports:
-      - "3000:3000"
+      - "13000:3000"
     volumes:
       - ./data:/app/data
     environment:
