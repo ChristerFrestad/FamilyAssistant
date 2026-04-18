@@ -14,6 +14,7 @@ const { registerFamilyRoutes } = require('./auth/family-routes');
 const { registerLlmConfigRoutes } = require('./auth/llm-routes');
 const { registerGdprRoutes } = require('./auth/gdpr-routes');
 const { registerOnboardingRoutes } = require('./auth/onboarding-routes');
+const { registerFeedbackRoutes } = require('./http/feedback-routes');
 const { requireRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
@@ -193,6 +194,11 @@ function registerRoutes(router, { repos, serverState }) {
   // ONBOARDING (phase 13 — create-family for new users)
   // ============================================================
   registerOnboardingRoutes(router, { repos });
+
+  // ============================================================
+  // FEEDBACK (phase 15 — in-app feedback + recipe thumbs)
+  // ============================================================
+  registerFeedbackRoutes(router, { repos });
 
   // ============================================================
   // HEALTH / READY

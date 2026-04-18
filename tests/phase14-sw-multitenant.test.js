@@ -104,11 +104,14 @@ describe('Phase 14 · Message-handler', () => {
 });
 
 describe('Phase 14 · VERSION bump', () => {
-  test('VERSION er v1.4-phase14', () => {
-    assert.ok(
-      /VERSION\s*=\s*['"]v1\.4-phase14['"]/.test(SW),
-      'VERSION må være bumpet for phase 14 så gamle caches purges'
-    );
+  test('VERSION er bumpet forbi v1.3-week3', () => {
+    // Phase 14 bumped VERSION so caches purge on deploy. Later phases may bump
+    // it further (phase 15 → v1.5-phase15, etc) — only regression-check that
+    // we never drift back below the phase-14 baseline.
+    const m = SW.match(/VERSION\s*=\s*['"](v[\d.]+-phase(\d+))['"]/);
+    assert.ok(m, 'VERSION must be vN.M-phaseN format');
+    const phaseNum = Number(m[2]);
+    assert.ok(phaseNum >= 14, `VERSION phase must be >= 14 (got ${phaseNum})`);
   });
 });
 

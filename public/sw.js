@@ -13,7 +13,7 @@
 //
 // Cache-versjon bumpes ved hver deploy så gamle caches ryddes automatisk.
 
-const VERSION = 'v1.4-phase14';
+const VERSION = 'v1.5-phase15';
 const STATIC_CACHE = `fam-static-${VERSION}`;
 const API_CACHE = `fam-api-${VERSION}`;
 
@@ -48,6 +48,7 @@ const STATIC_ASSETS = [
   '/js/settings.js',
   '/js/family-ui.js',
   '/js/family-onboarding.js',
+  '/js/feedback.js',
   '/js/init.js',
 ];
 
