@@ -573,3 +573,92 @@ Ved feil — sjekk Variables og Volume først. Workflow feiler fast hvis `RAILWA
 
 Railway → `Deployments` → velg forrige vellykkede deploy → `Redeploy`. Databasen i volumet blir ikke rørt — kun appen rulles tilbake.
 
+
+---
+
+## 16. Deploy via Portainer (zero-config)
+
+Portainer-målgruppen er selvhostere som vil «klikk deploy → åpne i nettleser → konfigurer via UI» — samme UX som Jellyfin, Sonarr, Immich, Vaultwarden. Derfor starter stacken uten forhåndsinnstilt `AUTH_TOKEN`: en setup-wizard på `/setup.html` genererer og persisterer den ved første start.
+
+### 16.1 Forutsetninger
+
+- Portainer CE eller Business (versjon ≥ 2.19)
+- Docker-host med internett-tilgang (for `docker pull ghcr.io/christerfrestad/familyassistant:latest`)
+- Et volum/mappe på hosten som Portainer kan mount'e til `/app/data`
+- (Valgfritt) Ollama kjørende på host eller som egen container for LLM-funksjoner
+
+### 16.2 Opprett stack i Portainer
+
+**Alternativ A — Web editor (anbefalt, enklest):**
+1. Portainer → `Stacks` → `+ Add stack`
+2. Name: `familieassistenten`
+3. Build method: **Web editor**
+4. Lim inn innholdet fra `docker-compose.yml` (fra denne repoen)
+5. **La Environment variables-seksjonen stå tom.** Ingen variabler er påkrevd for første deploy.
+6. Klikk `Deploy the stack`
+
+**Alternativ B — Repository:**
+- Bruk denne repoen som source
+- `Compose path`: `docker-compose.yml`
+- `Additional files`: (tom)
+- La `Environment variables` stå tom
+
+> **Ikke** bruk Portainer's «Use custom template variables (`.env`)»-felt i første deploy — stacken er designet for å starte uten variabler og kjøre setup-wizarden.
+
+### 16.3 Første-gangs-setup
+
+1. Vent til containeren har status `Running` + health `healthy` (ca. 15 sekunder)
+2. I loggen skal du se: `BOOTSTRAP MODE — awaiting setup at /setup.html`
+3. Åpne `http://<docker-host>:3000/setup.html` i nettleser
+4. Fyll inn:
+   - **Auth token**: klikk `Generate` (32 hex-tegn server-generert) — **kopier og lagre trygt**
+   - **Allowed origins**: din faktiske origin, f.eks. `http://raspberrypi.local:3000` eller `http://192.168.1.50:3000`
+   - **LLM backend**: Ollama (standard) eller llama.cpp
+   - **Ollama host**: default `http://host.docker.internal:11434` fungerer hvis Ollama kjører på Docker-hosten
+   - **Log level**: `info` (standard)
+5. Klikk `Complete setup`
+6. Containeren restarter automatisk (~10 sek). Siden laster på nytt når den er oppe.
+
+Etter dette skrives alle valgene til `/app/data/bootstrap.json` (0600-permissions). Neste start leser fra den, og serveren kjører i normal produksjons-modus med din genererte token.
+
+### 16.4 Aktiver Caddy (valgfritt, HTTPS)
+
+Caddy-service i compose-fila er gatet bak profilen `production` slik at den ikke starter før du har fullført bootstrap. Når du er klar:
+
+1. Portainer → din stack → `Editor`
+2. I `Environment variables`, legg til: `HTTPS_TERMINATED=true`
+3. `Update the stack` med «Re-pull image and redeploy» av
+4. SSH til host: `docker compose -f <sti>/docker-compose.yml --profile production up -d`
+   (Portainer's web-editor støtter dessverre ikke `--profile`-flagget ennå; bruk host-terminal eller legg Caddy som egen stack)
+
+Alternativt: fjern `profiles:` fra Caddy-service i compose-editoren og sett det som alltid-på.
+
+### 16.5 Re-run setup
+
+Instansen tillater ikke re-bootstrap av sikkerhetsgrunner. For å tvinge en ny setup:
+```bash
+docker exec familieassistenten rm /app/data/bootstrap.json
+docker exec familieassistenten sqlite3 /app/data/familieassistenten.db "..." # eller slett DB for full reset
+docker restart familieassistenten
+```
+Dette nullstiller BOOTSTRAP_MODE-guarden. **Ikke gjør dette på en produksjons-instans** med ekte familie-data.
+
+### 16.6 Bytt til manuell AUTH_TOKEN-håndtering
+
+Hvis du senere vil styre tokenet via Portainer-variabler i stedet for bootstrap.json:
+1. Portainer → stack → `Editor`
+2. Legg til `AUTH_TOKEN=<ditt-token>` i Environment variables
+3. `Update the stack`
+4. Env-vars tar presedens over `bootstrap.json`, så tokenet der ignoreres (men fila ligger fortsatt på disk som fallback)
+5. For å fjerne helt: `docker exec familieassistenten rm /app/data/bootstrap.json`
+
+### 16.7 Feilsøking
+
+| Symptom | Årsak + fix |
+|---|---|
+| `required variable AUTH_TOKEN is missing a value` i Portainer | Du bruker en gammel versjon av `docker-compose.yml` der `${AUTH_TOKEN:?…}` var hardkodet. Pull siste versjon fra repoet. |
+| `/setup.html` returnerer 503 eller 404 | Containeren er ikke i BOOTSTRAP_MODE — sjekk `docker logs familieassistenten` for melding. `bootstrap.json` eksisterer kanskje allerede. |
+| `Complete setup` gir 409 conflict | En annen setup-prosess kjørte samtidig og skrev fila først. Refresh siden og sjekk at bootstrap.json finnes. |
+| Container starter ikke etter bootstrap | Sjekk at data-volumet er skrivbart av UID 65532 (distroless `nonroot`). `docker exec --user root familieassistenten chown -R 65532:65532 /app/data` |
+| `host.docker.internal` resolver ikke (Linux) | Linux-Docker inkluderer ikke denne host-en som standard. Compose-fila legger til `extra_hosts: host.docker.internal:host-gateway` som løser det, men versjon ≥ 20.10 er påkrevd. |
+

@@ -132,9 +132,19 @@ describe('Uke7 · PORT-2 docker-compose.yml', () => {
     assert.ok(/ghcr\.io\/christerfrestad\/familyassistant/.test(yml));
   });
 
-  test('AUTH_TOKEN er obligatorisk (påkrevd-error hvis mangler)', () => {
+  test('AUTH_TOKEN er valgfri (phase 22 — bootstrap-wizard overtar førstegangs-setup)', () => {
     const yml = readFile('docker-compose.yml');
-    assert.ok(/AUTH_TOKEN:\s*\$\{AUTH_TOKEN:\?/.test(yml), 'AUTH_TOKEN burde feile hvis ikke satt');
+    // docker-compose.yml skal IKKE hardkode AUTH_TOKEN som påkrevd (:? syntax).
+    // Første deploy uten variabler starter bootstrap-wizarden på /setup.html,
+    // som persisterer tokenet i /app/data/bootstrap.json. Se DEPLOY.md §16.
+    assert.ok(
+      /AUTH_TOKEN:\s*\$\{AUTH_TOKEN:-/.test(yml),
+      'AUTH_TOKEN skal ha tom default (:- syntax) slik at bootstrap-flyten kan kjøre'
+    );
+    assert.ok(
+      /BOOTSTRAP_ALLOWED:\s*["']?true["']?/.test(yml),
+      'BOOTSTRAP_ALLOWED=true aktiverer bootstrap-mode ved første deploy'
+    );
   });
 
   test('Volumes monterer data + caddy', () => {

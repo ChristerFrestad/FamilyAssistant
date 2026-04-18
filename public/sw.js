@@ -13,7 +13,7 @@
 //
 // Cache-versjon bumpes ved hver deploy så gamle caches ryddes automatisk.
 
-const VERSION = 'v1.6-phase16';
+const VERSION = 'v1.7-phase22';
 const STATIC_CACHE = `fam-static-${VERSION}`;
 const API_CACHE = `fam-api-${VERSION}`;
 
@@ -28,6 +28,8 @@ const STATIC_ASSETS = [
   '/invite.html',
   '/privacy.html',
   '/terms.html',
+  '/setup.html',
+  '/js/setup.js',
   '/manifest.json',
   '/icon-192.png',
   '/css/base.css',
@@ -63,6 +65,10 @@ const NO_CACHE_API_PREFIXES = [
   '/api/invitations',
   '/api/onboarding',
   '/api/gdpr',
+  // Phase 22 — bootstrap wizard: responses must never be cached because
+  // the very next request after setup completion should hit the now-
+  // authenticated server, not a stale "bootstrap pending" body.
+  '/api/bootstrap',
 ];
 
 function isNoCacheApi(pathname) {

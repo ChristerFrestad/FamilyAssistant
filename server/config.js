@@ -2,6 +2,8 @@
 // Alle env-variabler leses og valideres hér. Koden leser fra config.X
 // i stedet for process.env.X, s\u00e5 feil konfigurasjon fanges ved oppstart.
 
+const fs = require('fs');
+const path = require('path');
 const { z } = require('zod');
 
 const envSchema = z.object({
@@ -63,6 +65,14 @@ const envSchema = z.object({
   SENTRY_ENVIRONMENT: z.string().optional(),
   SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
   SENTRY_RELEASE: z.string().optional(),
+
+  // Phase 22 — zero-config Docker deploy. When set to "true", the server
+  // is willing to enter BOOTSTRAP_MODE if AUTH_TOKEN is missing AND no
+  // persisted bootstrap.json exists AND the data volume is empty. The
+  // setup wizard on /setup.html then generates and persists the token.
+  // Set by docker-compose.yml; never set in a bare-metal deploy.
+  BOOTSTRAP_ALLOWED: z.coerce.boolean().default(false),
+  BOOTSTRAP_FILE: z.string().optional(),
 });
 
 // Auto-detekter node --test og sett NODE_ENV=test hvis ikke eksplisitt satt.
@@ -85,8 +95,63 @@ function autoDetectTestEnv() {
   }
 }
 
+// Phase 22 — persist-file bootstrap lookup. Returns {path, values} or null
+// if the file is missing or unreadable. Values from the file are used ONLY
+// to fill env-vars that the caller hasn't set explicitly, so Portainer
+// variables still take precedence over persisted bootstrap values.
+function loadBootstrapFile(explicitPath) {
+  const candidates = [];
+  if (explicitPath) candidates.push(explicitPath);
+  // Docker/Portainer default mount.
+  candidates.push('/app/data/bootstrap.json');
+  // Local dev convenience: ./data/bootstrap.json relative to cwd.
+  candidates.push(path.resolve(process.cwd(), 'data', 'bootstrap.json'));
+
+  for (const p of candidates) {
+    try {
+      const raw = fs.readFileSync(p, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.authToken) {
+        return { path: p, values: parsed };
+      }
+    } catch {
+      // ignore; try next
+    }
+  }
+  return null;
+}
+
+function dataVolumeLooksEmpty(dbPath) {
+  // The bootstrap-mode guard: we only enter bootstrap-mode on a fresh
+  // install. Presence of the main SQLite file means we are past setup and
+  // a missing AUTH_TOKEN is an operator error, not a first-run condition.
+  try {
+    const p = dbPath || '/app/data/familieassistenten.db';
+    return !fs.existsSync(p);
+  } catch {
+    return false;
+  }
+}
+
 function loadConfig() {
   autoDetectTestEnv();
+
+  // Phase 22 — merge persisted bootstrap values INTO process.env before
+  // zod parses it, unless the caller has already set them explicitly.
+  // Done this way so every downstream `process.env.X` read continues to
+  // work; we do not introduce a second source of truth.
+  const bootstrap = loadBootstrapFile(process.env.BOOTSTRAP_FILE);
+  if (bootstrap) {
+    const bv = bootstrap.values;
+    if (bv.authToken && !process.env.AUTH_TOKEN) process.env.AUTH_TOKEN = bv.authToken;
+    if (bv.allowedOrigins && !process.env.ALLOWED_ORIGINS) {
+      process.env.ALLOWED_ORIGINS = bv.allowedOrigins;
+    }
+    if (bv.llmBackend && !process.env.LLM_BACKEND) process.env.LLM_BACKEND = bv.llmBackend;
+    if (bv.ollamaHost && !process.env.OLLAMA_HOST) process.env.OLLAMA_HOST = bv.ollamaHost;
+    if (bv.logLevel && !process.env.LOG_LEVEL) process.env.LOG_LEVEL = bv.logLevel;
+  }
+
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     console.error('\u26a0\ufe0f  Ugyldig milj\u00f8-konfigurasjon:');
@@ -110,9 +175,29 @@ function loadConfig() {
           .map((s) => s.trim())
           .filter(Boolean);
 
-  // Produksjons-krav: AUTH_TOKEN MÅ v\u00e6re satt hvis NODE_ENV=production.
-  // Hindrer \u00e5pen RPi5 p\u00e5 nettet uten autentisering.
-  if (cfg.NODE_ENV === 'production' && !cfg.AUTH_TOKEN) {
+  // Phase 22 — zero-config Docker deploy path. Activate BOOTSTRAP_MODE
+  // only when ALL of these hold:
+  //   1. Container signalled BOOTSTRAP_ALLOWED=true (docker-compose.yml sets this)
+  //   2. AUTH_TOKEN is missing from env + bootstrap.json
+  //   3. No pre-existing bootstrap.json was loaded above
+  //   4. Data volume is empty (no SQLite DB file yet)
+  // This keeps the bare-metal / non-Docker path strict — missing
+  // AUTH_TOKEN still refuses to start.
+  cfg.BOOTSTRAP_MODE = false;
+  cfg.BOOTSTRAP_FILE_PATH = bootstrap?.path || null;
+  if (
+    cfg.BOOTSTRAP_ALLOWED &&
+    !cfg.AUTH_TOKEN &&
+    !bootstrap &&
+    dataVolumeLooksEmpty(cfg.DB_PATH) &&
+    cfg.NODE_ENV !== 'test'
+  ) {
+    cfg.BOOTSTRAP_MODE = true;
+  }
+
+  // Produksjons-krav: AUTH_TOKEN MÅ v\u00e6re satt hvis NODE_ENV=production,
+  // OG vi ikke er i BOOTSTRAP_MODE (som er førstegangs-deploy via Docker).
+  if (cfg.NODE_ENV === 'production' && !cfg.AUTH_TOKEN && !cfg.BOOTSTRAP_MODE) {
     console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
     console.error('   Sett en sterk token (minst 32 tegn) i .env eller systemd.');
     console.error('   Eksempel: openssl rand -hex 32 > token.txt');
@@ -123,8 +208,10 @@ function loadConfig() {
     process.exit(1);
   }
 
-  // CORS-hardening: kan ikke bruke '*' samtidig med AUTH_TOKEN i production
-  if (cfg.NODE_ENV === 'production' && cfg.ALLOWED_ORIGINS_LIST === '*') {
+  // CORS-hardening: kan ikke bruke '*' samtidig med AUTH_TOKEN i production.
+  // BOOTSTRAP_MODE får ha '*' midlertidig siden wizarden må serveres bredt
+  // på LAN-en før brukeren vet egen IP/domene.
+  if (cfg.NODE_ENV === 'production' && cfg.ALLOWED_ORIGINS_LIST === '*' && !cfg.BOOTSTRAP_MODE) {
     console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
     console.error('   Sett en komma-separert liste med tillatte origins.');
     process.exit(1);

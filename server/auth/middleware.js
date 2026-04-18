@@ -31,6 +31,10 @@ const PUBLIC_PATHS = new Set([
   '/terms.html',
   '/login.html',
   '/invite.html',
+  // Phase 22 — setup wizard (zero-config Docker deploy). Only served
+  // meaningfully when BOOTSTRAP_MODE is active; the auth middleware
+  // itself is also skipped by server.js in that mode.
+  '/setup.html',
 ]);
 
 // Paths that never require authentication but DO try to resolve the user if a
