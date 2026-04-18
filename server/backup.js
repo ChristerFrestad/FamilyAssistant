@@ -13,7 +13,17 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const BACKUP_DIR = path.join(__dirname, '..', 'data', 'backups');
+// BACKUP_DIR kan overrides via env (Dockerfile setter /app/data/backups).
+// Må stemme med resolveringen i db.js slik at /ready og backup-scheduler
+// leser/skriver samme katalog.
+const BACKUP_DIR =
+  process.env.BACKUP_DIR ||
+  path.join(
+    path.dirname(
+      process.env.DB_PATH || path.join(__dirname, '..', 'data', 'familieassistenten.db')
+    ),
+    'backups'
+  );
 const KEEP_DAYS = 14;
 const REMOTE_PATH = process.env.BACKUP_REMOTE_PATH || '';
 const REMOTE_TIMEOUT_MS = Number(process.env.BACKUP_REMOTE_TIMEOUT_MS || 60_000);
