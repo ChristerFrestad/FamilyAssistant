@@ -215,28 +215,8 @@ module.exports = { broken };
   });
 });
 
-// ============================================================
-// TS-6: docs/TYPE_COVERAGE.md
-// ============================================================
-describe('Uke8 · TS-6 TYPE_COVERAGE.md', () => {
-  test('docs/TYPE_COVERAGE.md finnes', () => {
-    assert.ok(
-      fs.existsSync(path.join(ROOT, 'docs', 'TYPE_COVERAGE.md')),
-      'docs/TYPE_COVERAGE.md mangler'
-    );
-  });
-
-  test('TYPE_COVERAGE.md dokumenterer opt-in strategi', () => {
-    const md = readFile('docs/TYPE_COVERAGE.md');
-    assert.ok(/opt-in/i.test(md), 'opt-in ikke dokumentert');
-    assert.ok(/@ts-check/.test(md), '@ts-check-direktivet ikke dokumentert');
-    assert.ok(/tsconfig/.test(md), 'tsconfig.json ikke nevnt');
-  });
-
-  test('TYPE_COVERAGE.md lister dagens type-sjekkede filer', () => {
-    const md = readFile('docs/TYPE_COVERAGE.md');
-    assert.ok(/slugify/.test(md), 'slugify.js ikke nevnt');
-    assert.ok(/units/.test(md), 'units.js ikke nevnt');
-    assert.ok(/errors/.test(md), 'errors.js ikke nevnt');
-  });
-});
+// Phase 21: docs/TYPE_COVERAGE.md was deleted as a point-in-time
+// artifact. The actual type-check gate is enforced by `npm run typecheck`
+// in CI — a stale markdown listing of opt-in files was worse than
+// having none. Files still carry // @ts-check on a per-file basis; the
+// typecheck test further up in this suite runs tsc --noEmit on them.

@@ -18,6 +18,8 @@
 //     berikelse etter at lista er lagret.
 
 const { normalizeSync } = require('./ingredient-normalizer.service');
+const { getOptionalFamilyId } = require('../auth/family-context');
+const { effectiveScale } = require('./family.service');
 
 const CATEGORY_ORDER = [
   'Kj\u00f8tt & fisk',
@@ -48,6 +50,11 @@ function computeShoppingListForWeek(repos, weekYear) {
   const allRecipes = repos.recipes.getAll();
   const consumables = repos.consumables.getAll();
   const extras = repos.shoppingExtras.getWeek(weekYear);
+  // Family-aware portion scaling. When the roster has members, scale each
+  // recipe's ingredients by (familyPortionSum / recipe.servings). Outside a
+  // family context or for empty rosters the scale is 1 and behaviour is
+  // unchanged for legacy single-tenant users.
+  const familyId = getOptionalFamilyId();
 
   const seen = new Map();
 
@@ -57,6 +64,7 @@ function computeShoppingListForWeek(repos, weekYear) {
     if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed') continue;
     const recipe = allRecipes.find((r) => r.id === slot.recipeId);
     if (!recipe) continue;
+    const scale = familyId ? effectiveScale(repos, familyId, recipe.servings) : 1;
     for (const ing of recipe.ingredients || []) {
       const key = ing.productKey || (ing.name || '').toLowerCase();
       if (!seen.has(key)) {
@@ -70,7 +78,7 @@ function computeShoppingListForWeek(repos, weekYear) {
         });
       }
       const entry = seen.get(key);
-      entry.totalQty += ing.qty || 0;
+      entry.totalQty += (ing.qty || 0) * scale;
       entry.meals.push(recipe.name);
       entry.recipeIds.add(recipe.id);
     }

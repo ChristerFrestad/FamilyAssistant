@@ -141,6 +141,9 @@ async function loadSettingsContent() {
   renderSettingsKilder();
   renderSettingsProfil();
   renderSettingsOm();
+  // Phase 12 panels
+  if (typeof renderSettingsFamily === 'function') renderSettingsFamily();
+  if (typeof renderSettingsFamilyLlm === 'function') renderSettingsFamilyLlm();
 }
 
 function renderApiKeyField({ label, key, masked, help, testable }) {

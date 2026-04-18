@@ -1,8 +1,11 @@
 'use strict';
 
+const { getFamilyId } = require('../auth/family-context');
+
 function createPricingRepos(db) {
   const consumables = {
     getAll() {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
@@ -12,13 +15,14 @@ function createPricingRepos(db) {
                pack_size as packSize, pack_unit as packUnit, est_price as estPrice,
                reorder_threshold as reorderThreshold, auto_add as autoAdd,
                store, notes, last_purchased as lastPurchased, purchase_count as purchaseCount
-        FROM consumables ORDER BY category, name
+        FROM consumables WHERE family_id = ? ORDER BY category, name
       `
         )
-        .all()
+        .all(familyId)
         .map((c) => ({ ...c, autoAdd: !!c.autoAdd }));
     },
     getById(id) {
+      const familyId = getFamilyId();
       const c = db
         .prepare(
           `SELECT id, product_key as productKey, name, pack_name as packName, category,
@@ -26,24 +30,26 @@ function createPricingRepos(db) {
                   depletion_unit as depletionUnit, current_qty as currentQty, unit,
                   pack_size as packSize, pack_unit as packUnit, est_price as estPrice,
                   reorder_threshold as reorderThreshold, auto_add as autoAdd, store, notes
-           FROM consumables WHERE id = ?`
+           FROM consumables WHERE family_id = ? AND id = ?`
         )
-        .get(id);
+        .get(familyId, id);
       if (!c) return null;
       c.autoAdd = !!c.autoAdd;
       return c;
     },
     upsertMany(list) {
+      const familyId = getFamilyId();
       const ins = db.prepare(`
         INSERT OR REPLACE INTO consumables (
-          id, product_key, name, pack_name, category, depletion_model, depletion_rate, depletion_unit,
+          id, family_id, product_key, name, pack_name, category, depletion_model, depletion_rate, depletion_unit,
           current_qty, unit, pack_size, pack_unit, est_price, reorder_threshold, auto_add, store, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const tx = db.transaction(() => {
         for (const c of list) {
           ins.run(
             c.id,
+            familyId,
             c.productKey ?? null,
             c.name,
             c.packName ?? null,
@@ -66,6 +72,7 @@ function createPricingRepos(db) {
       tx();
     },
     update(id, fields) {
+      const familyId = getFamilyId();
       const allowed = {
         name: 'name',
         autoAdd: 'auto_add',
@@ -86,10 +93,13 @@ function createPricingRepos(db) {
       }
       if (sets.length === 0) return;
       sets.push(`updated_at = datetime('now')`);
-      vals.push(id);
-      db.prepare(`UPDATE consumables SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+      vals.push(familyId, id);
+      db.prepare(`UPDATE consumables SET ${sets.join(', ')} WHERE family_id = ? AND id = ?`).run(
+        ...vals
+      );
     },
     markBought(id, qty) {
+      const familyId = getFamilyId();
       const c = consumables.getById(id);
       if (!c) return null;
       const addQty = qty || c.packSize || 1;
@@ -100,30 +110,34 @@ function createPricingRepos(db) {
                last_purchased = date('now'),
                purchase_count = purchase_count + 1,
                updated_at = datetime('now')
-         WHERE id = ?
+         WHERE family_id = ? AND id = ?
       `
-      ).run(addQty, id);
+      ).run(addQty, familyId, id);
       return consumables.getById(id);
     },
     toggleAuto(id) {
-      db.prepare(`UPDATE consumables SET auto_add = 1 - auto_add WHERE id = ?`).run(id);
+      const familyId = getFamilyId();
+      db.prepare(
+        `UPDATE consumables SET auto_add = 1 - auto_add WHERE family_id = ? AND id = ?`
+      ).run(familyId, id);
       return consumables.getById(id);
     },
     reduceDaily(recipeEquipment) {
+      const familyId = getFamilyId();
       const list = consumables.getAll();
       const upd = db.prepare(
-        `UPDATE consumables SET current_qty = MAX(0, current_qty - ?) WHERE id = ?`
+        `UPDATE consumables SET current_qty = MAX(0, current_qty - ?) WHERE family_id = ? AND id = ?`
       );
       const tx = db.transaction(() => {
         for (const c of list) {
           if (c.depletionModel === 'daily_rate' && c.currentQty > 0) {
-            upd.run(c.depletionRate || 0, c.id);
+            upd.run(c.depletionRate || 0, familyId, c.id);
           }
           if (c.depletionModel === 'per_recipe_type' && Array.isArray(recipeEquipment)) {
             const usesOven = recipeEquipment.some((e) =>
               ['stekeovn', 'airfryer', 'langpanne'].includes(e)
             );
-            if (usesOven && c.currentQty > 0) upd.run(c.depletionRate || 0, c.id);
+            if (usesOven && c.currentQty > 0) upd.run(c.depletionRate || 0, familyId, c.id);
           }
         }
       });
@@ -133,12 +147,14 @@ function createPricingRepos(db) {
 
   const purchaseLog = {
     insert(entry) {
+      const familyId = getFamilyId();
       db.prepare(
         `
-        INSERT INTO purchase_log (product_key, qty, unit, price_paid, store, source)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO purchase_log (family_id, product_key, qty, unit, price_paid, store, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `
       ).run(
+        familyId,
         entry.productKey,
         entry.qty,
         entry.unit,

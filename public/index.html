@@ -20,7 +20,9 @@
   <div class="header-row">
     <h1 id="appTitle" onclick="onAppTitleClick()">🏠 Familieassistenten</h1>
     <div class="header-actions">
+      <div id="userBadge" class="user-badge" style="display:none"></div>
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Bytt tema">☀️</button>
+      <button class="feedback-btn" id="feedbackBtn" type="button" title="Gi tilbakemelding" aria-label="Gi tilbakemelding">💬</button>
       <button class="settings-btn" onclick="toggleSettings()" id="settingsBtn" title="Innstillinger">⚙</button>
     </div>
   </div>
@@ -145,6 +147,26 @@
       </div>
     </section>
 
+    <!-- Familie (phase 12) -->
+    <section class="etched-panel span-2" id="settingsFamily">
+      <div class="panel-title">Familie</div>
+      <div class="panel-subtitle">Medlemmer, invitasjoner, eierskap</div>
+      <div id="settingsFamilyBody">
+        <div class="panel-row-label" style="opacity:0.6">Laster…</div>
+      </div>
+    </section>
+
+    <!-- AI-motor per familie (phase 12) -->
+    <section class="etched-panel" id="settingsFamilyLlm">
+      <div class="panel-title">AI-motor (per familie)</div>
+      <div class="panel-subtitle">
+        Din egen backend og nøkkel. Se leverandørene for å opprette konto.
+      </div>
+      <div id="settingsFamilyLlmBody">
+        <div class="panel-row-label" style="opacity:0.6">Laster…</div>
+      </div>
+    </section>
+
     <!-- Om -->
     <section class="etched-panel" id="settingsOm">
       <div class="panel-title">Om</div>
@@ -197,7 +219,15 @@
 </div>
 <div id="toastContainer" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
 
+<!-- Phase 16: static footer links -->
+<footer class="app-footer">
+  <a href="/privacy.html">Personvern</a>
+  ·
+  <a href="/terms.html">Bruksvilkår</a>
+</footer>
+
 <script src="/js/core.js"></script>
+<script src="/js/auth.js"></script>
 <script src="/js/tabs.js"></script>
 <script src="/js/today.js"></script>
 <script src="/js/meals.js"></script>
@@ -210,7 +240,8 @@
 <script src="/js/theme.js"></script>
 <script src="/js/notifications.js"></script>
 <script src="/js/settings.js"></script>
-<script src="/js/onboarding.js"></script>
+<script src="/js/family-ui.js"></script>
+<script src="/js/feedback.js"></script>
 <script src="/js/init.js"></script>
 </body>
 </html>

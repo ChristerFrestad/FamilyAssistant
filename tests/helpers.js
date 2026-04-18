@@ -34,6 +34,10 @@ async function startTestServer({ dbPath, authToken } = {}) {
   // VIKTIG: require moduler ETTER at env er satt, slik at config.js og db.js
   // plukker opp riktig konfig. Og clear modul-cache slik at neste test får ny DB.
   for (const key of Object.keys(require.cache)) {
+    // Keep the family-context module so that test code calling runWithFamily
+    // shares the AsyncLocalStorage instance with the repos loaded here.
+    if (key.includes(path.join('server', 'auth', 'family-context'))) continue;
+    if (key.includes('server/auth/family-context')) continue;
     if (key.includes(path.join('server', '')) || key.includes('server/')) {
       delete require.cache[key];
     }
@@ -45,6 +49,7 @@ async function startTestServer({ dbPath, authToken } = {}) {
   const { createRouter } = require('../server/http/router');
   const { createServer } = require('../server/http/server');
   const { registerRoutes } = require('../server/routes');
+  const { createAuthenticate } = require('../server/auth/middleware');
   const metrics = require('../server/http/metrics');
 
   metrics.reset();
@@ -62,7 +67,8 @@ async function startTestServer({ dbPath, authToken } = {}) {
 
   const router = createRouter();
   registerRoutes(router, { repos, serverState });
-  const server = createServer(router);
+  const authenticate = createAuthenticate(repos);
+  const server = createServer(router, { authenticate });
 
   const port = await new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => resolve(server.address().port));
@@ -93,6 +99,17 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
     const h = { ...headers };
     if (body && !h['Content-Type']) h['Content-Type'] = 'application/json';
     if (token) h['Authorization'] = `Bearer ${token}`;
+
+    // Pre-serialize body and set Content-Length so DELETE (and others)
+    // reliably transmit the body. Node's http client will silently drop
+    // the body on DELETE requests that have neither Content-Length nor
+    // Transfer-Encoding: chunked.
+    let bodyBuf = null;
+    if (body != null) {
+      const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+      bodyBuf = Buffer.from(bodyStr, 'utf8');
+      if (!h['Content-Length']) h['Content-Length'] = String(bodyBuf.length);
+    }
 
     const req = http.request(
       {
@@ -136,8 +153,8 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
       clearTimeout(timeout);
       reject(err);
     });
-    if (body != null) {
-      req.write(typeof body === 'string' ? body : JSON.stringify(body));
+    if (bodyBuf) {
+      req.write(bodyBuf);
     }
     req.end();
   });

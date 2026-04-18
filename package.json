@@ -41,7 +41,8 @@
     "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "sql.js": "^1.14.1"
+    "sql.js": "^1.14.1",
+    "@sentry/node": "^8.0.0"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "^4.2.1",

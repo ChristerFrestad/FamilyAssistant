@@ -19,6 +19,17 @@ const envSchema = z.object({
   // Default 90 dager (kvartalsvis rotering).
   AUTH_TOKEN_MAX_AGE_DAYS: z.coerce.number().int().positive().default(90),
 
+  // Multi-tenant auth (Google OAuth + magic-link)
+  APP_URL: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  SESSION_SECRET: z.string().optional(),
+  SESSION_COOKIE_NAME: z.string().default('fa_session'),
+  SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  ENCRYPTION_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM: z.string().optional(),
+
   // LLM
   LLM_BACKEND: z.enum(['ollama', 'llamacpp']).default('ollama'),
   OLLAMA_HOST: z.string().default('http://localhost:11434'),
@@ -45,6 +56,13 @@ const envSchema = z.object({
   // (Pi 5 med 4 GB totalt, 2 GB reservert for andre prosesser). /ready
   // flagger warning hvis RSS overskrider dette.
   MEMORY_BUDGET_MB: z.coerce.number().int().positive().default(512),
+
+  // Phase 17 — Sentry. Optional. If SENTRY_DSN is unset the observability
+  // module is a pure no-op; no @sentry/node load is attempted.
+  SENTRY_DSN: z.string().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
+  SENTRY_RELEASE: z.string().optional(),
 });
 
 // Auto-detekter node --test og sett NODE_ENV=test hvis ikke eksplisitt satt.
@@ -110,6 +128,48 @@ function loadConfig() {
     console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
     console.error('   Sett en komma-separert liste med tillatte origins.');
     process.exit(1);
+  }
+
+  // Multi-tenant auth: validate key lengths when provided.
+  if (cfg.SESSION_SECRET && cfg.SESSION_SECRET.length < 32) {
+    console.error('⚠️  SESSION_SECRET must be at least 32 hex chars (16 bytes).');
+    process.exit(1);
+  }
+  if (cfg.ENCRYPTION_KEY && cfg.ENCRYPTION_KEY.length !== 64) {
+    console.error('⚠️  ENCRYPTION_KEY must be exactly 64 hex chars (32 bytes).');
+    console.error('   Generate with: openssl rand -hex 32');
+    process.exit(1);
+  }
+  if (cfg.GOOGLE_CLIENT_ID && !cfg.GOOGLE_CLIENT_SECRET) {
+    console.error('⚠️  GOOGLE_CLIENT_ID is set but GOOGLE_CLIENT_SECRET is missing.');
+    process.exit(1);
+  }
+  if (cfg.GOOGLE_CLIENT_ID && !cfg.APP_URL) {
+    console.error('⚠️  GOOGLE_CLIENT_ID requires APP_URL for redirect URI construction.');
+    process.exit(1);
+  }
+  // In production with any multi-tenant feature enabled, require proper secrets.
+  if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID) {
+    if (!cfg.SESSION_SECRET) {
+      console.error('⚠️  SESSION_SECRET is required in production when Google OAuth is enabled.');
+      process.exit(1);
+    }
+    if (!cfg.ENCRYPTION_KEY) {
+      console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
+      process.exit(1);
+    }
+  }
+
+  // Development/test fallbacks: auto-generate ephemeral secrets so tests run
+  // without forcing every env var to be set. These are NOT suitable for
+  // production but they let local dev and unit tests proceed.
+  if (!cfg.SESSION_SECRET && cfg.NODE_ENV !== 'production') {
+    cfg.SESSION_SECRET = require('crypto').randomBytes(32).toString('hex');
+  }
+  if (!cfg.ENCRYPTION_KEY && cfg.NODE_ENV !== 'production') {
+    cfg.ENCRYPTION_KEY = require('crypto').randomBytes(32).toString('hex');
+    // Side-effect: expose to env so crypto.js picks it up.
+    process.env.ENCRYPTION_KEY = cfg.ENCRYPTION_KEY;
   }
 
   return Object.freeze(cfg);

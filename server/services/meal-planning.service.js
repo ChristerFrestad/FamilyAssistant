@@ -16,6 +16,8 @@ const {
   keyForIngredient,
 } = require('./pantry-coverage.service');
 const allergyFilter = require('./allergy-filter.service');
+const { getOptionalFamilyId } = require('../auth/family-context');
+const { effectiveScale } = require('./family.service');
 
 const VALID_MODES = new Set(['default', 'maksimer', 'balansert']);
 
@@ -67,9 +69,7 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
     );
     if (pool.length === 0) {
       // Fallback: samme filter uten kategori-krav
-      pool = allRecipes.filter(
-        (r) => !currentRecipeIds.includes(r.id) && isRecipeSafe(r, profile)
-      );
+      pool = allRecipes.filter((r) => !currentRecipeIds.includes(r.id) && isRecipeSafe(r, profile));
     }
 
     const ranked = rankRecipes(pool, inventoryMap, mode, 5);
@@ -329,6 +329,7 @@ function computeMissingForRestOfWeek(repos, weekYear) {
   const productsMap = repos.products.getAllAsMap();
   const allRecipes = repos.recipes.getAll();
   const todayDow = (new Date().getDay() + 6) % 7;
+  const familyId = getOptionalFamilyId();
 
   const totals = new Map();
   for (const slot of plan) {
@@ -336,6 +337,7 @@ function computeMissingForRestOfWeek(repos, weekYear) {
     if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed') continue;
     const recipe = allRecipes.find((r) => r.id === slot.recipeId);
     if (!recipe) continue;
+    const scale = familyId ? effectiveScale(repos, familyId, recipe.servings) : 1;
     for (const ing of recipe.ingredients || []) {
       const key = keyForIngredient(ing);
       const entry = totals.get(key) || {
@@ -344,7 +346,7 @@ function computeMissingForRestOfWeek(repos, weekYear) {
         unit: ing.unit,
         qty: 0,
       };
-      entry.qty += Number(ing.qty) || 0;
+      entry.qty += (Number(ing.qty) || 0) * scale;
       totals.set(key, entry);
     }
   }

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Logg inn — Familieassistenten</title>
+    <link rel="manifest" href="/manifest.json" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #eef2ff 0%, #f5f6fa 100%);
+        color: #111827;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+          color: #e5e7eb;
+        }
+        .card {
+          background: #111827;
+          border-color: #1f2937;
+        }
+        .divider::before,
+        .divider::after {
+          background: #1f2937;
+        }
+        .email-input {
+          background: #1f2937;
+          color: #e5e7eb;
+          border-color: #374151;
+        }
+      }
+      .card {
+        width: min(420px, 92vw);
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 2rem 1.75rem;
+        box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.5rem;
+      }
+      p.sub {
+        margin: 0 0 1.5rem;
+        opacity: 0.75;
+        font-size: 0.95rem;
+      }
+      button,
+      .google-btn {
+        font: inherit;
+        cursor: pointer;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-weight: 500;
+      }
+      .google-btn:hover {
+        background: #f9fafb;
+      }
+      .primary {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+      }
+      .primary:hover {
+        background: #1d4ed8;
+      }
+      .divider {
+        margin: 1.25rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #6b7280;
+        font-size: 0.8rem;
+      }
+      .divider::before,
+      .divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e5e7eb;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .email-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        box-sizing: border-box;
+        font: inherit;
+      }
+      .status {
+        min-height: 1.25rem;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+      }
+      .status.ok {
+        color: #047857;
+      }
+      .status.err {
+        color: #b91c1c;
+      }
+      .footer {
+        margin-top: 1.25rem;
+        font-size: 0.8rem;
+        opacity: 0.7;
+        text-align: center;
+      }
+      .footer a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" aria-labelledby="loginTitle">
+      <h1 id="loginTitle">Logg inn</h1>
+      <p class="sub">Familieassistenten holder pantry, meny og handleliste for familien din.</p>
+
+      <a class="google-btn" id="googleBtn" href="/api/auth/google/start">
+        <span aria-hidden="true">🅶</span> Logg inn med Google
+      </a>
+
+      <div class="divider">eller</div>
+
+      <form id="magicForm" autocomplete="on">
+        <label for="email" class="sr-only">Epost</label>
+        <input
+          id="email"
+          class="email-input"
+          type="email"
+          name="email"
+          placeholder="din@epost.no"
+          autocomplete="email"
+          required
+        />
+        <button type="submit" class="primary" id="magicSubmit">Send innloggingslenke</button>
+      </form>
+
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+
+      <div class="footer">
+        Ved innlogging aksepterer du
+        <a href="/privacy.html">personvernerklæringen</a> og
+        <a href="/terms.html">bruksvilkårene</a>.
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        var form = document.getElementById('magicForm');
+        var btn = document.getElementById('magicSubmit');
+        var status = document.getElementById('status');
+
+        function setStatus(text, kind) {
+          status.textContent = text || '';
+          status.className = 'status' + (kind ? ' ' + kind : '');
+        }
+
+        form.addEventListener('submit', async function (ev) {
+          ev.preventDefault();
+          var email = document.getElementById('email').value.trim();
+          if (!email) return;
+          btn.disabled = true;
+          setStatus('Sender lenke …');
+          try {
+            var res = await fetch('/api/auth/magic-link/start', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email }),
+            });
+            var data = await res.json().catch(function () {
+              return {};
+            });
+            if (res.status === 503) {
+              setStatus(
+                'Magic-link er ikke konfigurert på serveren. Bruk Google i stedet.',
+                'err'
+              );
+            } else if (res.status === 429) {
+              setStatus('For mange forsøk. Prøv igjen om litt.', 'err');
+            } else if (!res.ok) {
+              setStatus(data.detail || 'Kunne ikke sende lenke.', 'err');
+            } else {
+              setStatus(
+                'Sjekk eposten din — vi har sendt en innloggingslenke som er gyldig i 15 minutter.',
+                'ok'
+              );
+            }
+          } catch (err) {
+            setStatus('Nettverksfeil. Prøv igjen.', 'err');
+          } finally {
+            btn.disabled = false;
+          }
+        });
+
+        // If the user is already logged in, skip the login page.
+        fetch('/api/auth/me', { credentials: 'include' })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            if (data && data.authenticated) window.location.replace('/');
+          })
+          .catch(function () {
+            /* ignore */
+          });
+      })();
+    </script>
+  </body>
+</html>
