@@ -534,11 +534,25 @@ Hvis du vil ha observability:
 
 ### 15.9 Første deploy
 
+**Alternativ A — Railway GitHub App (raskest):**
 ```bash
 git push origin main
 ```
+Railway bygger automatisk hvis du har koblet GitHub-repoet i Railway-dashbordet. Følg loggen.
 
-Railway bygger automatisk. Følg loggen i dashbordet. Ved feil — sjekk Variables og Volume først.
+**Alternativ B — GitHub Actions workflow (phase 19):**
+
+`.github/workflows/deploy.yml` deployer automatisk etter at `CI` passerer på `main`. Oppsett:
+
+1. Railway → `Account Settings` → `Tokens` → generer en Project Token.
+2. GitHub repo → `Settings` → `Secrets and variables` → `Actions`:
+   - Secret: `RAILWAY_TOKEN` = tokenet fra steg 1.
+   - Variable (valgfri): `APP_URL` = `https://appdomene.no`. Deploy-jobben pinger `/health` etter deploy hvis denne er satt.
+3. Push til main. CI kjører; ved grønn trigger `Deploy to Railway`-workflow via `workflow_run`-event. Konkurrerende deploys cancelleres automatisk.
+
+Manuell deploy: GitHub → `Actions` → `Deploy to Railway` → `Run workflow`.
+
+Ved feil — sjekk Variables og Volume først. Workflow feiler fast hvis `RAILWAY_TOKEN` mangler.
 
 ### 15.10 Verifisering
 
