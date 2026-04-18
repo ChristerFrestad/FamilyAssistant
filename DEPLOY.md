@@ -609,11 +609,11 @@ Portainer-målgruppen er selvhostere som vil «klikk deploy → åpne i nettlese
 
 1. Vent til containeren har status `Running` + health `healthy` (ca. 15 sekunder)
 2. I loggen skal du se: `BOOTSTRAP MODE — awaiting setup at /setup.html`
-3. Åpne `http://<docker-host>:13000/setup.html` i nettleser
-   - Host-port 13000 er valgt for å unngå kollisjon med andre vanlige self-hosted apper (Grafana og Node-defaults bruker 3000, n8n bruker 5678). Intern container-port er fortsatt 3000 — bare host-mappingen er endret.
+3. Åpne `http://<docker-host>:7777/setup.html` i nettleser
+   - Host-port 7777 er valgt som en tydelig «ikke-standard»-port siden 3000 ofte er okkupert av andre Node-apper/Grafana på self-host-maskiner. Intern container-port er fortsatt 3000 — bare host-mappingen er endret. Hvis 7777 kolliderer (Ombi bruker den), override til f.eks. 8765 i Portainer-editor.
 4. Fyll inn:
    - **Auth token**: klikk `Generate` (32 hex-tegn server-generert) — **kopier og lagre trygt**
-   - **Allowed origins**: din faktiske origin, f.eks. `http://raspberrypi.local:13000` eller `http://192.168.1.50:13000`
+   - **Allowed origins**: din faktiske origin, f.eks. `http://raspberrypi.local:7777` eller `http://192.168.1.50:7777`
    - **LLM backend**: Ollama (standard) eller llama.cpp
    - **Ollama host**: default `http://host.docker.internal:11434` fungerer hvis Ollama kjører på Docker-hosten
    - **Log level**: `info` (standard)

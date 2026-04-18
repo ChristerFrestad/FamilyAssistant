@@ -26,13 +26,17 @@ services:
     #   dockerfile: Dockerfile
     container_name: familieassistenten
     restart: unless-stopped
-    # Direkte LAN-tilgang. Host-porten 13000 er valgt for å unngå kollisjon
-    # med andre vanlige self-hosted apper (Grafana og Node-defaults kaprer 3000
-    # ofte; n8n bruker 5678; Jellyfin 8096; Sonarr 8989). Intern container-port
-    # er fortsatt 3000. Etter bootstrap + Caddy-aktivering kan dette endres til
-    # "127.0.0.1:13000:3000" for å tvinge all trafikk via Caddy-reverse-proxy.
+    # Direkte LAN-tilgang. Host-porten 7777 er valgt som en tydelig «ikke-
+    # standard» port siden 3000 ofte er i bruk av andre Node-apper/Grafana
+    # på self-host-maskiner. Intern container-port er fortsatt 3000 — kun
+    # host-mappingen endres. Etter bootstrap + Caddy-aktivering kan dette
+    # endres til "127.0.0.1:7777:3000" for å tvinge all trafikk via Caddy.
+    #
+    # Mulig kollisjon: Ombi (self-hosted media requests) bruker default 7777.
+    # Hvis du kjører Ombi, override denne mappingen til f.eks. 8765 via
+    # Portainer-editor eller stack-environment-variabler.
     ports:
-      - "13000:3000"
+      - "7777:3000"
     volumes:
       - ./data:/app/data
     environment:
