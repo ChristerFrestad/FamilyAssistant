@@ -82,16 +82,9 @@ describe('Uke4 · A11y utvidet — dialogs og modaler', () => {
     assert.ok(/ev\.key\s*===\s*['"]Escape['"]/.test(js), 'showConfirm håndterer ikke Escape-key');
   });
 
-  test('Onboarding-wizard har role=dialog + focus trap', () => {
-    const js = readAllJs();
-    assert.ok(js.includes('function startOnboarding('), 'startOnboarding mangler');
-    // Finn onboarding-relaterte aria-attr
-    const onboardingBlock = js.split('function renderOnboarding(')[1] || '';
-    assert.ok(onboardingBlock.includes("'role'"), 'onboarding setter ikke role');
-    assert.ok(
-      /aria-modal['"]?\s*,\s*['"]true['"]/.test(onboardingBlock),
-      'onboarding setter ikke aria-modal'
-    );
+  test('Family onboarding wizard page exists (replacement for old tour)', () => {
+    const p = path.join(ROOT, 'public', 'onboarding.html');
+    assert.ok(fs.existsSync(p), 'onboarding.html missing');
   });
 
   test('Global Esc-handler lukker modalBg', () => {
@@ -130,17 +123,13 @@ describe('Uke4 · A11y utvidet — destructive operations bruker showConfirm', (
 });
 
 describe('Uke4 · A11y utvidet — CSS bevarer prefers-reduced-motion', () => {
-  test('Confirm-dialog og onboarding respekterer prefers-reduced-motion', () => {
+  test('Confirm-dialog respekterer prefers-reduced-motion', () => {
     const cssPath = path.join(ROOT, 'public', 'css', 'components-extended.css');
     const css = fs.readFileSync(cssPath, 'utf8');
     assert.ok(
       /prefers-reduced-motion[^}]*confirm-overlay/s.test(css) ||
         /prefers-reduced-motion:\s*reduce[^}]*confirm/s.test(css),
       'confirm-dialog mangler prefers-reduced-motion-regel'
-    );
-    assert.ok(
-      /prefers-reduced-motion[^}]*onboarding/s.test(css),
-      'onboarding mangler prefers-reduced-motion-regel'
     );
   });
 });

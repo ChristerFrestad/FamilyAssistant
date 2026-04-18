@@ -107,44 +107,33 @@ describe('Uke4 · showConfirm utility', () => {
 });
 
 // ============================================================
-// Onboarding wizard
+// Phase 13: old 4-step welcome tour removed in favour of the family
+// onboarding wizard at /onboarding.html. The tests below used to assert
+// the tour's existence; they are kept as a regression guard for the
+// removal itself.
 // ============================================================
-describe('Uke4 · Onboarding wizard', () => {
-  test('onboarding.js finnes og eksporterer startOnboarding', () => {
+describe('Phase 13 · Welcome-tour removed in favour of family onboarding', () => {
+  test('public/js/onboarding.js is removed', () => {
     const p = path.join(JS_DIR, 'onboarding.js');
-    assert.ok(fs.existsSync(p), 'onboarding.js mangler');
-    const js = readModule('onboarding.js');
-    assert.ok(/function\s+startOnboarding\s*\(/.test(js), 'startOnboarding mangler');
-    assert.ok(/function\s+isOnboarded\s*\(/.test(js), 'isOnboarded mangler');
-    assert.ok(/function\s+markOnboarded\s*\(/.test(js), 'markOnboarded mangler');
+    assert.ok(!fs.existsSync(p), 'onboarding.js should be deleted');
   });
 
-  test('Onboarding bruker localStorage for persistence', () => {
-    const js = readModule('onboarding.js');
-    assert.ok(js.includes('localStorage'), 'localStorage ikke i bruk');
-    assert.ok(js.includes("'fa-onboarded'") || js.includes('"fa-onboarded"'), 'nøkkelen mangler');
-  });
-
-  test('Onboarding har minst 3 steg', () => {
-    const js = readModule('onboarding.js');
-    const stepsMatch = js.match(/ONBOARDING_STEPS\s*=\s*\[([\s\S]*?)\];/);
-    assert.ok(stepsMatch, 'ONBOARDING_STEPS array mangler');
-    const stepCount = (stepsMatch[1].match(/\btitle:/g) || []).length;
-    assert.ok(stepCount >= 3, `onboarding har bare ${stepCount} steg, trenger minst 3`);
-  });
-
-  test('init.js kaller startOnboarding ved oppstart', () => {
+  test('init.js no longer calls startOnboarding', () => {
     const js = readModule('init.js');
-    assert.ok(js.includes('startOnboarding'), 'init.js kaller ikke startOnboarding');
+    assert.ok(!js.includes('startOnboarding'), 'startOnboarding call must be gone');
   });
 
-  test('index.html laster onboarding.js før init.js', () => {
+  test('index.html does not load onboarding.js', () => {
     const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
-    const onboardingIdx = html.indexOf('onboarding.js');
-    const initIdx = html.indexOf('init.js');
-    assert.ok(onboardingIdx > 0, 'onboarding.js ikke lastet');
-    assert.ok(initIdx > 0, 'init.js ikke lastet');
-    assert.ok(onboardingIdx < initIdx, 'onboarding.js må lastes før init.js');
+    assert.ok(!html.includes('onboarding.js'), 'onboarding.js script tag must be gone');
+  });
+
+  test('family onboarding wizard is present at public/onboarding.html', () => {
+    const p = path.join(ROOT, 'public', 'onboarding.html');
+    assert.ok(fs.existsSync(p), 'onboarding.html missing');
+    const html = fs.readFileSync(p, 'utf8');
+    assert.match(html, /Familie/);
+    assert.match(html, /family-onboarding\.js/);
   });
 });
 
@@ -162,43 +151,7 @@ describe('Uke4 · Esc lukker modalBg', () => {
   });
 });
 
-// ============================================================
-// BRUKERGUIDE.md
-// ============================================================
-describe('Uke4 · BRUKERGUIDE.md', () => {
-  test('BRUKERGUIDE.md finnes i repo-rot', () => {
-    const p = path.join(ROOT, 'BRUKERGUIDE.md');
-    assert.ok(fs.existsSync(p), 'BRUKERGUIDE.md mangler');
-  });
-
-  test('BRUKERGUIDE.md dekker 6 hovedflyter', () => {
-    const md = fs.readFileSync(path.join(ROOT, 'BRUKERGUIDE.md'), 'utf8');
-    const topics = [
-      /velkomst.*turen/i,
-      /planlegge.*middager/i,
-      /handletur/i,
-      /husarbeid/i,
-      /importere.*oppskrifter/i,
-      /familieprofil/i,
-    ];
-    for (const topic of topics) {
-      assert.ok(topic.test(md), `BRUKERGUIDE.md mangler seksjon som matcher ${topic}`);
-    }
-  });
-
-  test('BRUKERGUIDE.md dokumenterer tastatur-snarveier', () => {
-    const md = fs.readFileSync(path.join(ROOT, 'BRUKERGUIDE.md'), 'utf8');
-    assert.ok(/tastatur/i.test(md), 'ingen seksjon om tastatur');
-    assert.ok(/`Esc`/.test(md), 'Esc-tast ikke nevnt');
-    assert.ok(/`Enter`/.test(md), 'Enter-tast ikke nevnt');
-  });
-
-  test('BRUKERGUIDE.md advarer om allergi-safety', () => {
-    const md = fs.readFileSync(path.join(ROOT, 'BRUKERGUIDE.md'), 'utf8');
-    assert.ok(/allergi/i.test(md), 'ingen omtale av allergier');
-    assert.ok(
-      /beste innsats|ikke garantert|dobbeltsjekke/i.test(md),
-      'BRUKERGUIDE advarer ikke om LLM-allergi-risiko'
-    );
-  });
-});
+// Phase 21: BRUKERGUIDE.md was deleted as stale. Allergi-safety is
+// now covered by the in-app disclaimer (onboarding step 2, meals view)
+// and the product's deterministic post-filter in allergy-filter.service.
+// Tests live in m-week9-safety.test.js + onboarding.test.js.

@@ -1,19 +1,21 @@
 /* eslint-disable no-undef -- classic script shares globals across public/js/*.js */
 // === Init ===
 loadTheme();
-loadToday();
-checkLlmStatus();
-initVoice();
-// Sjekk varsler hvert 30. minutt
-setInterval(checkNotifications, 30 * 60 * 1000);
-setTimeout(checkNotifications, 5000); // Sjekk etter 5 sek
 
-// Uke 4 (FE-11): onboarding-wizard for foerste-gangs-brukere.
-// Kalles etter en liten delay slik at appen rekker aa laste todayContent foerst.
-setTimeout(() => {
-  if (typeof startOnboarding === 'function') startOnboarding();
-}, 800);
-
+// Phase 11: boot auth before loading anything that hits /api/*. If the
+// backend says "not authenticated" we hand over to /login.html and stop
+// the rest of the init so the shell does not flicker with skeleton
+// loaders. Bearer-auth RPi deployments and legacy no-AUTH_TOKEN dev
+// mode both return an authenticated synthetic user and pass through.
+(async function boot() {
+  const ok = await bootAuth();
+  if (!ok) return;
+  loadToday();
+  checkLlmStatus();
+  initVoice();
+  setInterval(checkNotifications, 30 * 60 * 1000);
+  setTimeout(checkNotifications, 5000);
+})();
 // === M5.2 Service worker registration ===
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

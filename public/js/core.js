@@ -131,6 +131,7 @@ let isOffline = false;
 async function api(path, opts = {}) {
   try {
     const res = await fetch(API + path, {
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       ...opts,
       body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -138,6 +139,14 @@ async function api(path, opts = {}) {
     const rid = res.headers.get('X-Request-Id');
     if (rid) lastRequestId = rid;
     setOffline(false);
+    // 401 on an /api/* call from the main app → the session is gone.
+    // Redirect to login if the helper is present (phase 11 adds it).
+    if (res.status === 401 && typeof redirectToLogin === 'function') {
+      redirectToLogin();
+      // Return a benign empty object so callers do not crash before the
+      // redirect completes.
+      return {};
+    }
     const data = await res.json();
     // M5.1: auto-toast på 4xx/5xx med problem+json
     if (!res.ok && data) {

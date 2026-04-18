@@ -1,18 +1,22 @@
 'use strict';
 
+const { getFamilyId } = require('../auth/family-context');
+
 function createReceiptRepos(db) {
   const receipts = {
     insert(rec) {
+      const familyId = getFamilyId();
       return db
         .prepare(
           `
         INSERT INTO receipts (
-          file_path, mime_type, file_size_bytes, sha256, merchant,
+          family_id, file_path, mime_type, file_size_bytes, sha256, merchant,
           purchased_at, total_nok, currency, raw_text, llm_model, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
         )
         .run(
+          familyId,
           rec.filePath,
           rec.mimeType,
           rec.fileSizeBytes,
@@ -27,6 +31,7 @@ function createReceiptRepos(db) {
         ).lastInsertRowid;
     },
     getBySha(sha) {
+      const familyId = getFamilyId();
       const row = db
         .prepare(
           `
@@ -34,13 +39,14 @@ function createReceiptRepos(db) {
                sha256, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                currency, raw_text as rawText, llm_model as llmModel, status,
                error_message as errorMessage, created_at as createdAt, confirmed_at as confirmedAt
-        FROM receipts WHERE sha256 = ?
+        FROM receipts WHERE family_id = ? AND sha256 = ?
       `
         )
-        .get(sha);
+        .get(familyId, sha);
       return row || null;
     },
     getById(id) {
+      const familyId = getFamilyId();
       const row = db
         .prepare(
           `
@@ -48,34 +54,35 @@ function createReceiptRepos(db) {
                sha256, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                currency, raw_text as rawText, llm_model as llmModel, status,
                error_message as errorMessage, created_at as createdAt, confirmed_at as confirmedAt
-        FROM receipts WHERE id = ?
+        FROM receipts WHERE family_id = ? AND id = ?
       `
         )
-        .get(id);
+        .get(familyId, id);
       return row || null;
     },
     list({ status = null, limit = 50 } = {}) {
+      const familyId = getFamilyId();
       if (status) {
         return db
           .prepare(
             `
           SELECT id, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                  status, created_at as createdAt, confirmed_at as confirmedAt
-          FROM receipts WHERE status = ?
+          FROM receipts WHERE family_id = ? AND status = ?
           ORDER BY created_at DESC, id DESC LIMIT ?
         `
           )
-          .all(status, limit);
+          .all(familyId, status, limit);
       }
       return db
         .prepare(
           `
         SELECT id, merchant, purchased_at as purchasedAt, total_nok as totalNok,
                status, created_at as createdAt, confirmed_at as confirmedAt
-        FROM receipts ORDER BY created_at DESC, id DESC LIMIT ?
+        FROM receipts WHERE family_id = ? ORDER BY created_at DESC, id DESC LIMIT ?
       `
         )
-        .all(limit);
+        .all(familyId, limit);
     },
     updateParsed(
       id,
@@ -89,6 +96,7 @@ function createReceiptRepos(db) {
         errorMessage = null,
       }
     ) {
+      const familyId = getFamilyId();
       db.prepare(
         `
         UPDATE receipts
@@ -99,7 +107,7 @@ function createReceiptRepos(db) {
                llm_model = COALESCE(?, llm_model),
                status = ?,
                error_message = ?
-         WHERE id = ?
+         WHERE family_id = ? AND id = ?
       `
       ).run(
         merchant ?? null,
@@ -109,29 +117,33 @@ function createReceiptRepos(db) {
         llmModel ?? null,
         status,
         errorMessage,
+        familyId,
         id
       );
     },
     markStatus(id, status, { errorMessage = null } = {}) {
+      const familyId = getFamilyId();
       const confirmedAt = status === 'confirmed' ? new Date().toISOString() : null;
       db.prepare(
         `
         UPDATE receipts SET status = ?, error_message = ?, confirmed_at = COALESCE(?, confirmed_at)
-        WHERE id = ?
+        WHERE family_id = ? AND id = ?
       `
-      ).run(status, errorMessage, confirmedAt, id);
+      ).run(status, errorMessage, confirmedAt, familyId, id);
     },
     remove(id) {
-      db.prepare('DELETE FROM receipts WHERE id = ?').run(id);
+      const familyId = getFamilyId();
+      db.prepare('DELETE FROM receipts WHERE family_id = ? AND id = ?').run(familyId, id);
     },
     stats() {
+      const familyId = getFamilyId();
       const rows = db
         .prepare(
           `
-        SELECT status, COUNT(*) as c FROM receipts GROUP BY status
+        SELECT status, COUNT(*) as c FROM receipts WHERE family_id = ? GROUP BY status
       `
         )
-        .all();
+        .all(familyId);
       const out = { total: 0 };
       for (const r of rows) {
         out[r.status] = r.c;
@@ -143,16 +155,18 @@ function createReceiptRepos(db) {
 
   const receiptItems = {
     insertMany(receiptId, items) {
+      const familyId = getFamilyId();
       const ins = db.prepare(`
         INSERT INTO receipt_items (
-          receipt_id, line_text, product_key, product_name, qty, unit,
+          family_id, receipt_id, line_text, product_key, product_name, qty, unit,
           unit_price, total_price, discount, ean, confidence, flagged_reason,
           kassal_product_id, resolution_candidates_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const tx = db.transaction(() => {
         for (const it of items) {
           ins.run(
+            familyId,
             receiptId,
             it.lineText || '',
             it.productKey ?? null,
@@ -173,6 +187,7 @@ function createReceiptRepos(db) {
       tx();
     },
     getByReceipt(receiptId) {
+      const familyId = getFamilyId();
       const rows = db
         .prepare(
           `
@@ -182,10 +197,10 @@ function createReceiptRepos(db) {
                discount, ean, confidence, confirmed, flagged_reason as flaggedReason,
                kassal_product_id as kassalProductId,
                resolution_candidates_json as resolutionCandidatesJson
-        FROM receipt_items WHERE receipt_id = ? ORDER BY id
+        FROM receipt_items WHERE family_id = ? AND receipt_id = ? ORDER BY id
       `
         )
-        .all(receiptId);
+        .all(familyId, receiptId);
       return rows.map((r) => ({
         ...r,
         resolutionCandidates: r.resolutionCandidatesJson
@@ -194,6 +209,7 @@ function createReceiptRepos(db) {
       }));
     },
     updateItem(id, fields) {
+      const familyId = getFamilyId();
       const allowed = {
         productKey: 'product_key',
         productName: 'product_name',
@@ -215,11 +231,17 @@ function createReceiptRepos(db) {
         }
       }
       if (sets.length === 0) return;
-      vals.push(id);
-      db.prepare(`UPDATE receipt_items SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+      vals.push(familyId, id);
+      db.prepare(`UPDATE receipt_items SET ${sets.join(', ')} WHERE family_id = ? AND id = ?`).run(
+        ...vals
+      );
     },
     removeByReceipt(receiptId) {
-      db.prepare('DELETE FROM receipt_items WHERE receipt_id = ?').run(receiptId);
+      const familyId = getFamilyId();
+      db.prepare('DELETE FROM receipt_items WHERE family_id = ? AND receipt_id = ?').run(
+        familyId,
+        receiptId
+      );
     },
   };
 

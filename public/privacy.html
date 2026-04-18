@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Personvernerklæring — Familieassistenten</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.55;
+        color: #111827;
+      }
+      h1 {
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 0.5rem;
+      }
+      h2 {
+        margin-top: 2rem;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid #e5e7eb;
+        padding: 6px 10px;
+        text-align: left;
+      }
+      .note {
+        background: #fef3c7;
+        padding: 0.75rem 1rem;
+        border-left: 4px solid #f59e0b;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Personvernerklæring</h1>
+    <p class="note">
+      Dette er et utkast for MVP. Teksten er ikke juridisk gjennomgått og bør tilpasses før bred
+      utrulling.
+    </p>
+
+    <h2>Hvem er behandlingsansvarlig</h2>
+    <p>
+      Familieassistenten driftes av privat eier som selvbetjenings-tjeneste. Behandlingsansvarlig er
+      familiens eier-bruker for sin egen familie. Tjenesten lagrer data på egen sky-instans og
+      deles ikke med tredjepart uten eksplisitt samtykke.
+    </p>
+
+    <h2>Hvilke data samler vi</h2>
+    <ul>
+      <li>
+        <strong>Identitet</strong>: navn, epost og profilbilde fra Google OAuth, eller epost fra
+        magic-link-innlogging.
+      </li>
+      <li>
+        <strong>Familie-data</strong>: medlemsroster, allergier, oppskrifter, ukesmenyer,
+        handlelister, pantry-inventory, kvitteringer, kalender, gjøremål.
+      </li>
+      <li>
+        <strong>Teknisk</strong>: sesjons-ID (cookie), request-IDer for feilsøking, user-agent.
+        IP-adresser lagres kun som saltet hash for rate-limiting.
+      </li>
+      <li>
+        <strong>AI-nøkkel</strong>: dersom du velger en egen LLM-leverandør lagres API-nøkkelen
+        AES-256-GCM-kryptert. Nøkkelen eksponeres aldri tilbake via API.
+      </li>
+    </ul>
+
+    <h2>Tredjeparts-prosessorer</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Tjeneste</th>
+          <th>Formål</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Google OAuth</td>
+          <td>Innlogging</td>
+          <td>email, navn, profilbilde (scope: openid email profile)</td>
+        </tr>
+        <tr>
+          <td>Resend</td>
+          <td>Magic-link-epost</td>
+          <td>epost-adresse, engangs-token (15 min TTL)</td>
+        </tr>
+        <tr>
+          <td>Anthropic / OpenAI / xAI / Ollama</td>
+          <td>AI-funksjoner (valgfritt per familie)</td>
+          <td>meldinger og kontekst du selv sender inn i AI-funksjoner</td>
+        </tr>
+        <tr>
+          <td>Railway</td>
+          <td>Kjøremiljø</td>
+          <td>all applikasjonsdata, volum-kryptert på infrastruktur-nivå</td>
+        </tr>
+        <tr>
+          <td>Backblaze B2</td>
+          <td>Nattlig database-backup</td>
+          <td>database-fil; 7 dagers retention</td>
+        </tr>
+        <tr>
+          <td>Sentry</td>
+          <td>Feilmonitorering</td>
+          <td>stack traces; person-data skrubbes før sending (<code>beforeSend</code>-hook)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Dine rettigheter</h2>
+    <ul>
+      <li>
+        <strong>Innsyn og dataportabilitet</strong>: <code>GET /api/me/export</code> returnerer all
+        din og familiens data som JSON.
+      </li>
+      <li>
+        <strong>Rett til korrigering</strong>: alle dine egne data kan redigeres i appen. Kontakt
+        eier hvis familie-felt ikke er tilgjengelige.
+      </li>
+      <li>
+        <strong>Rett til sletting</strong>: <code>DELETE /api/me</code> soft-sletter kontoen.
+        Hard-sletting skjer 30 dager senere. Familie-eiere må overføre eierskap først.
+        <code>DELETE /api/family</code> sletter hele familien og kaskaderer alle tilknyttede rader.
+      </li>
+      <li>
+        <strong>Rett til begrensning</strong>: Personvern-fanen i innstillingene lar deg slå av
+        valgfri telemetri (per MVP ingen telemetri aktivert).
+      </li>
+    </ul>
+
+    <h2>Databrudd</h2>
+    <p>
+      Ved mistanke om databrudd varsles Datatilsynet innen 72 timer. Se
+      <code>docs/INCIDENT_RESPONSE.md</code> for intern prosedyre.
+    </p>
+
+    <h2>Kontakt</h2>
+    <p>Bruk «Gi tilbakemelding»-knappen i appen eller kontakt familien-eieren direkte.</p>
+  </body>
+</html>

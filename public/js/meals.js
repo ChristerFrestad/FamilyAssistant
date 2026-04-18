@@ -9,6 +9,32 @@ document.addEventListener('click', (e) => {
     const id = Number(link.dataset.recipeId);
     const name = link.dataset.recipeName || '';
     if (id) showSimilarRecipes(id, name);
+    return;
+  }
+  // Phase 15 — recipe thumbs up/down
+  const thumbBtn = e.target.closest('[data-action="recipe-thumb"]');
+  if (thumbBtn) {
+    e.preventDefault();
+    const recipeId = Number(thumbBtn.dataset.recipeId);
+    const mealPlanId = Number(thumbBtn.dataset.mealPlanId) || null;
+    const rating = Number(thumbBtn.dataset.rating);
+    if (!recipeId || ![-1, 0, 1].includes(rating)) return;
+    // If already active on this rating, toggle off by sending 0 (neutral).
+    const isActive = thumbBtn.classList.contains('is-active');
+    const finalRating = isActive ? 0 : rating;
+    sendRecipeFeedback({ recipeId, mealPlanId, rating: finalRating }).then((res) => {
+      if (!res) {
+        showToast('Kunne ikke lagre tilbakemelding', 'warn');
+        return;
+      }
+      // Toggle visual state within this thumbs group.
+      const group = thumbBtn.parentElement;
+      if (group) {
+        group.querySelectorAll('.recipe-thumb-btn').forEach((b) => b.classList.remove('is-active'));
+        if (finalRating !== 0) thumbBtn.classList.add('is-active');
+      }
+      showToast(finalRating === 0 ? 'Tilbakemelding fjernet' : 'Takk for tilbakemeldingen!', 'success');
+    });
   }
 });
 async function loadMeals() {
@@ -22,6 +48,8 @@ function renderMeals() {
   const data = mealsData;
   if (!data) return;
   let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Uke ${escapeHtml(String(data.weekYear || '').split('-W')[1] || '')}</div>`;
+  // Phase 15: diet/allergy disclaimer above AI-picked meals.
+  html += `<p class="disclaimer-small">AI-forslag er veiledende. Dobbeltsjekk innhold ved alvorlige allergier.</p>`;
 
   for (const slot of data.meals) {
     const r = slot.recipe;
@@ -81,6 +109,10 @@ function renderMeals() {
         </div>
         <div class="similar-link-row">
           <a href="#" class="similar-link" data-action="show-similar" data-recipe-id="${Number(r.id)}" data-recipe-name="${escapeHtml(r.name || '')}">↻ Lignende oppskrift →</a>
+          <span class="recipe-thumbs" role="group" aria-label="Vurder middagen">
+            <button class="recipe-thumb-btn" type="button" data-action="recipe-thumb" data-recipe-id="${Number(r.id)}" data-meal-plan-id="${Number(slot.mealPlanId) || ''}" data-rating="1" aria-label="Lik">👍</button>
+            <button class="recipe-thumb-btn" type="button" data-action="recipe-thumb" data-recipe-id="${Number(r.id)}" data-meal-plan-id="${Number(slot.mealPlanId) || ''}" data-rating="-1" aria-label="Mislik">👎</button>
+          </span>
         </div>
       `;
     }
