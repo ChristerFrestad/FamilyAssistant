@@ -1,12 +1,44 @@
 # Security Policy
 
-**Last updated:** 2026-04-10
-**Applies to:** Familieassistenten v1.2.0+
+**Last updated:** 2026-04-18
+**Applies to:** Familieassistenten v1.3.0+
 
-Familieassistenten er designet for bruk på et privat hjemmenett, typisk på
-en Raspberry Pi 5 bak en router. Sikkerhetsmodellen reflekterer dette: vi
-forsvarer mot tilfeldig ondsinnet trafikk og promptinjeksjoner, ikke mot
-statsaktører.
+Familieassistenten kjører i to modus:
+
+1. **Lokal selvhost** (RPi5 bak router) — én familie, `AUTH_TOKEN`.
+2. **Sky, multi-tenant** (Railway + TLS) — flere familier, Google OAuth
+   eller magic-link-innlogging, per-familie LLM-konfig.
+
+Sikkerhetsmodellen dekker begge. Vi forsvarer mot tilfeldig ondsinnet
+trafikk, prompt-injeksjoner og tenant-krysning, ikke mot statsaktører.
+
+## 0. Multi-tenant-garantier (fase 1–20)
+
+- **Tenant-isolasjon**: alle familie-skopede repositories leser `family_id`
+  fra en `AsyncLocalStorage`-kontekst satt av middleware. Ingen query kan
+  returnere data uten denne konteksten. Integrasjonstester i
+  `tests/tenant-isolation.test.js` verifiserer at familie A aldri ser
+  familie Bs inventory/menyer/oppskrifter/handleliste/kvitteringer.
+- **Rolle-håndhevelse**: `owner`/`adult`/`child`-matrise håndheves per
+  mutations-endepunkt via `requireRole`. `child` kan ikke POSTe til
+  pantry, meny, handleliste eller AI-chat. Se
+  `tests/role-enforcement.test.js`.
+- **Kryptering av LLM-credentials**: `family_llm_config.api_key_encrypted`
+  er AES-256-GCM-kryptert med `ENCRYPTION_KEY` (32 bytes hex, distinkt fra
+  `SESSION_SECRET`). Klartekst returneres aldri via API —
+  `GET /api/family/llm` returnerer kun `has_key: boolean`.
+- **Hashed family-id i observability**: Sentry-integrasjonen (valgfri)
+  sender kun SHA-256-truncated family-id som `user.id`. `email`,
+  `username`, `ip_address` og request-body scrubbes i `beforeSend`.
+  Authorization/Cookie-headere redacted.
+- **Session-cookies**: HttpOnly + Secure + SameSite=Lax, 30-dagers TTL,
+  signed med `SESSION_SECRET`. Logout invaliderer serverside-sessionen
+  og tømmer SW API-cache slik at neste bruker på delt enhet ikke ser
+  forrige brukers data.
+- **Tenant-sensitive API-endpoints** (`/api/auth/*`, `/api/family/*`,
+  `/api/llm-config/*`, `/api/invitations/*`, `/api/onboarding/*`,
+  `/api/gdpr/*`) bypasser service-worker-cache eksplisitt — network-only
+  slik at en stale bufret respons aldri kan lekke mellom kontoer.
 
 ---
 

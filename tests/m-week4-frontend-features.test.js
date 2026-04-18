@@ -151,43 +151,7 @@ describe('Uke4 · Esc lukker modalBg', () => {
   });
 });
 
-// ============================================================
-// BRUKERGUIDE.md
-// ============================================================
-describe('Uke4 · BRUKERGUIDE.md', () => {
-  test('BRUKERGUIDE.md finnes i repo-rot', () => {
-    const p = path.join(ROOT, 'BRUKERGUIDE.md');
-    assert.ok(fs.existsSync(p), 'BRUKERGUIDE.md mangler');
-  });
-
-  test('BRUKERGUIDE.md dekker 6 hovedflyter', () => {
-    const md = fs.readFileSync(path.join(ROOT, 'BRUKERGUIDE.md'), 'utf8');
-    const topics = [
-      /velkomst.*turen/i,
-      /planlegge.*middager/i,
-      /handletur/i,
-      /husarbeid/i,
-      /importere.*oppskrifter/i,
-      /familieprofil/i,
-    ];
-    for (const topic of topics) {
-      assert.ok(topic.test(md), `BRUKERGUIDE.md mangler seksjon som matcher ${topic}`);
-    }
-  });
-
-  test('BRUKERGUIDE.md dokumenterer tastatur-snarveier', () => {
-    const md = fs.readFileSync(path.join(ROOT, 'BRUKERGUIDE.md'), 'utf8');
-    assert.ok(/tastatur/i.test(md), 'ingen seksjon om tastatur');
-    assert.ok(/`Esc`/.test(md), 'Esc-tast ikke nevnt');
-    assert.ok(/`Enter`/.test(md), 'Enter-tast ikke nevnt');
-  });
-
-  test('BRUKERGUIDE.md advarer om allergi-safety', () => {
-    const md = fs.readFileSync(path.join(ROOT, 'BRUKERGUIDE.md'), 'utf8');
-    assert.ok(/allergi/i.test(md), 'ingen omtale av allergier');
-    assert.ok(
-      /beste innsats|ikke garantert|dobbeltsjekke/i.test(md),
-      'BRUKERGUIDE advarer ikke om LLM-allergi-risiko'
-    );
-  });
-});
+// Phase 21: BRUKERGUIDE.md was deleted as stale. Allergi-safety is
+// now covered by the in-app disclaimer (onboarding step 2, meals view)
+// and the product's deterministic post-filter in allergy-filter.service.
+// Tests live in m-week9-safety.test.js + onboarding.test.js.
