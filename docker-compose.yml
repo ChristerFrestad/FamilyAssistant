@@ -26,17 +26,19 @@ services:
     #   dockerfile: Dockerfile
     container_name: familieassistenten
     restart: unless-stopped
-    # Direkte LAN-tilgang. Host-porten 7777 er valgt som en tydelig «ikke-
-    # standard» port siden 3000 ofte er i bruk av andre Node-apper/Grafana
-    # på self-host-maskiner. Intern container-port er fortsatt 3000 — kun
-    # host-mappingen endres. Etter bootstrap + Caddy-aktivering kan dette
-    # endres til "127.0.0.1:7777:3000" for å tvinge all trafikk via Caddy.
+    # Direkte LAN-tilgang. Port 7777 er valgt som default både intern og
+    # ekstern — én port å huske, unngår 3000-kollisjoner med Grafana/Node-
+    # defaults. Dockerfile eksporterer EXPOSE 7777 + ENV PORT=7777, så
+    # serveren lytter internt på 7777.
     #
     # Mulig kollisjon: Ombi (self-hosted media requests) bruker default 7777.
-    # Hvis du kjører Ombi, override denne mappingen til f.eks. 8765 via
-    # Portainer-editor eller stack-environment-variabler.
+    # Hvis du kjører Ombi, override host-mappingen via stack-env-variabel
+    # eller ved å endre kun venstre side av mappingen (f.eks. "8765:7777").
+    #
+    # Etter bootstrap + Caddy-aktivering kan dette endres til
+    # "127.0.0.1:7777:7777" for å tvinge all trafikk via Caddy-reverse-proxy.
     ports:
-      - "7777:3000"
+      - "7777:7777"
     volumes:
       - ./data:/app/data
     environment:

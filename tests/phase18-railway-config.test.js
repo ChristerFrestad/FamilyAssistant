@@ -79,7 +79,9 @@ describe('Phase 18 · Dockerfile is Railway-friendly', () => {
   });
 
   test('exposes a single HTTP port', () => {
-    assert.match(DOCKERFILE, /EXPOSE 3000/);
+    // Default changed to 7777 in phase 22 follow-up to avoid 3000 collisions
+    // on self-host machines. Any single EXPOSE line is acceptable.
+    assert.match(DOCKERFILE, /^EXPOSE \d+$/m);
   });
 
   test('runtime entrypoint is the Node server', () => {

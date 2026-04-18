@@ -91,8 +91,10 @@ describe('Uke7 · PORT-7 Dockerfile HEALTHCHECK', () => {
   test('HEALTHCHECK bruker node fetch (ikke wget/curl siden distroless)', () => {
     const df = readFile('Dockerfile');
     const healthSection = df.split('HEALTHCHECK')[1].split('ENTRYPOINT')[0];
+    // Intern container-port er default 7777 i Dockerfile (phase 22 —
+    // unngår 3000-kollisjoner på self-host-maskiner).
     assert.ok(
-      /fetch\(['"]http:\/\/localhost:3000\/health['"]\)/.test(healthSection),
+      /fetch\(['"]http:\/\/localhost:\d+\/health['"]\)/.test(healthSection),
       'HEALTHCHECK må bruke node fetch til /health'
     );
     assert.ok(!/wget|curl/.test(healthSection), 'HEALTHCHECK må ikke bruke wget/curl (distroless)');

@@ -59,12 +59,12 @@ jobs:
           NODE_ENV: development
           RATE_LIMIT_MAX: '999999'
           LOG_LEVEL: warn
-          PORT: '3000'
+          PORT: '7777'
         run: |
           nohup node server/index.js > /tmp/fam-perf.log 2>&1 &
           echo "SERVER_PID=$!" >> $GITHUB_ENV
           for i in {1..30}; do
-            if curl -sf http://localhost:3000/health > /dev/null; then
+            if curl -sf http://localhost:7777/health > /dev/null; then
               echo "Server ready after ${i}s"
               break
             fi
