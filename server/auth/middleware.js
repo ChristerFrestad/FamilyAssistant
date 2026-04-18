@@ -30,6 +30,7 @@ const PUBLIC_PATHS = new Set([
   '/privacy.html',
   '/terms.html',
   '/login.html',
+  '/invite.html',
 ]);
 
 // Paths that never require authentication but DO try to resolve the user if a

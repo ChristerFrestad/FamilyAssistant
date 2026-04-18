@@ -15,9 +15,6 @@ loadTheme();
   initVoice();
   setInterval(checkNotifications, 30 * 60 * 1000);
   setTimeout(checkNotifications, 5000);
-  setTimeout(() => {
-    if (typeof startOnboarding === 'function') startOnboarding();
-  }, 800);
 })();
 // === M5.2 Service worker registration ===
 if ('serviceWorker' in navigator) {

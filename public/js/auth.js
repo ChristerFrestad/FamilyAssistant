@@ -66,6 +66,18 @@ async function bootAuth() {
   const me = await fetchAuthMe();
   if (me && me.authenticated) {
     currentUser = me.user || null;
+    // Authenticated but no family yet → onboarding wizard.
+    // Synthetic local/bearer users are hard-coded to family_id=1 so they
+    // skip this redirect automatically.
+    if (
+      currentUser &&
+      !currentUser.synthetic &&
+      !currentUser.familyId &&
+      !/\/onboarding\.html/.test(window.location.pathname)
+    ) {
+      window.location.replace('/onboarding.html');
+      return false;
+    }
     renderUserBadge();
     return true;
   }
