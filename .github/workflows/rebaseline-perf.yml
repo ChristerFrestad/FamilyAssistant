@@ -1,0 +1,150 @@
+name: Rebaseline Performance
+
+# Manual workflow for re-establishing perf-baseline.json against the
+# actual GitHub Actions ubuntu-runner. Run this when:
+#   - the baseline was measured on a different machine (desktop / laptop)
+#     and the runtime differential causes the percentage-based regression
+#     gate in performance.yml to flap
+#   - we upgrade Node, better-sqlite3, or any hot-path dependency and
+#     want to lock in the new reference
+#   - GitHub changes the runner image and wall-clock numbers shift
+#
+# Trigger: Actions tab → "Rebaseline Performance" → "Run workflow" (main only).
+# Output: a pull request titled "chore(perf): rebaseline perf-baseline.json
+# on ubuntu runner" with the fresh JSON. Review + merge as normal.
+
+on:
+  workflow_dispatch:
+    inputs:
+      concurrency:
+        description: 'Concurrent virtual users'
+        required: false
+        default: '5'
+      duration:
+        description: 'Load duration (seconds)'
+        required: false
+        default: '15'
+      warmupMs:
+        description: 'Warmup before measurement (ms)'
+        required: false
+        default: '1500'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebaseline:
+    name: Measure on runner + open PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start server
+        env:
+          NODE_ENV: development
+          RATE_LIMIT_MAX: '999999'
+          LOG_LEVEL: warn
+          PORT: '3000'
+        run: |
+          nohup node server/index.js > /tmp/fam-perf.log 2>&1 &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "Server ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run load-baseline (no compare — produces fresh baseline)
+        run: |
+          node scripts/load-baseline.js \
+            --concurrency=${{ github.event.inputs.concurrency }} \
+            --duration=${{ github.event.inputs.duration }} \
+            --warmupMs=${{ github.event.inputs.warmupMs }} \
+            --output=perf-baseline.json
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -n "${SERVER_PID:-}" ]; then
+            kill $SERVER_PID 2>/dev/null || true
+          fi
+          echo "--- Server log (last 40 lines) ---"
+          tail -40 /tmp/fam-perf.log || true
+
+      - name: Show new baseline
+        run: |
+          echo "### New baseline (measured on GitHub Actions ubuntu-latest)" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          head -20 perf-baseline.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Open pull request with new baseline
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: |
+            chore(perf): rebaseline perf-baseline.json on ubuntu-latest runner
+
+            Measured on GitHub Actions ubuntu-latest so the regression
+            gate in performance.yml compares apples to apples. The prior
+            baseline was produced on a workstation with markedly faster
+            single-threaded performance, causing the percentage-based
+            gate to flap on CI even without real regressions.
+
+            Profile: concurrency=${{ github.event.inputs.concurrency }},
+            duration=${{ github.event.inputs.duration }}s,
+            warmup=${{ github.event.inputs.warmupMs }}ms.
+          title: 'chore(perf): rebaseline perf-baseline.json on ubuntu runner'
+          body: |
+            ## Summary
+
+            Automated pull request from the `Rebaseline Performance`
+            workflow. Re-measures the smoke load profile on the actual
+            GitHub Actions ubuntu-latest runner and commits the result as
+            the new `perf-baseline.json`.
+
+            ## Why
+
+            `performance.yml` compares the nightly load run against
+            `perf-baseline.json` with a 50% regression tolerance. When
+            the baseline is measured on a fast workstation (p95 ~1.5ms)
+            and the check runs on a slower runner (p95 ~3–10ms), the
+            percentage delta exceeds the tolerance and the gate fails
+            even when the server is perfectly healthy. Re-baselining on
+            the runner closes that gap.
+
+            ## Review checklist
+
+            - [ ] Compare `perf-baseline.json` against the previous
+                  version — p95 numbers should be higher (runner slower
+                  than the workstation baseline)
+            - [ ] Confirm `totalRequests`, `errors`, and `errorRatePct`
+                  look sane (0 errors expected)
+            - [ ] Skim the per-endpoint breakdown for any outliers
+
+            ## Test plan
+
+            Merging this PR re-triggers `performance.yml` on subsequent
+            PRs. The regression gate should now pass cleanly for
+            non-regressive changes.
+          branch: chore/rebaseline-perf-auto
+          delete-branch: true
+          labels: |
+            chore
+            performance
