@@ -583,3 +583,147 @@ body.settings-mode .fab.visible {
   background: var(--surface-alt, #f9fafb);
 }
 /* ===== END PHASE_11 ===== */
+
+/* ===== PHASE_12 family + LLM panels ===== */
+.family-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.family-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.family-meta {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+.family-col {
+  margin: 1rem 0;
+}
+.panel-subheader {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+}
+.family-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.family-member,
+.family-user,
+.invite-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-size: 0.9rem;
+}
+.mem-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mem-meta {
+  opacity: 0.65;
+  font-size: 0.78rem;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--blue, #2563eb);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.8rem;
+}
+.link-btn.danger {
+  color: var(--red, #dc2626);
+}
+.family-add-member,
+.family-invite-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.family-add-member input,
+.family-add-member select,
+.family-invite-form select {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--surface, #fff);
+  color: var(--text, #111827);
+  font: inherit;
+}
+.invite-url {
+  flex: 1;
+  font-size: 0.78rem;
+  background: var(--surface-alt, #f3f4f6);
+  padding: 2px 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.family-owner-actions,
+.llm-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.btn-danger {
+  background: var(--red, #dc2626);
+  color: white;
+  border-color: var(--red, #dc2626);
+}
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border, #d1d5db);
+}
+.llm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.75rem 0;
+}
+.llm-field label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+.llm-field input,
+.llm-field select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--surface, #fff);
+  color: var(--text, #111827);
+  font: inherit;
+}
+.llm-providers {
+  margin-top: 1rem;
+  font-size: 0.88rem;
+}
+.provider-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+.provider-list li {
+  padding: 0.3rem 0;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+/* ===== END PHASE_12 ===== */
