@@ -23,6 +23,7 @@ const { createAuthenticate } = require('./auth/middleware');
 const stateSnapshot = require('./state-snapshot');
 const sdNotify = require('./sd-notify');
 const alerting = require('./alerting');
+const sentry = require('./observability/sentry');
 
 // ============================================================
 // Global error handlers
@@ -30,6 +31,7 @@ const alerting = require('./alerting');
 
 process.on('uncaughtException', (err) => {
   logger.fatal({ err: { message: err.message, stack: err.stack } }, 'uncaughtException');
+  sentry.captureException(err);
   // M4.3: fire-and-forget alert. shouldThrottle hindrer spam.
   alerting
     .fatal('uncaughtException', {
@@ -42,6 +44,7 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ reason }, 'unhandledRejection');
+  sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
   alerting
     .fatal('unhandledRejection', {
       detail: String(reason?.message || reason).slice(0, 500),
@@ -73,6 +76,11 @@ let stopWatchdog = null;
 
 async function startServer() {
   logger.info('Starter Familieassistenten...');
+
+  // Phase 17: initialize Sentry as early as possible so startup failures
+  // (seed, migration) can be captured too. No-op if SENTRY_DSN is unset
+  // or @sentry/node is not installed.
+  sentry.initSentry(config, logger);
 
   // 1. Initialiser database
   dbHandle = await initDB();

@@ -56,6 +56,13 @@ const envSchema = z.object({
   // (Pi 5 med 4 GB totalt, 2 GB reservert for andre prosesser). /ready
   // flagger warning hvis RSS overskrider dette.
   MEMORY_BUDGET_MB: z.coerce.number().int().positive().default(512),
+
+  // Phase 17 — Sentry. Optional. If SENTRY_DSN is unset the observability
+  // module is a pure no-op; no @sentry/node load is attempted.
+  SENTRY_DSN: z.string().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
+  SENTRY_RELEASE: z.string().optional(),
 });
 
 // Auto-detekter node --test og sett NODE_ENV=test hvis ikke eksplisitt satt.

@@ -17,6 +17,7 @@ const {
 const { rateLimit, applySecurityHeaders } = require('./security');
 const { runWithFamily } = require('../auth/family-context');
 const metrics = require('./metrics');
+const sentry = require('../observability/sentry');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
@@ -166,6 +167,9 @@ function handleError(ctx, err, durationMs) {
   }
   // Uventet feil \u2014 maskerer detaljer i produksjon
   ctx.log.error({ err: { message: err.message, stack: err.stack } }, 'unhandled error');
+  // Phase 17: ship the 500 to Sentry with scrubbed request + hashed family-id
+  // user context. No-op if Sentry is not initialised.
+  sentry.captureException(err, ctx);
   ctx.problem(errors.internal(config.NODE_ENV === 'production' ? 'Intern feil' : err.message));
   logRequest(ctx, 500, durationMs, err.message);
 }
