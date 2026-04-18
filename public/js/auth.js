@@ -59,6 +59,11 @@ async function logout() {
     /* even if the server round-trip fails, go to login */
   }
   currentUser = null;
+  // Phase 14: flush the SW API cache so the next account on this device
+  // does not see a stale /api/auth/me or /api/family response from us.
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
+  }
   window.location.replace('/login.html');
 }
 

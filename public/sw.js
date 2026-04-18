@@ -1,24 +1,31 @@
-// Familieassistenten Service Worker (M5.2)
+// Familieassistenten Service Worker (M5.2 + phase 14)
 //
 // Strategi:
-//   - Statiske assets (HTML, manifest, icon) → cache-first, network-fallback
+//   - Statiske assets (HTML, manifest, icon, css, js) → cache-first, network-fallback
 //   - API GET (/api/*) → network-first, cache-fallback for offline lesing
-//   - API POST/PUT/DELETE → network-only, ingen cache (mutasjoner skal ikke
-//     bufres og repeteres ved retry — serveren ville doble dem)
+//   - Tenant-sensitive API (/api/auth/*, /api/family/*, /api/llm-config/*,
+//     /api/invitations/*, /api/onboarding/*, /api/gdpr/*) → network-only, aldri
+//     cache. En bufret respons ville lekke mellom familier/brukere når samme
+//     enhet byttes til en annen konto.
+//   - API POST/PUT/DELETE → network-only (mutasjoner skal ikke repeteres)
 //   - /metrics, /health, /ready → network-only (monitoring trenger ferske tall)
+//   - 401/403-respons evicter API-cache så neste bruker ikke ser forrige kontos data
 //
 // Cache-versjon bumpes ved hver deploy så gamle caches ryddes automatisk.
 
-const VERSION = 'v1.3-week3';
+const VERSION = 'v1.4-phase14';
 const STATIC_CACHE = `fam-static-${VERSION}`;
 const API_CACHE = `fam-api-${VERSION}`;
 
-// Week 3: frontend modularized into /css/*.css and /js/*.js. All are pre-cached
-// so first load after SW install is instant and full offline fallback works
-// even when the user has only seen the app once.
+// Phase 14: auth/family-skjermene og tilhørende moduler pre-caches så offline-
+// brukere kan nå login/onboarding-flyten (selv om selve auth-kallet trenger
+// nettverk — skjermen skal likevel være synlig).
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/login.html',
+  '/onboarding.html',
+  '/invite.html',
   '/manifest.json',
   '/icon-192.png',
   '/css/base.css',
@@ -26,6 +33,7 @@ const STATIC_ASSETS = [
   '/css/components-extended.css',
   '/css/settings.css',
   '/js/core.js',
+  '/js/auth.js',
   '/js/tabs.js',
   '/js/today.js',
   '/js/meals.js',
@@ -38,8 +46,25 @@ const STATIC_ASSETS = [
   '/js/theme.js',
   '/js/notifications.js',
   '/js/settings.js',
+  '/js/family-ui.js',
+  '/js/family-onboarding.js',
   '/js/init.js',
 ];
+
+// Phase 14: prefikser som ALDRI skal caches. Inneholder per-bruker/per-familie
+// data — bufring ville bryte tenant-isolasjon ved kontobytte på delt enhet.
+const NO_CACHE_API_PREFIXES = [
+  '/api/auth/',
+  '/api/family',
+  '/api/llm-config',
+  '/api/invitations',
+  '/api/onboarding',
+  '/api/gdpr',
+];
+
+function isNoCacheApi(pathname) {
+  return NO_CACHE_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+}
 
 // ============================================================
 // Install — pre-cache statiske assets
@@ -90,6 +115,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Phase 14: tenant-sensitive API — network-only, aldri cache
+  if (url.pathname.startsWith('/api/') && isNoCacheApi(url.pathname)) {
+    event.respondWith(apiNetworkOnly(request));
+    return;
+  }
+
   // API GET — network-first, cache-fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(apiNetworkFirst(request));
@@ -100,10 +131,39 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(staticCacheFirst(request));
 });
 
+async function apiNetworkOnly(request) {
+  try {
+    const fresh = await fetch(request);
+    // Phase 14: 401/403 på tenant-sensitive endpoints betyr at sesjonen
+    // er død eller byttet. Tøm API-cache så forrige kontos data ikke
+    // vises for neste bruker på samme enhet.
+    if (fresh.status === 401 || fresh.status === 403) {
+      caches.delete(API_CACHE).catch(() => {});
+    }
+    return fresh;
+  } catch {
+    return new Response(
+      JSON.stringify({
+        type: 'about:blank',
+        title: 'Offline',
+        status: 503,
+        detail: 'Ingen forbindelse — denne forespørselen krever nettverk',
+      }),
+      { status: 503, headers: { 'Content-Type': 'application/problem+json' } }
+    );
+  }
+}
+
 async function apiNetworkFirst(request) {
   const cache = await caches.open(API_CACHE);
   try {
     const fresh = await fetch(request);
+    // Phase 14: 401/403 på hvilken som helst API — invalider cache slik at
+    // neste bruker ikke får forrige brukers data servert offline.
+    if (fresh.status === 401 || fresh.status === 403) {
+      caches.delete(API_CACHE).catch(() => {});
+      return fresh;
+    }
     // Kun cache suksessfulle 200-responser
     if (fresh.ok) {
       // Klone før cache.put — response-body kan kun leses én gang
@@ -170,5 +230,9 @@ self.addEventListener('message', (event) => {
   if (event.data.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data.type === 'CLEAR_CACHE') {
     caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
+  }
+  // Phase 14: kun API-cachen — trigges fra klient ved logout
+  if (event.data.type === 'CLEAR_API_CACHE') {
+    caches.delete(API_CACHE).catch(() => {});
   }
 });
