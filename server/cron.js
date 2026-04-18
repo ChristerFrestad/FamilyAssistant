@@ -6,6 +6,7 @@ const { generateSundayDraft } = require('./services/meal-planning.service');
 const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
 const { enrichPendingLists } = require('./services/shopping-list-enricher.service');
+const { purgeSoftDeletedUsers } = require('./auth/gdpr-routes');
 const { logger } = require('./logger');
 
 const activeTimers = new Set();
@@ -262,6 +263,35 @@ async function recipeSourcesSyncJob(repos) {
   }
 }
 
+function gdprPurgeJob(repos) {
+  try {
+    const res = purgeSoftDeletedUsers(repos);
+    if (res.purged > 0) {
+      log(`GDPR: hard-deleted ${res.purged} soft-deleted user(s)`);
+    }
+  } catch (err) {
+    log(`FEIL i GDPR-purge: ${err.message}`);
+  }
+}
+
+function sessionCleanupJob(repos) {
+  try {
+    const n = repos?.auth?.cleanupExpired?.();
+    if (n > 0) log(`Sessions: ryddet ${n} utløpte`);
+  } catch (err) {
+    log(`FEIL i session-cleanup: ${err.message}`);
+  }
+}
+
+function magicLinkCleanupJob(repos) {
+  try {
+    const n = repos?.auth?.cleanupExpiredMagicLinks?.();
+    if (n > 0) log(`Magic-link-tokens: ryddet ${n} utløpte`);
+  } catch (err) {
+    log(`FEIL i magic-link-cleanup: ${err.message}`);
+  }
+}
+
 function startCronJobs(repos) {
   if (!repos) {
     log('ADVARSEL: startCronJobs kalt uten repos \u2014 cron-jobber er deaktivert');
@@ -275,6 +305,9 @@ function startCronJobs(repos) {
   scheduleDailyJob('Depletion', 22, 0, dailyDepletionJob, repos);
   scheduleDailyJob('LLM-cache-cleanup', 4, 0, llmCacheCleanupJob, repos);
   scheduleDailyJob('Pris-CPI-indeksering', 5, 0, priceCpiIndexingJob, repos);
+  scheduleDailyJob('GDPR-soft-delete-purge', 3, 30, gdprPurgeJob, repos);
+  scheduleDailyJob('Session-cleanup', 4, 10, sessionCleanupJob, repos);
+  scheduleDailyJob('Magic-link-cleanup', 4, 15, magicLinkCleanupJob, repos);
   scheduleIntervalJob('Shopping-enrichment', 10 * 60000, shoppingEnrichmentJob, repos);
   // Fase F7: synk oppskriftskilder hver 6. time
   scheduleIntervalJob('Recipe-sources-sync', 6 * 60 * 60 * 1000, recipeSourcesSyncJob, repos);

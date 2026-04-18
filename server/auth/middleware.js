@@ -21,7 +21,9 @@ const { errors } = require('../http/errors');
 const { parseCookies } = require('./cookies');
 
 // Paths that never require authentication and never attempt to resolve a user.
-const PUBLIC_PATHS = new Set(['/health', '/ready', '/metrics']);
+// Includes a couple of static pages so unauthenticated visitors can read the
+// privacy policy / terms before signing up.
+const PUBLIC_PATHS = new Set(['/health', '/ready', '/metrics', '/privacy.html', '/terms.html']);
 
 // Paths that never require authentication but DO try to resolve the user if a
 // cookie/token is present. Handlers here can behave differently for

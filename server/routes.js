@@ -12,6 +12,7 @@ const { validateBody } = require('./http/validate');
 const { registerAuthRoutes } = require('./auth/routes');
 const { registerFamilyRoutes } = require('./auth/family-routes');
 const { registerLlmConfigRoutes } = require('./auth/llm-routes');
+const { registerGdprRoutes } = require('./auth/gdpr-routes');
 const { requireRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
@@ -181,6 +182,11 @@ function registerRoutes(router, { repos, serverState }) {
   // PER-FAMILY LLM CONFIG (phase 8)
   // ============================================================
   registerLlmConfigRoutes(router, { repos });
+
+  // ============================================================
+  // GDPR ENDPOINTS (phase 10 — export + soft-delete)
+  // ============================================================
+  registerGdprRoutes(router, { repos });
 
   // ============================================================
   // HEALTH / READY
