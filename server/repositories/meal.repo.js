@@ -32,7 +32,7 @@ function createMealRepos(db, tryParseJson) {
         `
         INSERT INTO meal_plans (week_year, day_of_week, meal_type, recipe_id, status)
         VALUES (?, ?, 'middag', ?, ?)
-        ON CONFLICT(week_year, day_of_week, meal_type) DO UPDATE SET
+        ON CONFLICT(family_id, week_year, day_of_week, meal_type) DO UPDATE SET
           recipe_id = excluded.recipe_id, status = excluded.status
       `
       ).run(weekYear, dayOfWeek, recipeId, status);

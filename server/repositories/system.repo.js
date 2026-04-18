@@ -346,7 +346,7 @@ function createSystemRepos(db, tryParseJson) {
             `
             INSERT INTO filter_usage (filter_id, enable_count, last_used_at)
             VALUES (?, 1, datetime('now'))
-            ON CONFLICT(filter_id) DO UPDATE SET
+            ON CONFLICT(family_id, filter_id) DO UPDATE SET
               enable_count = enable_count + 1,
               last_used_at = datetime('now')
           `
@@ -356,7 +356,7 @@ function createSystemRepos(db, tryParseJson) {
             `
             INSERT INTO filter_usage (filter_id, disable_count, last_used_at)
             VALUES (?, 1, datetime('now'))
-            ON CONFLICT(filter_id) DO UPDATE SET
+            ON CONFLICT(family_id, filter_id) DO UPDATE SET
               disable_count = disable_count + 1,
               last_used_at = datetime('now')
           `
