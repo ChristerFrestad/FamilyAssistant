@@ -67,9 +67,7 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
     );
     if (pool.length === 0) {
       // Fallback: samme filter uten kategori-krav
-      pool = allRecipes.filter(
-        (r) => !currentRecipeIds.includes(r.id) && isRecipeSafe(r, profile)
-      );
+      pool = allRecipes.filter((r) => !currentRecipeIds.includes(r.id) && isRecipeSafe(r, profile));
     }
 
     const ranked = rankRecipes(pool, inventoryMap, mode, 5);

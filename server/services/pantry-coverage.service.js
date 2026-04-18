@@ -131,7 +131,13 @@ function scoreRecipeByPantry(recipe, inventoryMap, mode = 'maksimer', now = Date
  * @param {number} [limit]
  * @param {number} [now=Date.now()]
  */
-function rankRecipes(recipes, inventoryMap, mode = 'maksimer', limit = undefined, now = Date.now()) {
+function rankRecipes(
+  recipes,
+  inventoryMap,
+  mode = 'maksimer',
+  limit = undefined,
+  now = Date.now()
+) {
   if (!Array.isArray(recipes) || recipes.length === 0) return [];
 
   const scored = recipes.map((r) => {

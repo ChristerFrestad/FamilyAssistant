@@ -113,7 +113,10 @@ describe('pantry-coverage — rankRecipes', () => {
       id: 1,
       name: 'R1',
       prepTime: '30 min',
-      ingredients: [{ productKey: 'a', qty: 1 }, { productKey: 'b', qty: 1 }],
+      ingredients: [
+        { productKey: 'a', qty: 1 },
+        { productKey: 'b', qty: 1 },
+      ],
     },
     {
       id: 2,
