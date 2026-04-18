@@ -191,10 +191,15 @@ describe('Phase 22 · handleComplete', () => {
     assert.equal(ctx.captured.data.ok, true);
     assert.equal(ctx.captured.data.restarting, true);
     assert.ok(fs.existsSync(file), 'bootstrap.json must exist');
-    const stat = fs.statSync(file);
-    // Check mode bits (last 3 octal digits)
-    const modeOctal = (stat.mode & 0o777).toString(8);
-    assert.equal(modeOctal, '600', `expected 0600 perms, got ${modeOctal}`);
+    // POSIX permission bits are only meaningful on unix-ish platforms.
+    // Windows ignores the `mode` arg to writeFileSync and always reports
+    // something like 0o666; we skip the bit-check there but still verify
+    // the file was created and contains what we expect.
+    if (process.platform !== 'win32') {
+      const stat = fs.statSync(file);
+      const modeOctal = (stat.mode & 0o777).toString(8);
+      assert.equal(modeOctal, '600', `expected 0600 perms, got ${modeOctal}`);
+    }
     const content = JSON.parse(fs.readFileSync(file, 'utf8'));
     assert.equal(content.authToken, 'a'.repeat(32));
     assert.equal(content.allowedOrigins, 'http://example.local, https://example.local');
