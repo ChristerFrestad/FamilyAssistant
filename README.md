@@ -1,4 +1,4 @@
-# Familieassistenten
+# FamilyAssistant
 
 Self-hosted household assistant for Norwegian families — plans the weekly
 menu, shopping list, pantry inventory, and chore rotation. Runs either
