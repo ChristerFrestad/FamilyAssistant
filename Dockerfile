@@ -23,10 +23,10 @@
 #     -t ghcr.io/christerfrestad/familieassistant:1.3.0 --push .
 #
 # Run lokalt:
-#   docker run --rm -p 3000:3000 \
+#   docker run --rm -p 7777:7777 \
 #     -e NODE_ENV=production \
 #     -e AUTH_TOKEN=$(openssl rand -hex 32) \
-#     -e ALLOWED_ORIGINS=http://localhost:3000 \
+#     -e ALLOWED_ORIGINS=http://localhost:7777 \
 #     -v $(pwd)/data:/app/data \
 #     ghcr.io/christerfrestad/familieassistant:dev
 
@@ -93,12 +93,15 @@ VOLUME ["/app/data"]
 # Non-root user (distroless bundler UID 65532 'nonroot')
 USER nonroot:nonroot
 
-# HTTP-port — overstyres av PORT env-var om nødvendig
-EXPOSE 3000
+# HTTP-port — overstyres av PORT env-var om nødvendig. 7777 er valgt som
+# default fordi 3000 er kapret av Grafana, Node-defaults og mange andre
+# self-hosted apper. Intern og extern port matcher som default, slik at
+# compose-mapping leses likt på begge sider ("7777:7777").
+EXPOSE 7777
 
 # Default-miljø. AUTH_TOKEN og ALLOWED_ORIGINS må overstyres ved kjøretid.
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=7777
 ENV DB_PATH=/app/data/familieassistenten.db
 ENV BACKUP_DIR=/app/data/backups
 ENV LOG_LEVEL=info
@@ -106,7 +109,7 @@ ENV LOG_LEVEL=info
 # Uke 7 PORT-7: healthcheck via node-intern (distroless har ikke wget/curl).
 # Node sjekker /health og exit 0/1 basert på status 200.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["/nodejs/bin/node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://localhost:7777/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
 
 # Entry point
 ENTRYPOINT ["/nodejs/bin/node", "server/index.js"]

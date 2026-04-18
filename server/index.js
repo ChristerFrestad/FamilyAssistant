@@ -77,6 +77,17 @@ let stopWatchdog = null;
 async function startServer() {
   logger.info('Starter Familieassistenten...');
 
+  // Phase 22: loud signal when the server is in bootstrap mode so
+  // operators can tell at a glance whether the setup wizard will pick
+  // up, instead of wondering why AUTH_TOKEN "went missing". This is
+  // the *only* time a missing AUTH_TOKEN is acceptable in production.
+  if (config.BOOTSTRAP_MODE) {
+    logger.warn(
+      { setupUrl: `/setup.html`, port: config.PORT },
+      `🔧 BOOTSTRAP MODE ACTIVE — open http://<host>:${config.PORT}/setup.html to finish setup. No AUTH_TOKEN required until the wizard completes.`
+    );
+  }
+
   // Phase 17: initialize Sentry as early as possible so startup failures
   // (seed, migration) can be captured too. No-op if SENTRY_DSN is unset
   // or @sentry/node is not installed.

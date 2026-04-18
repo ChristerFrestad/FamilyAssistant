@@ -1,66 +1,86 @@
 # Familieassistenten — Docker Compose
 #
-# Zero-config deploy: kjør `docker compose up -d` uten variabler, åpne
-# http://<host>:3000 i nettleseren, og fullfør setup-wizarden. Serveren
-# starter i bootstrap-mode når AUTH_TOKEN og bootstrap.json mangler, og
-# generer begge via UI-en. Caddy (HTTPS reverse proxy) er gatet bak
-# `--profile production` slik at den ikke startes før brukeren har
-# konfigurert domene.
+# Zero-config deploy: run `docker compose up -d` with no variables, open
+# http://<host>:7777 in a browser, and finish the setup wizard. The
+# server enters bootstrap mode when AUTH_TOKEN is missing and there is
+# no persisted /app/data/bootstrap.json, generates both via the UI, and
+# restarts into normal mode. Caddy (HTTPS reverse proxy) is gated behind
+# `--profile production` so it does not block the first deploy.
 #
-# Kjørmåter:
-#   docker compose up -d                        # app kun (bootstrap-flyt klar)
-#   docker compose --profile production up -d   # app + Caddy (etter bootstrap)
-#   docker compose logs -f app                  # følg loggen
-#   docker compose down                         # stopp alt
-#   docker compose pull                         # oppdater til siste tagget versjon
+# Common commands:
+#   docker compose up -d                        # app only (bootstrap ready)
+#   docker compose --profile production up -d   # app + Caddy (after setup)
+#   docker compose logs -f app                  # follow the app logs
+#   docker compose down                         # stop everything
+#   docker compose pull                         # refresh to latest tagged image
 
 services:
   # --------------------------------------------------------------------------
-  # Familieassistenten — hoved-app
+  # Familieassistenten — main app
   # --------------------------------------------------------------------------
   app:
-    image: ghcr.io/christerfrestad/familyassistant:${TAG:-latest}
-    # Kommentere inn nedenfor for lokal build i stedet for GHCR pull:
+    # Default to the :main tag because the Docker workflow only creates
+    # :latest on v-tag pushes. :main is built on every push to main and
+    # always reflects the current codebase. Pin to :sha-XXXX or a
+    # specific :v1.4.0 via the TAG environment variable when you want
+    # immutability.
+    image: ghcr.io/christerfrestad/familyassistant:${TAG:-main}
+    # Force Docker to pull the registry copy on every stack deploy so
+    # Portainer CE (which has no "Re-pull image" toggle) still gets
+    # fresh bits. Without this, a cached local image silently wins
+    # forever.
+    pull_policy: always
+    # Uncomment below to build from the working tree instead of pulling
+    # from GHCR:
     # build:
     #   context: .
     #   dockerfile: Dockerfile
     container_name: familieassistenten
     restart: unless-stopped
-    # Direkte LAN-tilgang. Host-porten 13000 er valgt for å unngå kollisjon
-    # med andre vanlige self-hosted apper (Grafana og Node-defaults kaprer 3000
-    # ofte; n8n bruker 5678; Jellyfin 8096; Sonarr 8989). Intern container-port
-    # er fortsatt 3000. Etter bootstrap + Caddy-aktivering kan dette endres til
-    # "127.0.0.1:13000:3000" for å tvinge all trafikk via Caddy-reverse-proxy.
+    # Direct LAN access. Port 7777 is used both internally and externally
+    # — one port to remember, and it sidesteps 3000 (Grafana, generic
+    # Node defaults), 5678 (n8n), 8096 (Jellyfin), 8989 (Sonarr).
+    # Caveat: Ombi also defaults to 7777. If you run Ombi, override the
+    # host-side mapping via a stack env var or edit the left half of the
+    # mapping to something free (e.g. "8765:7777").
+    #
+    # After bootstrap + Caddy activation this can be narrowed to
+    # "127.0.0.1:7777:7777" to funnel all traffic through the reverse
+    # proxy.
     ports:
-      - "13000:3000"
+      - "7777:7777"
     volumes:
       - ./data:/app/data
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      PORT: 3000
-      # Bootstrap-modus: hvis AUTH_TOKEN mangler OG /app/data/bootstrap.json
-      # mangler OG data-volumet ikke har en DB, starter serveren en
-      # setup-wizard på /setup.html. BOOTSTRAP_ALLOWED=true signaliserer
-      # at vi er i en container-kontekst der dette er trygt (volum-mount
-      # for å persiste valgt token).
+      # Internal server listen-port. The Dockerfile bakes in PORT=7777 so
+      # this is redundant but explicit, and protects against stale images
+      # that still default to 3000.
+      PORT: ${PORT:-7777}
+      # Bootstrap mode: when AUTH_TOKEN is missing AND
+      # /app/data/bootstrap.json is missing AND the data volume has no
+      # SQLite file yet, the server boots a setup wizard at /setup.html.
+      # BOOTSTRAP_ALLOWED=true signals that the runtime is a container
+      # with a data volume, so persisting the generated token is safe.
       BOOTSTRAP_ALLOWED: "true"
-      # AUTH_TOKEN er valgfri ved første deploy — bootstrap-wizarden genererer
-      # og persiserer den. Sett her hvis du vil hoppe over wizarden.
+      # AUTH_TOKEN is optional on first deploy — the wizard generates
+      # and persists it. Set this variable to skip the wizard.
       AUTH_TOKEN: ${AUTH_TOKEN:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
       AUTH_TOKEN_CREATED_AT: ${AUTH_TOKEN_CREATED_AT:-}
-      # LLM-backend (valgfritt — single-user kan bruke ollama på host)
+      # LLM backend (optional — a single-family deploy can use Ollama
+      # running on the host).
       LLM_BACKEND: ${LLM_BACKEND:-ollama}
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
-      # Sikkerhet og ytelse
+      # Security and performance
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
       MAX_BODY_BYTES: ${MAX_BODY_BYTES:-1048576}
       MEMORY_BUDGET_MB: ${MEMORY_BUDGET_MB:-512}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # Settes til "true" først når Caddy står foran (production-profil)
+      # Set to "true" once Caddy is in front (production profile)
       HTTPS_TERMINATED: ${HTTPS_TERMINATED:-false}
-    # Ressursgrenser — reflekterer RPi5 4GB budsjett
+    # Resource limits — sized for an RPi5 4 GB host.
     deploy:
       resources:
         limits:
@@ -68,29 +88,29 @@ services:
           cpus: "1.5"
         reservations:
           memory: 128M
-    # Node-distroless har ikke shell, så Docker health depends på
-    # HEALTHCHECK-instruksjonen i Dockerfile (node -e fetch('/health'))
+    # The distroless image has no shell, so the Docker healthcheck calls
+    # node directly. Matches the HEALTHCHECK line in Dockerfile.
     healthcheck:
-      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://localhost:7777/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 30s
       retries: 3
-    # For å nå ollama som kjører på host på Linux
+    # Lets the container reach a Linux host's Ollama instance.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - familieass
 
   # --------------------------------------------------------------------------
-  # Caddy — reverse proxy med HTTPS
+  # Caddy — reverse proxy with HTTPS
   #
-  # Gated bak profilen "production". Start kun med:
+  # Gated behind the "production" profile. Start only with:
   #   docker compose --profile production up -d
-  # Første-gangs-deploy bør kjøres uten denne profilen slik at bootstrap-
-  # wizarden kan gjennomføres på http://<host>:3000. Etter wizarden er
-  # ferdig og AUTH_TOKEN persistert, aktiver Caddy og sett
-  # HTTPS_TERMINATED=true i .env.
+  # First-time deploys should run WITHOUT this profile so the bootstrap
+  # wizard can be reached at http://<host>:7777/setup.html. Once the
+  # wizard completes and AUTH_TOKEN is persisted, activate Caddy and set
+  # HTTPS_TERMINATED=true.
   # --------------------------------------------------------------------------
   caddy:
     image: caddy:2-alpine
