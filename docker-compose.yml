@@ -36,7 +36,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       # Disse MÅ settes i .env for produksjon
-      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN er påkrevd i prod (min 16 tegn)}
+      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN er påkrevd i prod (min 16 tegn). Generer med 'openssl rand -hex 32' og sett i .env (CLI) eller Stack → Environment variables (Portainer)}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localhost}
       AUTH_TOKEN_CREATED_AT: ${AUTH_TOKEN_CREATED_AT:-}
       # LLM-backend (valgfritt — single-user kan bruke ollama på host)

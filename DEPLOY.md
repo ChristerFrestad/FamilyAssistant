@@ -426,6 +426,105 @@ sudo systemctl daemon-reload
 
 Ikke slett data-mappen — Docker-varianten bruker samme SQLite-fil.
 
+### 14.8 Portainer-deploy på RPi5
+
+Portainer CE er et vanlig valg for å administrere Docker på RPi5 via et web-UI.
+Denne seksjonen dekker deploy av Familieassistenten som en Portainer **Stack**.
+
+> ⚠️ **Viktig:** Portainer leser **ikke** `.env`-filen automatisk når en stack
+> deployes fra Git eller en innlimt compose-fil. `docker-compose.yml` bruker
+> `${AUTH_TOKEN:?…}`-syntaks som krever at variabelen er satt **før** compose
+> interpolerer. Alle påkrevde env-variabler må legges inn i Portainer-UI-et.
+>
+> Typisk feilmelding hvis dette glemmes:
+> ```
+> error while interpolating services.app.environment.AUTH_TOKEN:
+> required variable AUTH_TOKEN is missing a value:
+> AUTH_TOKEN er påkrevd i prod (min 16 tegn)
+> ```
+
+#### 14.8.1 Forutsetninger
+
+- Docker Engine og Portainer CE allerede installert og kjører på RPi5
+  (f.eks. via `docker run -d -p 9443:9443 portainer/portainer-ce:latest`).
+- SSH-tilgang til RPi5 for å opprette `./data`-mappen med riktige permissions.
+
+#### 14.8.2 Forbered host
+
+På RPi5 via SSH, opprett dataområdet med eierskap som matcher distroless-brukeren
+(UID 65532 — samme som §14.6):
+
+```bash
+sudo mkdir -p /opt/familieassistenten/data
+sudo chown -R 65532:65532 /opt/familieassistenten/data
+```
+
+Banen kan være fritt valgt — sørg for at `./data`-mount-en i stacken refererer
+til samme sti hvis du redigerer compose-filen.
+
+#### 14.8.3 Generer AUTH_TOKEN
+
+Kjør på en trygg maskin (ikke lim inn en token fra nettet):
+
+```bash
+openssl rand -hex 32
+```
+
+Kopier outputen — den settes i neste steg.
+
+#### 14.8.4 Opprett stack i Portainer
+
+1. **Stacks** → **+ Add stack**.
+2. **Name:** `familieassistenten`.
+3. **Build method** — velg én:
+   - **Repository** (anbefalt): Repository URL
+     `https://github.com/ChristerFrestad/FamilyAssistant`, Reference `refs/heads/main`,
+     Compose path `docker-compose.yml`.
+   - **Web editor:** lim inn innholdet av `docker-compose.yml` direkte.
+4. **Environment variables** — klikk **+ add environment variable** for hver:
+
+   | Navn | Verdi | Notat |
+   |------|-------|-------|
+   | `AUTH_TOKEN` | (output av `openssl rand -hex 32`) | Påkrevd, min 16 tegn |
+   | `ALLOWED_ORIGINS` | `https://familieassistenten.local` | Eller din RPi-hostname |
+   | `AUTH_TOKEN_CREATED_AT` | (output av `date -u +%Y-%m-%dT%H:%M:%SZ`) | Timestamp for token-rotasjon |
+   | `TAG` | `latest` | Eller pinnet versjon, f.eks. `v1.3.0` |
+   | `OLLAMA_HOST` | `http://host.docker.internal:11434` | Valgfri — hvis Ollama kjører på host |
+   | `OLLAMA_MODEL` | `qwen2.5:3b` | Valgfri |
+   | `LOG_LEVEL` | `info` | Valgfri |
+
+5. **Deploy the stack**.
+
+#### 14.8.5 Caddy-merknad
+
+Stacken inkluderer `caddy` på port 80/443. Hvis RPi-hosten allerede har en
+reverse proxy (nginx, Traefik, eller en annen Caddy), må du enten:
+
+- Fjerne `caddy`-tjenesten fra compose-filen før deploy, eller
+- Endre port-mappingen i `caddy`-tjenesten til ledige porter.
+
+Ellers vil Portainer rapportere port-konflikt ved oppstart.
+
+#### 14.8.6 Verifikasjon
+
+Etter deploy:
+
+- **Portainer** → **Containers** → `familieassistenten` → **Logs** — sjekk at
+  serveren starter uten `AUTH_TOKEN`-feil.
+- Fra RPi-host eller LAN:
+  ```bash
+  curl -sf http://<rpi-ip>:3000/health && echo " — OK"
+  curl -H "Authorization: Bearer <token>" http://<rpi-ip>:3000/api/today
+  ```
+- Hvis Caddy er aktiv: `curl -I https://familieassistenten.local/health`.
+
+#### 14.8.7 Oppgradering via Portainer
+
+- **Stacks** → `familieassistenten` → **Pull and redeploy** (Git-metode), eller
+- Oppdater `TAG` env-variabel til ny versjon og klikk **Update the stack**.
+
+Data i `./data/` beholdes så lenge volumet ikke slettes.
+
 ---
 
 ## 15. Deploy på Railway (sky, multi-tenant)
