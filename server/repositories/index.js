@@ -11,6 +11,7 @@ const { createReceiptRepos } = require('./receipt.repo');
 const { createSystemRepos } = require('./system.repo');
 const { createAuthRepo } = require('./auth.repo');
 const { createFamilyRepo } = require('./family.repo');
+const { createLlmConfigRepo } = require('./llm-config.repo');
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
@@ -45,11 +46,13 @@ function createRepositories(db) {
   } = createSystemRepos(db, tryParseJson);
   const auth = createAuthRepo(db);
   const family = createFamilyRepo(db);
+  const llmConfig = createLlmConfigRepo(db);
 
   return {
     _db: db,
     auth,
     family,
+    llmConfig,
     products,
     recipes,
     inventory,
