@@ -45,6 +45,7 @@ async function startTestServer({ dbPath, authToken } = {}) {
   const { createRouter } = require('../server/http/router');
   const { createServer } = require('../server/http/server');
   const { registerRoutes } = require('../server/routes');
+  const { createAuthenticate } = require('../server/auth/middleware');
   const metrics = require('../server/http/metrics');
 
   metrics.reset();
@@ -62,7 +63,8 @@ async function startTestServer({ dbPath, authToken } = {}) {
 
   const router = createRouter();
   registerRoutes(router, { repos, serverState });
-  const server = createServer(router);
+  const authenticate = createAuthenticate(repos);
+  const server = createServer(router, { authenticate });
 
   const port = await new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => resolve(server.address().port));

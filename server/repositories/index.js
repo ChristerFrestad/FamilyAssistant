@@ -9,6 +9,7 @@ const { createShoppingRepos } = require('./shopping.repo');
 const { createPricingRepos } = require('./pricing.repo');
 const { createReceiptRepos } = require('./receipt.repo');
 const { createSystemRepos } = require('./system.repo');
+const { createAuthRepo } = require('./auth.repo');
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
@@ -41,9 +42,11 @@ function createRepositories(db) {
     auditLog,
     hasFTS,
   } = createSystemRepos(db, tryParseJson);
+  const auth = createAuthRepo(db);
 
   return {
     _db: db,
+    auth,
     products,
     recipes,
     inventory,

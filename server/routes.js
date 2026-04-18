@@ -9,6 +9,7 @@ const path = require('path');
 const { getWeekYear, chores: seedChores } = require('./seed');
 const { errors } = require('./http/errors');
 const { validateBody } = require('./http/validate');
+const { registerAuthRoutes } = require('./auth/routes');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
 const schemas = require('./schemas');
@@ -126,6 +127,11 @@ function registerRoutes(router, { repos, serverState }) {
       throw errors.badRequest(`${name} must be a positive integer`);
     return n;
   }
+
+  // ============================================================
+  // AUTH (Google OAuth, magic-link, sessions)
+  // ============================================================
+  registerAuthRoutes(router, { repos });
 
   // ============================================================
   // HEALTH / READY

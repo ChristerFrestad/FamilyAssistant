@@ -14,7 +14,7 @@ const {
   createContext,
   parseQuery,
 } = require('./middleware');
-const { bearerAuth, rateLimit, applySecurityHeaders } = require('./security');
+const { rateLimit, applySecurityHeaders } = require('./security');
 const metrics = require('./metrics');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
@@ -73,7 +73,7 @@ function tryServeSpaFallback(pathname, res) {
 // Main server
 // ============================================================
 
-function createServer(router) {
+function createServer(router, { authenticate } = {}) {
   const server = http.createServer(async (req, res) => {
     // CORS preflight
     if (handleCorsPreflight(req, res)) return;
@@ -88,9 +88,11 @@ function createServer(router) {
     let routeTemplate = pathname; // overridet etter dispatch
 
     try {
-      // Fase 4: rate limit + auth ALLTID først (inkl. statiske filer)
+      // Rate limit + authentication always first (incl. static files).
+      // When authenticate is injected it performs bearer-token fallback,
+      // session-cookie lookup and attaches ctx.user / ctx.familyId.
       rateLimit(ctx);
-      bearerAuth(ctx);
+      if (authenticate) authenticate(ctx);
 
       const dispatched = router.dispatch(req.method, pathname);
 

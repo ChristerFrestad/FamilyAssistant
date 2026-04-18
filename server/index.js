@@ -19,6 +19,7 @@ const { createRouter } = require('./http/router');
 const { createServer } = require('./http/server');
 const { registerRoutes } = require('./routes');
 const { startRateLimitCleanup } = require('./http/security');
+const { createAuthenticate } = require('./auth/middleware');
 const stateSnapshot = require('./state-snapshot');
 const sdNotify = require('./sd-notify');
 const alerting = require('./alerting');
@@ -97,8 +98,9 @@ async function startServer() {
   const router = createRouter();
   registerRoutes(router, { repos, serverState });
 
-  // 4. Lag HTTP-server
-  server = createServer(router);
+  // 4. Lag HTTP-server med authentication middleware
+  const authenticate = createAuthenticate(repos);
+  server = createServer(router, { authenticate });
 
   // 5. Start lytting
   await new Promise((resolve) => {
