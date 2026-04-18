@@ -13,7 +13,7 @@
 //
 // Cache-versjon bumpes ved hver deploy så gamle caches ryddes automatisk.
 
-const VERSION = 'v1.5-phase15';
+const VERSION = 'v1.6-phase16';
 const STATIC_CACHE = `fam-static-${VERSION}`;
 const API_CACHE = `fam-api-${VERSION}`;
 
@@ -26,6 +26,8 @@ const STATIC_ASSETS = [
   '/login.html',
   '/onboarding.html',
   '/invite.html',
+  '/privacy.html',
+  '/terms.html',
   '/manifest.json',
   '/icon-192.png',
   '/css/base.css',

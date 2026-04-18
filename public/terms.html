@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bruksvilkår — Familieassistenten</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.55;
+        color: #111827;
+      }
+      h1 {
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 0.5rem;
+      }
+      h2 {
+        margin-top: 2rem;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+      .note {
+        background: #fef3c7;
+        padding: 0.75rem 1rem;
+        border-left: 4px solid #f59e0b;
+        border-radius: 4px;
+      }
+      footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+        font-size: 0.85rem;
+        color: #6b7280;
+      }
+      footer a {
+        color: #4f46e5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Bruksvilkår</h1>
+    <p class="note">
+      Dette er et utkast for MVP. Teksten er ikke juridisk gjennomgått og bør tilpasses før bred
+      utrulling.
+    </p>
+
+    <h2>Tjenesten</h2>
+    <p>
+      Familieassistenten er en selvhostet husholdningsassistent for å planlegge ukesmeny, handleliste,
+      pantry-inventory, gjøremål og relaterte AI-funksjoner. Tjenesten tilbys «as is» uten garanti for
+      tilgjengelighet, nøyaktighet eller egnethet for noe bestemt formål.
+    </p>
+
+    <h2>Konto og ansvar</h2>
+    <ul>
+      <li>
+        Du er ansvarlig for å holde innloggings-credentials (Google-konto eller epost for magic-link)
+        sikre.
+      </li>
+      <li>
+        Familie-eieren er ansvarlig for hvem som inviteres inn i familien og hvilke roller
+        (owner/adult/child) de tildeles.
+      </li>
+      <li>
+        Du må være minst 13 år eller ha samtykke fra foresatt for å bruke tjenesten.
+      </li>
+    </ul>
+
+    <h2>Akseptabel bruk</h2>
+    <p>Du forplikter deg til å <em>ikke</em>:</p>
+    <ul>
+      <li>Bruke tjenesten til ulovlige formål eller til å krenke andres rettigheter</li>
+      <li>Forsøke å omgå autentiserings- eller rate-limiting-mekanismer</li>
+      <li>Laste opp innhold som bryter tredjeparts opphavsrett eller personvern</li>
+      <li>Sende data som kan identifisere andre personer uten deres samtykke</li>
+    </ul>
+
+    <h2>AI-funksjoner</h2>
+    <p>
+      AI-forslag om mat, oppskrifter og allergi-sjekk er <strong>veiledende</strong>, ikke medisinske
+      råd. Dobbeltsjekk ingredienser og innhold selv ved alvorlige allergier. Hver familie bruker sin
+      egen LLM-leverandør og sine egne credentials; Familieassistenten verken lagrer eller videresender
+      disse utover det som trengs for å gjøre selve AI-kallet.
+    </p>
+
+    <h2>Ditt innhold</h2>
+    <p>
+      Du beholder alle rettigheter til innhold du legger inn (oppskrifter, notater, bilder av kvitteringer
+      osv.). Du gir Familieassistenten en ikke-eksklusiv lisens til å lagre og prosessere innholdet
+      for å kunne levere tjenesten. Lisensen opphører når du sletter innholdet eller kontoen.
+    </p>
+
+    <h2>Oppsigelse</h2>
+    <p>
+      Du kan slette kontoen din når som helst via <code>DELETE /api/me</code> eller «Slett min konto»
+      under Personvern-fanen. Data slettes hardt etter 30 dager (soft-delete-vindu). Familie-eiere må
+      overføre eierskap eller slette familien først — se personvernerklæringen for detaljer.
+    </p>
+
+    <h2>Ansvarsbegrensning</h2>
+    <p>
+      Så langt det er tillatt etter norsk lov fraskrives alt ansvar for indirekte tap, tap av data,
+      tapt fortjeneste eller følgeskader som oppstår ved bruk av tjenesten. Familieassistenten er ikke
+      en betalt SaaS og leveres uten SLA.
+    </p>
+
+    <h2>Endringer i vilkårene</h2>
+    <p>
+      Vesentlige endringer varsles via tjenesten eller epost til registrert adresse minst 14 dager før
+      de trer i kraft. Fortsatt bruk etter denne fristen regnes som aksept av de nye vilkårene.
+    </p>
+
+    <h2>Lovvalg og verneting</h2>
+    <p>
+      Vilkårene er underlagt norsk rett. Tvister som ikke løses i minnelighet hører under alminnelige
+      norske domstoler.
+    </p>
+
+    <footer>
+      <a href="/privacy.html">Personvernerklæring</a> · <a href="/">Tilbake til appen</a>
+    </footer>
+  </body>
+</html>

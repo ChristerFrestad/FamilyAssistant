@@ -868,3 +868,21 @@ body.settings-mode .fab.visible {
   margin-right: 4px;
 }
 /* ===== END PHASE_15 ===== */
+
+/* ===== PHASE_16 — app footer ===== */
+.app-footer {
+  padding: 1.5rem 1rem 6rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text2, #6b7280);
+  opacity: 0.85;
+}
+.app-footer a {
+  color: inherit;
+  text-decoration: underline;
+  margin: 0 4px;
+}
+.app-footer a:hover {
+  color: var(--accent, #6366f1);
+}
+/* ===== END PHASE_16 ===== */
