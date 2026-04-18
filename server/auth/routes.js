@@ -17,6 +17,7 @@ const {
 } = require('./google');
 const { createSessionForUser, setSessionCookie, clearSessionCookie } = require('./sessions');
 const { parseCookies, serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
+const { handleMagicLinkStart, handleMagicLinkVerify } = require('./magic-link');
 
 const OAUTH_STATE_COOKIE = 'fa_oauth_state';
 const OAUTH_STATE_TTL_SECONDS = 600; // 10 minutes
@@ -236,6 +237,8 @@ function handleDeleteSession(ctx, repos) {
 function registerAuthRoutes(router, { repos }) {
   router.get('/api/auth/google/start', (ctx) => handleGoogleStart(ctx));
   router.get('/api/auth/google/callback', async (ctx) => handleGoogleCallback(ctx, repos));
+  router.post('/api/auth/magic-link/start', async (ctx) => handleMagicLinkStart(ctx, repos));
+  router.get('/api/auth/magic-link/verify', async (ctx) => handleMagicLinkVerify(ctx, repos));
   router.get('/api/auth/me', (ctx) => handleMe(ctx));
   router.post('/api/auth/logout', (ctx) => handleLogout(ctx, repos));
   router.post('/api/auth/logout-all', (ctx) => handleLogoutAll(ctx, repos));
