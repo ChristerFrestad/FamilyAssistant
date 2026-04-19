@@ -883,14 +883,12 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   /**
-   * PUT /api/shopping/items/:id/unbought — angre "kjøpt".
+   * PUT /api/shopping/items/:id/unbought — undo "bought".
    *
-   * Reverserer /bought: nullstiller bought_at og bought_qty, og setter
-   * needs_buy=1 slik at varen dukker opp som aktiv igjen. Pantry-qty
-   * rulles IKKE tilbake automatisk — det ville vært farlig hvis
-   * brukeren har spist noe i mellomtiden. Hvis operatøren vil trekke
-   * fra pantry, er "rediger pantry"-flyten (PUT /api/pantry/correct)
-   * rett verktøy.
+   * Reverses /bought: clears bought_at and bought_qty, sets needs_buy=1
+   * so the item reappears as active. Pantry qty is NOT rolled back —
+   * unsafe if the user has eaten something in the meantime. To reduce
+   * pantry use the "edit pantry" flow (PUT /api/pantry/correct).
    */
   router.put('/api/shopping/items/:id/unbought', requireRole('adult'), (ctx) => {
     const itemId = parseInt(ctx.params.id, 10);
@@ -903,12 +901,12 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   /**
-   * DELETE /api/shopping/items/:id — slett varen permanent fra den
-   * aktive handlelisten. Ingen soft-delete; raden fjernes.
+   * DELETE /api/shopping/items/:id — permanently delete the row from
+   * the active shopping list. No soft-delete; the row is removed.
    *
-   * Dette gjelder bare den aktive ukens liste. Hvis brukeren lager
-   * en ny uke-plan etterpå og samme oppskrift dukker opp, kommer
-   * ingrediensen tilbake via den vanlige genereringen.
+   * Scoped to the active week. If the user generates a new week-plan
+   * and the same recipe appears, the ingredient will come back via
+   * the usual generation step.
    */
   router.delete('/api/shopping/items/:id', requireRole('adult'), (ctx) => {
     const itemId = parseInt(ctx.params.id, 10);
@@ -1103,9 +1101,9 @@ function registerRoutes(router, { repos, serverState }) {
     ctx.json({ ok: true });
   });
 
-  // Angre "utført" eller "utsatt" — resetter status til 'pending' slik at
-  // raden dukker opp igjen med de vanlige aksjons-knappene. Body-schema
-  // gjenbruker choreCompleteBody (samme { weekYear?, choreId }).
+  // Undo "done" or "postponed" — resets status to 'pending' so the row
+  // gets its regular action buttons back. Body-schema reuses
+  // choreCompleteBody (same { weekYear?, choreId }).
   router.put('/api/chores/undone', validateBody(schemas.choreCompleteBody), (ctx) => {
     const { weekYear, choreId } = ctx.body;
     const wk = weekYear || ensureCurrentWeek(repos);
@@ -1285,9 +1283,9 @@ function registerRoutes(router, { repos, serverState }) {
           body.productKey = normalized;
         }
         const result = pantryService.addToPantry(repos, body);
-        // Apply optional backdated purchase date. pantryService always stamps
-        // last_purchased with today; if the operator picked a different date
-        // in the UI, patch it here.
+        // Apply optional backdated purchase date. pantryService always
+        // stamps last_purchased with today; if the operator picked a
+        // different date in the UI, patch it here.
         if (body.purchasedAt && body.productKey) {
           try {
             repos._db

@@ -3,14 +3,20 @@
 async function loadToday() {
   const data = await api('/api/today');
   currentWeek = data.weekYear;
-  document.getElementById('headerSubtitle').textContent = `${data.dayName} — uke ${data.weekYear.split('-W')[1]}`;
+  document.getElementById('headerSubtitle').textContent =
+    `${data.dayName} — uke ${data.weekYear.split('-W')[1]}`;
 
   let html = '';
 
   // Dagens middag — kompakt visning (ingredienser i Ukesmeny-fanen)
   if (data.meal && data.meal.recipe) {
     const r = data.meal.recipe;
-    const badgeClass = r.category === 'rask' ? 'badge-rask' : r.category === 'comfort' ? 'badge-comfort' : 'badge-helg';
+    const badgeClass =
+      r.category === 'rask'
+        ? 'badge-rask'
+        : r.category === 'comfort'
+          ? 'badge-comfort'
+          : 'badge-helg';
     html += `
       <div class="card">
         <div class="card-title">Dagens middag</div>
@@ -86,7 +92,12 @@ async function loadToday() {
     </div>
   `;
 
-  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('todayContent'));
+  (function (el) {
+    if (el) {
+      el.innerHTML = html;
+      el.setAttribute('aria-busy', 'false');
+    }
+  })(document.getElementById('todayContent'));
 }
 
 // === SØNDAGSPUSH ===
@@ -98,7 +109,12 @@ async function openSundayPush() {
 
   for (const m of data.meals) {
     if (!m.recipe) continue;
-    const badgeClass = m.recipe.category === 'rask' ? 'badge-rask' : m.recipe.category === 'comfort' ? 'badge-comfort' : 'badge-helg';
+    const badgeClass =
+      m.recipe.category === 'rask'
+        ? 'badge-rask'
+        : m.recipe.category === 'comfort'
+          ? 'badge-comfort'
+          : 'badge-helg';
     html += `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
         <span style="font-size:0.75rem;color:var(--accent);font-weight:600;min-width:60px">${escapeHtml(m.dayName)}</span>
@@ -178,7 +194,9 @@ async function loadPantrySuggestions(category) {
 
 function renderPantrySuggestions(data) {
   const remaining = Array.isArray(data.remainingDays) ? data.remainingDays : [];
-  const catLabel = { rask: 'Light & easy', comfort: 'Comfort food', helg: 'Søndagsmiddag' }[data.category] || data.category;
+  const catLabel =
+    { rask: 'Light & easy', comfort: 'Comfort food', helg: 'Søndagsmiddag' }[data.category] ||
+    data.category;
 
   let html = `
     <h2 style="margin-top:0">🥘 Topp ${Number(data.suggestions?.length) || 0} forslag — ${escapeHtml(catLabel)}</h2>
@@ -194,10 +212,19 @@ function renderPantrySuggestions(data) {
   } else {
     for (let i = 0; i < data.suggestions.length; i++) {
       const s = data.suggestions[i];
-      const badgeClass = s.category === 'rask' ? 'badge-rask' : s.category === 'comfort' ? 'badge-comfort' : 'badge-helg';
-      const pct = s.totalIngredients > 0 ? Math.round((s.ingredientsAtHome / s.totalIngredients) * 100) : 0;
+      const badgeClass =
+        s.category === 'rask'
+          ? 'badge-rask'
+          : s.category === 'comfort'
+            ? 'badge-comfort'
+            : 'badge-helg';
+      const pct =
+        s.totalIngredients > 0 ? Math.round((s.ingredientsAtHome / s.totalIngredients) * 100) : 0;
       const dayOptions = remaining
-        .map((d, idx) => `<option value="${d}" ${idx === 0 ? 'selected' : ''}>${escapeHtml(_DAY_LABELS[d] || '?')}</option>`)
+        .map(
+          (d, idx) =>
+            `<option value="${d}" ${idx === 0 ? 'selected' : ''}>${escapeHtml(_DAY_LABELS[d] || '?')}</option>`
+        )
         .join('');
       html += `
         <div class="suggestion-item" style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
@@ -244,9 +271,10 @@ async function acceptPantrySuggestion(recipeId) {
     closeModal();
     const dayLabel = _DAY_LABELS[dayOfWeek] || '';
     const missingCount = (res.missing || []).length;
-    const msg = missingCount > 0
-      ? `Lagt til ${dayLabel.toLowerCase()}! ${missingCount} ingredienser mangler for resten av uka.`
-      : `Lagt til ${dayLabel.toLowerCase()}! Alt du trenger er hjemme. 🎉`;
+    const msg =
+      missingCount > 0
+        ? `Lagt til ${dayLabel.toLowerCase()}! ${missingCount} ingredienser mangler for resten av uka.`
+        : `Lagt til ${dayLabel.toLowerCase()}! Alt du trenger er hjemme. 🎉`;
     showToast(msg, 'success', 5000);
     if (typeof loadToday === 'function') await loadToday();
     if (typeof loadMeals === 'function') await loadMeals();
@@ -254,4 +282,3 @@ async function acceptPantrySuggestion(recipeId) {
     showToast('Kunne ikke lagre: ' + err.message, 'error');
   }
 }
-

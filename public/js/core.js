@@ -1,6 +1,6 @@
 /* eslint-disable no-undef, no-unused-vars, no-empty -- classic script shares globals across public/js/*.js */
-const API = '';  // Same origin
-const DAYS = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
+const API = ''; // Same origin
+const DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
 
 // === XSS-safe HTML templating (M1.1) ===
 // escapeHtml() gjør strenger DOM-trygge. h`...` er en tagged template
@@ -32,8 +32,14 @@ function safeUrl(u) {
   }
   return 'about:blank';
 }
-class RawHTML { constructor(value) { this.value = value; } }
-function raw(html) { return new RawHTML(html); }
+class RawHTML {
+  constructor(value) {
+    this.value = value;
+  }
+}
+function raw(html) {
+  return new RawHTML(html);
+}
 function h(strings, ...values) {
   let out = '';
   for (let i = 0; i < strings.length; i++) {
@@ -47,8 +53,7 @@ function h(strings, ...values) {
           if (item instanceof RawHTML) out += item.value;
           else out += escapeHtml(item);
         }
-      }
-      else out += escapeHtml(v);
+      } else out += escapeHtml(v);
     }
   }
   return new RawHTML(out);
@@ -84,7 +89,10 @@ let recipeImportImageB64 = null;
 const MAX_TOASTS = 4;
 function showToast(message, type = 'info', durationMs = null) {
   const container = document.getElementById('toastContainer');
-  if (!container) { console.log('[toast]', type, message); return; }
+  if (!container) {
+    console.log('[toast]', type, message);
+    return;
+  }
 
   // Cap antall samtidige
   while (container.children.length >= MAX_TOASTS) {
@@ -120,7 +128,11 @@ function showToast(message, type = 'info', durationMs = null) {
 function dismissToast(el) {
   if (!el || !el.parentNode) return;
   el.classList.remove('show');
-  setTimeout(() => { try { el.remove(); } catch {} }, 250);
+  setTimeout(() => {
+    try {
+      el.remove();
+    } catch {}
+  }, 250);
 }
 
 // === Fetch helpers ===
@@ -153,7 +165,10 @@ async function api(path, opts = {}) {
       const errMsg = data.detail || data.title || `HTTP ${res.status}`;
       // Silent for 401/404 på utforsknings-endpoints; alltid vis 5xx
       if (res.status >= 500) {
-        showToast(`${errMsg}${data.requestId ? ` (id: ${data.requestId.slice(0, 8)})` : ''}`, 'error');
+        showToast(
+          `${errMsg}${data.requestId ? ` (id: ${data.requestId.slice(0, 8)})` : ''}`,
+          'error'
+        );
       } else if (res.status >= 400 && opts.method && opts.method !== 'GET') {
         showToast(errMsg, 'warn');
       }
@@ -166,7 +181,9 @@ async function api(path, opts = {}) {
     throw err;
   }
 }
-function getLastRequestId() { return lastRequestId; }
+function getLastRequestId() {
+  return lastRequestId;
+}
 
 function setOffline(offline) {
   if (offline === isOffline) return;
@@ -176,8 +193,14 @@ function setOffline(offline) {
   document.body.classList.toggle('is-offline', offline);
 }
 // M5.2: browser-event for offline/online
-window.addEventListener('offline', () => { setOffline(true); showToast('Offline', 'warn'); });
-window.addEventListener('online', () => { setOffline(false); showToast('Tilkoblet igjen', 'success'); });
+window.addEventListener('offline', () => {
+  setOffline(true);
+  showToast('Offline', 'warn');
+});
+window.addEventListener('online', () => {
+  setOffline(false);
+  showToast('Tilkoblet igjen', 'success');
+});
 
 // === Uke 4 (FE-8): Confirm dialog utility ===
 // Gjenbrukbar confirm-dialog som erstatter native confirm() for destruktive
@@ -252,8 +275,12 @@ function showConfirm({
 
     const cleanup = (result) => {
       document.removeEventListener('keydown', onKey, true);
-      try { overlay.remove(); } catch {}
-      try { if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus(); } catch {}
+      try {
+        overlay.remove();
+      } catch {}
+      try {
+        if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+      } catch {}
       resolve(result);
     };
 
@@ -300,4 +327,3 @@ function showConfirm({
     });
   });
 }
-

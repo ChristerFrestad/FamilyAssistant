@@ -1,8 +1,8 @@
 /* eslint-disable no-undef, no-unused-vars -- classic script shares globals across public/js/*.js */
 // === Tab switching ===
 function switchTab(el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
   el.classList.add('active');
   document.getElementById(el.dataset.view).classList.add('active');
 
@@ -20,4 +20,3 @@ function switchTab(el) {
   // FASE_E: oppdater FAB synlighet
   if (typeof updateFabVisibility === 'function') updateFabVisibility();
 }
-

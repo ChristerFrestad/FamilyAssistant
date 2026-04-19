@@ -3,7 +3,6 @@
 // === OPPSKRIFTS-IMPORT MODAL (nås via FAB i Ukesmeny-fanen) ===
 // ============================================================================
 
-
 function openRecipeImportModal() {
   recipeImportTab = 'text';
   recipeImportImageB64 = null;
@@ -104,11 +103,24 @@ async function submitRecipeImport() {
     let result;
     if (recipeImportTab === 'text') {
       const text = document.getElementById('recipeTextInput').value.trim();
-      if (!text) { showToast('Lim inn oppskriftstekst først', 'warn'); submitBtn.disabled = false; submitBtn.textContent = 'Importer'; return; }
+      if (!text) {
+        showToast('Lim inn oppskriftstekst først', 'warn');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Importer';
+        return;
+      }
       result = await api('/api/recipes/import', { method: 'POST', body: { text } });
     } else {
-      if (!recipeImportImageB64) { showToast('Velg et bilde først', 'warn'); submitBtn.disabled = false; submitBtn.textContent = 'Importer'; return; }
-      result = await api('/api/recipes/import/image', { method: 'POST', body: { imageBase64: recipeImportImageB64 } });
+      if (!recipeImportImageB64) {
+        showToast('Velg et bilde først', 'warn');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Importer';
+        return;
+      }
+      result = await api('/api/recipes/import/image', {
+        method: 'POST',
+        body: { imageBase64: recipeImportImageB64 },
+      });
     }
     closeModal();
     const importedName = String(result.recipe?.name || 'ukjent navn').slice(0, 200);
@@ -117,9 +129,13 @@ async function submitRecipeImport() {
     // tydelig advarsel i stedet for en vanlig success-toast. Frontend er
     // siste linje — backend lagrer allerede blockedIngredients, vi bare
     // gjør brukeren klar over det.
-    if (result.safeForProfile === false && Array.isArray(result.blockedIngredients) && result.blockedIngredients.length > 0) {
-      const blockedNames = result.blockedIngredients.map(b => b.ingredient).join(', ');
-      const allergies = [...new Set(result.blockedIngredients.map(b => b.allergy))].join(', ');
+    if (
+      result.safeForProfile === false &&
+      Array.isArray(result.blockedIngredients) &&
+      result.blockedIngredients.length > 0
+    ) {
+      const blockedNames = result.blockedIngredients.map((b) => b.ingredient).join(', ');
+      const allergies = [...new Set(result.blockedIngredients.map((b) => b.allergy))].join(', ');
       await showConfirm({
         title: '⚠ Advarsel: allergener oppdaget',
         message: `Oppskrift "${importedName}" er lagret, men inneholder ingredienser som matcher familieprofilen din:\n\n${blockedNames}\n\nMatcher allergier: ${allergies}\n\nDobbelsjekk oppskriften manuelt. LLM-genererte oppskrifter er "beste innsats" og ikke garantert allergi-trygge.`,
@@ -151,4 +167,3 @@ function updateFabVisibility() {
 }
 // Kall updateFabVisibility() fra switchTab() etter klasse-toggle.
 // ===== FASE_E_END shopping-pantry-recipe-import =====
-

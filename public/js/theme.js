@@ -11,12 +11,16 @@ function toggleTheme() {
   }
   document.getElementById('themeBtn').textContent = newTheme === 'dark' ? '🌙' : '☀️';
   document.getElementById('metaThemeColor').content = newTheme === 'dark' ? '#1a1a2e' : '#f5f6fa';
-  try { localStorage.setItem('fa-theme', newTheme); } catch {}
+  try {
+    localStorage.setItem('fa-theme', newTheme);
+  } catch {}
 }
 
 function loadTheme() {
   let saved = null;
-  try { saved = localStorage.getItem('fa-theme'); } catch {}
+  try {
+    saved = localStorage.getItem('fa-theme');
+  } catch {}
   const theme = saved || 'light'; // default light
   if (theme === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -24,4 +28,3 @@ function loadTheme() {
     document.getElementById('metaThemeColor').content = '#1a1a2e';
   }
 }
-

@@ -19,10 +19,16 @@ loadTheme();
 // === M5.2 Service worker registration ===
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
         // Sjekk for oppdateringer hver time
-        setInterval(() => { reg.update().catch(() => {}); }, 60 * 60 * 1000);
+        setInterval(
+          () => {
+            reg.update().catch(() => {});
+          },
+          60 * 60 * 1000
+        );
         // Når en ny SW er installert og venter, informer brukeren
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
@@ -34,6 +40,6 @@ if ('serviceWorker' in navigator) {
           });
         });
       })
-      .catch(err => console.warn('[sw] registrering feilet:', err));
+      .catch((err) => console.warn('[sw] registrering feilet:', err));
   });
 }

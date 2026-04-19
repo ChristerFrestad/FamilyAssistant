@@ -26,8 +26,9 @@ function renderChores() {
     for (const c of items) {
       const isDone = c.status === 'done';
       const isPostponed = c.status === 'postponed';
-      // Felles angre-knapp for done/postponed — så fokusgruppen kan rette
-      // opp feilklikk uten å lete etter en egen handling per status.
+      // Shared undo button for done/postponed — one action covers both
+      // so the operator can fix accidental clicks without hunting for a
+      // status-specific control.
       const undoBtn = `<button class="btn btn-ghost btn-small" onclick="undoChore(${Number(c.choreId)})" title="Angre status">↶ Angre</button>`;
       html += `
         <div class="chore-item ${isDone ? 'chore-done' : ''}">

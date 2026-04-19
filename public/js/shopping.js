@@ -167,7 +167,7 @@ function renderRecipeItem(item) {
     html += `<div class="shop-item-price">~${Number(item.estPrice) || 0} kr</div>`;
 
   if (itemId) {
-    // To-state toggle — grey "Kjøp" / green solid "✓ Kjøpt". Clicking the
+    // Two-state toggle — grey "Kjøp" / green "✓ Kjøpt". Clicking the
     // green state calls /unbought so it acts as the undo affordance.
     const boughtClass = item.checkedOff ? 'btn-success' : 'btn-ghost';
     const boughtLabel = item.checkedOff ? '✓ Kjøpt' : 'Kjøp';
@@ -175,17 +175,17 @@ function renderRecipeItem(item) {
       onclick="toggleBought(${itemId}, ${item.checkedOff ? 1 : 0})"
       title="${item.checkedOff ? 'Klikk for å angre kjøp' : 'Marker som kjøpt'}">${boughtLabel}</button>`;
 
-    // "Har hjemme" — topper pantry-qty uten å markere rad som kjøpt.
+    // "Har hjemme" — tops up pantry qty without marking the row bought.
     html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
       onclick="openHasHomeForm(${itemId})" title="Jeg har denne varen hjemme allerede">🏠 Har hjemme</button>`;
 
-    // Trash — sletter raden permanent fra den aktive handlelisten.
+    // Trash — permanently deletes the row from the active shopping list.
     html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
       onclick="deleteShoppingItem(${itemId})" title="Slett vare helt">🗑</button>`;
   }
   html += `</div>`;
 
-  // Inline "Har hjemme"-panel. Toggles visible via openHasHomeForm().
+  // Inline "Har hjemme" panel. Toggled by openHasHomeForm().
   if (itemId) {
     html += renderHasHomeForm(itemId, unit);
   }
@@ -283,10 +283,10 @@ function setShoppingSubView(view) {
   renderShopping();
 }
 
-// --- Nye handlers for bought / unpantry ---
+// --- Handlers for bought / unpantry / delete ---
 
-// Toggle-knapp: grå "Kjøp" → grønn "✓ Kjøpt" (marker) og grønn → grå (angre).
-// Raden forblir i listen uansett; visuelt stripet via .checked-off-klassen.
+// Toggle button: grey "Kjøp" -> green "✓ Kjøpt" (mark), green -> grey (undo).
+// The row stays on the list either way; .checked-off class dims it.
 async function toggleBought(itemId, isCurrentlyBought) {
   const endpoint = isCurrentlyBought
     ? `/api/shopping/items/${itemId}/unbought`
@@ -300,7 +300,7 @@ async function toggleBought(itemId, isCurrentlyBought) {
   }
 }
 
-// Bakoverkompat: noen callers (f.eks. e2e-tester) bruker fortsatt den gamle navnet.
+// Back-compat: some callers (e.g. e2e tests) still use the old name.
 async function markItemBought(itemId) {
   return toggleBought(itemId, 0);
 }
@@ -331,13 +331,13 @@ async function unpantryItem(itemId) {
   }
 }
 
-// "Har hjemme" — inline-panel erstatter de to gamle prompt()-kallene.
-// Brukeren skriver tall + velger valgfri kjøpsdato; panelet ligger rett
-// under raden og er tilgjengelig på tastatur (Enter sender).
+// "Har hjemme" — inline panel replaces the two legacy prompt() calls.
+// User types qty + picks optional purchase date; panel sits right under
+// the row and is keyboard-accessible (Enter submits).
 function openHasHomeForm(itemId) {
   const form = document.getElementById(`has-home-${itemId}`);
   if (!form) return;
-  // Lukk andre åpne paneler for å holde layout ryddig.
+  // Close other open panels so the layout stays clean.
   document.querySelectorAll('.has-home-form').forEach((el) => {
     if (el !== form) el.hidden = true;
   });
@@ -378,7 +378,7 @@ async function submitHasHome(itemId) {
   }
 }
 
-// Bakoverkompat med tidligere navn — delegate til den nye inline-flyten.
+// Back-compat with the old name — delegate to the new inline flow.
 function markItemHasHome(itemId) {
   openHasHomeForm(itemId);
 }

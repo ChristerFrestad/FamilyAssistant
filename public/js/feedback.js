@@ -29,9 +29,9 @@ function openFeedbackModal() {
   dialog.setAttribute('aria-labelledby', 'feedback-title');
   dialog.tabIndex = -1;
 
-  const categoryOptions = FEEDBACK_CATEGORIES
-    .map((c) => `<option value="${escapeHtml(c.value)}">${escapeHtml(c.label)}</option>`)
-    .join('');
+  const categoryOptions = FEEDBACK_CATEGORIES.map(
+    (c) => `<option value="${escapeHtml(c.value)}">${escapeHtml(c.label)}</option>`
+  ).join('');
 
   // Initial HTML is composed from static constants (no user input) so
   // innerHTML is safe here. All later user input goes via .value properties.

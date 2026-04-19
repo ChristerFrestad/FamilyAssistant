@@ -29,19 +29,25 @@ function initVoice() {
     recognition.onerror = (event) => {
       const statusEl = document.getElementById('voiceStatus');
       statusEl.style.display = 'block';
-      statusEl.textContent = event.error === 'not-allowed'
-        ? 'Mikrofonrettigheter mangler — gi tilgang i nettleseren'
-        : `Stemmefeil: ${event.error}`;
+      statusEl.textContent =
+        event.error === 'not-allowed'
+          ? 'Mikrofonrettigheter mangler — gi tilgang i nettleseren'
+          : `Stemmefeil: ${event.error}`;
       stopVoice();
     };
 
-    recognition.onend = () => { stopVoice(); };
+    recognition.onend = () => {
+      stopVoice();
+    };
   }
 }
 
 function toggleVoice() {
-  if (isRecording) { stopVoice(); }
-  else { startVoice(); }
+  if (isRecording) {
+    stopVoice();
+  } else {
+    startVoice();
+  }
 }
 
 async function startVoice() {
@@ -59,9 +65,11 @@ async function startVoice() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach((t) => t.stop());
         statusEl.textContent = 'Transkriberer...';
         const blob = new Blob(audioChunks, { type: 'audio/webm' });
         try {
@@ -74,7 +82,9 @@ async function startVoice() {
           if (data.text) {
             document.getElementById('chatInput').value = data.text;
             statusEl.textContent = `✓ Transkribert (${data.duration_ms}ms)`;
-            setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+            setTimeout(() => {
+              statusEl.style.display = 'none';
+            }, 2000);
             sendChat();
           } else {
             statusEl.textContent = data.error || 'Ingen tekst gjenkjent';
@@ -92,9 +102,14 @@ async function startVoice() {
   } else {
     // Web Speech API fallback
     statusEl.textContent = 'Lytter... snakk nå';
-    if (!recognition) { initVoice(); }
+    if (!recognition) {
+      initVoice();
+    }
     if (recognition) recognition.start();
-    else { statusEl.textContent = 'Stemmegjenkjenning ikke støttet'; stopVoice(); }
+    else {
+      statusEl.textContent = 'Stemmegjenkjenning ikke støttet';
+      stopVoice();
+    }
   }
 }
 
@@ -104,7 +119,9 @@ function stopVoice() {
     return;
   }
   stopVoiceUI();
-  try { if (recognition) recognition.stop(); } catch {}
+  try {
+    if (recognition) recognition.stop();
+  } catch {}
 }
 
 function stopVoiceUI() {
@@ -113,4 +130,3 @@ function stopVoiceUI() {
   btn.classList.remove('recording');
   btn.textContent = '🎤';
 }
-

@@ -3,7 +3,11 @@
 function parseNotificationData(n) {
   if (!n) return {};
   if (n.data_json && typeof n.data_json === 'string') {
-    try { return JSON.parse(n.data_json) || {}; } catch { return {}; }
+    try {
+      return JSON.parse(n.data_json) || {};
+    } catch {
+      return {};
+    }
   }
   if (n.data_json && typeof n.data_json === 'object') return n.data_json;
   return {};
@@ -37,10 +41,14 @@ async function checkNotifications() {
 
     if (latest.type === 'missing_ingredients') {
       const list = Array.isArray(items) ? items : [];
-      const preview = list.slice(0, 10).map(i => `• ${i.name} (${i.qty} ${i.unit || ''})`).join('\n');
-      const msg = list.length === 0
-        ? latest.message || 'Noen ingredienser mangler.'
-        : preview + (list.length > 10 ? `\n… og ${list.length - 10} til` : '');
+      const preview = list
+        .slice(0, 10)
+        .map((i) => `• ${i.name} (${i.qty} ${i.unit || ''})`)
+        .join('\n');
+      const msg =
+        list.length === 0
+          ? latest.message || 'Noen ingredienser mangler.'
+          : preview + (list.length > 10 ? `\n… og ${list.length - 10} til` : '');
       const ok = await showConfirm({
         title: '🛒 Mangler for resten av uka',
         message: msg,
@@ -57,4 +65,3 @@ async function checkNotifications() {
     /* stille feil */
   }
 }
-

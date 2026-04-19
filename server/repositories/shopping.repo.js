@@ -298,8 +298,8 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
-     * Angre "kjøpt": nullstill bought_at + bought_qty og reaktiver raden
-     * som et must-buy. Pantry-qty rulles ikke tilbake (se comment i
+     * Undo "bought": clear bought_at + bought_qty and reactivate the
+     * row as a must-buy. Pantry qty is NOT rolled back (see comment in
      * /api/shopping/items/:id/unbought).
      */
     markItemUnbought(itemId) {
@@ -314,7 +314,7 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
-     * Slett raden permanent fra den aktive handlelisten.
+     * Permanently delete the row from the active shopping list.
      */
     removeItem(itemId) {
       const familyId = getFamilyId();
