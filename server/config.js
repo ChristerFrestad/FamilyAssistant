@@ -212,7 +212,15 @@ function loadConfig() {
 
   // Produksjons-krav: AUTH_TOKEN MÅ v\u00e6re satt hvis NODE_ENV=production,
   // OG vi ikke er i BOOTSTRAP_MODE (som er førstegangs-deploy via Docker).
-  if (cfg.NODE_ENV === 'production' && !cfg.AUTH_TOKEN && !cfg.BOOTSTRAP_MODE) {
+  // PILOT_BYPASS er en eksplisitt auth-less modus og trenger heller ikke
+  // AUTH_TOKEN; produksjonssikkerheten er dekket av den separate
+  // PILOT_BYPASS_PRODUCTION_ACK-sjekken lenger ned.
+  if (
+    cfg.NODE_ENV === 'production' &&
+    !cfg.AUTH_TOKEN &&
+    !cfg.BOOTSTRAP_MODE &&
+    !cfg.PILOT_BYPASS
+  ) {
     console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
     console.error('   Sett en sterk token (minst 32 tegn) i .env eller systemd.');
     console.error('   Eksempel: openssl rand -hex 32 > token.txt');
@@ -225,8 +233,14 @@ function loadConfig() {
 
   // CORS-hardening: kan ikke bruke '*' samtidig med AUTH_TOKEN i production.
   // BOOTSTRAP_MODE får ha '*' midlertidig siden wizarden må serveres bredt
-  // på LAN-en før brukeren vet egen IP/domene.
-  if (cfg.NODE_ENV === 'production' && cfg.ALLOWED_ORIGINS_LIST === '*' && !cfg.BOOTSTRAP_MODE) {
+  // på LAN-en før brukeren vet egen IP/domene. PILOT_BYPASS er også unntatt
+  // — pilot-deploys på LAN trenger bredt CORS for at knappen skal virke.
+  if (
+    cfg.NODE_ENV === 'production' &&
+    cfg.ALLOWED_ORIGINS_LIST === '*' &&
+    !cfg.BOOTSTRAP_MODE &&
+    !cfg.PILOT_BYPASS
+  ) {
     console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
     console.error('   Sett en komma-separert liste med tillatte origins.');
     process.exit(1);

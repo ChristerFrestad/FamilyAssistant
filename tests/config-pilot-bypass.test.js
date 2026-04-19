@@ -87,3 +87,44 @@ test('PILOT_BYPASS default is false', () => {
   );
   assert.strictEqual(result.stdout, 'PILOT_BYPASS=false');
 });
+
+test('PILOT_BYPASS=true skips the production AUTH_TOKEN requirement', () => {
+  const result = loadConfigInChild({
+    NODE_ENV: 'production',
+    PILOT_BYPASS: 'true',
+    PILOT_BYPASS_PRODUCTION_ACK: 'true',
+    // No AUTH_TOKEN set — would normally exit 1 in production.
+    ALLOWED_ORIGINS: 'http://example.com',
+  });
+  assert.strictEqual(
+    result.status,
+    0,
+    `expected clean exit with PILOT_BYPASS, got ${result.status}\n${result.stderr}`
+  );
+  assert.strictEqual(result.stdout, 'PILOT_BYPASS=true');
+});
+
+test('PILOT_BYPASS=true allows ALLOWED_ORIGINS=* in production', () => {
+  const result = loadConfigInChild({
+    NODE_ENV: 'production',
+    PILOT_BYPASS: 'true',
+    PILOT_BYPASS_PRODUCTION_ACK: 'true',
+    AUTH_TOKEN: 'a'.repeat(40),
+    ALLOWED_ORIGINS: '*',
+  });
+  assert.strictEqual(
+    result.status,
+    0,
+    `expected clean exit with PILOT_BYPASS + '*' origins, got ${result.status}\n${result.stderr}`
+  );
+});
+
+test('production still requires AUTH_TOKEN when PILOT_BYPASS is off', () => {
+  const result = loadConfigInChild({
+    NODE_ENV: 'production',
+    ALLOWED_ORIGINS: 'http://example.com',
+    // No AUTH_TOKEN, no PILOT_BYPASS, no bootstrap.
+  });
+  assert.notStrictEqual(result.status, 0, 'loadConfig should still exit 1 without bypass');
+  assert.match(result.stderr, /AUTH_TOKEN er p/);
+});
