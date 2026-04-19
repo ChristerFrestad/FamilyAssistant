@@ -912,17 +912,14 @@ function registerRoutes(router, { repos, serverState }) {
         : null;
 
     const unit = item.unit || '';
-    let nextInv = null;
-    if (typeof repos.inventory.upsertManual === 'function') {
-      const result = repos.inventory.upsertManual(productKey, {
-        qtyAdded: qty,
-        unit,
-        incrementPurchaseCount: false,
-      });
-      nextInv = result?.next || null;
-    } else {
+    if (typeof repos.inventory.upsertManual !== 'function') {
       throw errors.serviceUnavailable('Inventory-repo mangler upsertManual');
     }
+    const { next: nextInv } = repos.inventory.upsertManual(productKey, {
+      qtyAdded: qty,
+      unit,
+      incrementPurchaseCount: false,
+    });
 
     // Optional purchasedAt override — upsertManual always sets last_purchased
     // to today; if the operator specified a date, patch it.
