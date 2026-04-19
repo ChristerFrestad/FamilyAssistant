@@ -34,10 +34,7 @@ describe('Uke7 · PORT-1 Dockerfile', () => {
   test('Multi-stage: builder + runtime', () => {
     const df = readFile('Dockerfile');
     assert.ok(/FROM\s+node:20[^ ]*\s+AS\s+builder/i.test(df), 'builder stage mangler');
-    assert.ok(
-      /FROM\s+[^\s]+\s+AS\s+runtime/i.test(df),
-      'runtime stage mangler'
-    );
+    assert.ok(/FROM\s+[^\s]+\s+AS\s+runtime/i.test(df), 'runtime stage mangler');
   });
 
   test('Builder installerer dev-tools for better-sqlite3', () => {
@@ -53,7 +50,10 @@ describe('Uke7 · PORT-1 Dockerfile', () => {
       /^USER\s+(?!root(?::|\s|$))\S+/m.test(df) ||
       /gosu\s+\S+/.test(df) ||
       /su-exec\s+\S+/.test(df);
-    assert.ok(dropsPrivileges, 'runtime kjører som root — mangler USER-direktiv eller gosu/su-exec drop');
+    assert.ok(
+      dropsPrivileges,
+      'runtime kjører som root — mangler USER-direktiv eller gosu/su-exec drop'
+    );
   });
 
   test('Runtime har VOLUME for /app/data', () => {
