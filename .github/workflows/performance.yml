@@ -73,6 +73,7 @@ jobs:
         # 50%-grensen, betyr det sannsynligvis at noe reelt har endret seg.
         run: |
           node scripts/load-baseline.js \
+            --url=http://localhost:7777 \
             --concurrency=5 \
             --duration=15 \
             --warmupMs=1500 \
