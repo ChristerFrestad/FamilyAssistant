@@ -48,7 +48,7 @@ services:
     # "127.0.0.1:7777:7777" to funnel all traffic through the reverse
     # proxy.
     ports:
-      - "7777:7777"
+      - '7777:7777'
     volumes:
       - ./data:/app/data
     environment:
@@ -62,7 +62,7 @@ services:
       # SQLite file yet, the server boots a setup wizard at /setup.html.
       # BOOTSTRAP_ALLOWED=true signals that the runtime is a container
       # with a data volume, so persisting the generated token is safe.
-      BOOTSTRAP_ALLOWED: "true"
+      BOOTSTRAP_ALLOWED: 'true'
       # AUTH_TOKEN is optional on first deploy — the wizard generates
       # and persists it. Set this variable to skip the wizard.
       AUTH_TOKEN: ${AUTH_TOKEN:-}
@@ -85,20 +85,28 @@ services:
       resources:
         limits:
           memory: 512M
-          cpus: "1.5"
+          cpus: '1.5'
         reservations:
           memory: 128M
-    # The distroless image has no shell, so the Docker healthcheck calls
-    # node directly. Matches the HEALTHCHECK line in Dockerfile.
+    # The slim runtime has node on PATH. The Docker healthcheck calls
+    # node -e with a fetch to /health. Matches the HEALTHCHECK directive
+    # in Dockerfile. Prior distroless-only path (/nodejs/bin/node) caused
+    # "unhealthy" status on the slim image and hid port 7777 in Portainer.
     healthcheck:
-      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://localhost:7777/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:7777/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       start_period: 30s
       retries: 3
     # Lets the container reach a Linux host's Ollama instance.
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
     networks:
       - familieass
 
@@ -119,8 +127,8 @@ services:
     profiles:
       - production
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

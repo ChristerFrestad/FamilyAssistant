@@ -37,6 +37,16 @@ const envSchema = z.object({
   // MVP pilot deploys on Portainer / self-host; disable once Resend is wired.
   MAGIC_LINK_CONSOLE: z.coerce.boolean().default(false),
 
+  // Pilot/MVP escape hatch: enable a one-click "Hopp inn som pilot" login
+  // that creates a local pilot user and session without magic link or
+  // OAuth. Intended for MVP self-testing where the operator is the only
+  // user. Disable before any additional user touches the deploy.
+  PILOT_BYPASS: z.coerce.boolean().default(false),
+  // Safety belt: PILOT_BYPASS=true is refused in NODE_ENV=production
+  // unless this is also set. Forces the operator to consciously ack that
+  // they are running an auth-less instance in production.
+  PILOT_BYPASS_PRODUCTION_ACK: z.coerce.boolean().default(false),
+
   // LLM
   LLM_BACKEND: z.enum(['ollama', 'llamacpp']).default('ollama'),
   OLLAMA_HOST: z.string().default('http://localhost:11434'),
@@ -250,6 +260,20 @@ function loadConfig() {
       console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
       process.exit(1);
     }
+  }
+
+  // Pilot bypass safety belt: PILOT_BYPASS=true disables all auth via
+  // /api/auth/pilot-login. Refuse to start in NODE_ENV=production unless
+  // the operator has explicitly acknowledged they want an auth-less server.
+  if (cfg.PILOT_BYPASS && cfg.NODE_ENV === 'production' && !cfg.PILOT_BYPASS_PRODUCTION_ACK) {
+    console.error('⚠️  PILOT_BYPASS=true is refused in NODE_ENV=production.');
+    console.error('   This disables all auth — set PILOT_BYPASS_PRODUCTION_ACK=true');
+    console.error('   ONLY if you deliberately want an unauthenticated server.');
+    process.exit(1);
+  }
+  if (cfg.PILOT_BYPASS && cfg.NODE_ENV !== 'test') {
+    console.warn('⚠️  PILOT_BYPASS is ON — /api/auth/pilot-login grants a session');
+    console.warn('   to anyone who calls it. Turn off before adding real users.');
   }
 
   // Development/test fallbacks: auto-generate ephemeral secrets so tests run

@@ -18,6 +18,7 @@ const {
 const { createSessionForUser, setSessionCookie, clearSessionCookie } = require('./sessions');
 const { parseCookies, serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
 const { handleMagicLinkStart, handleMagicLinkVerify } = require('./magic-link');
+const { isEmailConfigured } = require('../services/email.service');
 
 const OAUTH_STATE_COOKIE = 'fa_oauth_state';
 const OAUTH_STATE_TTL_SECONDS = 600; // 10 minutes
@@ -231,14 +232,48 @@ function handleDeleteSession(ctx, repos) {
 }
 
 // ============================================================
+// Public auth config manifest + pilot bypass
+// ============================================================
+
+// GET /api/auth/config — minimal public manifest so login.html can show
+// provider-specific buttons only when that provider is enabled.
+function handleAuthConfig() {
+  return {
+    pilotBypass: config.PILOT_BYPASS === true,
+    google: !!config.GOOGLE_CLIENT_ID,
+    magicLink: isEmailConfigured() || config.MAGIC_LINK_CONSOLE === true,
+  };
+}
+
+const PILOT_EMAIL = 'pilot@local';
+const PILOT_NAME = 'Pilot';
+
+async function handlePilotLogin(ctx, repos) {
+  if (!config.PILOT_BYPASS) {
+    throw errors.notFound('Not found');
+  }
+  let user = repos.auth.findByEmail(PILOT_EMAIL);
+  if (!user) {
+    user = repos.auth.createUser({ email: PILOT_EMAIL, name: PILOT_NAME });
+  }
+  const sessionId = createSessionForUser(repos, { userId: user.id, req: ctx.req });
+  setSessionCookie(ctx.res, ctx.req, sessionId);
+  repos.auth.touchLastSeen(user.id);
+  ctx.res.writeHead(302, { Location: '/' });
+  ctx.res.end();
+}
+
+// ============================================================
 // Registration
 // ============================================================
 
 function registerAuthRoutes(router, { repos }) {
+  router.get('/api/auth/config', () => handleAuthConfig());
   router.get('/api/auth/google/start', (ctx) => handleGoogleStart(ctx));
   router.get('/api/auth/google/callback', async (ctx) => handleGoogleCallback(ctx, repos));
   router.post('/api/auth/magic-link/start', async (ctx) => handleMagicLinkStart(ctx, repos));
   router.get('/api/auth/magic-link/verify', async (ctx) => handleMagicLinkVerify(ctx, repos));
+  router.get('/api/auth/pilot-login', async (ctx) => handlePilotLogin(ctx, repos));
   router.get('/api/auth/me', (ctx) => handleMe(ctx));
   router.post('/api/auth/logout', (ctx) => handleLogout(ctx, repos));
   router.post('/api/auth/logout-all', (ctx) => handleLogoutAll(ctx, repos));
