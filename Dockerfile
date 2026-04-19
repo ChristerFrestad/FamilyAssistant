@@ -63,64 +63,60 @@ COPY scripts/load-baseline.js ./scripts/load-baseline.js
 # (fanger evt. require-order-feil tidlig)
 RUN NODE_ENV=test node -e "require('./server/config')"
 
-# Pre-create /app/data/backups med nonroot:nonroot (UID/GID 65532).
-# Docker initialiserer named volumes fra image-innholdet ved første mount,
-# så denne ownershippen arves av volumet og hindrer EACCES når prosessen
-# kjører som 'nonroot' i distroless. Bind-mounts / Railway persistent disks
-# overstyrer fortsatt ownership på host-siden — se RUNBOOK for chown-fix.
-RUN mkdir -p /build/data/backups && chown -R 65532:65532 /build/data
+# ============================================================================
+# Stage 2: Runtime (node:20-bookworm-slim)
+# ============================================================================
+# Runtime uses slim instead of distroless so the entrypoint script can chown
+# /app/data at startup. Portainer-managed Docker volumes (and bind-mounts to
+# root-owned host paths) start out as root:root; a non-root process cannot
+# mkdir inside them, which caused EACCES on /app/data/backups. tini handles
+# PID 1 signals; gosu drops from root to the node user before running node.
+FROM node:20-bookworm-slim AS runtime
 
-# ============================================================================
-# Stage 2: Runtime (distroless)
-# ============================================================================
-# TODO: Pin til spesifikk SHA256 digest for reproducerbare builds:
-#   FROM gcr.io/distroless/nodejs20-debian12@sha256:<hash> AS runtime
-FROM gcr.io/distroless/nodejs20-debian12 AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tini gosu ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Labels for OCI image metadata
-LABEL org.opencontainers.image.title="Familieassistenten"
-LABEL org.opencontainers.image.description="Selvhostet husholdningsassistent — kjører lokalt på Raspberry Pi 5"
+LABEL org.opencontainers.image.title="FamilyAssistant"
+LABEL org.opencontainers.image.description="Self-hosted household assistant — runs locally on Raspberry Pi 5"
 LABEL org.opencontainers.image.authors="Christer Frestad"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/ChristerFrestad/FamilyAssistant"
 
 WORKDIR /app
 
-# Kopier node_modules og app fra builder (--chown sikrer nonroot eierskap)
-COPY --from=builder --chown=nonroot:nonroot /build/node_modules ./node_modules
-COPY --from=builder --chown=nonroot:nonroot /build/server ./server
-COPY --from=builder --chown=nonroot:nonroot /build/public ./public
-COPY --from=builder --chown=nonroot:nonroot /build/scripts ./scripts
-COPY --from=builder --chown=nonroot:nonroot /build/package.json ./package.json
-# Tom data-katalog med nonroot ownership: Docker named volumes arver disse
-# rettighetene på første oppstart. Uten dette kjører mkdir /app/data/backups
-# som UID 65532 mot en root-eid tom mappe og krasjer med EACCES.
-COPY --from=builder --chown=nonroot:nonroot /build/data ./data
+# App files owned by the node user (UID/GID 1000, baked into node:20-slim).
+COPY --from=builder --chown=node:node /build/node_modules ./node_modules
+COPY --from=builder --chown=node:node /build/server ./server
+COPY --from=builder --chown=node:node /build/public ./public
+COPY --from=builder --chown=node:node /build/scripts ./scripts
+COPY --from=builder --chown=node:node /build/package.json ./package.json
 
-# Data-volum for SQLite-DB og backups. Mountes som named volume
-# eller bind mount til host /home/pi/Familieassistenten/data.
+# Entrypoint script runs as root briefly to fix volume ownership, then
+# drops to the node user via gosu. Must be root-owned to prevent tampering.
+COPY --chown=root:root docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod 0755 /app/docker-entrypoint.sh
+
+# Data volume for SQLite DB and backups. Named volumes and bind-mounts
+# that appear as root-owned will be chowned to node by the entrypoint.
 VOLUME ["/app/data"]
 
-# Non-root user (distroless bundler UID 65532 'nonroot')
-USER nonroot:nonroot
-
-# HTTP-port — overstyres av PORT env-var om nødvendig. 7777 er valgt som
-# default fordi 3000 er kapret av Grafana, Node-defaults og mange andre
-# self-hosted apper. Intern og extern port matcher som default, slik at
-# compose-mapping leses likt på begge sider ("7777:7777").
+# HTTP port — override via PORT env var if needed. 7777 is the default
+# because 3000 is commonly occupied by Grafana and other self-hosted apps.
 EXPOSE 7777
 
-# Default-miljø. AUTH_TOKEN og ALLOWED_ORIGINS må overstyres ved kjøretid.
+# Default environment. AUTH_TOKEN and ALLOWED_ORIGINS must be set at runtime.
 ENV NODE_ENV=production
 ENV PORT=7777
 ENV DB_PATH=/app/data/familieassistenten.db
 ENV BACKUP_DIR=/app/data/backups
 ENV LOG_LEVEL=info
 
-# Uke 7 PORT-7: healthcheck via node-intern (distroless har ikke wget/curl).
-# Node sjekker /health og exit 0/1 basert på status 200.
+# Healthcheck via node-internal fetch — no wget/curl needed.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["/nodejs/bin/node", "-e", "fetch('http://localhost:7777/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://localhost:7777/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
 
-# Entry point
-ENTRYPOINT ["/nodejs/bin/node", "server/index.js"]
+# tini (PID 1) → entrypoint script (root, fixes perms, gosu-drops) → CMD
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker-entrypoint.sh"]
+CMD ["node", "server/index.js"]
