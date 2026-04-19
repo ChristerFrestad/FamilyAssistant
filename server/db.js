@@ -16,11 +16,34 @@ const { runMigrations } = require('./migrations');
 const DEFAULT_DATA_DIR = path.join(__dirname, '..', 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DEFAULT_DATA_DIR, 'familieassistenten.db');
 const DATA_DIR = path.dirname(DB_PATH);
+// BACKUP_DIR kan overrides via env (Dockerfile setter /app/data/backups).
+// Faller tilbake til DATA_DIR/backups for bare-metal / dev.
+const BACKUP_DIR = process.env.BACKUP_DIR || path.join(DATA_DIR, 'backups');
+
+function ensureWritableDir(dir, label) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    if (err.code === 'EACCES' || err.code === 'EPERM' || err.code === 'EROFS') {
+      throw new Error(
+        `Kan ikke opprette ${label} (${dir}): ${err.code}. ` +
+          `Prosessen mangler skrivetilgang. Sjekk at:\n` +
+          `  1. Et persistent volum er mountet på ${DATA_DIR} ` +
+          `(Railway: legg til Volume; Docker: 'volumes: - ./data:/app/data').\n` +
+          `  2. Volumet eies av container-brukeren (distroless 'nonroot' = UID 65532). ` +
+          `Fix: 'chown -R 65532:65532 <host-path>' på host, eller bygg imaget ` +
+          `slik at ${DATA_DIR} pre-eksisterer med riktig ownership.\n` +
+          `  3. Alternativt: sett DB_PATH og BACKUP_DIR til en skrivbar path via env.`,
+        { cause: err }
+      );
+    }
+    throw err;
+  }
+}
 
 function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const backupDir = path.join(DATA_DIR, 'backups');
-  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+  ensureWritableDir(DATA_DIR, 'datakatalog');
+  ensureWritableDir(BACKUP_DIR, 'backup-katalog');
 }
 
 function log(msg) {
@@ -116,4 +139,5 @@ module.exports = {
   closeDB,
   DB_PATH,
   DATA_DIR,
+  BACKUP_DIR,
 };

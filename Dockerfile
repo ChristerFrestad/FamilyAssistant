@@ -63,6 +63,13 @@ COPY scripts/load-baseline.js ./scripts/load-baseline.js
 # (fanger evt. require-order-feil tidlig)
 RUN NODE_ENV=test node -e "require('./server/config')"
 
+# Pre-create /app/data/backups med nonroot:nonroot (UID/GID 65532).
+# Docker initialiserer named volumes fra image-innholdet ved første mount,
+# så denne ownershippen arves av volumet og hindrer EACCES når prosessen
+# kjører som 'nonroot' i distroless. Bind-mounts / Railway persistent disks
+# overstyrer fortsatt ownership på host-siden — se RUNBOOK for chown-fix.
+RUN mkdir -p /build/data/backups && chown -R 65532:65532 /build/data
+
 # ============================================================================
 # Stage 2: Runtime (distroless)
 # ============================================================================
@@ -85,6 +92,10 @@ COPY --from=builder --chown=nonroot:nonroot /build/server ./server
 COPY --from=builder --chown=nonroot:nonroot /build/public ./public
 COPY --from=builder --chown=nonroot:nonroot /build/scripts ./scripts
 COPY --from=builder --chown=nonroot:nonroot /build/package.json ./package.json
+# Tom data-katalog med nonroot ownership: Docker named volumes arver disse
+# rettighetene på første oppstart. Uten dette kjører mkdir /app/data/backups
+# som UID 65532 mot en root-eid tom mappe og krasjer med EACCES.
+COPY --from=builder --chown=nonroot:nonroot /build/data ./data
 
 # Data-volum for SQLite-DB og backups. Mountes som named volume
 # eller bind mount til host /home/pi/Familieassistenten/data.
