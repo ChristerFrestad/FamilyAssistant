@@ -298,6 +298,33 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
+     * Undo "bought": clear bought_at + bought_qty and reactivate the
+     * row as a must-buy. Pantry qty is NOT rolled back (see comment in
+     * /api/shopping/items/:id/unbought).
+     */
+    markItemUnbought(itemId) {
+      const familyId = getFamilyId();
+      db.prepare(
+        `
+        UPDATE shopping_list_items
+        SET bought_at = NULL, bought_qty = NULL, needs_buy = 1
+        WHERE family_id = ? AND id = ?
+      `
+      ).run(familyId, itemId);
+    },
+
+    /**
+     * Permanently delete the row from the active shopping list.
+     */
+    removeItem(itemId) {
+      const familyId = getFamilyId();
+      db.prepare('DELETE FROM shopping_list_items WHERE family_id = ? AND id = ?').run(
+        familyId,
+        itemId
+      );
+    },
+
+    /**
      * Lukk en handleliste manuelt. Setter status='done' + confirmed_at.
      */
     markDone(listId) {

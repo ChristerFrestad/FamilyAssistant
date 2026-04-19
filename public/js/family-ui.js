@@ -239,9 +239,7 @@ async function renameFamilyPrompt(currentName) {
 }
 
 async function deleteFamilyPrompt(currentName) {
-  const confirmationName = prompt(
-    `Skriv familienavnet "${currentName}" for å bekrefte sletting:`
-  );
+  const confirmationName = prompt(`Skriv familienavnet "${currentName}" for å bekrefte sletting:`);
   if (!confirmationName) return;
   const res = await api('/api/family', {
     method: 'DELETE',
@@ -329,8 +327,10 @@ async function saveFamilyLlm() {
   let apiKey;
   if (keyField) {
     const v = keyField.value;
-    if (v === '') apiKey = undefined; // keep existing
-    else if (v === '-') apiKey = ''; // explicit clear
+    if (v === '')
+      apiKey = undefined; // keep existing
+    else if (v === '-')
+      apiKey = ''; // explicit clear
     else apiKey = v;
   }
   const status = document.getElementById('famLlmStatus');

@@ -90,6 +90,21 @@ function createChoreRepos(db) {
       `
       ).run(familyId, weekYear, choreId);
     },
+    /**
+     * Undo "done" or "postponed" — resets the row to 'pending'. Used
+     * by PUT /api/chores/undone. Works for both done and postponed
+     * rows; one action handles any accidental click.
+     */
+    markUndone(weekYear, choreId) {
+      const familyId = getFamilyId();
+      db.prepare(
+        `
+        UPDATE chore_schedules
+        SET status = 'pending', completed_at = NULL, postponed_to = NULL
+        WHERE family_id = ? AND week_year = ? AND chore_id = ?
+      `
+      ).run(familyId, weekYear, choreId);
+    },
     add(weekYear, choreId, scheduledDay) {
       const familyId = getFamilyId();
       db.prepare(

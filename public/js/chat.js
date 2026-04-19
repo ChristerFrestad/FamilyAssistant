@@ -14,7 +14,8 @@ async function checkLlmStatus() {
       el.textContent = `🟢 ${data.model} via ${data.backend || 'ollama'}${sttText}${kbText}`;
       el.style.color = 'var(--green)';
     } else {
-      el.textContent = '🟡 LLM ikke tilgjengelig — grunnfunksjoner aktive, smarte forslag deaktivert';
+      el.textContent =
+        '🟡 LLM ikke tilgjengelig — grunnfunksjoner aktive, smarte forslag deaktivert';
       el.style.color = 'var(--yellow)';
     }
   } catch {
@@ -50,7 +51,10 @@ async function sendChat() {
   chatHistory.push({ role: 'user', content: message });
 
   try {
-    const data = await api('/api/llm/chat', { method: 'POST', body: { message, history: chatHistory, saveToKB: true } });
+    const data = await api('/api/llm/chat', {
+      method: 'POST',
+      body: { message, history: chatHistory, saveToKB: true },
+    });
     const reply = data.response || 'Beklager, noe gikk galt.';
     chatHistory.push({ role: 'assistant', content: reply });
 
@@ -78,4 +82,3 @@ async function sendChat() {
   }
   container.scrollTop = container.scrollHeight;
 }
-
