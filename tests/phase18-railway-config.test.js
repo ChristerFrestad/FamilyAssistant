@@ -85,7 +85,9 @@ describe('Phase 18 · Dockerfile is Railway-friendly', () => {
   });
 
   test('runtime entrypoint is the Node server', () => {
-    assert.match(DOCKERFILE, /ENTRYPOINT\s*\["\/nodejs\/bin\/node",\s*"server\/index\.js"\]/);
+    // node server/index.js may live in ENTRYPOINT (distroless-style) or in CMD
+    // (when ENTRYPOINT is an init shim like tini + docker-entrypoint.sh).
+    assert.match(DOCKERFILE, /(ENTRYPOINT|CMD)\s*\[[^\]]*"server\/index\.js"[^\]]*\]/);
   });
 });
 

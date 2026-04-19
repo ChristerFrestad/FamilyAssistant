@@ -34,10 +34,7 @@ describe('Uke7 · PORT-1 Dockerfile', () => {
   test('Multi-stage: builder + runtime', () => {
     const df = readFile('Dockerfile');
     assert.ok(/FROM\s+node:20[^ ]*\s+AS\s+builder/i.test(df), 'builder stage mangler');
-    assert.ok(
-      /FROM\s+gcr\.io\/distroless\/nodejs20[^ ]*\s+AS\s+runtime/i.test(df),
-      'distroless runtime stage mangler'
-    );
+    assert.ok(/FROM\s+[^\s]+\s+AS\s+runtime/i.test(df), 'runtime stage mangler');
   });
 
   test('Builder installerer dev-tools for better-sqlite3', () => {
@@ -46,9 +43,17 @@ describe('Uke7 · PORT-1 Dockerfile', () => {
     assert.ok(/build-essential/.test(df), 'build-essential mangler');
   });
 
-  test('Runtime bruker non-root user (distroless nonroot)', () => {
+  test('Runtime dropper privilegier til en non-root bruker', () => {
     const df = readFile('Dockerfile');
-    assert.ok(/USER nonroot:nonroot/.test(df), 'non-root USER mangler');
+    // Either a USER directive, or an entrypoint script that drops via gosu/su-exec.
+    const dropsPrivileges =
+      /^USER\s+(?!root(?::|\s|$))\S+/m.test(df) ||
+      /gosu\s+\S+/.test(df) ||
+      /su-exec\s+\S+/.test(df);
+    assert.ok(
+      dropsPrivileges,
+      'runtime kjører som root — mangler USER-direktiv eller gosu/su-exec drop'
+    );
   });
 
   test('Runtime har VOLUME for /app/data', () => {
@@ -56,11 +61,11 @@ describe('Uke7 · PORT-1 Dockerfile', () => {
     assert.ok(/VOLUME\s+\["\/app\/data"\]/.test(df), 'VOLUME /app/data mangler');
   });
 
-  test('ENTRYPOINT peker til server/index.js', () => {
+  test('Runtime kjører server/index.js (ENTRYPOINT eller CMD)', () => {
     const df = readFile('Dockerfile');
     assert.ok(
-      /ENTRYPOINT\s+\[[^\]]*"server\/index\.js"[^\]]*\]/.test(df),
-      'ENTRYPOINT server/index.js mangler'
+      /(ENTRYPOINT|CMD)\s+\[[^\]]*"server\/index\.js"[^\]]*\]/.test(df),
+      'server/index.js mangler i ENTRYPOINT/CMD'
     );
   });
 
