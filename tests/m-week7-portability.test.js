@@ -170,6 +170,27 @@ describe('Uke7 · PORT-2 docker-compose.yml', () => {
     const yml = readFile('docker-compose.yml');
     assert.ok(/memory:\s+512M/.test(yml), 'memory limit 512M mangler');
   });
+
+  test('Pilot/MVP escape-hatch env-vars forwarded from stack env', () => {
+    const yml = readFile('docker-compose.yml');
+    // docker-compose only passes env vars to the container if they are
+    // listed in the service's environment: section. Without these lines
+    // a Portainer stack env-var like PILOT_BYPASS=true never reaches the
+    // container and the in-app guards default to false.
+    assert.ok(
+      /PILOT_BYPASS:\s*\$\{PILOT_BYPASS:-/.test(yml),
+      'PILOT_BYPASS mangler fra compose environment'
+    );
+    assert.ok(
+      /PILOT_BYPASS_PRODUCTION_ACK:\s*\$\{PILOT_BYPASS_PRODUCTION_ACK:-/.test(yml),
+      'PILOT_BYPASS_PRODUCTION_ACK mangler fra compose environment'
+    );
+    assert.ok(
+      /MAGIC_LINK_CONSOLE:\s*\$\{MAGIC_LINK_CONSOLE:-/.test(yml),
+      'MAGIC_LINK_CONSOLE mangler fra compose environment'
+    );
+    assert.ok(/APP_URL:\s*\$\{APP_URL:-/.test(yml), 'APP_URL mangler fra compose environment');
+  });
 });
 
 // ============================================================
