@@ -90,6 +90,22 @@ function createChoreRepos(db) {
       `
       ).run(familyId, weekYear, choreId);
     },
+    /**
+     * Angre "gjort" eller "utsatt" — resetter raden til 'pending'.
+     * Brukt av PUT /api/chores/undone. Funker både for done og
+     * postponed-rader; felles fallback så operatøren bare trenger én
+     * handling for å rydde opp i feilklikk.
+     */
+    markUndone(weekYear, choreId) {
+      const familyId = getFamilyId();
+      db.prepare(
+        `
+        UPDATE chore_schedules
+        SET status = 'pending', completed_at = NULL, postponed_to = NULL
+        WHERE family_id = ? AND week_year = ? AND chore_id = ?
+      `
+      ).run(familyId, weekYear, choreId);
+    },
     add(weekYear, choreId, scheduledDay) {
       const familyId = getFamilyId();
       db.prepare(

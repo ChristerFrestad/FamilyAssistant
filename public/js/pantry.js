@@ -41,6 +41,7 @@ function renderPantryInline() {
           <option value="dl">dl</option>
           <option value="l">l</option>
         </select>
+        <input type="date" id="pantryDateInput" title="Kjøpsdato (valgfri)" style="max-width:150px">
         <button class="btn btn-primary" onclick="confirmAddPantry()">Lagre</button>
       </div>
     </div>
@@ -89,13 +90,19 @@ function renderPantryComboResults() {
     return;
   }
   results.classList.remove('hidden');
-  results.innerHTML = pantryComboSuggestions.map((s, i) => {
-    const badge = s.source === 'kassal' ? '<span class="combo-badge combo-badge-kassal">✓ Kassal</span>'
-                : s.source === 'lokal'  ? '<span class="combo-badge combo-badge-lokal">• Lokal</span>'
-                :                          '<span class="combo-badge combo-badge-ny">+ Ny vare</span>';
-    const meta = s.frequency ? `<span class="combo-meta">brukt ${Number(s.frequency) || 0}×</span>` : '';
-    const selectedClass = i === pantryComboSelectedIdx ? ' selected' : '';
-    return `
+  results.innerHTML = pantryComboSuggestions
+    .map((s, i) => {
+      const badge =
+        s.source === 'kassal'
+          ? '<span class="combo-badge combo-badge-kassal">✓ Kassal</span>'
+          : s.source === 'lokal'
+            ? '<span class="combo-badge combo-badge-lokal">• Lokal</span>'
+            : '<span class="combo-badge combo-badge-ny">+ Ny vare</span>';
+      const meta = s.frequency
+        ? `<span class="combo-meta">brukt ${Number(s.frequency) || 0}×</span>`
+        : '';
+      const selectedClass = i === pantryComboSelectedIdx ? ' selected' : '';
+      return `
       <div class="combo-row${selectedClass}" onmousedown="selectPantryCombo(${i})">
         <div class="combo-row-main">
           <span class="combo-name">${escapeHtml(s.name)}</span>
@@ -104,7 +111,8 @@ function renderPantryComboResults() {
         ${meta}
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 }
 
 // (escapeHtml defineres øverst i scriptet — M1.1 XSS-hardening)
@@ -113,7 +121,10 @@ function onPantryComboKeydown(ev) {
   if (!pantryComboSuggestions.length) return;
   if (ev.key === 'ArrowDown') {
     ev.preventDefault();
-    pantryComboSelectedIdx = Math.min(pantryComboSelectedIdx + 1, pantryComboSuggestions.length - 1);
+    pantryComboSelectedIdx = Math.min(
+      pantryComboSelectedIdx + 1,
+      pantryComboSuggestions.length - 1
+    );
     renderPantryComboResults();
   } else if (ev.key === 'ArrowUp') {
     ev.preventDefault();
@@ -169,6 +180,7 @@ async function confirmAddPantry() {
   const qtyEl = document.getElementById('pantryQtyInput');
   const totalEl = document.getElementById('pantryTotalInput');
   const unitEl = document.getElementById('pantryUnitInput');
+  const dateEl = document.getElementById('pantryDateInput');
   if (!input || !input.value.trim()) return;
 
   const body = {
@@ -177,6 +189,10 @@ async function confirmAddPantry() {
     reason: 'manual',
   };
   if (totalEl.value) body.total = parseFloat(totalEl.value);
+  // Optional purchase date — server defaults to today if absent.
+  if (dateEl && dateEl.value && /^\d{4}-\d{2}-\d{2}$/.test(dateEl.value)) {
+    body.purchasedAt = dateEl.value;
+  }
   if (pantryComboChosen && pantryComboChosen.productKey && pantryComboChosen.source !== 'ny') {
     body.productKey = pantryComboChosen.productKey;
   } else {
@@ -190,6 +206,7 @@ async function confirmAddPantry() {
     qtyEl.value = '1';
     totalEl.value = '';
     unitEl.value = 'stk';
+    if (dateEl) dateEl.value = '';
     pantryComboChosen = null;
     document.getElementById('pantryQtyRow').style.display = 'none';
     await loadPantry();
@@ -212,7 +229,7 @@ function renderPantryList() {
     let qtyLabel = `${escapeHtml(it.quantity || 1)} ${escapeHtml(it.unit || 'stk')}`;
     if (it.total && it.ratio !== null && typeof it.ratio !== 'undefined') {
       const pct = Math.max(0, Math.min(100, Math.round(Number(it.ratio) * 100) || 0));
-      const lowClass = it.isLow ? 'low' : (it.ratio < 0.4 ? 'medium' : 'high');
+      const lowClass = it.isLow ? 'low' : it.ratio < 0.4 ? 'medium' : 'high';
       progressHtml = `
         <div class="pantry-progress-wrap">
           <div class="pantry-progress">
@@ -229,9 +246,34 @@ function renderPantryList() {
           <div class="pantry-item-name">${escapeHtml(name)}${it.isLow ? ' <span class="pantry-low-badge">⚠ lav</span>' : ''}</div>
           <div class="pantry-item-qty">${qtyLabel}</div>
         </div>
+        <button class="btn btn-ghost btn-small" data-action="edit-pantry"
+                data-key="${escapeHtml(it.productKey)}"
+                data-qty="${escapeHtml(String(it.quantity || ''))}"
+                data-total="${escapeHtml(String(it.total || ''))}"
+                data-unit="${escapeHtml(it.unit || 'stk')}"
+                title="Rediger mengde / enhet">
+          ✏
+        </button>
         <button class="btn btn-ghost btn-small" data-action="remove-pantry" data-key="${escapeHtml(it.productKey)}" title="Har ikke likevel">
           ✗
         </button>
+      </div>
+      <div class="pantry-edit-form" id="pantry-edit-${escapeHtml(it.productKey)}" hidden
+           style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 10px 8px;padding:8px;background:var(--bg2);border-radius:8px">
+        <input type="number" class="pantry-edit-qty" placeholder="Mengde" style="max-width:100px" min="0" step="0.01">
+        <span style="color:var(--text2);font-size:0.85rem">av</span>
+        <input type="number" class="pantry-edit-total" placeholder="Total" style="max-width:100px" min="0" step="0.01">
+        <select class="pantry-edit-unit" style="max-width:90px">
+          <option value="stk">stk</option>
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="ml">ml</option>
+          <option value="dl">dl</option>
+          <option value="l">l</option>
+        </select>
+        <input type="date" class="pantry-edit-date" title="Kjøpsdato (valgfri)" style="max-width:150px">
+        <button class="btn btn-primary btn-small" data-action="save-pantry-edit" data-key="${escapeHtml(it.productKey)}">Lagre</button>
+        <button class="btn btn-ghost btn-small" data-action="cancel-pantry-edit" data-key="${escapeHtml(it.productKey)}">Avbryt</button>
       </div>
     `;
   }
@@ -244,18 +286,83 @@ function renderPantryList() {
 
 // Event delegation for pantry-knapper (unngår inline onclick med XSS-risiko)
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-action="remove-pantry"]');
-  if (btn) {
-    const key = btn.dataset.key;
-    if (key) removeFromPantry(key);
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const key = btn.dataset.key;
+  if (action === 'remove-pantry' && key) {
+    removeFromPantry(key);
+    return;
+  }
+  if (action === 'edit-pantry' && key) {
+    openPantryEdit(btn);
+    return;
+  }
+  if (action === 'cancel-pantry-edit' && key) {
+    closePantryEdit(key);
+    return;
+  }
+  if (action === 'save-pantry-edit' && key) {
+    submitPantryEdit(key);
+    return;
   }
 });
+
+function openPantryEdit(triggerBtn) {
+  const key = triggerBtn.dataset.key;
+  if (!key) return;
+  const form = document.getElementById(`pantry-edit-${key}`);
+  if (!form) return;
+  document.querySelectorAll('.pantry-edit-form').forEach((el) => {
+    if (el !== form) el.hidden = true;
+  });
+  form.hidden = !form.hidden;
+  if (!form.hidden) {
+    const qtyInput = form.querySelector('.pantry-edit-qty');
+    const totalInput = form.querySelector('.pantry-edit-total');
+    const unitSelect = form.querySelector('.pantry-edit-unit');
+    if (qtyInput) qtyInput.value = triggerBtn.dataset.qty || '';
+    if (totalInput) totalInput.value = triggerBtn.dataset.total || '';
+    if (unitSelect) unitSelect.value = triggerBtn.dataset.unit || 'stk';
+    if (qtyInput) qtyInput.focus();
+  }
+}
+
+function closePantryEdit(key) {
+  const form = document.getElementById(`pantry-edit-${key}`);
+  if (form) form.hidden = true;
+}
+
+async function submitPantryEdit(productKey) {
+  const form = document.getElementById(`pantry-edit-${productKey}`);
+  if (!form) return;
+  const qty = Number(form.querySelector('.pantry-edit-qty')?.value);
+  if (!Number.isFinite(qty) || qty < 0) {
+    showToast('Ugyldig mengde', 'warn');
+    return;
+  }
+  const body = { productKey, newQty: qty };
+  const totalVal = form.querySelector('.pantry-edit-total')?.value;
+  if (totalVal && Number(totalVal) > 0) body.newTotal = Number(totalVal);
+  const unitVal = form.querySelector('.pantry-edit-unit')?.value;
+  if (unitVal) body.newUnit = unitVal;
+  const dateVal = form.querySelector('.pantry-edit-date')?.value;
+  if (dateVal && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) body.purchasedAt = dateVal;
+  try {
+    await api('/api/pantry/correct', { method: 'PUT', body });
+    closePantryEdit(productKey);
+    showToast('Pantry oppdatert', 'success');
+    await loadPantry();
+  } catch (err) {
+    showToast('Kunne ikke oppdatere: ' + (err.message || err), 'error');
+  }
+}
 
 async function removeFromPantry(productKey) {
   if (!productKey) return;
   // Uke 4 (FE-8): confirm før destructive
   const item = pantryData?.items?.find((i) => i.productKey === productKey);
-  const name = item ? (item.ingredientNameNo || item.ingredientName || item.name) : productKey;
+  const name = item ? item.ingredientNameNo || item.ingredientName || item.name : productKey;
   const ok = await showConfirm({
     title: 'Fjerne fra pantry?',
     message: `"${name}" blir fjernet fra det du har hjemme.`,
@@ -271,4 +378,3 @@ async function removeFromPantry(productKey) {
     showToast('Kunne ikke fjerne: ' + (err.message || err), 'error');
   }
 }
-

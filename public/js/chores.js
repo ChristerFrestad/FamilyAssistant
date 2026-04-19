@@ -25,25 +25,40 @@ function renderChores() {
     html += `<div class="card"><div class="card-title">${escapeHtml(day)}</div>`;
     for (const c of items) {
       const isDone = c.status === 'done';
+      const isPostponed = c.status === 'postponed';
+      // Felles angre-knapp for done/postponed — så fokusgruppen kan rette
+      // opp feilklikk uten å lete etter en egen handling per status.
+      const undoBtn = `<button class="btn btn-ghost btn-small" onclick="undoChore(${Number(c.choreId)})" title="Angre status">↶ Angre</button>`;
       html += `
         <div class="chore-item ${isDone ? 'chore-done' : ''}">
           <span class="chore-icon">${escapeHtml(c.icon)}</span>
           <div class="chore-info">
             <div class="chore-task">${escapeHtml(c.task)}</div>
             ${c.details ? `<div class="chore-day">${escapeHtml(c.details)}</div>` : ''}
-            ${c.status === 'postponed' ? '<div class="chore-day" style="color:var(--orange)">Utsatt</div>' : ''}
+            ${isPostponed ? '<div class="chore-day" style="color:var(--orange)">Utsatt</div>' : ''}
           </div>
-          ${!isDone ? `
+          ${
+            isDone
+              ? `<span style="color:var(--green);font-size:0.8rem;margin-right:6px">✓ Gjort</span>${undoBtn}`
+              : isPostponed
+                ? `<button class="btn btn-success btn-small" onclick="completeChore(${Number(c.choreId)})">✓</button>${undoBtn}`
+                : `
             <button class="btn btn-ghost btn-small" onclick="postponeChore(${Number(c.choreId)})">Utsett</button>
             <button class="btn btn-success btn-small" onclick="completeChore(${Number(c.choreId)})">✓</button>
-          ` : '<span style="color:var(--green);font-size:0.8rem">✓ Gjort</span>'}
+          `
+          }
         </div>
       `;
     }
     html += `</div>`;
   }
 
-  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('choresContent'));
+  (function (el) {
+    if (el) {
+      el.innerHTML = html;
+      el.setAttribute('aria-busy', 'false');
+    }
+  })(document.getElementById('choresContent'));
 }
 
 async function postponeChore(choreId) {
@@ -57,3 +72,12 @@ async function completeChore(choreId) {
   await Promise.all([loadToday(), loadChores()]);
 }
 
+async function undoChore(choreId) {
+  try {
+    await api('/api/chores/undone', { method: 'PUT', body: { weekYear: currentWeek, choreId } });
+    await Promise.all([loadToday(), loadChores()]);
+    showToast('Status nullstilt', 'success');
+  } catch (err) {
+    showToast('Kunne ikke angre: ' + (err.message || err), 'error');
+  }
+}

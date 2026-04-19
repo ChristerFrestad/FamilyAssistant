@@ -136,6 +136,8 @@ function renderRecipeItem(item) {
   const displayName = item.ingredientNameNo || item.name || item.ingredientName;
   const showEnglish =
     item.ingredientName && item.ingredientNameNo && item.ingredientName !== item.ingredientNameNo;
+  const itemId = Number(item.id);
+  const unit = item.packUnit || item.unit || 'stk';
 
   // Kassal-match chip
   let kassalChip = '';
@@ -164,14 +166,48 @@ function renderRecipeItem(item) {
   if (item.estPrice > 0)
     html += `<div class="shop-item-price">~${Number(item.estPrice) || 0} kr</div>`;
 
-  // "Kjøpt" knapp → oppdaterer pantry (Fase D)
-  if (!item.checkedOff && item.id) {
-    html += `<button class="btn btn-success btn-small" style="margin-left:8px" onclick="markItemBought(${Number(item.id)})">✓ Kjøpt</button>`;
-    // "Har hjemme" — topper pantry-qty uten å markere rad som kjøpt
-    html += `<button class="btn btn-ghost btn-small" style="margin-left:6px" onclick="markItemHasHome(${Number(item.id)})" title="Jeg har denne varen hjemme allerede">🏠 Har hjemme</button>`;
+  if (itemId) {
+    // To-state toggle — grey "Kjøp" / green solid "✓ Kjøpt". Clicking the
+    // green state calls /unbought so it acts as the undo affordance.
+    const boughtClass = item.checkedOff ? 'btn-success' : 'btn-ghost';
+    const boughtLabel = item.checkedOff ? '✓ Kjøpt' : 'Kjøp';
+    html += `<button class="btn ${boughtClass} btn-small" style="margin-left:8px"
+      onclick="toggleBought(${itemId}, ${item.checkedOff ? 1 : 0})"
+      title="${item.checkedOff ? 'Klikk for å angre kjøp' : 'Marker som kjøpt'}">${boughtLabel}</button>`;
+
+    // "Har hjemme" — topper pantry-qty uten å markere rad som kjøpt.
+    html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
+      onclick="openHasHomeForm(${itemId})" title="Jeg har denne varen hjemme allerede">🏠 Har hjemme</button>`;
+
+    // Trash — sletter raden permanent fra den aktive handlelisten.
+    html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
+      onclick="deleteShoppingItem(${itemId})" title="Slett vare helt">🗑</button>`;
   }
   html += `</div>`;
+
+  // Inline "Har hjemme"-panel. Toggles visible via openHasHomeForm().
+  if (itemId) {
+    html += renderHasHomeForm(itemId, unit);
+  }
   return html;
+}
+
+function renderHasHomeForm(itemId, unit) {
+  const unitLabel = escapeHtml(unit || 'stk');
+  return `
+    <div class="has-home-form" id="has-home-${itemId}" hidden
+         style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px;background:var(--bg2);border-radius:8px">
+      <input type="number" min="0" step="0.1" id="has-home-qty-${itemId}"
+             placeholder="Antall"
+             style="width:90px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font:inherit"
+             onkeydown="if(event.key==='Enter'){submitHasHome(${itemId})}">
+      <span style="color:var(--text2);font-size:0.85rem">${unitLabel}</span>
+      <input type="date" id="has-home-date-${itemId}"
+             title="Kjøpsdato (valgfri)"
+             style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font:inherit">
+      <button class="btn btn-primary btn-small" onclick="submitHasHome(${itemId})">Lagre</button>
+      <button class="btn btn-ghost btn-small" onclick="cancelHasHome(${itemId})">Avbryt</button>
+    </div>`;
 }
 
 function renderPantryLinkedItem(item) {
@@ -180,7 +216,7 @@ function renderPantryLinkedItem(item) {
     <div class="shop-item is-pantry">
       <div style="flex:1">
         <div class="shop-item-name">${escapeHtml(displayName)}</div>
-        <span class="pantry-flag">✓ Dekket av pantry</span>
+        <span class="pantry-flag">🏠 I pantry — har nok hjemme</span>
       </div>
       <button class="btn btn-ghost btn-small" onclick="unpantryItem(${Number(item.id)})" title="Flytt tilbake til kjøpsliste">
         ↩ Trenger likevel
@@ -248,12 +284,41 @@ function setShoppingSubView(view) {
 }
 
 // --- Nye handlers for bought / unpantry ---
-async function markItemBought(itemId) {
+
+// Toggle-knapp: grå "Kjøp" → grønn "✓ Kjøpt" (marker) og grønn → grå (angre).
+// Raden forblir i listen uansett; visuelt stripet via .checked-off-klassen.
+async function toggleBought(itemId, isCurrentlyBought) {
+  const endpoint = isCurrentlyBought
+    ? `/api/shopping/items/${itemId}/unbought`
+    : `/api/shopping/items/${itemId}/bought`;
   try {
-    await api(`/api/shopping/items/${itemId}/bought`, { method: 'PUT' });
+    await api(endpoint, { method: 'PUT' });
     await loadShopping();
   } catch (err) {
-    showToast('Kunne ikke markere som kjøpt: ' + (err.message || err), 'error');
+    const verb = isCurrentlyBought ? 'angre kjøp' : 'markere som kjøpt';
+    showToast(`Kunne ikke ${verb}: ` + (err.message || err), 'error');
+  }
+}
+
+// Bakoverkompat: noen callers (f.eks. e2e-tester) bruker fortsatt den gamle navnet.
+async function markItemBought(itemId) {
+  return toggleBought(itemId, 0);
+}
+
+async function deleteShoppingItem(itemId) {
+  const go = await (typeof showConfirm === 'function'
+    ? showConfirm('Slett varen fra denne handlelisten?', {
+        confirmLabel: 'Slett',
+        cancelLabel: 'Avbryt',
+        destructive: true,
+      })
+    : Promise.resolve(confirm('Slett varen fra denne handlelisten?')));
+  if (!go) return;
+  try {
+    await api(`/api/shopping/items/${itemId}`, { method: 'DELETE' });
+    await loadShopping();
+  } catch (err) {
+    showToast('Kunne ikke slette: ' + (err.message || err), 'error');
   }
 }
 
@@ -266,28 +331,56 @@ async function unpantryItem(itemId) {
   }
 }
 
-// "Har hjemme" — oppdaterer pantry-qty uten å markere raden som kjøpt.
-// Raden blir stående slik at brukeren fortsatt kan kjøpe mer om behov.
-async function markItemHasHome(itemId) {
-  const qtyStr = prompt('Hvor mye har du hjemme?', '1');
-  if (qtyStr === null) return;
-  const qty = Number(qtyStr);
+// "Har hjemme" — inline-panel erstatter de to gamle prompt()-kallene.
+// Brukeren skriver tall + velger valgfri kjøpsdato; panelet ligger rett
+// under raden og er tilgjengelig på tastatur (Enter sender).
+function openHasHomeForm(itemId) {
+  const form = document.getElementById(`has-home-${itemId}`);
+  if (!form) return;
+  // Lukk andre åpne paneler for å holde layout ryddig.
+  document.querySelectorAll('.has-home-form').forEach((el) => {
+    if (el !== form) el.hidden = true;
+  });
+  form.hidden = !form.hidden;
+  if (!form.hidden) {
+    const qtyInput = document.getElementById(`has-home-qty-${itemId}`);
+    if (qtyInput) qtyInput.focus();
+  }
+}
+
+function cancelHasHome(itemId) {
+  const form = document.getElementById(`has-home-${itemId}`);
+  if (form) form.hidden = true;
+}
+
+async function submitHasHome(itemId) {
+  const qtyInput = document.getElementById(`has-home-qty-${itemId}`);
+  const dateInput = document.getElementById(`has-home-date-${itemId}`);
+  if (!qtyInput) return;
+  const qty = Number(qtyInput.value);
   if (!Number.isFinite(qty) || qty <= 0) {
-    showToast('Ugyldig antall', 'warn');
+    showToast('Skriv inn antall > 0', 'warn');
+    qtyInput.focus();
     return;
   }
-  const dateStr = prompt('Kjøpsdato (YYYY-MM-DD, tom = i dag)', '');
   const body = { qty };
-  if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
-    body.purchasedAt = dateStr.trim();
+  const dateStr = (dateInput && dateInput.value) || '';
+  if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    body.purchasedAt = dateStr;
   }
   try {
     await api(`/api/shopping/items/${itemId}/has-home`, { method: 'PUT', body });
-    showToast('Pantry oppdatert', 'ok');
+    cancelHasHome(itemId);
+    showToast('Pantry oppdatert', 'success');
     await loadShopping();
   } catch (err) {
     showToast('Kunne ikke oppdatere pantry: ' + (err.message || err), 'error');
   }
+}
+
+// Bakoverkompat med tidligere navn — delegate til den nye inline-flyten.
+function markItemHasHome(itemId) {
+  openHasHomeForm(itemId);
 }
 
 // === Fix: addShoppingItem — tidligere referert i renderAddItemForm uten å

@@ -298,6 +298,33 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
+     * Angre "kjøpt": nullstill bought_at + bought_qty og reaktiver raden
+     * som et must-buy. Pantry-qty rulles ikke tilbake (se comment i
+     * /api/shopping/items/:id/unbought).
+     */
+    markItemUnbought(itemId) {
+      const familyId = getFamilyId();
+      db.prepare(
+        `
+        UPDATE shopping_list_items
+        SET bought_at = NULL, bought_qty = NULL, needs_buy = 1
+        WHERE family_id = ? AND id = ?
+      `
+      ).run(familyId, itemId);
+    },
+
+    /**
+     * Slett raden permanent fra den aktive handlelisten.
+     */
+    removeItem(itemId) {
+      const familyId = getFamilyId();
+      db.prepare('DELETE FROM shopping_list_items WHERE family_id = ? AND id = ?').run(
+        familyId,
+        itemId
+      );
+    },
+
+    /**
      * Lukk en handleliste manuelt. Setter status='done' + confirmed_at.
      */
     markDone(listId) {

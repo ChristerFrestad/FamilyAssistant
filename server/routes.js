@@ -759,7 +759,9 @@ function registerRoutes(router, { repos, serverState }) {
     const categoriesMap = new Map();
     let total = 0;
     for (const it of list.items) {
-      if (it.boughtAt) continue; // skjul ferdigkjøpte
+      // Bought items remain on the list (user requested toggle-not-hide in
+      // test 0.2). Frontend styles them with .checked-off + exposes an undo
+      // action; checkedOff is true when bought_at is set.
       const cat = it.category || 'Tørrvarer & annet';
       if (!categoriesMap.has(cat)) categoriesMap.set(cat, []);
       // stillNeed er computed (ikke lagret i DB) — restmengde som må kjøpes
@@ -769,6 +771,7 @@ function registerRoutes(router, { repos, serverState }) {
         ...it,
         stillNeed,
         hasHome: it.pantryQty || 0,
+        checkedOff: !!it.boughtAt,
         source: 'recipe',
         isPantry: it.pantryHas,
         name: it.ingredientNameNo || it.ingredientName,
@@ -878,6 +881,44 @@ function registerRoutes(router, { repos, serverState }) {
       ctx.json({ ok: true });
     }
   );
+
+  /**
+   * PUT /api/shopping/items/:id/unbought — angre "kjøpt".
+   *
+   * Reverserer /bought: nullstiller bought_at og bought_qty, og setter
+   * needs_buy=1 slik at varen dukker opp som aktiv igjen. Pantry-qty
+   * rulles IKKE tilbake automatisk — det ville vært farlig hvis
+   * brukeren har spist noe i mellomtiden. Hvis operatøren vil trekke
+   * fra pantry, er "rediger pantry"-flyten (PUT /api/pantry/correct)
+   * rett verktøy.
+   */
+  router.put('/api/shopping/items/:id/unbought', requireRole('adult'), (ctx) => {
+    const itemId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+    const parent = repos.shoppingLists.getItemWithList(itemId);
+    if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+    repos.shoppingLists.markItemUnbought(itemId);
+    invalidate('shopping', 'today');
+    ctx.json({ ok: true });
+  });
+
+  /**
+   * DELETE /api/shopping/items/:id — slett varen permanent fra den
+   * aktive handlelisten. Ingen soft-delete; raden fjernes.
+   *
+   * Dette gjelder bare den aktive ukens liste. Hvis brukeren lager
+   * en ny uke-plan etterpå og samme oppskrift dukker opp, kommer
+   * ingrediensen tilbake via den vanlige genereringen.
+   */
+  router.delete('/api/shopping/items/:id', requireRole('adult'), (ctx) => {
+    const itemId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+    const parent = repos.shoppingLists.getItemWithList(itemId);
+    if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+    repos.shoppingLists.removeItem(itemId);
+    invalidate('shopping', 'today');
+    ctx.json({ ok: true });
+  });
 
   /**
    * PUT /api/shopping/items/:id/has-home — "jeg har denne hjemme allerede".
@@ -1062,6 +1103,17 @@ function registerRoutes(router, { repos, serverState }) {
     ctx.json({ ok: true });
   });
 
+  // Angre "utført" eller "utsatt" — resetter status til 'pending' slik at
+  // raden dukker opp igjen med de vanlige aksjons-knappene. Body-schema
+  // gjenbruker choreCompleteBody (samme { weekYear?, choreId }).
+  router.put('/api/chores/undone', validateBody(schemas.choreCompleteBody), (ctx) => {
+    const { weekYear, choreId } = ctx.body;
+    const wk = weekYear || ensureCurrentWeek(repos);
+    repos.choreSchedules.markUndone(wk, choreId);
+    invalidate('chores', 'today');
+    ctx.json({ ok: true });
+  });
+
   // ============================================================
   // INVENTORY / PRODUCTS / CONSUMABLES
   // ============================================================
@@ -1233,6 +1285,18 @@ function registerRoutes(router, { repos, serverState }) {
           body.productKey = normalized;
         }
         const result = pantryService.addToPantry(repos, body);
+        // Apply optional backdated purchase date. pantryService always stamps
+        // last_purchased with today; if the operator picked a different date
+        // in the UI, patch it here.
+        if (body.purchasedAt && body.productKey) {
+          try {
+            repos._db
+              ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
+              .run(body.purchasedAt, body.productKey);
+          } catch {
+            /* cosmetic — ignore */
+          }
+        }
         invalidate('inventory', 'shopping', 'today');
         ctx.json({ ok: true, item: result, resolved: resolved || undefined });
       } catch (err) {
@@ -1248,6 +1312,16 @@ function registerRoutes(router, { repos, serverState }) {
     (ctx) => {
       try {
         const result = pantryService.correctQty(repos, ctx.body);
+        // Optional purchasedAt override — same pattern as /add.
+        if (ctx.body.purchasedAt && ctx.body.productKey) {
+          try {
+            repos._db
+              ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
+              .run(ctx.body.purchasedAt, ctx.body.productKey);
+          } catch {
+            /* cosmetic — ignore */
+          }
+        }
         invalidate('inventory', 'shopping', 'today');
         ctx.json({ ok: true, ...result });
       } catch (err) {

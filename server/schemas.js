@@ -231,6 +231,12 @@ const pantryAddBody = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
       .refine(isValidDate, { message: 'Datoen finnes ikke' })
       .optional(),
+    // Valgfri kjøpsdato — hvis satt overstyrer den last_purchased (ellers i dag).
+    purchasedAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .refine(isValidDate, { message: 'Datoen finnes ikke' })
+      .optional(),
     category: z.string().min(1).max(50).optional(),
     notes: z.string().max(500).optional(),
     reason: z.enum(['manual', 'initial_seed', 'correction']).optional(),
@@ -244,6 +250,12 @@ const pantryCorrectBody = z
     newQty: z.number().nonnegative(),
     newTotal: z.number().positive().optional(),
     newUnit: z.string().max(20).optional(),
+    // Valgfri oppdatering av kjøpsdato.
+    purchasedAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .refine(isValidDate, { message: 'Datoen finnes ikke' })
+      .optional(),
     notes: z.string().max(500).optional(),
   })
   .strict();
