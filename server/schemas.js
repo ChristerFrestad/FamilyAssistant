@@ -260,6 +260,35 @@ const pantryCorrectBody = z
   })
   .strict();
 
+// PR A.2 — shelf-life observations.
+// POST /api/shopping/items/:id/expiry — body carries only the expiry.
+// The server resolves purchasedAt from the shopping row's bought_at.
+const shoppingItemExpiryBody = z
+  .object({
+    expiresAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .refine(isValidDate, { message: 'Datoen finnes ikke' }),
+  })
+  .strict();
+
+// PUT /api/pantry/expiry — body carries productKey + expiresAt and an
+// optional purchasedAt override (defaults to inventory.last_purchased).
+const pantryExpiryBody = z
+  .object({
+    productKey: z.string().min(1).max(100),
+    expiresAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .refine(isValidDate, { message: 'Datoen finnes ikke' }),
+    purchasedAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .refine(isValidDate, { message: 'Datoen finnes ikke' })
+      .optional(),
+  })
+  .strict();
+
 // ============================================================
 // Receipts (Iterasjon 2)
 // ============================================================
@@ -367,6 +396,8 @@ module.exports = {
   sundayAcceptBody,
   pantryAddBody,
   pantryCorrectBody,
+  shoppingItemExpiryBody,
+  pantryExpiryBody,
   priceLookupQuery,
   priceSearchQuery,
   profileUpdateBody,

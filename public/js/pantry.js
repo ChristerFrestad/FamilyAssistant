@@ -239,18 +239,50 @@ function renderPantryList() {
       `;
       qtyLabel = `${escapeHtml(it.quantity)} ${escapeHtml(it.unit)} <span class="pantry-qty-of">/ ${escapeHtml(it.total)} ${escapeHtml(it.unit)}</span>`;
     }
+    // PR A.2 — expiry chip (coloured by how soon). Null = no data yet.
+    let expiryChip = '';
+    if (it.expiresEst) {
+      const msPerDay = 86_400_000;
+      const daysLeft = Math.round((new Date(it.expiresEst).getTime() - Date.now()) / msPerDay);
+      const colour =
+        daysLeft < 0
+          ? 'var(--red)'
+          : daysLeft <= 1
+            ? 'var(--red)'
+            : daysLeft <= 4
+              ? 'var(--orange)'
+              : 'var(--green)';
+      const text =
+        daysLeft < 0
+          ? `Utløpt for ${-daysLeft}d siden`
+          : daysLeft === 0
+            ? 'Utløper i dag'
+            : `Utløper om ${daysLeft}d`;
+      expiryChip = `<span class="pantry-expiry-chip" style="font-size:0.75rem;color:${colour};margin-left:6px">⏱ ${escapeHtml(text)}</span>`;
+    }
+
+    // PR A.2 — learned badge once the sample count crosses the trust
+    // threshold. Shown below the qty so it reads naturally with "Lært:".
+    let learnedBadge = '';
+    const sampleCount = Number(it.shelfDaysSampleCount || 0);
+    if (sampleCount >= 3 && it.shelfDaysLearned) {
+      learnedBadge = `<div class="pantry-learned-badge" style="font-size:0.72rem;color:var(--text2);margin-top:2px">Lært: ${Number(it.shelfDaysLearned)}d (${sampleCount} kjøp)</div>`;
+    }
+
     html += `
       <div class="pantry-item${it.isLow ? ' is-low' : ''}">
         ${progressHtml}
         <div class="pantry-item-main">
-          <div class="pantry-item-name">${escapeHtml(name)}${it.isLow ? ' <span class="pantry-low-badge">⚠ lav</span>' : ''}</div>
+          <div class="pantry-item-name">${escapeHtml(name)}${it.isLow ? ' <span class="pantry-low-badge">⚠ lav</span>' : ''}${expiryChip}</div>
           <div class="pantry-item-qty">${qtyLabel}</div>
+          ${learnedBadge}
         </div>
         <button class="btn btn-ghost btn-small" data-action="edit-pantry"
                 data-key="${escapeHtml(it.productKey)}"
                 data-qty="${escapeHtml(String(it.quantity || ''))}"
                 data-total="${escapeHtml(String(it.total || ''))}"
                 data-unit="${escapeHtml(it.unit || 'stk')}"
+                data-expiry="${escapeHtml(it.expiresEst || '')}"
                 title="Rediger mengde / enhet">
           ✏
         </button>
@@ -271,7 +303,8 @@ function renderPantryList() {
           <option value="dl">dl</option>
           <option value="l">l</option>
         </select>
-        <input type="date" class="pantry-edit-date" title="Kjøpsdato (valgfri)" style="max-width:150px">
+        <input type="date" class="pantry-edit-purchased" title="Kjøpsdato (valgfri)" style="max-width:150px">
+        <input type="date" class="pantry-edit-expiry" title="Utløpsdato (valgfri)" style="max-width:150px">
         <button class="btn btn-primary btn-small" data-action="save-pantry-edit" data-key="${escapeHtml(it.productKey)}">Lagre</button>
         <button class="btn btn-ghost btn-small" data-action="cancel-pantry-edit" data-key="${escapeHtml(it.productKey)}">Avbryt</button>
       </div>
@@ -325,11 +358,13 @@ function openPantryEdit(triggerBtn) {
     const qtyInput = form.querySelector('.pantry-edit-qty');
     const totalInput = form.querySelector('.pantry-edit-total');
     const unitSelect = form.querySelector('.pantry-edit-unit');
-    const dateInput = form.querySelector('.pantry-edit-date');
+    const purchasedInput = form.querySelector('.pantry-edit-purchased');
+    const expiryInput = form.querySelector('.pantry-edit-expiry');
     if (qtyInput) qtyInput.value = triggerBtn.dataset.qty || '';
     if (totalInput) totalInput.value = triggerBtn.dataset.total || '';
     if (unitSelect) unitSelect.value = triggerBtn.dataset.unit || 'stk';
-    if (dateInput) dateInput.value = '';
+    if (purchasedInput) purchasedInput.value = '';
+    if (expiryInput) expiryInput.value = triggerBtn.dataset.expiry || '';
     if (qtyInput) qtyInput.focus();
   }
 }
@@ -352,10 +387,27 @@ async function submitPantryEdit(productKey) {
   if (totalVal && Number(totalVal) > 0) body.newTotal = Number(totalVal);
   const unitVal = form.querySelector('.pantry-edit-unit')?.value;
   if (unitVal) body.newUnit = unitVal;
-  const dateVal = form.querySelector('.pantry-edit-date')?.value;
-  if (dateVal && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) body.purchasedAt = dateVal;
+  const purchasedVal = form.querySelector('.pantry-edit-purchased')?.value;
+  if (purchasedVal && /^\d{4}-\d{2}-\d{2}$/.test(purchasedVal)) {
+    body.purchasedAt = purchasedVal;
+  }
+  const expiryVal = form.querySelector('.pantry-edit-expiry')?.value;
   try {
     await api('/api/pantry/correct', { method: 'PUT', body });
+    // PR A.2 — expiry lives on a separate endpoint because it also
+    // records a shelf-life observation. Fire after /correct so the
+    // pantry row is already in the right shape.
+    if (expiryVal && /^\d{4}-\d{2}-\d{2}$/.test(expiryVal)) {
+      const expiryBody = { productKey, expiresAt: expiryVal };
+      if (purchasedVal && /^\d{4}-\d{2}-\d{2}$/.test(purchasedVal)) {
+        expiryBody.purchasedAt = purchasedVal;
+      }
+      try {
+        await api('/api/pantry/expiry', { method: 'PUT', body: expiryBody });
+      } catch (err) {
+        showToast('Pantry oppdatert, men utløpsdato feilet: ' + (err.message || err), 'warn');
+      }
+    }
     closePantryEdit(productKey);
     showToast('Pantry oppdatert', 'success');
     await loadPantry();

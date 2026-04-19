@@ -19,6 +19,10 @@ function createProductRepos(db) {
           unit: r.unit,
           estPrice: r.est_price,
           shelfDays: r.shelf_days,
+          // PR A.2 shelf-life learning — may be null when no samples
+          // have accumulated yet; UI falls back to seeded shelf_days.
+          shelfDaysLearned: r.shelf_days_learned,
+          shelfDaysSampleCount: r.shelf_days_sample_count || 0,
           store: r.store,
           ean: r.ean,
           dairyRule: r.dairy_rule,
