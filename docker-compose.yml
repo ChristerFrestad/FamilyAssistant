@@ -80,6 +80,15 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Set to "true" once Caddy is in front (production profile)
       HTTPS_TERMINATED: ${HTTPS_TERMINATED:-false}
+      # Pilot/MVP escape hatches. Default off. Set from the Portainer stack
+      # env-vars (or a .env file next to docker-compose.yml) to enable.
+      # See .env.example for the full documentation.
+      PILOT_BYPASS: ${PILOT_BYPASS:-false}
+      PILOT_BYPASS_PRODUCTION_ACK: ${PILOT_BYPASS_PRODUCTION_ACK:-false}
+      MAGIC_LINK_CONSOLE: ${MAGIC_LINK_CONSOLE:-false}
+      # Absolute URL the server uses when building e.g. magic-link verify
+      # URLs. Leave empty for LAN-only pilot deploys (URLs stay relative).
+      APP_URL: ${APP_URL:-}
     # Resource limits — sized for an RPi5 4 GB host.
     deploy:
       resources:
