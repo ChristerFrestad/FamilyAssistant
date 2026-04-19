@@ -58,6 +58,83 @@ test('POST /api/auth/magic-link/start returns 503 when Resend is not configured'
 });
 
 // ============================================================
+// Console mode (pilot/MVP escape hatch)
+// ============================================================
+
+test('MAGIC_LINK_CONSOLE=true without Resend logs URL to stdout and returns 200', async () => {
+  clearResend();
+  process.env.MAGIC_LINK_CONSOLE = 'true';
+
+  const captured = [];
+  const origLog = console.log;
+  console.log = (...args) => captured.push(args.map(String).join(' '));
+
+  const server = await startTestServer();
+  try {
+    resetRateLimit();
+    const r = await request(server.baseUrl, 'POST', '/api/auth/magic-link/start', {
+      body: { email: 'pilot@example.com' },
+    });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.ok, true);
+
+    const logText = captured.join('\n');
+    assert.match(logText, /MAGIC LINK/);
+    assert.match(logText, /pilot@example\.com/);
+    const match = /token=([a-f0-9]+)/.exec(logText);
+    assert.ok(match, 'logged output should contain a token URL');
+
+    const token = match[1];
+    const row = server.repos.auth.findMagicLink(token);
+    assert.ok(row, 'token should have been persisted to DB');
+    assert.strictEqual(row.email, 'pilot@example.com');
+    assert.strictEqual(row.used_at, null);
+
+    // The logged URL must still verify successfully — full pilot flow.
+    const verifyR = await request(
+      server.baseUrl,
+      'GET',
+      `/api/auth/magic-link/verify?token=${token}`
+    );
+    assert.strictEqual(verifyR.status, 302);
+  } finally {
+    console.log = origLog;
+    delete process.env.MAGIC_LINK_CONSOLE;
+    await server.close();
+  }
+});
+
+test('MAGIC_LINK_CONSOLE=true with Resend configured still sends email (no override)', async () => {
+  setupResend();
+  process.env.MAGIC_LINK_CONSOLE = 'true';
+
+  const captured = [];
+  const origLog = console.log;
+  console.log = (...args) => captured.push(args.map(String).join(' '));
+
+  const server = await startTestServer();
+  try {
+    const sent = installFakeSender();
+    resetRateLimit();
+    const r = await request(server.baseUrl, 'POST', '/api/auth/magic-link/start', {
+      body: { email: 'alice@example.com' },
+    });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(sent.length, 1, 'email should have been sent');
+    assert.strictEqual(sent[0].to, 'alice@example.com');
+
+    const logText = captured.join('\n');
+    assert.doesNotMatch(logText, /MAGIC LINK \(console mode/);
+  } finally {
+    console.log = origLog;
+    delete process.env.MAGIC_LINK_CONSOLE;
+    resetFakeSender();
+    await server.close();
+    clearResend();
+  }
+});
+
+// ============================================================
 // Input validation
 // ============================================================
 
