@@ -10,8 +10,27 @@
 const DEFAULT_MODEL = 'qwen2.5:3b';
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 
+// Normalize a user-supplied base URL to a clean scheme://host[:port][/path]
+// form. Operators often paste a URL copied from a browser tab, which may
+// include query parameters like ?model=xxx or a trailing slash. Both would
+// corrupt the '/api/chat' suffix we append. We strip query+hash, normalize
+// trailing slashes, and preserve any path segment (for reverse-proxy setups
+// that mount Ollama under /ollama/).
+function normalizeBaseUrl(raw) {
+  const input = String(raw || DEFAULT_BASE_URL).trim();
+  let u;
+  try {
+    u = new URL(input);
+  } catch {
+    throw new Error(`Invalid LLM base URL: ${input}`);
+  }
+  const basePath = u.pathname.replace(/\/+$/, '');
+  return `${u.protocol}//${u.host}${basePath}`;
+}
+
 function createOllamaClient({ baseUrl = DEFAULT_BASE_URL, model = DEFAULT_MODEL } = {}) {
-  const endpoint = `${(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '')}/api/chat`;
+  const base = normalizeBaseUrl(baseUrl);
+  const endpoint = `${base}/api/chat`;
 
   async function chat({ messages, maxTokens = 1024, systemPrompt, signal }) {
     const turns = [];
@@ -48,13 +67,13 @@ function createOllamaClient({ baseUrl = DEFAULT_BASE_URL, model = DEFAULT_MODEL 
 
   async function testConnection() {
     // Hitting /api/tags is cheap and only works if Ollama is up.
-    const res = await fetch(`${(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '')}/api/tags`);
-    if (!res.ok) throw new Error(`Ollama unreachable at ${baseUrl} (${res.status})`);
+    const res = await fetch(`${base}/api/tags`);
+    if (!res.ok) throw new Error(`Ollama unreachable at ${base} (${res.status})`);
     const json = await res.json();
     return { ok: true, models: (json.models || []).map((m) => m.name) };
   }
 
-  return { chat, testConnection, backend: 'ollama', model, baseUrl };
+  return { chat, testConnection, backend: 'ollama', model, baseUrl: base };
 }
 
-module.exports = { createOllamaClient, DEFAULT_MODEL, DEFAULT_BASE_URL };
+module.exports = { createOllamaClient, normalizeBaseUrl, DEFAULT_MODEL, DEFAULT_BASE_URL };

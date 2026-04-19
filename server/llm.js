@@ -601,10 +601,14 @@ Svar i dette JSON-formatet:
   }
 }
 
-// 3. Oppskriftforslag
+// 3. Oppskriftforslag.
+// The prompt deliberately does NOT ask for a URL field. If the model still
+// invents one (common hallucination — "https://www.matprat.no/oppskrifter/kos/<name>/"
+// is a plausible but usually 404 URL pattern), we strip it before returning.
+// Real URLs should come from the recipes library (URL-import / seeded data).
 async function suggestRecipeFromText(mealName) {
   const systemPrompt = `Du er en norsk kokk. Gi oppskrifter med eksakte mengder for 2 porsjoner.
-Bruk ingredienser fra Kiwi/Coop i Norge. Svar på norsk i JSON-format.`;
+Bruk ingredienser fra Kiwi/Coop i Norge. Svar på norsk i JSON-format. Ikke inkluder noen URL i svaret.`;
 
   const userPrompt = `Gi oppskrift for "${mealName}" for 2 porsjoner.
 Svar i JSON: { "name": "...", "category": "rask|comfort|helg", "prepTime": "25 min", "ingredients": [{"name": "X", "qty": 400, "unit": "g"}], "instructions": ["Steg 1..."], "equipment": ["stekepanne"] }`;
@@ -621,7 +625,15 @@ Svar i JSON: { "name": "...", "category": "rask|comfort|helg", "prepTime": "25 m
     const jsonMatch = (result.content || '').match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        // Defensive: drop any hallucinated URL/link fields before returning.
+        if (parsed && typeof parsed === 'object') {
+          delete parsed.url;
+          delete parsed.sourceUrl;
+          delete parsed.source_url;
+          delete parsed.link;
+        }
+        return parsed;
       } catch {
         return { raw: result.content, error: 'Kunne ikke parse JSON' };
       }

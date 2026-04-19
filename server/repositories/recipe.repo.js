@@ -138,6 +138,33 @@ function createRecipeRepos(db, tryParseJson) {
       const familyId = getFamilyId();
       return db.prepare('SELECT COUNT(*) as c FROM recipes WHERE family_id = ?').get(familyId).c;
     },
+    // Fuzzy name lookup used by meal-swap to see if a user-typed term
+    // already exists in the family's library before calling the LLM.
+    // Prefers exact match (case-insensitive), then LIKE %name%, ordered
+    // by times_cooked DESC so a frequently-used recipe wins on ties.
+    findByName(name) {
+      const familyId = getFamilyId();
+      const t = String(name || '').trim();
+      if (!t) return null;
+      const row = db
+        .prepare(
+          `SELECT * FROM recipes
+           WHERE family_id = ?
+             AND (LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?))
+           ORDER BY
+             CASE WHEN LOWER(name) = LOWER(?) THEN 0 ELSE 1 END,
+             times_cooked DESC,
+             id
+           LIMIT 1`
+        )
+        .get(familyId, t, `%${t}%`, t);
+      if (!row) return null;
+      row.ingredients = _recipeIngsStmt.all(familyId, row.id);
+      row.equipment = row.equipment_json ? tryParseJson(row.equipment_json) || [] : [];
+      row.prepTime = row.prep_time;
+      row.sourceType = row.source_type || 'manual';
+      return row;
+    },
   };
 
   const recipeSources = {

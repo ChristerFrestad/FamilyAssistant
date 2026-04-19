@@ -6,7 +6,6 @@
 // Lim inn i <script>-blokka. Se kommentarer for anbefalt plassering.
 // ============================================================================
 
-
 // ============================================================================
 // === HANDLETUR — ERSTATTER den eksisterende loadShopping/renderShopping ===
 // ============================================================================
@@ -52,7 +51,12 @@ function renderShopping() {
 
   if (shoppingSubView === 'pantry') {
     html += renderPantryInline();
-    (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('shoppingContent'));
+    (function (el) {
+      if (el) {
+        el.innerHTML = html;
+        el.setAttribute('aria-busy', 'false');
+      }
+    })(document.getElementById('shoppingContent'));
     loadPantry(); // async refresh
     return;
   }
@@ -86,7 +90,12 @@ function renderShopping() {
   // Legg til vare-skjema (uendret)
   html += renderAddItemForm();
 
-  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('shoppingContent'));
+  (function (el) {
+    if (el) {
+      el.innerHTML = html;
+      el.setAttribute('aria-busy', 'false');
+    }
+  })(document.getElementById('shoppingContent'));
 }
 
 function renderEnrichmentBanner(data) {
@@ -96,12 +105,13 @@ function renderEnrichmentBanner(data) {
     pending: { text: 'Klargjør berikelse…', showRetry: false },
     running: { text: 'Beriker med Kassal-data…', showRetry: false },
     partial: { text: 'Noen varer mangler berikelse.', showRetry: true },
-    failed:  { text: 'Berikelse feilet.', showRetry: true },
+    failed: { text: 'Berikelse feilet.', showRetry: true },
   };
   const cfg = labels[st] || labels.failed;
-  const retryBtn = cfg.showRetry && currentShoppingListId
-    ? `<button class="enrich-retry" onclick="retryEnrichment()">Prøv igjen</button>`
-    : '';
+  const retryBtn =
+    cfg.showRetry && currentShoppingListId
+      ? `<button class="enrich-retry" onclick="retryEnrichment()">Prøv igjen</button>`
+      : '';
   return `
     <div class="enrich-banner status-${st}">
       <span class="enrich-dot"></span>
@@ -124,22 +134,23 @@ async function retryEnrichment() {
 function renderRecipeItem(item) {
   const checkedClass = item.checkedOff ? 'checked-off' : '';
   const displayName = item.ingredientNameNo || item.name || item.ingredientName;
-  const showEnglish = item.ingredientName && item.ingredientNameNo &&
-                      item.ingredientName !== item.ingredientNameNo;
+  const showEnglish =
+    item.ingredientName && item.ingredientNameNo && item.ingredientName !== item.ingredientNameNo;
 
   // Kassal-match chip
   let kassalChip = '';
   if (item.kassalProductId) {
     const conf = item.resolutionConfidence || 0;
-    const confClass = conf >= 0.7 ? 'confidence-high'
-                    : conf >= 0.4 ? 'confidence-med' : 'confidence-low';
-    kassalChip = `<span class="kassal-chip ${confClass}">🎯 ${Math.round(conf*100)}%</span>`;
+    const confClass =
+      conf >= 0.7 ? 'confidence-high' : conf >= 0.4 ? 'confidence-med' : 'confidence-low';
+    kassalChip = `<span class="kassal-chip ${confClass}">🎯 ${Math.round(conf * 100)}%</span>`;
   }
 
   let html = `<div class="shop-item ${checkedClass}">`;
   html += `<div style="flex:1">`;
   html += `<div class="shop-item-name">${escapeHtml(displayName)} ${kassalChip}</div>`;
-  if (showEnglish) html += `<div class="shop-item-name-en">${escapeHtml(item.ingredientName)}</div>`;
+  if (showEnglish)
+    html += `<div class="shop-item-name-en">${escapeHtml(item.ingredientName)}</div>`;
 
   if (item.packSize) {
     html += `<div class="shop-item-detail">${escapeHtml(item.stillNeed)}${escapeHtml(item.packUnit)} trengs → ${escapeHtml(item.packCount)} pk à ${escapeHtml(item.packSize)}${escapeHtml(item.packUnit)}</div>`;
@@ -150,11 +161,14 @@ function renderRecipeItem(item) {
   if (item.dairyNote) html += `<div class="dairy-note">${escapeHtml(item.dairyNote)}</div>`;
   html += `</div>`; // end info col
 
-  if (item.estPrice > 0) html += `<div class="shop-item-price">~${Number(item.estPrice) || 0} kr</div>`;
+  if (item.estPrice > 0)
+    html += `<div class="shop-item-price">~${Number(item.estPrice) || 0} kr</div>`;
 
   // "Kjøpt" knapp → oppdaterer pantry (Fase D)
   if (!item.checkedOff && item.id) {
     html += `<button class="btn btn-success btn-small" style="margin-left:8px" onclick="markItemBought(${Number(item.id)})">✓ Kjøpt</button>`;
+    // "Har hjemme" — topper pantry-qty uten å markere rad som kjøpt
+    html += `<button class="btn btn-ghost btn-small" style="margin-left:6px" onclick="markItemHasHome(${Number(item.id)})" title="Jeg har denne varen hjemme allerede">🏠 Har hjemme</button>`;
   }
   html += `</div>`;
   return html;
@@ -180,17 +194,21 @@ function renderConsumableItem(item) {
   let html = `<div class="consumable-item">`;
   html += `<div class="consumable-header">`;
   html += `<div><div class="consumable-name">${escapeHtml(item.name)}</div>`;
-  if (item.packSize) html += `<div style="font-size:0.75rem;color:var(--text2)">${escapeHtml(item.packCount || 1)} pk à ${escapeHtml(item.packSize)} ${escapeHtml(item.packUnit || 'stk')}</div>`;
+  if (item.packSize)
+    html += `<div style="font-size:0.75rem;color:var(--text2)">${escapeHtml(item.packCount || 1)} pk à ${escapeHtml(item.packSize)} ${escapeHtml(item.packUnit || 'stk')}</div>`;
   html += `</div>`;
-  if (item.estPrice > 0) html += `<div class="consumable-price">~${Number(item.estPrice) || 0} kr</div>`;
+  if (item.estPrice > 0)
+    html += `<div class="consumable-price">~${Number(item.estPrice) || 0} kr</div>`;
   html += `</div>`;
   html += `<div class="consumable-meta">`;
   if (item.depletionInfo) html += `<span>Forbruk: ${escapeHtml(item.depletionInfo)}</span>`;
   if (item.store) html += `<span class="store-tag">📍 ${escapeHtml(item.store)}</span>`;
   html += `</div>`;
   if (item.daysLeft !== undefined && item.daysLeft !== null) {
-    const dClass = item.daysLeft <= 0 ? 'days-urgent' : item.daysLeft <= 3 ? 'days-warn' : 'days-ok';
-    const dText = item.daysLeft <= 0 ? 'TOM — kjøp nå!' : `~${Number(item.daysLeft) || 0} dager igjen`;
+    const dClass =
+      item.daysLeft <= 0 ? 'days-urgent' : item.daysLeft <= 3 ? 'days-warn' : 'days-ok';
+    const dText =
+      item.daysLeft <= 0 ? 'TOM — kjøp nå!' : `~${Number(item.daysLeft) || 0} dager igjen`;
     html += `<div class="consumable-days-left ${dClass}">${escapeHtml(dText)}</div>`;
   }
   if (item.notes) html += `<div class="consumable-notes">${escapeHtml(item.notes)}</div>`;
@@ -248,6 +266,30 @@ async function unpantryItem(itemId) {
   }
 }
 
+// "Har hjemme" — oppdaterer pantry-qty uten å markere raden som kjøpt.
+// Raden blir stående slik at brukeren fortsatt kan kjøpe mer om behov.
+async function markItemHasHome(itemId) {
+  const qtyStr = prompt('Hvor mye har du hjemme?', '1');
+  if (qtyStr === null) return;
+  const qty = Number(qtyStr);
+  if (!Number.isFinite(qty) || qty <= 0) {
+    showToast('Ugyldig antall', 'warn');
+    return;
+  }
+  const dateStr = prompt('Kjøpsdato (YYYY-MM-DD, tom = i dag)', '');
+  const body = { qty };
+  if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+    body.purchasedAt = dateStr.trim();
+  }
+  try {
+    await api(`/api/shopping/items/${itemId}/has-home`, { method: 'PUT', body });
+    showToast('Pantry oppdatert', 'ok');
+    await loadShopping();
+  } catch (err) {
+    showToast('Kunne ikke oppdatere pantry: ' + (err.message || err), 'error');
+  }
+}
+
 // === Fix: addShoppingItem — tidligere referert i renderAddItemForm uten å
 // være definert. Uke 4 FE-bugfix. Leser #addItemInput + #addItemCategory
 // fra skjemaet som renderAddItemForm() rendrer og poster til /api/shopping/add.
@@ -272,4 +314,3 @@ async function addShoppingItem() {
     showToast('Kunne ikke legge til: ' + (err.message || err), 'error');
   }
 }
-
