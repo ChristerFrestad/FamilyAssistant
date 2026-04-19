@@ -25,7 +25,7 @@ describe('Phase 21 · Required root-level docs', () => {
     const body = fs.readFileSync(path.join(REPO, 'README.md'), 'utf8');
     assert.ok(body.length > 500, 'README.md is suspiciously short');
     // Must cover the essentials:
-    assert.match(body, /Familieassistenten/);
+    assert.match(body, /FamilyAssistant/);
     assert.match(body, /DEPLOY\.md/);
     assert.match(body, /AUTH_TOKEN/);
     assert.match(body, /NODE_ENV=production/);
