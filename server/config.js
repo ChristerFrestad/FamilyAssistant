@@ -31,6 +31,11 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM: z.string().optional(),
+  // Pilot/MVP escape hatch: when Resend is not configured, print the magic
+  // link URL to the server log instead of returning 503. Operator copies the
+  // URL out of container logs and pastes it into the browser. Intended for
+  // MVP pilot deploys on Portainer / self-host; disable once Resend is wired.
+  MAGIC_LINK_CONSOLE: z.coerce.boolean().default(false),
 
   // LLM
   LLM_BACKEND: z.enum(['ollama', 'llamacpp']).default('ollama'),

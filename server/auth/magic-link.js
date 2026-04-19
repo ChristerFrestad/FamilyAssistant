@@ -66,9 +66,13 @@ function magicLinkUrlFor(token) {
 // ============================================================
 
 async function handleMagicLinkStart(ctx, repos) {
-  if (!isEmailConfigured()) {
+  const emailConfigured = isEmailConfigured();
+  const consoleMode = config.MAGIC_LINK_CONSOLE;
+
+  if (!emailConfigured && !consoleMode) {
     throw errors.serviceUnavailable('Magic-link email is not configured on this server.');
   }
+
   const email = normaliseEmail(ctx.body?.email);
   if (!email) throw errors.badRequest('A valid email address is required.');
 
@@ -82,17 +86,38 @@ async function handleMagicLinkStart(ctx, repos) {
 
   const token = randomToken(32);
   repos.auth.createMagicLink({ token, email, ttlMinutes: TOKEN_TTL_MINUTES });
+  const url = magicLinkUrlFor(token);
 
-  try {
-    await sendMagicLinkEmail({ to: email, url: magicLinkUrlFor(token) });
-  } catch (err) {
-    ctx.log.error({ err: err.message }, 'failed to send magic-link email');
-    throw errors.serviceUnavailable('Could not send email. Please try again later.');
+  if (emailConfigured) {
+    try {
+      await sendMagicLinkEmail({ to: email, url });
+    } catch (err) {
+      ctx.log.error({ err: err.message }, 'failed to send magic-link email');
+      throw errors.serviceUnavailable('Could not send email. Please try again later.');
+    }
+  } else {
+    // Pilot/MVP escape hatch: print the magic link URL to the server log so
+    // an operator can copy it out of container logs (Portainer etc.) and
+    // paste it into the browser. Only reached when MAGIC_LINK_CONSOLE=true
+    // AND Resend is not configured.
+    logMagicLinkToConsole({ email, url });
   }
 
   // Intentionally return minimal info — do not reveal whether the email
   // belongs to an existing account, to avoid account enumeration.
   return { ok: true, message: 'If the address is valid you will receive a login email shortly.' };
+}
+
+function logMagicLinkToConsole({ email, url }) {
+  const bar = '='.repeat(72);
+  // Use plain console.log (not the structured pino logger) so the URL is
+  // easy to spot and copy in raw container-log output.
+  console.log(bar);
+  console.log('MAGIC LINK (console mode — no email provider configured)');
+  console.log(`  email:   ${email}`);
+  console.log(`  url:     ${url}`);
+  console.log(`  expires: ${TOKEN_TTL_MINUTES} minutes`);
+  console.log(bar);
 }
 
 // ============================================================
