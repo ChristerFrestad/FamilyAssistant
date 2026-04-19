@@ -44,7 +44,7 @@ function createShelfLifeLearner(repos, db) {
   const updateLearnedStmt = db.prepare(
     `UPDATE products
         SET shelf_days_learned = ?, shelf_days_sample_count = ?
-      WHERE product_key = ?`
+      WHERE key = ?`
   );
 
   /**
