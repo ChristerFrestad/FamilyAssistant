@@ -33,7 +33,10 @@ document.addEventListener('click', (e) => {
         group.querySelectorAll('.recipe-thumb-btn').forEach((b) => b.classList.remove('is-active'));
         if (finalRating !== 0) thumbBtn.classList.add('is-active');
       }
-      showToast(finalRating === 0 ? 'Tilbakemelding fjernet' : 'Takk for tilbakemeldingen!', 'success');
+      showToast(
+        finalRating === 0 ? 'Tilbakemelding fjernet' : 'Takk for tilbakemeldingen!',
+        'success'
+      );
     });
   }
 });
@@ -54,7 +57,13 @@ function renderMeals() {
   for (const slot of data.meals) {
     const r = slot.recipe;
     const isAway = slot.status === 'away';
-    const badgeClass = r ? (r.category === 'rask' ? 'badge-rask' : r.category === 'comfort' ? 'badge-comfort' : 'badge-helg') : '';
+    const badgeClass = r
+      ? r.category === 'rask'
+        ? 'badge-rask'
+        : r.category === 'comfort'
+          ? 'badge-comfort'
+          : 'badge-helg'
+      : '';
 
     html += `<div class="card meal-card">`;
 
@@ -68,9 +77,15 @@ function renderMeals() {
       const expanded = expandedRecipes.has(slot.dayOfWeek);
       // Uke 9 SAF-4: safety-advarsel hvis deterministisk filter fant allergener
       let safetyWarning = '';
-      if (r.safeForProfile === false && Array.isArray(r.blockedIngredients) && r.blockedIngredients.length > 0) {
-        const blockedNames = r.blockedIngredients.map(b => escapeHtml(b.ingredient)).join(', ');
-        const allergiesHit = [...new Set(r.blockedIngredients.map(b => b.allergy))].map(escapeHtml).join(', ');
+      if (
+        r.safeForProfile === false &&
+        Array.isArray(r.blockedIngredients) &&
+        r.blockedIngredients.length > 0
+      ) {
+        const blockedNames = r.blockedIngredients.map((b) => escapeHtml(b.ingredient)).join(', ');
+        const allergiesHit = [...new Set(r.blockedIngredients.map((b) => b.allergy))]
+          .map(escapeHtml)
+          .join(', ');
         safetyWarning = `
           <div class="safety-warning" role="alert">
             <strong>⚠ Inneholder allergener</strong>
@@ -90,17 +105,25 @@ function renderMeals() {
           <span>⏱ ${escapeHtml(r.prepTime)}</span>
         </div>
         <span class="recipe-toggle" onclick="toggleRecipe(${Number(slot.dayOfWeek)})">${expanded ? '▼ Skjul ingredienser' : '▶ Vis ingredienser'}</span>
-        ${expanded ? `
+        ${
+          expanded
+            ? `
           <div class="ingredients-list">
-            ${r.ingredients.map(i => `
+            ${r.ingredients
+              .map(
+                (i) => `
               <div class="ingredient-row">
                 <span>${escapeHtml(i.name)}</span>
                 <span class="ingredient-qty">${escapeHtml(i.qty)} ${escapeHtml(i.unit)}</span>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
           ${r.url ? `<a href="${safeUrl(r.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-size:0.8rem;margin-top:6px;display:inline-block">Se oppskrift →</a>` : ''}
-        ` : ''}
+        `
+            : ''
+        }
         <div class="btn-row">
           <button class="btn btn-secondary btn-small" onclick="openSwapModal(${Number(slot.dayOfWeek)})">Bytt middag</button>
           ${slot.dayOfWeek > 0 ? `<button class="btn btn-ghost btn-small" onclick="reorderMeal(${Number(slot.dayOfWeek)},${Number(slot.dayOfWeek) - 1})">↑</button>` : ''}
@@ -119,14 +142,22 @@ function renderMeals() {
     html += `</div>`;
   }
 
-  (function(el){ if(el){ el.innerHTML = html; el.setAttribute('aria-busy', 'false'); } })(document.getElementById('mealsContent'));
+  (function (el) {
+    if (el) {
+      el.innerHTML = html;
+      el.setAttribute('aria-busy', 'false');
+    }
+  })(document.getElementById('mealsContent'));
 }
 
 // === Fase F4 — Lignende oppskrift modal ===
 async function showSimilarRecipes(recipeId, recipeName) {
   try {
     const r = await fetch(`/api/recipes/${recipeId}/similar?limit=5`);
-    if (!r.ok) { showToast('Kunne ikke hente lignende oppskrifter', 'error'); return; }
+    if (!r.ok) {
+      showToast('Kunne ikke hente lignende oppskrifter', 'error');
+      return;
+    }
     const data = await r.json();
     const modalBg = document.getElementById('modalBg');
     const modalContent = document.getElementById('modalContent');
@@ -153,9 +184,13 @@ async function showSimilarRecipes(recipeId, recipeName) {
               ${s.prepTime ? `<span>⏱ ${escapeHtml(s.prepTime)}</span>` : ''}
               ${s.servings ? `<span>🍽 ${Number(s.servings) || 0} pers.</span>` : ''}
             </div>
-            ${s.reasons && s.reasons.length ? `
+            ${
+              s.reasons && s.reasons.length
+                ? `
               <div class="similar-item-reasons">${s.reasons.map(escapeHtml).join(' • ')}</div>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
         `;
       }
@@ -177,15 +212,25 @@ function toggleRecipe(dayOfWeek) {
 }
 
 async function setMealStatus(dayOfWeek, status) {
-  await api('/api/meals/status', { method: 'PUT', body: { weekYear: currentWeek, dayOfWeek, status } });
+  await api('/api/meals/status', {
+    method: 'PUT',
+    body: { weekYear: currentWeek, dayOfWeek, status },
+  });
   await loadMeals();
 }
 
 async function reorderMeal(fromDay, toDay) {
-  const data = await api('/api/meals/reorder', { method: 'PUT', body: { weekYear: currentWeek, fromDay, toDay } });
+  const data = await api('/api/meals/reorder', {
+    method: 'PUT',
+    body: { weekYear: currentWeek, fromDay, toDay },
+  });
   if (data.shelfWarnings && data.shelfWarnings.length > 0) {
-    const msgs = data.shelfWarnings.map(w => w.message).join('\n');
-    showToast('Holdbarhetsvarsel: ' + msgs.replace(/\n/g, ' ') + ' — vurder å flytte tilbake.', 'warn', 8000);
+    const msgs = data.shelfWarnings.map((w) => w.message).join('\n');
+    showToast(
+      'Holdbarhetsvarsel: ' + msgs.replace(/\n/g, ' ') + ' — vurder å flytte tilbake.',
+      'warn',
+      8000
+    );
   }
   await loadMeals();
 }
@@ -219,7 +264,10 @@ async function openSwapModal(dayOfWeek) {
 }
 
 async function swapMeal(dayOfWeek, recipeId) {
-  await api('/api/meals/swap', { method: 'PUT', body: { weekYear: currentWeek, dayOfWeek, recipeId } });
+  await api('/api/meals/swap', {
+    method: 'PUT',
+    body: { weekYear: currentWeek, dayOfWeek, recipeId },
+  });
   closeModal();
   await loadMeals();
 }
@@ -228,14 +276,67 @@ async function customSwap(dayOfWeek) {
   const input = document.getElementById('customMealInput');
   const name = input.value.trim();
   if (!name) return;
-  // Søk i eksisterende oppskrifter
+  // Library-first: fuzzy-match against the family's saved recipes.
   const data = await api('/api/recipes');
-  const match = data.recipes.find(r => r.name.toLowerCase().includes(name.toLowerCase()));
+  const match = data.recipes.find((r) => r.name.toLowerCase().includes(name.toLowerCase()));
   if (match) {
     await swapMeal(dayOfWeek, match.id);
-  } else {
-    showToast('Fant ikke oppskrift for "' + name + '". Prøv et av forslagene.', 'warn');
-    input.focus();
+    return;
+  }
+  // No match — show two fallbacks: Generate with AI, or Import from URL.
+  showNoMatchChoices(dayOfWeek, name);
+}
+
+function showNoMatchChoices(dayOfWeek, name) {
+  const safeName = escapeHtml(name);
+  const html = `
+    <h2>Fant ikke "${safeName}"</h2>
+    <p style="color:var(--text2);font-size:0.9rem;margin-top:0">
+      Oppskriften finnes ikke i biblioteket ennå. Velg en måte å legge den til på:
+    </p>
+    <button class="btn btn-primary" style="width:100%;margin-top:12px"
+            onclick="generateRecipeAndSwap(${Number(dayOfWeek)}, '${safeName}')">
+      🧠 Generer med AI
+    </button>
+    <div style="margin-top:16px">
+      <div style="font-size:0.85rem;color:var(--text2);margin-bottom:6px">
+        Eller lim inn en lenke fra matprat.no / godt.no / en matblogg:
+      </div>
+      <div class="input-row">
+        <input type="url" id="importUrlInput" placeholder="https://www.matprat.no/oppskrifter/...">
+        <button class="btn btn-primary" onclick="importUrlAndSwap(${Number(dayOfWeek)})">Importer</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:12px;width:100%" onclick="closeModal()">Avbryt</button>
+  `;
+  document.getElementById('modalContent').innerHTML = html;
+}
+
+async function generateRecipeAndSwap(dayOfWeek, name) {
+  try {
+    showToast('Genererer oppskrift …', 'info');
+    const result = await api('/api/recipes/from-llm', { method: 'POST', body: { query: name } });
+    if (!result?.recipeId) throw new Error('AI kunne ikke lage oppskrift');
+    await swapMeal(dayOfWeek, result.recipeId);
+  } catch (err) {
+    showToast('Generering feilet: ' + (err.message || err), 'error');
+  }
+}
+
+async function importUrlAndSwap(dayOfWeek) {
+  const urlInput = document.getElementById('importUrlInput');
+  const url = (urlInput?.value || '').trim();
+  if (!url) {
+    showToast('Lim inn en URL først', 'warn');
+    return;
+  }
+  try {
+    showToast('Henter oppskrift …', 'info');
+    const result = await api('/api/recipes/import-url', { method: 'POST', body: { url } });
+    if (!result?.recipeId) throw new Error('Import returnerte ingen oppskrift');
+    await swapMeal(dayOfWeek, result.recipeId);
+  } catch (err) {
+    showToast('Import feilet: ' + (err.message || err), 'error');
   }
 }
 
@@ -267,5 +368,3 @@ function closeModal(event) {
     }
   });
 })();
-
-

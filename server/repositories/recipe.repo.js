@@ -138,6 +138,39 @@ function createRecipeRepos(db, tryParseJson) {
       const familyId = getFamilyId();
       return db.prepare('SELECT COUNT(*) as c FROM recipes WHERE family_id = ?').get(familyId).c;
     },
+    // Fuzzy name lookup used by meal-swap to see if a user-typed term
+    // already exists in the family's library before calling the LLM.
+    // Prefers exact match (case-insensitive), then LIKE %name%, ordered
+    // by times_cooked DESC so a frequently-used recipe wins on ties.
+    //
+    // Case-folding is done in JavaScript because SQLite's LOWER() and
+    // COLLATE NOCASE only handle ASCII — they would not match Norwegian
+    // characters like æ/ø/å (e.g. 'KJØTTDEIG' vs 'kjøttdeig'). We scan
+    // all of the family's recipes and filter in JS; families have at most
+    // a few hundred recipes so the cost is negligible.
+    findByName(name) {
+      const familyId = getFamilyId();
+      const t = String(name || '').trim();
+      if (!t) return null;
+      const lowered = t.toLowerCase();
+      const rows = db
+        .prepare('SELECT * FROM recipes WHERE family_id = ? ORDER BY times_cooked DESC, id')
+        .all(familyId);
+      let row = rows.find((r) => String(r.name || '').toLowerCase() === lowered);
+      if (!row) {
+        row = rows.find((r) =>
+          String(r.name || '')
+            .toLowerCase()
+            .includes(lowered)
+        );
+      }
+      if (!row) return null;
+      row.ingredients = _recipeIngsStmt.all(familyId, row.id);
+      row.equipment = row.equipment_json ? tryParseJson(row.equipment_json) || [] : [];
+      row.prepTime = row.prep_time;
+      row.sourceType = row.source_type || 'manual';
+      return row;
+    },
   };
 
   const recipeSources = {

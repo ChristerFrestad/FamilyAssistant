@@ -880,6 +880,80 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   /**
+   * PUT /api/shopping/items/:id/has-home — "jeg har denne hjemme allerede".
+   *
+   * Different from /bought: the row stays on the shopping list (no bought_at,
+   * no bought_qty) so the operator can still buy MORE later. We only top up
+   * the pantry quantity via inventory.upsertManual() so pantry catches up to
+   * reality without recording a purchase event.
+   *
+   * Body:
+   *   qty         — required, how much the operator already has
+   *   purchasedAt — optional YYYY-MM-DD, used as last_purchased in pantry
+   */
+  router.put('/api/shopping/items/:id/has-home', requireRole('adult'), (ctx) => {
+    const itemId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+
+    const parent = repos.shoppingLists.getItemWithList(itemId);
+    if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+    const item = parent.item;
+    const productKey = item.productKey;
+    if (!productKey) {
+      throw errors.badRequest('Varen har ingen pantry-kobling');
+    }
+
+    const qty = Number(ctx.body?.qty);
+    if (!Number.isFinite(qty) || qty <= 0) throw errors.badRequest('Ugyldig qty');
+
+    const purchasedAt =
+      typeof ctx.body?.purchasedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ctx.body.purchasedAt)
+        ? ctx.body.purchasedAt
+        : null;
+
+    const unit = item.unit || '';
+    if (typeof repos.inventory.upsertManual !== 'function') {
+      throw errors.serviceUnavailable('Inventory-repo mangler upsertManual');
+    }
+    const { next: nextInv } = repos.inventory.upsertManual(productKey, {
+      qtyAdded: qty,
+      unit,
+      incrementPurchaseCount: false,
+    });
+
+    // Optional purchasedAt override — upsertManual always sets last_purchased
+    // to today; if the operator specified a date, patch it.
+    if (purchasedAt) {
+      try {
+        repos._db
+          ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
+          .run(purchasedAt, productKey);
+      } catch {
+        /* ignore — cosmetic date override */
+      }
+    }
+
+    try {
+      if (typeof repos.inventoryLog?.insert === 'function') {
+        repos.inventoryLog.insert({
+          productKey,
+          qtyDelta: qty,
+          newQty: nextInv?.qtyRemaining ?? null,
+          unit,
+          reason: 'home_already_have',
+          sourceId: itemId,
+          sourceTable: 'shopping_list_items',
+        });
+      }
+    } catch {
+      /* logg-skrivefeil skal ikke blokkere hoved-handlingen */
+    }
+
+    invalidate('shopping', 'inventory', 'today');
+    ctx.json({ ok: true });
+  });
+
+  /**
    * PUT /api/shopping/items/:id/unpantry — "jeg har ikke denne varen likevel".
    * Flipper pantry_has=0, needs_buy=1.
    */
@@ -1625,14 +1699,56 @@ function registerRoutes(router, { repos, serverState }) {
       /* modulen skal alltid finnes */
     }
 
+    // Dynamic, operator-useful fields. Everything optional-chained so an
+    // older build without a given repo method degrades to null in UI.
+    const pkg = require('../package.json');
+    let llm = null;
+    try {
+      if (repos.llmConfigs && typeof repos.llmConfigs.getActive === 'function') {
+        const active = repos.llmConfigs.getActive();
+        if (active) llm = { backend: active.backend || null, model: active.model || null };
+      }
+    } catch {
+      /* ignore */
+    }
+    let lastBackup = null;
+    try {
+      const backupModule = require('./backup');
+      if (typeof backupModule.getLastBackupInfo === 'function') {
+        lastBackup = backupModule.getLastBackupInfo();
+      }
+    } catch {
+      /* backup module optional at runtime */
+    }
+    const counts = {};
+    try {
+      counts.recipes = repos.recipes?.count?.() ?? null;
+    } catch {
+      counts.recipes = null;
+    }
+    try {
+      counts.pantryItems = repos.inventory?.count?.() ?? null;
+    } catch {
+      counts.pantryItems = null;
+    }
+    try {
+      counts.familyMembers = repos.members?.count?.() ?? null;
+    } catch {
+      counts.familyMembers = null;
+    }
+
     ctx.json({
-      version: '1.2.0',
-      phase: 'M1–M8 produksjons-hardening',
+      version: pkg.version,
       db: driver,
       migrations: `${migrationCount} applikert`,
-      tests: '408/408',
       uptime: Math.round(process.uptime()),
       breakers,
+      llm,
+      lastBackupAt: lastBackup?.ts || null,
+      lastBackupBytes: lastBackup?.bytes || null,
+      recipeCount: counts.recipes,
+      pantryItemCount: counts.pantryItems,
+      familyMemberCount: counts.familyMembers,
     });
   });
 
@@ -1784,17 +1900,46 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.llmRecipeBody),
     async (ctx) => {
       const query = ctx.body.query;
+
+      // Library-first: if an existing recipe matches the typed name, return
+      // it without calling the LLM. This eliminates hallucinated URLs for
+      // anything already in the family's saved library.
+      try {
+        const existing = repos.recipes.findByName(query);
+        if (existing) {
+          ctx.res.setHeader('X-LLM-Cache', 'LIBRARY');
+          return ctx.json({
+            name: existing.name,
+            category: existing.category,
+            prepTime: existing.prepTime,
+            servings: existing.servings,
+            url: existing.url || null,
+            source: 'library',
+            recipeId: existing.id,
+            ingredients: (existing.ingredients || []).map((i) => ({
+              name: i.name,
+              qty: i.qty,
+              unit: i.unit,
+              optional: !!i.optional,
+            })),
+          });
+        }
+      } catch {
+        /* fall through to LLM on repo error */
+      }
+
       // Persistert LLM-cache: samme oppskrift-spørsmål returnerer samme svar i 7 dager.
-      // Cache-key inkluderer modellen slik at modellendringer ikke returnerer gammelt innhold.
+      // Cache-key er bumpet til recipe-v2: slik at gamle hallusinerte URL-er
+      // fra pre-fix-cache ikke lenger treffes.
       const key = crypto
         .createHash('sha256')
-        .update(`recipe:${OLLAMA_MODEL}:${query.toLowerCase().trim()}`)
+        .update(`recipe-v2:${OLLAMA_MODEL}:${query.toLowerCase().trim()}`)
         .digest('hex');
       const hit = repos.llmCache.get(key);
       if (hit) {
         ctx.res.setHeader('X-LLM-Cache', 'HIT');
         try {
-          return ctx.json(JSON.parse(hit.response));
+          return ctx.json({ ...JSON.parse(hit.response), source: 'llm' });
         } catch {
           /* falle gjennom til regenerering */
         }
@@ -1809,9 +1954,81 @@ function registerRoutes(router, { repos, serverState }) {
         });
       }
       ctx.res.setHeader('X-LLM-Cache', 'MISS');
-      ctx.json(result);
+      ctx.json({ ...result, source: result && !result.error ? 'llm' : undefined });
     }
   );
+
+  // Generer med LLM og lagre oppskriften i familiens bibliotek i ett kall.
+  // Brukes av "Bytt middag" når brukeren aksepterer en AI-generert oppskrift:
+  // meal_plans.recipe_id er FK til recipes, så vi må persistere før swap.
+  router.post('/api/recipes/from-llm', requireRole('adult'), async (ctx) => {
+    const query = String(ctx.body?.query || '').trim();
+    if (!query) throw errors.badRequest('Missing query');
+
+    // Hvis biblioteket allerede har en match, gjenbruk den.
+    const existing = repos.recipes.findByName(query);
+    if (existing) {
+      return ctx.json({ ok: true, recipeId: existing.id, source: 'library', recipe: existing });
+    }
+
+    const llmResult = await suggestRecipeFromText(query);
+    if (!llmResult || llmResult.error || !llmResult.name) {
+      throw errors.badRequest(llmResult?.error || 'AI kunne ikke generere oppskrift');
+    }
+    const allowedCategories = new Set(['rask', 'comfort', 'helg']);
+    const category = allowedCategories.has(llmResult.category) ? llmResult.category : 'comfort';
+    const payload = {
+      name: String(llmResult.name).slice(0, 200),
+      category,
+      prepTime: llmResult.prepTime || null,
+      servings: Number(llmResult.servings) > 0 ? Number(llmResult.servings) : 2,
+      source: 'llm',
+      url: null, // never persist hallucinated URLs
+      notes: Array.isArray(llmResult.instructions) ? llmResult.instructions.join('\n') : null,
+      equipment: Array.isArray(llmResult.equipment) ? llmResult.equipment : null,
+      ingredients: Array.isArray(llmResult.ingredients)
+        ? llmResult.ingredients
+            .filter((i) => i && i.name && Number.isFinite(Number(i.qty)) && i.unit)
+            .map((i) => ({
+              name: String(i.name),
+              qty: Number(i.qty),
+              unit: String(i.unit),
+              optional: !!i.optional,
+            }))
+        : [],
+    };
+    const recipeId = repos.recipes.insert(payload);
+    invalidate('recipes');
+    ctx.json({
+      ok: true,
+      recipeId,
+      source: 'llm',
+      recipe: { id: recipeId, ...payload },
+    });
+  });
+
+  // Import recipe from a URL (matprat/godt/generic schema.org/Recipe).
+  // The service does the fetch + JSON-LD parsing; we persist and return
+  // the stored recipe so the caller can swap to it.
+  router.post('/api/recipes/import-url', requireRole('adult'), async (ctx) => {
+    const url = String(ctx.body?.url || '').trim();
+    if (!url) throw errors.badRequest('Missing url');
+    let parsed;
+    try {
+      const svc = require('./services/recipe-url-import.service');
+      parsed = await svc.importRecipeFromUrl(url);
+    } catch (err) {
+      throw errors.badRequest(err.message || 'Kunne ikke importere oppskrift fra lenke');
+    }
+    const recipeId = repos.recipes.insert(parsed);
+    invalidate('recipes');
+    ctx.json({
+      ok: true,
+      recipeId,
+      source: parsed.source || 'imported',
+      recipe: { id: recipeId, ...parsed },
+    });
+  });
 
   // ============================================================
   // NOTIFICATIONS

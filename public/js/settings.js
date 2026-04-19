@@ -105,32 +105,44 @@ document.addEventListener('keydown', (e) => {
   const SWIPE_THRESHOLD = 50;
   const VERTICAL_TOLERANCE = 30;
 
-  document.addEventListener('touchstart', (e) => {
-    if (!settingsOpen) return;
-    const t = e.touches[0];
-    if (t.clientX <= EDGE_ZONE) {
-      startX = t.clientX;
-      startY = t.clientY;
-      tracking = true;
-    }
-  }, { passive: true });
+  document.addEventListener(
+    'touchstart',
+    (e) => {
+      if (!settingsOpen) return;
+      const t = e.touches[0];
+      if (t.clientX <= EDGE_ZONE) {
+        startX = t.clientX;
+        startY = t.clientY;
+        tracking = true;
+      }
+    },
+    { passive: true }
+  );
 
-  document.addEventListener('touchmove', (e) => {
-    if (!tracking || !settingsOpen) return;
-    const t = e.touches[0];
-    const dx = t.clientX - startX;
-    const dy = Math.abs(t.clientY - startY);
-    if (dx > SWIPE_THRESHOLD && dy < VERTICAL_TOLERANCE) {
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!tracking || !settingsOpen) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = Math.abs(t.clientY - startY);
+      if (dx > SWIPE_THRESHOLD && dy < VERTICAL_TOLERANCE) {
+        tracking = false;
+        exitSettings();
+      }
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    'touchend',
+    () => {
       tracking = false;
-      exitSettings();
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchend', () => {
-    tracking = false;
-    startX = null;
-    startY = null;
-  }, { passive: true });
+      startX = null;
+      startY = null;
+    },
+    { passive: true }
+  );
 })();
 
 // --- STUB-RENDERING av de 5 seksjonene ---
@@ -177,8 +189,9 @@ function toggleApiKeyVisibility(id) {
 }
 
 async function testIntegration(name) {
-  const status = document.getElementById(`akf-${name.toUpperCase()}_API_KEY-status`)
-             || document.getElementById(`akf-${name}-status`);
+  const status =
+    document.getElementById(`akf-${name.toUpperCase()}_API_KEY-status`) ||
+    document.getElementById(`akf-${name}-status`);
   if (status) {
     status.textContent = 'Tester…';
     status.className = 'api-key-status warn';
@@ -189,7 +202,9 @@ async function testIntegration(name) {
     if (r.ok) {
       const data = await r.json();
       if (status) {
-        status.textContent = data.ok ? `✓ OK (${data.latencyMs} ms)` : `✗ ${data.error || 'Feilet'}`;
+        status.textContent = data.ok
+          ? `✓ OK (${data.latencyMs} ms)`
+          : `✗ ${data.error || 'Feilet'}`;
         status.className = data.ok ? 'api-key-status ok' : 'api-key-status err';
       }
     } else if (r.status === 404) {
@@ -215,7 +230,7 @@ function renderSettingsIntegrasjoner() {
       key: 'KASSAL_API_KEY',
       masked: '',
       help: 'Produktkatalog og prisdata',
-      testable: 'kassal'
+      testable: 'kassal',
     })}
     <div class="panel-row" style="margin-top:12px">
       <span class="panel-row-label">Kilde</span>
@@ -235,12 +250,16 @@ function renderSettingsLlm() {
   ];
   body.innerHTML = `
     <div class="llm-motor-picker">
-      ${motors.map(m => `
+      ${motors
+        .map(
+          (m) => `
         <label class="llm-motor-option" data-motor="${m.id}">
           <input type="radio" name="llmMotor" value="${m.id}" onchange="onLlmMotorChange('${m.id}')">
           <span class="llm-motor-option-name">${m.name}</span>
         </label>
-      `).join('')}
+      `
+        )
+        .join('')}
     </div>
     <div id="llmMotorKeyContainer"></div>
     <div class="api-key-status warn" style="margin-top:8px">⚠ Ingen motor valgt — LLM-funksjoner deaktivert</div>
@@ -248,7 +267,7 @@ function renderSettingsLlm() {
 }
 
 function onLlmMotorChange(motorId) {
-  document.querySelectorAll('.llm-motor-option').forEach(el => {
+  document.querySelectorAll('.llm-motor-option').forEach((el) => {
     el.classList.toggle('selected', el.dataset.motor === motorId);
   });
   const container = document.getElementById('llmMotorKeyContainer');
@@ -261,8 +280,13 @@ function onLlmMotorChange(motorId) {
   const m = keyMap[motorId];
   if (m && container) {
     container.innerHTML = renderApiKeyField({
-      label: m.label, key: m.key, masked: '',
-      help: motorId === 'ollama' ? 'f.eks. http://localhost:11434' : 'Lim inn nøkkel',
+      label: m.label,
+      key: m.key,
+      masked: '',
+      help:
+        motorId === 'ollama'
+          ? 'Lim inn kun http://host:port (evt. /path). Query-parametere som ?model=... blir ignorert.'
+          : 'Lim inn nøkkel',
       testable: m.test,
     });
   }
@@ -277,20 +301,26 @@ async function renderSettingsKilder() {
     const res = await fetch('/api/sources');
     if (res.ok) {
       const data = await res.json();
-      sources = Array.isArray(data) ? data : (data.sources || []);
+      sources = Array.isArray(data) ? data : data.sources || [];
     }
-  } catch { /* stille feil — vis tom liste */ }
+  } catch {
+    /* stille feil — vis tom liste */
+  }
 
-  const iconFor = (type) => ({
-    pinterest: '📌',
-    godt: '🍳',
-    rss: '📡',
-    html: '🌐',
-    unknown: '🌐',
-  }[type] || '🌐');
+  const iconFor = (type) =>
+    ({
+      pinterest: '📌',
+      godt: '🍳',
+      rss: '📡',
+      html: '🌐',
+      unknown: '🌐',
+    })[type] || '🌐';
 
-  const rowsHtml = sources.length > 0
-    ? sources.map(s => `
+  const rowsHtml =
+    sources.length > 0
+      ? sources
+          .map(
+            (s) => `
         <div class="recipe-source-row">
           <span class="recipe-source-icon">${iconFor(s.type)}</span>
           <div class="recipe-source-url">
@@ -300,8 +330,10 @@ async function renderSettingsKilder() {
           <button class="api-key-field-btn" onclick="syncRecipeSource(${Number(s.id)})" title="Synk nå">↻</button>
           <button class="api-key-field-btn" onclick="removeRecipeSource(${Number(s.id)})" title="Fjern">✕</button>
         </div>
-      `).join('')
-    : `
+      `
+          )
+          .join('')
+      : `
         <div class="recipe-source-row" style="opacity:0.6">
           <span class="recipe-source-icon">🌐</span>
           <div class="recipe-source-url">Ingen kilder lagt til ennå</div>
@@ -330,7 +362,9 @@ async function syncRecipeSource(id) {
   try {
     await fetch(`/api/sources/${id}/sync`, { method: 'POST' });
     renderSettingsKilder();
-  } catch { /* stille */ }
+  } catch {
+    /* stille */
+  }
 }
 
 async function removeRecipeSource(id) {
@@ -379,16 +413,20 @@ async function renderSettingsProfil() {
   try {
     const r = await fetch('/api/profile');
     if (r.ok) profile = await r.json();
-  } catch { /* stille feil */ }
+  } catch {
+    /* stille feil */
+  }
 
   const renderTags = (arr, emptyText, fieldKey) => {
     if (!arr || arr.length === 0) {
       return `<span class="profile-tag" style="opacity:0.5">${escapeHtml(emptyText)}</span>`;
     }
     // Bruk data-attributter i stedet for inline onclick for å unngå XSS
-    return arr.map(t => {
-      return `<span class="profile-tag" data-action="remove-tag" data-field="${escapeHtml(fieldKey)}" data-value="${escapeHtml(String(t))}" title="Klikk for å fjerne">${escapeHtml(t)} ✕</span>`;
-    }).join('');
+    return arr
+      .map((t) => {
+        return `<span class="profile-tag" data-action="remove-tag" data-field="${escapeHtml(fieldKey)}" data-value="${escapeHtml(String(t))}" title="Klikk for å fjerne">${escapeHtml(t)} ✕</span>`;
+      })
+      .join('');
   };
 
   const suggestionMode = (profile.preferences && profile.preferences.suggestionMode) || 'default';
@@ -452,7 +490,7 @@ async function renderSettingsProfil() {
 async function updateSuggestionMode(mode) {
   if (!['default', 'maksimer', 'balansert'].includes(mode)) return;
   try {
-    const current = await fetch('/api/profile').then(r => r.json());
+    const current = await fetch('/api/profile').then((r) => r.json());
     const prefs = { ...(current.preferences || {}), suggestionMode: mode };
     const res = await fetch('/api/profile', {
       method: 'PUT',
@@ -475,7 +513,7 @@ async function addProfileTag(field) {
   const input = document.getElementById(inputMap[field]);
   if (!input || !input.value.trim()) return;
   try {
-    const current = await fetch('/api/profile').then(r => r.json());
+    const current = await fetch('/api/profile').then((r) => r.json());
     const arr = current[field] || [];
     if (!arr.includes(input.value.trim())) arr.push(input.value.trim());
     await fetch('/api/profile', {
@@ -502,8 +540,8 @@ document.addEventListener('click', (e) => {
 
 async function removeProfileTag(field, value) {
   try {
-    const current = await fetch('/api/profile').then(r => r.json());
-    const arr = (current[field] || []).filter(t => t !== value);
+    const current = await fetch('/api/profile').then((r) => r.json());
+    const arr = (current[field] || []).filter((t) => t !== value);
     await fetch('/api/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -523,31 +561,61 @@ async function renderSettingsOm() {
       <dt>Versjon</dt><dd id="aboutVersion">laster…</dd>
       <dt>Database</dt><dd id="aboutDb">laster…</dd>
       <dt>Migrasjoner</dt><dd id="aboutMigs">laster…</dd>
-      <dt>Tester</dt><dd id="aboutTests">laster…</dd>
       <dt>Oppetid</dt><dd id="aboutUptime">–</dd>
+      <dt>LLM</dt><dd id="aboutLlm">–</dd>
+      <dt>Siste backup</dt><dd id="aboutBackup">–</dd>
+      <dt>Oppskrifter</dt><dd id="aboutRecipeCount">–</dd>
+      <dt>Pantry-varer</dt><dd id="aboutPantryCount">–</dd>
+      <dt>Familiemedlemmer</dt><dd id="aboutMemberCount">–</dd>
     </dl>
   `;
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
   try {
     const res = await fetch('/api/status');
     if (!res.ok) throw new Error('status-endepunkt svarte ikke');
     const data = await res.json();
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('aboutVersion', `${data.version} · ${data.phase}`);
+    set('aboutVersion', data.version || '–');
     set('aboutDb', data.db || 'ukjent');
     set('aboutMigs', data.migrations || '–');
-    set('aboutTests', data.tests ? `${data.tests} ✓` : '–');
     if (typeof data.uptime === 'number') {
       const h = Math.floor(data.uptime / 3600);
       const m = Math.floor((data.uptime % 3600) / 60);
       set('aboutUptime', h > 0 ? `${h}t ${m}m` : `${m} min`);
     }
+    if (data.llm && (data.llm.backend || data.llm.model)) {
+      set('aboutLlm', [data.llm.backend, data.llm.model].filter(Boolean).join(' · '));
+    } else {
+      set('aboutLlm', 'Ikke konfigurert');
+    }
+    if (data.lastBackupAt) {
+      const d = new Date(data.lastBackupAt);
+      const diffMs = Date.now() - d.getTime();
+      const diffH = Math.floor(diffMs / 3_600_000);
+      const label =
+        diffH < 1
+          ? 'mindre enn 1 time siden'
+          : diffH < 24
+            ? `${diffH} t siden`
+            : `${Math.floor(diffH / 24)} dager siden`;
+      const bytesLabel = data.lastBackupBytes
+        ? ` (${(data.lastBackupBytes / 1_000_000).toFixed(1)} MB)`
+        : '';
+      set('aboutBackup', `${label}${bytesLabel}`);
+    } else {
+      set('aboutBackup', 'Aldri');
+    }
+    set('aboutRecipeCount', data.recipeCount ?? '—');
+    set('aboutPantryCount', data.pantryItemCount ?? '—');
+    set('aboutMemberCount', data.familyMemberCount ?? '—');
   } catch (err) {
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('aboutVersion', '1.1.0 · Fase F');
+    set('aboutVersion', 'offline');
     set('aboutDb', 'offline');
-    set('aboutMigs', '–');
-    set('aboutTests', '–');
+    set('aboutMigs', '—');
+    set('aboutLlm', '—');
+    set('aboutBackup', '—');
   }
 }
 // ===== FASE_F_END settings-view-js =====
-
