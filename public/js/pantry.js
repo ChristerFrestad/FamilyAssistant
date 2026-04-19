@@ -258,8 +258,8 @@ function renderPantryList() {
           ✗
         </button>
       </div>
-      <div class="pantry-edit-form" id="pantry-edit-${escapeHtml(it.productKey)}" hidden
-           style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 10px 8px;padding:8px;background:var(--bg2);border-radius:8px">
+      <div class="pantry-edit-form" id="pantry-edit-${escapeHtml(it.productKey)}"
+           style="display:none;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 10px 8px;padding:8px;background:var(--bg2);border-radius:8px">
         <input type="number" class="pantry-edit-qty" placeholder="Mengde" style="max-width:100px" min="0" step="0.01">
         <span style="color:var(--text2);font-size:0.85rem">av</span>
         <input type="number" class="pantry-edit-total" placeholder="Total" style="max-width:100px" min="0" step="0.01">
@@ -313,24 +313,30 @@ function openPantryEdit(triggerBtn) {
   if (!key) return;
   const form = document.getElementById(`pantry-edit-${key}`);
   if (!form) return;
+  const isOpen = form.style.display === 'flex';
+  // Close all other open edit panels.
   document.querySelectorAll('.pantry-edit-form').forEach((el) => {
-    if (el !== form) el.hidden = true;
+    if (el !== form) el.style.display = 'none';
   });
-  form.hidden = !form.hidden;
-  if (!form.hidden) {
+  form.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen) {
+    // Pre-fill current values from the row's data-attributes so the
+    // operator edits on top of reality instead of a blank form.
     const qtyInput = form.querySelector('.pantry-edit-qty');
     const totalInput = form.querySelector('.pantry-edit-total');
     const unitSelect = form.querySelector('.pantry-edit-unit');
+    const dateInput = form.querySelector('.pantry-edit-date');
     if (qtyInput) qtyInput.value = triggerBtn.dataset.qty || '';
     if (totalInput) totalInput.value = triggerBtn.dataset.total || '';
     if (unitSelect) unitSelect.value = triggerBtn.dataset.unit || 'stk';
+    if (dateInput) dateInput.value = '';
     if (qtyInput) qtyInput.focus();
   }
 }
 
 function closePantryEdit(key) {
   const form = document.getElementById(`pantry-edit-${key}`);
-  if (form) form.hidden = true;
+  if (form) form.style.display = 'none';
 }
 
 async function submitPantryEdit(productKey) {
