@@ -19,8 +19,9 @@ loadTheme();
 // === M5.2 Service worker registration ===
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
+    // prettier-ignore
+    const reg$ = navigator.serviceWorker.register('/sw.js');
+    reg$
       .then((reg) => {
         // Sjekk for oppdateringer hver time
         setInterval(
