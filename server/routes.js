@@ -34,6 +34,7 @@ const {
 const { ensureCurrentWeek } = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
+const { createShelfLifeLearner } = require('./services/shelf-life-learner.service');
 const priceReferenceService = require('./services/price-reference.service');
 const receiptService = require('./services/receipt.service');
 const recipeImportService = require('./services/recipe-import.service');
@@ -129,6 +130,10 @@ function withAudit(repos, spec, handler) {
 }
 
 function registerRoutes(router, { repos, serverState }) {
+  // Single shelf-life learner per server instance — it needs both repos and
+  // the raw db handle to update products.shelf_days_learned.
+  const shelfLifeLearner = createShelfLifeLearner(repos, repos._db);
+
   function requirePositiveInt(value, name = 'id') {
     const n = parseInt(value, 10);
     if (!Number.isInteger(n) || n <= 0)
@@ -670,7 +675,9 @@ function registerRoutes(router, { repos, serverState }) {
       const inv = repos.inventory.addPurchase(productKey, {
         packSize: ps,
         unit: product ? product.unit : '',
-        shelfDays: product ? product.shelf_days : null,
+        // Prefer the learned shelf_days once we have enough samples;
+        // otherwise falls back to the seeded products.shelf_days.
+        shelfDays: shelfLifeLearner.effectiveShelfDays(product),
       });
       repos.purchaseLog.insert({
         productKey,
@@ -856,7 +863,9 @@ function registerRoutes(router, { repos, serverState }) {
           repos.inventory.addPurchase(item.productKey, {
             packSize: qtyPurchased,
             unit: item.unit || product?.unit || '',
-            shelfDays: product?.shelf_days || null,
+            // Prefer learned shelf-life once enough samples accumulate;
+            // seeded products.shelf_days is the fallback.
+            shelfDays: shelfLifeLearner.effectiveShelfDays(product),
           });
           const next = repos.inventory.getByKey(item.productKey);
           repos.inventoryLog.insert({
@@ -990,6 +999,112 @@ function registerRoutes(router, { repos, serverState }) {
 
     invalidate('shopping', 'inventory', 'today');
     ctx.json({ ok: true });
+  });
+
+  /**
+   * POST /api/shopping/items/:id/expiry — record an expiry date for an
+   * already-bought shopping row (PR A.2 shelf-life learning).
+   *
+   * Preconditions: the row must have bought_at set, expiresAt must not
+   * predate the purchase. On success we update inventory.expires_est and
+   * the shelf-life learner stores an observation that feeds the
+   * per-product moving average.
+   */
+  router.post(
+    '/api/shopping/items/:id/expiry',
+    requireRole('adult'),
+    validateBody(schemas.shoppingItemExpiryBody),
+    (ctx) => {
+      const itemId = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+
+      const parent = repos.shoppingLists.getItemWithList(itemId);
+      if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+      const item = parent.item;
+      const productKey = item.productKey;
+      if (!productKey) throw errors.badRequest('Varen har ingen pantry-kobling');
+      if (!item.boughtAt) {
+        throw errors.badRequest('Varen må være markert som kjøpt før du kan sette utløpsdato');
+      }
+
+      const expiresAt = ctx.body.expiresAt;
+      const purchasedAt = String(item.boughtAt).slice(0, 10); // bought_at = ISO datetime
+      if (expiresAt < purchasedAt) {
+        throw errors.badRequest('Utløpsdato kan ikke være før kjøpsdato');
+      }
+
+      try {
+        repos._db
+          .prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
+          .run(expiresAt, productKey);
+      } catch {
+        /* cosmetic — best effort */
+      }
+
+      const result = shelfLifeLearner.recordObservation({
+        productKey,
+        purchasedAt,
+        expiresAt,
+        source: 'shopping_bought',
+      });
+
+      invalidate('inventory', 'shopping', 'today');
+      ctx.json({ ok: true, ...result });
+    }
+  );
+
+  /**
+   * PUT /api/pantry/expiry — set or update an expiry date for an existing
+   * pantry item. purchasedAt defaults to inventory.last_purchased. Captures
+   * a shelf-life observation for learning.
+   */
+  router.put(
+    '/api/pantry/expiry',
+    requireRole('adult'),
+    validateBody(schemas.pantryExpiryBody),
+    (ctx) => {
+      const { productKey, expiresAt } = ctx.body;
+      const inv = repos.inventory.getByKey(productKey);
+      if (!inv) throw errors.notFound(`Pantry-vare ${productKey} ikke funnet`);
+
+      const purchasedAt = ctx.body.purchasedAt || inv.lastPurchased;
+      if (!purchasedAt) {
+        throw errors.badRequest('Mangler kjøpsdato — send purchasedAt eller sett last_purchased');
+      }
+      if (expiresAt < purchasedAt) {
+        throw errors.badRequest('Utløpsdato kan ikke være før kjøpsdato');
+      }
+
+      try {
+        repos._db
+          .prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
+          .run(expiresAt, productKey);
+      } catch {
+        /* cosmetic — best effort */
+      }
+
+      const result = shelfLifeLearner.recordObservation({
+        productKey,
+        purchasedAt,
+        expiresAt,
+        source: 'pantry_edit',
+      });
+
+      invalidate('inventory', 'shopping', 'today');
+      ctx.json({ ok: true, ...result });
+    }
+  );
+
+  /**
+   * GET /api/products/:productKey/shelf-life — summary used by pantry UI
+   * to show "Lært: Nd (X kjøp)" badges and surface which value is in effect.
+   */
+  router.get('/api/products/:productKey/shelf-life', (ctx) => {
+    const productKey = String(ctx.params.productKey || '').trim();
+    if (!productKey) throw errors.badRequest('productKey mangler');
+    const product = repos.products.getByKey(productKey);
+    if (!product) throw errors.notFound(`Produkt ${productKey} ikke funnet`);
+    ctx.json(shelfLifeLearner.summarizeProduct(productKey, product));
   });
 
   /**
@@ -1220,6 +1335,12 @@ function registerRoutes(router, { repos, serverState }) {
         category: p?.category || null,
         expiresEst: inv.expiresEst || null,
         lastPurchased: inv.lastPurchased || null,
+        // PR A.2 — learned shelf-life metadata so pantry UI can show a
+        // "Lært: Nd (X kjøp)" badge. shelfDaysLearned stays null until
+        // sampleCount crosses MIN_SAMPLES_TO_TRUST.
+        shelfDaysLearned: p?.shelfDaysLearned ?? null,
+        shelfDaysSampleCount: p?.shelfDaysSampleCount ?? 0,
+        shelfDaysSeed: p?.shelfDays ?? null,
       });
     }
     // Sorter alfabetisk etter visningsnavn

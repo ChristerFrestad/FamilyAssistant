@@ -175,9 +175,17 @@ function renderRecipeItem(item) {
       onclick="toggleBought(${itemId}, ${item.checkedOff ? 1 : 0})"
       title="${item.checkedOff ? 'Klikk for å angre kjøp' : 'Marker som kjøpt'}">${boughtLabel}</button>`;
 
-    // "Har hjemme" — tops up pantry qty without marking the row bought.
-    html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
-      onclick="openHasHomeForm(${itemId})" title="Jeg har denne varen hjemme allerede">🏠 Har hjemme</button>`;
+    if (item.checkedOff) {
+      // PR A.2 — only meaningful once the item has been bought. Opens a
+      // one-field inline date picker that records an expiry for
+      // shelf-life learning. Optional — skipping is fine.
+      html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
+        onclick="openExpiryForm(${itemId})" title="Sett utløpsdato for læring">📅 Utløpsdato</button>`;
+    } else {
+      // "Har hjemme" — tops up pantry qty without marking the row bought.
+      html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
+        onclick="openHasHomeForm(${itemId})" title="Jeg har denne varen hjemme allerede">🏠 Har hjemme</button>`;
+    }
 
     // Trash — permanently deletes the row from the active shopping list.
     html += `<button class="btn btn-ghost btn-small" style="margin-left:6px"
@@ -185,11 +193,27 @@ function renderRecipeItem(item) {
   }
   html += `</div>`;
 
-  // Inline "Har hjemme" panel. Toggled by openHasHomeForm().
+  // Inline panels. Both toggle display:none/flex from JS — see A.2 hotfix.
   if (itemId) {
     html += renderHasHomeForm(itemId, unit);
+    if (item.checkedOff) html += renderExpiryForm(itemId);
   }
   return html;
+}
+
+function renderExpiryForm(itemId) {
+  // Panel is hidden by default (display:none). openExpiryForm() toggles it
+  // to flex. Keeping inline style to match the rest of the shopping UI.
+  return `
+    <div class="expiry-form" id="expiry-${itemId}"
+         style="display:none;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px;background:var(--bg2);border-radius:8px">
+      <span style="color:var(--text2);font-size:0.85rem">Utløpsdato:</span>
+      <input type="date" id="expiry-date-${itemId}"
+             style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font:inherit"
+             onkeydown="if(event.key==='Enter'){submitExpiry(${itemId})}">
+      <button class="btn btn-primary btn-small" onclick="submitExpiry(${itemId})">Lagre</button>
+      <button class="btn btn-ghost btn-small" onclick="cancelExpiry(${itemId})">Avbryt</button>
+    </div>`;
 }
 
 function renderHasHomeForm(itemId, unit) {
@@ -391,6 +415,49 @@ async function submitHasHome(itemId) {
 // Back-compat with the old name — delegate to the new inline flow.
 function markItemHasHome(itemId) {
   openHasHomeForm(itemId);
+}
+
+// PR A.2 — shelf-life learning. Expiry panel appears only on bought rows.
+function openExpiryForm(itemId) {
+  const form = document.getElementById(`expiry-${itemId}`);
+  if (!form) return;
+  const isOpen = form.style.display === 'flex';
+  document.querySelectorAll('.expiry-form').forEach((el) => {
+    if (el !== form) el.style.display = 'none';
+  });
+  form.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen) {
+    const dateInput = document.getElementById(`expiry-date-${itemId}`);
+    if (dateInput) {
+      dateInput.value = '';
+      dateInput.focus();
+    }
+  }
+}
+
+function cancelExpiry(itemId) {
+  const form = document.getElementById(`expiry-${itemId}`);
+  if (form) form.style.display = 'none';
+}
+
+async function submitExpiry(itemId) {
+  const dateInput = document.getElementById(`expiry-date-${itemId}`);
+  const dateStr = (dateInput && dateInput.value) || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    showToast('Velg en gyldig utløpsdato', 'warn');
+    return;
+  }
+  try {
+    await api(`/api/shopping/items/${itemId}/expiry`, {
+      method: 'POST',
+      body: { expiresAt: dateStr },
+    });
+    cancelExpiry(itemId);
+    showToast('Utløpsdato lagret — læringssnitt oppdatert', 'success');
+    await loadShopping();
+  } catch (err) {
+    showToast('Kunne ikke lagre utløpsdato: ' + (err.message || err), 'error');
+  }
 }
 
 // === Fix: addShoppingItem — tidligere referert i renderAddItemForm uten å

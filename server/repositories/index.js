@@ -13,6 +13,7 @@ const { createAuthRepo } = require('./auth.repo');
 const { createFamilyRepo } = require('./family.repo');
 const { createLlmConfigRepo } = require('./llm-config.repo');
 const { createFeedbackRepo } = require('./feedback.repo');
+const { createShelfObservationRepo } = require('./shelf-observation.repo');
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
@@ -49,6 +50,7 @@ function createRepositories(db) {
   const family = createFamilyRepo(db);
   const llmConfig = createLlmConfigRepo(db);
   const feedback = createFeedbackRepo(db);
+  const shelfObservations = createShelfObservationRepo(db);
 
   return {
     _db: db,
@@ -86,6 +88,7 @@ function createRepositories(db) {
     filterUsage,
     recipeSources,
     auditLog,
+    shelfObservations,
     hasFTS,
     transaction: (fn) => db.transaction(fn),
   };
