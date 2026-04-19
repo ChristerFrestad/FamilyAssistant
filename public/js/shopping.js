@@ -313,6 +313,21 @@ function setShoppingSubView(view) {
 
 // --- Handlers for bought / unpantry / delete ---
 
+// Reload both shopping and pantry after any mutation — they share state
+// (marking Kjøpt updates pantry qty, editing pantry flips shopping
+// pantry_has flags). loadPantry() no-ops gracefully if the pantry sub-
+// view isn't rendered, so calling it from shopping context is safe.
+async function refreshShoppingAndPantry() {
+  await loadShopping();
+  if (typeof loadPantry === 'function') {
+    try {
+      await loadPantry();
+    } catch {
+      /* pantry tab may not be mounted yet — ignore */
+    }
+  }
+}
+
 // Toggle button: grey "Kjøp" -> green "✓ Kjøpt" (mark), green -> grey (undo).
 // The row stays on the list either way; .checked-off class dims it.
 async function toggleBought(itemId, isCurrentlyBought) {
@@ -321,7 +336,7 @@ async function toggleBought(itemId, isCurrentlyBought) {
     : `/api/shopping/items/${itemId}/bought`;
   try {
     await api(endpoint, { method: 'PUT' });
-    await loadShopping();
+    await refreshShoppingAndPantry();
   } catch (err) {
     const verb = isCurrentlyBought ? 'angre kjøp' : 'markere som kjøpt';
     showToast(`Kunne ikke ${verb}: ` + (err.message || err), 'error');
@@ -344,7 +359,7 @@ async function deleteShoppingItem(itemId) {
   if (!go) return;
   try {
     await api(`/api/shopping/items/${itemId}`, { method: 'DELETE' });
-    await loadShopping();
+    await refreshShoppingAndPantry();
   } catch (err) {
     showToast('Kunne ikke slette: ' + (err.message || err), 'error');
   }
@@ -353,7 +368,7 @@ async function deleteShoppingItem(itemId) {
 async function unpantryItem(itemId) {
   try {
     await api(`/api/shopping/items/${itemId}/unpantry`, { method: 'PUT' });
-    await loadShopping();
+    await refreshShoppingAndPantry();
   } catch (err) {
     showToast('Kunne ikke flytte tilbake: ' + (err.message || err), 'error');
   }
@@ -406,7 +421,7 @@ async function submitHasHome(itemId) {
     await api(`/api/shopping/items/${itemId}/has-home`, { method: 'PUT', body });
     cancelHasHome(itemId);
     showToast('Pantry oppdatert', 'success');
-    await loadShopping();
+    await refreshShoppingAndPantry();
   } catch (err) {
     showToast('Kunne ikke oppdatere pantry: ' + (err.message || err), 'error');
   }
@@ -454,7 +469,7 @@ async function submitExpiry(itemId) {
     });
     cancelExpiry(itemId);
     showToast('Utløpsdato lagret — læringssnitt oppdatert', 'success');
-    await loadShopping();
+    await refreshShoppingAndPantry();
   } catch (err) {
     showToast('Kunne ikke lagre utløpsdato: ' + (err.message || err), 'error');
   }

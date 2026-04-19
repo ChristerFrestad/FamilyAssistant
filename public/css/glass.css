@@ -12,19 +12,17 @@
   /* Glass-specifics (light) */
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-border: rgba(255, 255, 255, 0.65);
-  --glass-shadow: 0 8px 24px rgba(15, 52, 96, 0.08),
-                  inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 8px 24px rgba(15, 52, 96, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --glass-blur: blur(28px) saturate(1.8);
 
   /* Ambient bakgrunnsgradient (light) */
-  --ambient-1: rgba(233, 69, 96, 0.10);   /* rød glow */
-  --ambient-2: rgba(44, 82, 130, 0.10);   /* blå glow */
+  --ambient-1: rgba(233, 69, 96, 0.1); /* rød glow */
+  --ambient-2: rgba(44, 82, 130, 0.1); /* blå glow */
   --ambient-base: #f5f6fa;
 
   /* Vibrancy primærknapp */
   --btn-primary-grad: linear-gradient(180deg, #ff5670 0%, #e94560 55%, #c73650 100%);
-  --btn-primary-glow: 0 4px 14px rgba(233, 69, 96, 0.35),
-                      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  --btn-primary-glow: 0 4px 14px rgba(233, 69, 96, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 
   /* Animasjons-easings */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -36,21 +34,20 @@
   --radius-button: 10px;
 }
 
-[data-theme="dark"] {
-  --glass-bg: rgba(30, 45, 74, 0.70);
+[data-theme='dark'] {
+  --glass-bg: rgba(30, 45, 74, 0.7);
   --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
-                  inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --glass-blur: blur(30px) saturate(1.5);
 
   --ambient-1: rgba(233, 69, 96, 0.14);
-  --ambient-2: rgba(15, 52, 96, 0.30);
+  --ambient-2: rgba(15, 52, 96, 0.3);
   --ambient-base: #12122a;
 
   --btn-primary-grad: linear-gradient(180deg, #ff5a74 0%, #e94560 55%, #b52c45 100%);
-  --btn-primary-glow: 0 6px 20px rgba(233, 69, 96, 0.45),
-                      0 0 0 1px rgba(255, 255, 255, 0.08),
-                      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  --btn-primary-glow:
+    0 6px 20px rgba(233, 69, 96, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* --- Ambient gradient-mesh bakgrunn (bak alt annet) --- */
@@ -76,7 +73,7 @@ header {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--glass-border);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
 /* --- Cards blir glass --- */
@@ -87,8 +84,9 @@ header {
   border-radius: var(--radius-card);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
-  transition: transform 0.25s var(--ease-smooth),
-              box-shadow 0.25s var(--ease-smooth);
+  transition:
+    transform 0.25s var(--ease-smooth),
+    box-shadow 0.25s var(--ease-smooth);
 }
 
 /* --- Bunn-tabs blir glass --- */
@@ -100,8 +98,9 @@ header {
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
 }
 .tab {
-  transition: color 0.2s var(--ease-smooth),
-              transform 0.2s var(--ease-smooth);
+  transition:
+    color 0.2s var(--ease-smooth),
+    transform 0.2s var(--ease-smooth);
 }
 .tab.active {
   color: var(--accent);
@@ -117,8 +116,9 @@ header {
   box-shadow: var(--btn-primary-glow);
   border: none;
   color: white;
-  transition: transform 0.15s var(--ease-smooth),
-              box-shadow 0.2s var(--ease-smooth);
+  transition:
+    transform 0.15s var(--ease-smooth),
+    box-shadow 0.2s var(--ease-smooth);
 }
 .btn-primary:active {
   transform: scale(0.97);
@@ -130,17 +130,19 @@ header {
   background: rgba(44, 82, 130, 0.85);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(15, 52, 96, 0.25),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 2px 10px rgba(15, 52, 96, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
-[data-theme="dark"] .btn-secondary {
+[data-theme='dark'] .btn-secondary {
   background: rgba(15, 52, 96, 0.7);
 }
 .btn-success {
   background: linear-gradient(180deg, #5fd9b4, #4ecca3 60%, #3bab88);
   color: #0a2a1f;
-  box-shadow: 0 2px 10px rgba(78, 204, 163, 0.28),
-              inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 2px 10px rgba(78, 204, 163, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 .btn-ghost {
   background: rgba(255, 255, 255, 0.06);
@@ -150,10 +152,13 @@ header {
 }
 .btn {
   border-radius: var(--radius-button);
-  transition: transform 0.15s var(--ease-smooth),
-              background 0.2s var(--ease-smooth);
+  transition:
+    transform 0.15s var(--ease-smooth),
+    background 0.2s var(--ease-smooth);
 }
-.btn:active { transform: scale(0.97); }
+.btn:active {
+  transform: scale(0.97);
+}
 
 /* --- Modal blir frosted glass med drag-handle + spring-animasjon --- */
 .modal-bg {
@@ -169,8 +174,9 @@ header {
   border-radius: var(--radius-modal) var(--radius-modal) 0 0;
   border: 1px solid var(--glass-border);
   border-bottom: none;
-  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.4),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 -20px 60px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
   animation: slideUpSpring 0.5s var(--ease-spring);
   position: relative;
   padding-top: 32px; /* plass til drag-handle */
@@ -186,16 +192,24 @@ header {
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.3);
 }
-[data-theme="dark"] .modal::before {
+[data-theme='dark'] .modal::before {
   background: rgba(255, 255, 255, 0.25);
 }
 @keyframes fadeInBg {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 @keyframes slideUpSpring {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 /* --- Suggestion-item inne i modal får også glass-touch --- */
@@ -204,8 +218,9 @@ header {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
-  transition: transform 0.15s var(--ease-smooth),
-              background 0.2s var(--ease-smooth);
+  transition:
+    transform 0.15s var(--ease-smooth),
+    background 0.2s var(--ease-smooth);
 }
 .suggestion-item:active {
   background: rgba(233, 69, 96, 0.12);
@@ -217,13 +232,23 @@ header {
   animation: viewEnter 0.35s var(--ease-smooth);
 }
 @keyframes viewEnter {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* --- Safe-area insets for iOS (gjør appen fullskjerm-vennlig) --- */
-body { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
-header { padding-top: calc(16px + env(safe-area-inset-top)); }
+body {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+header {
+  padding-top: calc(16px + env(safe-area-inset-top));
+}
 
 /* --- Consumable-item får også glass --- */
 .consumable-item {
@@ -243,7 +268,9 @@ header { padding-top: calc(16px + env(safe-area-inset-top)); }
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 }
 .input-row input:focus,
 .modal textarea:focus {
@@ -276,7 +303,7 @@ header { padding-top: calc(16px + env(safe-area-inset-top)); }
   :root {
     --glass-bg: rgba(255, 255, 255, 0.92);
   }
-  [data-theme="dark"] {
+  [data-theme='dark'] {
     --glass-bg: rgba(30, 45, 74, 0.94);
   }
 }
@@ -302,16 +329,25 @@ header h1 {
 @media (hover: hover) {
   .card:hover {
     transform: translateY(-1px);
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12),
-                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    box-shadow:
+      0 12px 36px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
 }
 
 /* --- Reduced motion respekteres --- */
 @media (prefers-reduced-motion: reduce) {
-  .modal { animation: none; }
-  .view.active { animation: none; }
-  .modal-bg { animation: none; }
-  * { transition-duration: 0.01ms !important; }
+  .modal {
+    animation: none;
+  }
+  .view.active {
+    animation: none;
+  }
+  .modal-bg {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }
 /* ===== FASE_E_END glass-upgrade ===== */

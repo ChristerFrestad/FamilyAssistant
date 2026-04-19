@@ -15,6 +15,21 @@ async function loadPantry() {
   }
 }
 
+// Reload both pantry and shopping after any pantry mutation — shopping's
+// pantry_has flags and "i pantry" chips depend on inventory qty. Safe to
+// call even when the shopping sub-view isn't mounted (loadShopping no-ops
+// against a missing container).
+async function refreshPantryAndShopping() {
+  await loadPantry();
+  if (typeof loadShopping === 'function') {
+    try {
+      await loadShopping();
+    } catch {
+      /* shopping sub-view may not be active — ignore */
+    }
+  }
+}
+
 function renderPantryInline() {
   return `
     <div class="card card-pantry-combobox">
@@ -209,7 +224,7 @@ async function confirmAddPantry() {
     if (dateEl) dateEl.value = '';
     pantryComboChosen = null;
     document.getElementById('pantryQtyRow').style.display = 'none';
-    await loadPantry();
+    await refreshPantryAndShopping();
   } catch (err) {
     showToast('Kunne ikke legge til: ' + (err.message || err), 'error');
   }
@@ -410,7 +425,7 @@ async function submitPantryEdit(productKey) {
     }
     closePantryEdit(productKey);
     showToast('Pantry oppdatert', 'success');
-    await loadPantry();
+    await refreshPantryAndShopping();
   } catch (err) {
     showToast('Kunne ikke oppdatere: ' + (err.message || err), 'error');
   }
@@ -431,7 +446,7 @@ async function removeFromPantry(productKey) {
   try {
     await api(`/api/pantry/${encodeURIComponent(productKey)}`, { method: 'DELETE' });
     showToast('Fjernet fra pantry', 'success');
-    await loadPantry();
+    await refreshPantryAndShopping();
   } catch (err) {
     showToast('Kunne ikke fjerne: ' + (err.message || err), 'error');
   }
