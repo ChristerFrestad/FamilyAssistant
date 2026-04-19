@@ -194,9 +194,13 @@ function renderRecipeItem(item) {
 
 function renderHasHomeForm(itemId, unit) {
   const unitLabel = escapeHtml(unit || 'stk');
+  // display:none by default. openHasHomeForm() toggles to display:flex on
+  // demand. Using inline style instead of the HTML `hidden` attribute because
+  // the `hidden` attribute is overridden by any `display:*` in the style
+  // attribute, which silently left this panel visible at all times.
   return `
-    <div class="has-home-form" id="has-home-${itemId}" hidden
-         style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px;background:var(--bg2);border-radius:8px">
+    <div class="has-home-form" id="has-home-${itemId}"
+         style="display:none;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px;background:var(--bg2);border-radius:8px">
       <input type="number" min="0" step="0.1" id="has-home-qty-${itemId}"
              placeholder="Antall"
              style="width:90px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font:inherit"
@@ -337,20 +341,26 @@ async function unpantryItem(itemId) {
 function openHasHomeForm(itemId) {
   const form = document.getElementById(`has-home-${itemId}`);
   if (!form) return;
-  // Close other open panels so the layout stays clean.
+  const isOpen = form.style.display === 'flex';
+  // Close all other open panels so the layout stays clean.
   document.querySelectorAll('.has-home-form').forEach((el) => {
-    if (el !== form) el.hidden = true;
+    if (el !== form) el.style.display = 'none';
   });
-  form.hidden = !form.hidden;
-  if (!form.hidden) {
+  form.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen) {
     const qtyInput = document.getElementById(`has-home-qty-${itemId}`);
-    if (qtyInput) qtyInput.focus();
+    if (qtyInput) {
+      qtyInput.value = '';
+      qtyInput.focus();
+    }
+    const dateInput = document.getElementById(`has-home-date-${itemId}`);
+    if (dateInput) dateInput.value = '';
   }
 }
 
 function cancelHasHome(itemId) {
   const form = document.getElementById(`has-home-${itemId}`);
-  if (form) form.hidden = true;
+  if (form) form.style.display = 'none';
 }
 
 async function submitHasHome(itemId) {
@@ -359,7 +369,7 @@ async function submitHasHome(itemId) {
   if (!qtyInput) return;
   const qty = Number(qtyInput.value);
   if (!Number.isFinite(qty) || qty <= 0) {
-    showToast('Skriv inn antall > 0', 'warn');
+    showToast('Skriv inn antall større enn 0', 'warn');
     qtyInput.focus();
     return;
   }
