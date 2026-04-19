@@ -29,9 +29,7 @@ function trimmedMean(samples) {
   if (!Array.isArray(samples) || samples.length === 0) return null;
   // Keep only real, finite, non-negative numbers. Strings, null, and
   // undefined are dropped outright instead of being coerced to 0/NaN.
-  const nums = samples.filter(
-    (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0
-  );
+  const nums = samples.filter((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0);
   if (nums.length === 0) return null;
   let kept = nums;
   if (nums.length >= 5) {
