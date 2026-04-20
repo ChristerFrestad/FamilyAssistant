@@ -502,6 +502,37 @@ Enkelte filer brukes av både Portainer-sti og Railway-sti, f.eks.
 
 Hvis usikker: stopp og spør.
 
+### 6.5 Policy-tester vs kode-tester
+
+Noen frosne tester er POLICY-tester – de håndhever en regel om hvordan
+repoet er strukturert, ikke hvordan koden oppfører seg. Disse kan
+oppdateres uten at det bryter frys-intensjonen, HVIS:
+
+1. Endringen reflekterer en etablert arbeidsflyts-endring (f.eks. ny
+   dokumentasjonsfil som CLAUDE.md)
+2. Endringen er minimal (legg til, ikke fjern)
+3. Endringen dokumenteres eksplisitt i PR-beskrivelsen med henvisning
+   til hvilken arbeidsflyt som drev behovet
+4. Christer eksplisitt godkjenner
+
+Eksempler på policy-tester:
+
+- `tests/phase21-repo-hygiene.test.js`
+
+Eksempler på kode-tester som forblir strikt fryst:
+
+- `tests/tenant-isolation.test.js`
+- `tests/role-enforcement.test.js`
+- `tests/auth-*.test.js`
+- `tests/phase14-sw-multitenant.test.js`
+- `tests/phase18-railway-config.test.js`
+- `tests/phase19-deploy-workflow.test.js`
+- `tests/phase20-coverage-gaps.test.js`
+- `tests/gdpr-endpoints.test.js`
+
+Kode-tester kan ALDRI oppdateres uten å behandle det som en endring i
+den frosne koden selv (krever eksplisitt godkjenning og full analyse).
+
 ---
 
 ## DEL 7: KVALITETSKRAV
