@@ -88,10 +88,33 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 ---
 
+## VENTER PÅ CHRISTER
+
+> Handlinger Claude ikke kan utføre selv. Fjernes når Christer har gjort det.
+
+- **Hente diagnostikk fra produksjons-DB (blokkerer PR #53 Beslutning 3):**
+  1. Pull ny image i Portainer (`ghcr.io/christerfrestad/familyassistant:main`
+     — inkluderer merge av #54, commit `31739fe`).
+  2. Restart containeren slik at ny route er aktiv.
+  3. Kjør fra en maskin som når RPi5:
+     ```
+     curl -H "Authorization: Bearer $AUTH_TOKEN" \
+       http://<rpi-host>:7777/api/debug/shopping-state
+     ```
+  4. Lim output inn i PR #53 eller send til Claude for analyse.
+  5. Når analysen er ferdig og fiks er merget: slett `/api/debug/*`
+     (endepunktet skal leve ≤ 7 dager — se CHANGELOG `[Unreleased]`).
+
+---
+
 ## FERDIG (siste 10)
 
 > Claude flytter hit etter merge
 
+- 2026-04-20: Midlertidig diagnostikk-endepunkt
+  `GET /api/debug/shopping-state` – PR #54 – ISO-effekt: observability
+  (midlertidig; rydd etter PR #53-fiks). Phase21-frysen fikk samtidig
+  kodifisert unntak i CLAUDE.md DEL 6.5 (policy-tester vs kode-tester).
 - <dato>: <oppgave> – PR #<nr> – ISO-effekt: <beskrivelse>
 
 ---
