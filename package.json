@@ -42,7 +42,7 @@
   },
   "optionalDependencies": {
     "sql.js": "^1.14.1",
-    "@sentry/node": "^8.0.0"
+    "@sentry/node": "^10.49.0"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "^4.2.1",
