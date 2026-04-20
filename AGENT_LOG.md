@@ -6,6 +6,73 @@
 
 ---
 
+2026-04-20 – Diagnostic endpoint cleanup (PR #57) — MERGET + PR #53 LUKKET
+
+Oppgave: Christer ga DEL A i oppryddings-planen: lukk analyse-PR #53
+med konklusjons-kommentar, fjern det midlertidige diagnostikk-
+endepunktet og alle dets spor (rute, repo-metoder, OpenAPI, test),
+og flytt CHANGELOG-oppføringen til en "added-and-removed within
+same cycle"-seksjon.
+
+Analyse: ingen ny analyse — ren slettings-PR. Builder på analysen i
+docs/analyses/2026-04-20-diagnostic-endpoint.md, som bevares som
+historisk dokumentasjon per CLAUDE.md DEL 11.
+
+- Reisen: grep-søk for alle referanser → slett i samme PR. Ingen
+  andre kallere av `diagnosticSnapshot()` eller `countAll()`
+  bekreftet via grep før fjerning.
+- Edge-cases: CRLF-artefakter i working tree håndtert ved selektiv
+  `git add` av kun relevante filer. Lokal eslint manglet (Windows,
+  kun prod-deps installert) — CI-run aksepteres som primær
+  verifikasjon siden PR-en er rene slettinger.
+- Portainer-risiko: nei. Endepunktet er diagnostikk-only og ikke
+  brukt av klient-kode.
+
+Plan: 1 commit som fjerner alt, åpen PR, la CI kjøre, merge autonomt
+per chore/-regelen.
+
+Gjort:
+
+- PR #53 lukket med kommentar: "Diagnostikk-resultater fra produksjon
+  falsifiserte alle tre hypoteser... Ingen fix-PR nødvendig."
+- Branch: chore/remove-temporary-diagnostic-endpoint
+- Commit: bfbcef2 "chore(debug): remove temporary shopping-state
+  diagnostic endpoint".
+- Filer fjernet/endret: 6 totalt.
+  - server/routes.js: fjernet /api/debug/shopping-state-rute (79 linjer)
+  - server/repositories/shopping.repo.js: fjernet diagnosticSnapshot (50)
+  - server/repositories/inventory.repo.js: fjernet countAll (7)
+  - openapi.yaml: fjernet path-entry (78)
+  - tests/debug-endpoint.test.js: slettet helt (153 linjer, 4 tester)
+  - CHANGELOG.md: [Unreleased] restrukturert til "Temporary
+    diagnostics (added and removed within this cycle)" med
+    referanse til både PR #54 og #57. Netto API-overflate: 0.
+- Tester lagt til: ingen (slettings-PR).
+- DOMAIN_MODEL.md oppdatert: nei.
+- Avvik fra plan: ingen.
+
+CI: 9/9 grønn (Test ubuntu/macos/windows/node22, Coverage gate,
+Load baseline, OSV, SBOM, Security audit).
+
+Merge: squashet som commit `65abc5a` på main, branch slettet remote.
+
+Sikkerhet: netto effekt er mindre API-overflate, færre kodestier,
+færre tester. Ingen nye risikoer introdusert.
+
+ISO 25010: observability reversert (midlertidig tillegg fjernet).
+Maintainability forbedret (mindre dødkode, mindre vedlikehold).
+
+Status: merged.
+
+Neste: DEL B fra Christers plan — starte ny undersøkelse av den
+separate frontend-bug-en der UI viser 0 varer selv om DB har 70
+shopping_list_items. Før analyse-PR opprettes: spør Christer om
+branch/commit-SHA for det parallelle arbeidet i public/index.html,
+slik at analysens baseline blir riktig og jeg ikke antar utdatert
+kode. DEL C (multi-tenant deploy) er eksplisitt ikke-aktivert enda.
+
+---
+
 2026-04-20 – Diagnostic endpoint (PR #54) — MERGET
 
 Oppgave: Fullføre PR #54 etter Christers svar på STOPP-trigger fra
