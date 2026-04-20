@@ -6,6 +6,80 @@
 
 ---
 
+2026-04-20 – Diagnostic endpoint (PR #54) — MERGET
+
+Oppgave: Fullføre PR #54 etter Christers svar på STOPP-trigger fra
+tidligere innlegg (samme dato). Christer godkjente anbefalt whitelist-
+utvidelse og la til ett eksplisitt krav: først kodifisere "policy-
+tester vs kode-tester"-skillet i CLAUDE.md DEL 6.5 slik at tilsvarende
+situasjoner er forutsigbare fremover.
+
+Analyse: ingen ny analyse (utvidelse av allerede dokumentert plan i
+docs/analyses/2026-04-20-diagnostic-endpoint.md).
+
+- Reisen: to ekstra commits på eksisterende branch, re-kjør CI, lokal
+  smoke-test, autonom merge per chore/-regelen.
+- Edge-cases: CRLF-normalisering i working tree etter git pull
+  blokkerte merge-kommandoen; løst med `git reset --hard origin/main`
+  etter at PR var merget remotely.
+- Portainer-risiko: nei.
+
+Plan: 2 commits (CLAUDE.md DEL 6.5, phase21-whitelist) → CI → smoke
+→ merge.
+
+Gjort:
+
+- Commit `docs(claude): clarify frozen-test policy for repo-hygiene
+  updates` — ny DEL 6.5 i CLAUDE.md som definerer hva en policy-test
+  er, når den kan utvides (fire kriterier), og krav til egen commit
+  + logging.
+- Commit `test(phase21): extend root and docs/ whitelists for
+  CLAUDE.md workflow` — root: +4 (AGENT_LOG.md, CLAUDE.md,
+  CONTEXT.md, REFERENCES.md). docs/: +1 (DOMAIN_MODEL.md).
+  readdirSync → `{ withFileTypes: true }` + `entry.isFile()` slik at
+  fremtidige docs/-subfoldere (f.eks. docs/analyses/) ikke bryter
+  testen.
+- CI re-run på commit `d7d3203`: 9/9 grønn (Test ubuntu/macos/
+  windows/node22, Coverage gate, Load baseline, OSV, SBOM, Security
+  audit).
+- Lokal smoke-test på port 17777 med AUTH_TOKEN=smoke-token:
+  /health → 200. /api/debug/shopping-state uten header → 401.
+  Med feil token → 401. Med riktig token → 200, envelope
+  komplett (18 migrasjoner, nullverdier på fersk DB), Cache-Control
+  til stede med valid no-cache-semantikk.
+- Merge: `gh pr merge 54 --squash --delete-branch` (via GitHub UI
+  da lokal kommando ble blokkert av CRLF-artefakter fra autocrlf).
+  Squashet som commit `31739fe`, branch slettet remote.
+- Filer endret (inkl. tidligere commits i samme PR): CLAUDE.md,
+  tests/phase21-repo-hygiene.test.js, server/routes.js,
+  server/repositories/shopping.repo.js,
+  server/repositories/inventory.repo.js, openapi.yaml,
+  CHANGELOG.md, tests/debug-endpoint.test.js,
+  docs/analyses/2026-04-20-diagnostic-endpoint.md.
+- Tester lagt til: 4 (fra tidligere commits i samme PR).
+- DOMAIN_MODEL.md oppdatert: nei.
+- Avvik fra plan: ingen utover CRLF-workaround nevnt over.
+
+Andre frosne policy-tester: ingen andre policy-tester identifisert som
+vil feile av samme årsak. De øvrige frosne testene (tenant-isolation,
+role-enforcement, auth-*, phase14/18/19/20, gdpr-endpoints) er
+atferds-tester, ikke policy-tester, og gikk grønt i denne runden.
+
+Sikkerhet: uendret fra tidligere innlegg. PII-testen verifiserte at
+endepunktet ikke lekker ingredient_name/product_key/notes.
+
+ISO 25010: observability midlertidig forbedret. Fjernes når PR #53
+lander fix eller innen 7 dager — hvilken som kommer først.
+
+Status: merged.
+
+Neste: venter på at Christer pull-er ny image i Portainer og sender
+diagnostikk-output slik at jeg kan velge riktig fiks i PR #53
+(H1 soft-delete, H2 backfill-migrasjon 019, eller H3 frontend-
+filter). Instruks lagt i CONTEXT.md § "VENTER PÅ CHRISTER".
+
+---
+
 2026-04-20 – Diagnostic endpoint (PR #54) — STOPP før merge
 
 Oppgave: Legg til midlertidig GET /api/debug/shopping-state slik at
