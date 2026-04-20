@@ -1890,50 +1890,53 @@ function registerRoutes(router, { repos, serverState }) {
 
     const meta = { generated_at: generatedAt, db_path: DB_PATH };
 
-    let migrations = { applied_total: 0, latest_10: [], error: null };
-    try {
-      const rows = repos._db
-        .prepare(
-          'SELECT version, applied_at FROM schema_migrations ORDER BY applied_at DESC, version DESC LIMIT 10'
-        )
-        .all();
-      const totalRow = repos._db.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get();
-      migrations = {
-        applied_total: totalRow?.c ?? 0,
-        latest_10: rows.map((r) => ({
-          version: String(r.version),
-          applied_at: r.applied_at,
-        })),
-      };
-    } catch (err) {
-      migrations = { applied_total: 0, latest_10: [], error: err.message };
-    }
+    const migrations = (() => {
+      try {
+        const rows = repos._db
+          .prepare(
+            'SELECT version, applied_at FROM schema_migrations ORDER BY applied_at DESC, version DESC LIMIT 10'
+          )
+          .all();
+        const totalRow = repos._db.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get();
+        return {
+          applied_total: totalRow?.c ?? 0,
+          latest_10: rows.map((r) => ({
+            version: String(r.version),
+            applied_at: r.applied_at,
+          })),
+        };
+      } catch (err) {
+        return { applied_total: 0, latest_10: [], error: err.message };
+      }
+    })();
 
-    let shoppingSnapshot = {
-      total_rows: 0,
-      bought_rows: 0,
-      bought_but_not_in_pantry: 0,
-      sample_bought: [],
-      error: null,
-    };
-    try {
-      const snap = repos.shoppingLists.diagnosticSnapshot(5);
-      shoppingSnapshot = {
-        total_rows: snap.totalRows,
-        bought_rows: snap.boughtRows,
-        bought_but_not_in_pantry: snap.boughtButNotInPantry,
-        sample_bought: snap.sampleBought,
-      };
-    } catch (err) {
-      shoppingSnapshot.error = err.message;
-    }
+    const shoppingSnapshot = (() => {
+      try {
+        const snap = repos.shoppingLists.diagnosticSnapshot(5);
+        return {
+          total_rows: snap.totalRows,
+          bought_rows: snap.boughtRows,
+          bought_but_not_in_pantry: snap.boughtButNotInPantry,
+          sample_bought: snap.sampleBought,
+        };
+      } catch (err) {
+        return {
+          total_rows: 0,
+          bought_rows: 0,
+          bought_but_not_in_pantry: 0,
+          sample_bought: [],
+          error: err.message,
+        };
+      }
+    })();
 
-    let pantry = { total_rows: 0, error: null };
-    try {
-      pantry = { total_rows: repos.inventory.countAll() };
-    } catch (err) {
-      pantry = { total_rows: 0, error: err.message };
-    }
+    const pantry = (() => {
+      try {
+        return { total_rows: repos.inventory.countAll() };
+      } catch (err) {
+        return { total_rows: 0, error: err.message };
+      }
+    })();
 
     ctx.json({
       meta,
