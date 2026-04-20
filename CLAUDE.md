@@ -535,14 +535,16 @@ ikke inn med mindre Christer ber om det.
 
 ### 6.1 Hva som er frosset
 
-Følgende kode er **frosset inntil videre** og krever eksplisitt
-godkjenning for endring:
+**Railway-deploy-stien er fortsatt fullt frosset.** Multi-tenant
+auth-koden (`server/auth/`) er delvis tinet fra og med uke 2
+(2026-04-20) per Issue #62 beslutning B1 — se 6.1b under.
 
-- `server/auth/` – hele mappen (12 filer)
-- `server/observability/sentry.js`
+**Fullt frosset (endring krever eksplisitt godkjenning):**
+
 - `railway.json`
 - `.github/workflows/deploy.yml` (Railway-deploy)
 - DEPLOY.md §15 (Railway-seksjonen)
+- `server/observability/sentry.js` *(fortsatt følsom for oppstart)*
 - Disse testene skal fortsette å passere uten endring:
   - `tests/tenant-isolation.test.js`
   - `tests/role-enforcement.test.js`
@@ -555,9 +557,33 @@ godkjenning for endring:
   - `tests/phase20-coverage-gaps.test.js`
   - `tests/phase21-repo-hygiene.test.js`
 
-### 6.2 Hva som er tillatt uten godkjenning
+### 6.1b Delvis tinet: `server/auth/` (soft-thaw, 2026-04-20)
 
-- Dokumentasjons-forbedringer i kommentarer i frosne filer
+Multi-tenant er aktivert på RPi-stien fra og med uke 2. For at
+aktiveringen skal kunne iterere må `server/auth/` (12 filer) kunne
+endres — men ikke uten kontroll.
+
+**Ny regel:** endringer i `server/auth/` krever **DEL 5.3-flyt**
+(branch `feat/` eller `fix/`, Christer-godkjenning per PR). Dette
+er ikke en full opptining, men en reversibel oppmyking som
+opprettholder sikkerhetsnettet.
+
+- Claude **kan** lese, analysere og skrive forslag til endringer
+  i `server/auth/` som en normal feat/fix-PR.
+- Claude **kan ikke** merge slike PR-er autonomt — selv om CI er
+  grønn. Christer må godkjenne.
+- Tester listet i 6.1 skal fortsatt passere uten endring. Hvis en
+  auth-kode-endring krever test-endringer (som IKKE er policy-
+  tester), gjelder full DEL 3 Steg 2-analyse som normalt.
+- Reversering: endre 6.1b tilbake til "fryst" i én chore/-PR.
+  Ingen andre filer må røres for å reversere.
+
+Overgangen til soft-thaw er dokumentert i
+`docs/analyses/2026-04-20-multi-tenant-activation.md`.
+
+### 6.2 Hva som er tillatt uten godkjenning (også på 6.1b-kode)
+
+- Dokumentasjons-forbedringer i kommentarer i frosne/tinede filer
 - Lint- og format-fikser
 - Sikkerhetsoppgraderinger som er **nødvendige pga CVE** eller
   **åpenbart strengere** (må dokumenteres i PR hvorfor det er sikkerhets-
@@ -565,10 +591,12 @@ godkjenning for endring:
 
 ### 6.3 Hva som IKKE er tillatt
 
-- Endring i oppførsel eller API for multi-tenant-kode
-- Endring i datamodell for auth/families/sessions
+- Endring i oppførsel eller API for Railway-spesifikk multi-tenant-
+  kode (6.1-rammeverk)
+- Endring i datamodell for auth/families/sessions uten full DEL 3-
+  analyse
 - Nye features i Railway-stien
-- Refactoring "mens man er der uansett"
+- Refactoring "mens man er der uansett" i 6.1- eller 6.1b-filer
 - Sletting av frosne filer eller tester
 
 ### 6.4 Hvis delt kode må endres
