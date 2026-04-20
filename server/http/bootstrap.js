@@ -25,6 +25,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { errors } = require('./errors');
+const { generateSessionSecret } = require('../auth/bootstrap-session-secret');
 
 const ALLOWED_LOG_LEVELS = new Set(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
 const ALLOWED_LLM_BACKENDS = new Set(['ollama', 'llamacpp']);
@@ -96,15 +97,23 @@ function handleComplete(ctx, config, exitFn) {
       ? body.logLevel
       : 'info';
 
+  // Multi-tenant auth (uke 2 B1): persist SESSION_SECRET alongside
+  // AUTH_TOKEN so new installs have working session auth from boot one.
+  // Upgrade installs that predate this get the secret self-healed in
+  // config.js (see auth/bootstrap-session-secret.js).
+  const sessionSecret = generateSessionSecret();
+
   const payload = {
     completedAt: new Date().toISOString(),
     authToken,
+    sessionSecret,
+    sessionSecretGeneratedAt: new Date().toISOString(),
     allowedOrigins,
     llmBackend,
     ollamaHost,
     logLevel,
     generatedBy: 'setup-wizard',
-    version: 1,
+    version: 2,
   };
 
   const targetPath = resolveBootstrapPath(config);

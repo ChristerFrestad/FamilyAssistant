@@ -165,6 +165,36 @@ function loadConfig() {
     if (bv.llmBackend && !process.env.LLM_BACKEND) process.env.LLM_BACKEND = bv.llmBackend;
     if (bv.ollamaHost && !process.env.OLLAMA_HOST) process.env.OLLAMA_HOST = bv.ollamaHost;
     if (bv.logLevel && !process.env.LOG_LEVEL) process.env.LOG_LEVEL = bv.logLevel;
+    // Multi-tenant auth (uke 2 B1): promote persisted sessionSecret (from
+    // wizard v2+ or from the self-healer below).
+    if (bv.sessionSecret && !process.env.SESSION_SECRET) {
+      process.env.SESSION_SECRET = bv.sessionSecret;
+    }
+
+    // Multi-tenant auth bootstrap (uke 2 B1): ensure SESSION_SECRET exists
+    // in bootstrap.json. Fresh installs via the setup-wizard write it
+    // during handleComplete. Upgrade installs that predate multi-tenant
+    // activation get it self-healed here — we generate one, merge it
+    // into the existing file, and expose it on env before zod runs.
+    // Skipped in NODE_ENV=test to keep fixtures deterministic.
+    if (process.env.NODE_ENV !== 'test') {
+      try {
+        const { ensureSessionSecretInBootstrapFile } = require('./auth/bootstrap-session-secret');
+        const result = ensureSessionSecretInBootstrapFile(bootstrap.path);
+        if (result.secret && !process.env.SESSION_SECRET) {
+          process.env.SESSION_SECRET = result.secret;
+        }
+      } catch (err) {
+        // Self-healing is best-effort. If we cannot write the file, log
+        // and continue — the production-only validation below still
+        // enforces that SESSION_SECRET is set (via env) when Google
+        // OAuth is configured.
+        console.warn(
+          `⚠️  SESSION_SECRET self-heal failed (${err.message}). ` +
+            `Set SESSION_SECRET in env or fix file permissions on bootstrap.json.`
+        );
+      }
+    }
   }
 
   const parsed = envSchema.safeParse(process.env);
