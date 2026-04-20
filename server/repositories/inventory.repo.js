@@ -165,13 +165,6 @@ function createInventoryRepos(db) {
       );
       return { prev: existing, next: inventory.getByKey(productKey) };
     },
-
-    // Row count used by the temporary /api/debug/shopping-state endpoint.
-    // Family-scoped via getFamilyId() like every other inventory read.
-    countAll() {
-      const familyId = getFamilyId();
-      return db.prepare('SELECT COUNT(*) AS c FROM inventory WHERE family_id = ?').get(familyId).c;
-    },
   };
 
   const inventoryLog = {

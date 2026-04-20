@@ -413,56 +413,6 @@ function createShoppingRepos(db, tryParseJson) {
         .get(familyId).c;
       return { totalLists, activeLists, totalItems, boughtItems };
     },
-
-    // Structural-only snapshot for the temporary /api/debug/shopping-state
-    // endpoint. Deliberately returns numbers, timestamps, and booleans only
-    // — no ingredient names, no product keys, no free-text notes. See
-    // docs/analyses/2026-04-20-diagnostic-endpoint.md for the PII rationale.
-    diagnosticSnapshot(sampleLimit = 5) {
-      const familyId = getFamilyId();
-      const totalRows = db
-        .prepare('SELECT COUNT(*) AS c FROM shopping_list_items WHERE family_id = ?')
-        .get(familyId).c;
-      const boughtRows = db
-        .prepare(
-          'SELECT COUNT(*) AS c FROM shopping_list_items WHERE family_id = ? AND bought_at IS NOT NULL'
-        )
-        .get(familyId).c;
-      const boughtButNotInPantry = db
-        .prepare(
-          `SELECT COUNT(*) AS c FROM shopping_list_items
-            WHERE family_id = ? AND bought_at IS NOT NULL AND pantry_has = 0`
-        )
-        .get(familyId).c;
-      // created_at is not stored per-row; we use the owning shopping_lists.generated_at
-      // as the effective creation time for each item. has_recipe_link is true when
-      // the row was sourced from a recipe (source_type='meal_ingredient' with a ref).
-      const sampleBought = db
-        .prepare(
-          `SELECT si.id AS id,
-                  si.bought_at AS bought_at,
-                  si.bought_qty AS bought_qty,
-                  sl.generated_at AS created_at,
-                  CASE
-                    WHEN si.source_type = 'meal_ingredient' AND si.source_ref IS NOT NULL
-                    THEN 1 ELSE 0
-                  END AS has_recipe_link
-             FROM shopping_list_items si
-             JOIN shopping_lists sl ON sl.id = si.list_id
-            WHERE si.family_id = ? AND si.bought_at IS NOT NULL
-            ORDER BY si.bought_at DESC
-            LIMIT ?`
-        )
-        .all(familyId, Math.max(1, Math.min(sampleLimit, 50)))
-        .map((row) => ({
-          id: Number(row.id),
-          bought_at: row.bought_at,
-          bought_qty: row.bought_qty,
-          created_at: row.created_at,
-          has_recipe_link: !!row.has_recipe_link,
-        }));
-      return { totalRows, boughtRows, boughtButNotInPantry, sampleBought };
-    },
   };
 
   return { shoppingLists, shoppingExtras };
