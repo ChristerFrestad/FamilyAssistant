@@ -4,6 +4,15 @@ Alle endringer i dette prosjektet dokumenteres her.
 Formatet følger [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Temporary `GET /api/debug/shopping-state` endpoint for shopping-bought-state
+  diagnostic (PR #53 investigation). Returns counts and PII-free structural
+  samples only. Scheduled for removal at most 7 days after merge, or
+  immediately when the PR #53 fix lands — whichever comes first.
+
 ## [1.3.0] — 2026-04-11 (ISO/IEC 25010 forbedringsplan — komplett)
 
 **10-ukers kvalitetsløft fra v1.2.0 → v1.3.0.**
