@@ -31,27 +31,41 @@
 > Christer oppdaterer denne seksjonen. Når flere oppgaver står her:
 > øverste har prioritet. Claude flytter ned til "Ferdig" etter merge.
 
-### Oppgave: <tittel>
+### Oppgave: Undersøke "tom handlekurv"-bug i frontend (DEL B)
 
-**Beskrivelse (Christer skriver fritt):**
+**Beskrivelse:** `GET /api/debug/shopping-state` (kjørt 2026-04-20,
+før endepunktet ble fjernet i PR #57) bekreftet at DB-en har 70
+`shopping_list_items`-rader med `bought_rows=0`, men UI viser ingen
+varer i handlekurv-fanen. Dette er en SEPARAT bug fra test-0.2
+"defaults to bought"-saken som allerede er fikset av PR #44 + #46.
 
-<Idé, krav, kontekst. Claude utleder detaljer i ANALYSE-dokumentet.>
+Christer har flagget at det henger sammen med parallelt arbeid i
+`public/index.html`. Før analysen starter trenger Claude å vite
+hvilken branch/commit det parallelle arbeidet ligger på — så
+baseline for analysen blir riktig. Se `## VENTER PÅ CHRISTER` over.
 
 **Akseptansekriterier (hva "ferdig" betyr):**
 
-- [ ] <konkret observerbar oppførsel>
-- [ ] <konkret observerbar oppførsel>
-- [ ] <konkret observerbar oppførsel>
+- [ ] Root-årsak identifisert (frontend-rendering, family-scope,
+      uke-mismatch, service-worker-cache, eller annet)
+- [ ] Draft analyse-PR opprettet i `docs/analyses/<dato>-<slug>.md`
+      med reisen, minst 8 edge-cases, Portainer-oppstartsrisiko-sjekk,
+      ISO 25010-påvirkning, beslutninger med anbefaling
+- [ ] Christer godkjenner analysen før fix-koding starter
+- [ ] Fix-PR merget og verifisert mot UI + `GET /api/shopping/*`
 
 **Utenfor scope:**
 
-- <ting Claude IKKE skal gjøre selv om det føles relatert>
+- Ikke rør PR #53 (lukket) eller PR #54/#57 (merget)
+- Ikke start multi-tenant-deploy (venter på Christers eksplisitte
+  aktivering i DEL C)
 
-**Prioritet:** <må-ha | bør-ha | nice-to-have>
+**Prioritet:** må-ha (blokkerer pilot-bruk av appen)
 
-**Kompleksitet (Christers magefølelse):** <liten | middels | stor>
+**Kompleksitet (Christers magefølelse):** middels
 
-**Portainer-risiko (Christers magefølelse):** <lav | middels | høy>
+**Portainer-risiko (Christers magefølelse):** lav (frontend-bug,
+ingen DB-migrasjon forventet)
 
 ---
 
@@ -92,18 +106,9 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Handlinger Claude ikke kan utføre selv. Fjernes når Christer har gjort det.
 
-- **Hente diagnostikk fra produksjons-DB (blokkerer PR #53 Beslutning 3):**
-  1. Pull ny image i Portainer (`ghcr.io/christerfrestad/familyassistant:main`
-     — inkluderer merge av #54, commit `31739fe`).
-  2. Restart containeren slik at ny route er aktiv.
-  3. Kjør fra en maskin som når RPi5:
-     ```
-     curl -H "Authorization: Bearer $AUTH_TOKEN" \
-       http://<rpi-host>:7777/api/debug/shopping-state
-     ```
-  4. Lim output inn i PR #53 eller send til Claude for analyse.
-  5. Når analysen er ferdig og fiks er merget: slett `/api/debug/*`
-     (endepunktet skal leve ≤ 7 dager — se CHANGELOG `[Unreleased]`).
+- **Gi Claude branch-/commit-info for frontend-arbeidet i `index.html`**
+  slik at DEL B (analyse av tom handlekurv-bug) starter fra riktig
+  baseline uten antakelser. Se `## AKTIV OPPGAVE` under.
 
 ---
 
@@ -111,10 +116,16 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Claude flytter hit etter merge
 
+- 2026-04-20: Fjernet midlertidig diagnostikk-endepunkt
+  `GET /api/debug/shopping-state` – PR #57 – ISO-effekt: ingen
+  (rent oppryddings-PR; koden ble aldri taggt i en release).
+  Analyse-PR #53 lukket samme dag med H1/H2/H3 falsifisert av
+  produksjonsdata (70 rader, 0 bought_rows, alle migrasjoner
+  kjørt inkl. 018). Originalbug fikset av PR #44 + #46.
 - 2026-04-20: Midlertidig diagnostikk-endepunkt
   `GET /api/debug/shopping-state` – PR #54 – ISO-effekt: observability
-  (midlertidig; rydd etter PR #53-fiks). Phase21-frysen fikk samtidig
-  kodifisert unntak i CLAUDE.md DEL 6.5 (policy-tester vs kode-tester).
+  (midlertidig). Phase21-frysen fikk samtidig kodifisert unntak i
+  CLAUDE.md DEL 6.5 (policy-tester vs kode-tester).
 - <dato>: <oppgave> – PR #<nr> – ISO-effekt: <beskrivelse>
 
 ---
