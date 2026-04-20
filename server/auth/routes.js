@@ -27,12 +27,30 @@ const OAUTH_STATE_TTL_SECONDS = 600; // 10 minutes
 // Signed state-cookie helpers
 // ============================================================
 
+// Multi-tenant activation (uke 2 B1, C3): the previous 'dev-secret'
+// fallback silently allowed OAuth state + magic-link tokens to be
+// signed with a publicly known string if SESSION_SECRET happened to
+// be missing. C1 eliminated the "missing" case for bootstrapped
+// deploys (wizard + self-heal), and config-validation refuses to
+// start in production when an auth feature is enabled without the
+// secret. This helper closes the last loophole: if code somehow
+// reaches the signer without a real secret (e.g. in an isolated
+// test that spins up the module), throw loudly instead of signing
+// with a guessable value.
+function requireSessionSecret() {
+  if (!config.SESSION_SECRET || config.SESSION_SECRET.length < 32) {
+    throw new Error(
+      'SESSION_SECRET is not configured. Refusing to sign OAuth state / ' +
+        'magic-link tokens with a placeholder. Set SESSION_SECRET in env ' +
+        '(openssl rand -hex 32) or let the bootstrap wizard generate one.'
+    );
+  }
+  return config.SESSION_SECRET;
+}
+
 function signPayload(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const mac = crypto
-    .createHmac('sha256', config.SESSION_SECRET || 'dev-secret')
-    .update(body)
-    .digest('base64url');
+  const mac = crypto.createHmac('sha256', requireSessionSecret()).update(body).digest('base64url');
   return `${body}.${mac}`;
 }
 
@@ -40,7 +58,7 @@ function verifyPayload(signed) {
   if (typeof signed !== 'string' || !signed.includes('.')) return null;
   const [body, mac] = signed.split('.');
   const expected = crypto
-    .createHmac('sha256', config.SESSION_SECRET || 'dev-secret')
+    .createHmac('sha256', requireSessionSecret())
     .update(body)
     .digest('base64url');
   if (mac.length !== expected.length) return null;

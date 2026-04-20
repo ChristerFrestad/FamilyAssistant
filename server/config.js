@@ -294,16 +294,36 @@ function loadConfig() {
     console.error('⚠️  GOOGLE_CLIENT_ID requires APP_URL for redirect URI construction.');
     process.exit(1);
   }
-  // In production with any multi-tenant feature enabled, require proper secrets.
-  if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID) {
+  // In production with any HMAC-signing auth feature enabled, require
+  // SESSION_SECRET. Multi-tenant activation (uke 2 B1, C3): extend the
+  // previous Google-OAuth-only gate to also catch magic-link flows, which
+  // sign their state via SESSION_SECRET in server/auth/routes.js. The
+  // previous gate silently let magic-link deploys run on whatever
+  // SESSION_SECRET happened to be populated (or empty).
+  //
+  // PILOT_BYPASS is deliberately EXCLUDED: its cookie is a raw session
+  // id (no HMAC), so SESSION_SECRET is never consulted on that path.
+  // PILOT_BYPASS has its own guardrails via PILOT_BYPASS_PRODUCTION_ACK.
+  const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
+  if (cfg.NODE_ENV === 'production' && hmacSigningEnabled) {
     if (!cfg.SESSION_SECRET) {
-      console.error('⚠️  SESSION_SECRET is required in production when Google OAuth is enabled.');
+      console.error(
+        '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +
+          'magic-link email, or MAGIC_LINK_CONSOLE is enabled.'
+      );
+      console.error(
+        '   Either set SESSION_SECRET in env, or let the bootstrap wizard ' +
+          '(/setup.html) generate one. Existing installs are self-healed on ' +
+          'boot — see server/auth/bootstrap-session-secret.js.'
+      );
       process.exit(1);
     }
-    if (!cfg.ENCRYPTION_KEY) {
-      console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
-      process.exit(1);
-    }
+  }
+  // ENCRYPTION_KEY remains Google-OAuth-specific (used by
+  // server/auth/crypto.js to AES-256-GCM-encrypt stored LLM keys).
+  if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID && !cfg.ENCRYPTION_KEY) {
+    console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
+    process.exit(1);
   }
 
   // Pilot bypass safety belt: PILOT_BYPASS=true disables all auth via
