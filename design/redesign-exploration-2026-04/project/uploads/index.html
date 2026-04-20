@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f5f6fa" id="metaThemeColor">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>Familieassistenten</title>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/glass.css">
+  <link rel="stylesheet" href="/css/components-extended.css">
+  <link rel="stylesheet" href="/css/settings.css">
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <h1 id="appTitle" onclick="onAppTitleClick()">🏠 Familieassistenten</h1>
+    <div class="header-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Bytt tema">☀️</button>
+      <button class="settings-btn" onclick="toggleSettings()" id="settingsBtn" title="Innstillinger">⚙</button>
+    </div>
+  </div>
+  <div class="subtitle" id="headerSubtitle">Laster...</div>
+</header>
+
+<!-- ========== I DAG ========== -->
+<div class="content view active" id="viewToday">
+  <div id="todayContent" aria-busy="true">
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== UKESMENY ========== -->
+<div class="content view" id="viewMeals">
+  <div id="mealsContent" aria-busy="true">
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+  </div>
+</div>
+
+<!-- ========== HANDLETUR ========== -->
+<div class="content view" id="viewShopping">
+  <div id="shoppingContent" aria-busy="true">
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+      <div class="skeleton skeleton-line long"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== HUSARBEID ========== -->
+<div class="content view" id="viewChores">
+  <div id="choresContent" aria-busy="true">
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line short"></div><div class="skeleton skeleton-line long"></div></div>
+  </div>
+</div>
+
+<!-- ========== CHAT / STEMME ========== -->
+<div class="content view" id="viewChat">
+  <div class="chat-container">
+    <div class="chat-messages" id="chatMessages">
+      <div class="card" style="background:rgba(78,204,163,0.08);border:1px solid rgba(78,204,163,0.2)">
+        <div style="font-size:0.9rem">Hei! 👋 Jeg er Familieassistenten. Spør meg om middagsforslag, oppskrifter, handleliste eller hva som helst annet. Alt du skriver eller sier her lagres i kunnskapsbasen og brukes til å tilpasse anbefalinger over tid.</div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-top:4px" id="llmStatus">Sjekker LLM-status...</div>
+      </div>
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <div class="chat-input-row">
+      <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Trykk for å snakke">🎤</button>
+      <input type="text" id="chatInput" aria-label="Chat-melding" placeholder="Skriv eller snakk..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="send-btn" onclick="sendChat()" title="Send melding">➤</button>
+    </div>
+    <div id="voiceStatus" style="text-align:center;font-size:0.7rem;color:var(--text2);margin-top:4px;display:none"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" style="display:none" onclick="closeModal(event)">
+  <div class="modal" id="modalContent" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- ===== FASE_F_BEGIN settings-view ===== -->
+<div class="content view settings-view" id="viewSettings">
+  <div class="settings-view-header">
+    <h2>Kontrollrommet</h2>
+    <button class="settings-close" onclick="exitSettings()" title="Lukk">✕</button>
+  </div>
+  <div class="settings-grid">
+
+    <!-- Integrasjoner: Kassal -->
+    <section class="etched-panel" id="settingsIntegrasjoner">
+      <div class="panel-title">Integrasjoner</div>
+      <div class="panel-subtitle">Eksterne tjenester og API-nøkler</div>
+      <div id="settingsIntegrasjonerBody">
+        <div class="panel-row-label" style="opacity:0.6">Laster…</div>
+      </div>
+    </section>
+
+    <!-- LLM-motor -->
+    <section class="etched-panel" id="settingsLlm">
+      <div class="panel-title">LLM-motor</div>
+      <div class="panel-subtitle">Velg språkmodell. Ingen forhåndsvalg.</div>
+      <div id="settingsLlmBody">
+        <div class="panel-row-label" style="opacity:0.6">Laster…</div>
+      </div>
+    </section>
+
+    <!-- Oppskriftskilder -->
+    <section class="etched-panel span-2" id="settingsKilder">
+      <div class="panel-title">Oppskriftskilder</div>
+      <div class="panel-subtitle">Dine egne kilder + direkte opplasting</div>
+      <div id="settingsKilderBody">
+        <div class="panel-row-label" style="opacity:0.6">Laster…</div>
+      </div>
+    </section>
+
+    <!-- Familieprofil -->
+    <section class="etched-panel" id="settingsProfil">
+      <div class="panel-title">Familieprofil</div>
+      <div class="panel-subtitle">Medlemmer, allergier, preferanser</div>
+      <div id="settingsProfilBody">
+        <div class="panel-row-label" style="opacity:0.6">Laster…</div>
+      </div>
+    </section>
+
+    <!-- Om -->
+    <section class="etched-panel" id="settingsOm">
+      <div class="panel-title">Om</div>
+      <div class="panel-subtitle">Versjon, database, helse</div>
+      <div id="settingsOmBody">
+        <div class="panel-row-label" style="opacity:0.6">Laster…</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+<!-- ===== FASE_F_END settings-view ===== -->
+
+
+<!-- ===== FASE_E_BEGIN fab ===== -->
+<!-- ============================================================================
+     FASE E — HTML-tillegg til public/index.html
+     Ett enkelt element: FAB for oppskrifts-import.
+     Lim inn rett før TABS-seksjonen (ca. linje 418).
+     ============================================================================ -->
+
+<!-- Floating action button — kun synlig i Ukesmeny-fanen -->
+<button class="fab" id="recipeImportFab" onclick="openRecipeImportModal()" title="Importer oppskrift" aria-label="Importer oppskrift">
+  📖
+</button>
+<!-- ===== FASE_E_END fab ===== -->
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" data-view="viewToday" onclick="switchTab(this)">
+    <span class="tab-icon">📅</span>I dag
+  </button>
+  <button class="tab" data-view="viewMeals" onclick="switchTab(this)">
+    <span class="tab-icon">🍽️</span>Ukesmeny
+  </button>
+  <button class="tab" data-view="viewShopping" onclick="switchTab(this)">
+    <span class="tab-icon">🛒</span>Handletur
+  </button>
+  <button class="tab" data-view="viewChores" onclick="switchTab(this)">
+    <span class="tab-icon">🧹</span>Husarbeid
+  </button>
+  <button class="tab" data-view="viewChat" onclick="switchTab(this)">
+    <span class="tab-icon">💬</span>Chat
+  </button>
+</div>
+
+<!-- M5.1: Toast-container + M5.2: Offline-banner -->
+<div id="offlineBanner" class="offline-banner" aria-live="polite" hidden>
+  📴 Offline — viser siste kjente data
+</div>
+<div id="toastContainer" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<script src="/js/core.js"></script>
+<script src="/js/tabs.js"></script>
+<script src="/js/today.js"></script>
+<script src="/js/meals.js"></script>
+<script src="/js/shopping.js"></script>
+<script src="/js/pantry.js"></script>
+<script src="/js/recipe-import.js"></script>
+<script src="/js/chores.js"></script>
+<script src="/js/chat.js"></script>
+<script src="/js/voice.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/settings.js"></script>
+<script src="/js/onboarding.js"></script>
+<script src="/js/init.js"></script>
+</body>
+</html>
