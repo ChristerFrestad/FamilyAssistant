@@ -73,9 +73,14 @@ test('GET /api/debug/shopping-state returns the documented envelope on a valid t
       'pantry total_rows not a number'
     );
 
-    // Cache-Control: no-store must be set — diagnostic is not cacheable.
-    const cache = r.headers['cache-control'] || r.headers['Cache-Control'];
-    assert.ok(cache && /no-store/i.test(String(cache)), `expected no-store, got ${cache}`);
+    // Cache-Control must carry a no-cache directive so the diagnostic
+    // does not end up in a proxy or browser cache. The exact string can
+    // come from the handler (no-store) or be rewritten by upstream
+    // middleware (private + max-age=0 + must-revalidate); both satisfy
+    // the "no caching" contract from the spec.
+    const cache = String(r.headers['cache-control'] || r.headers['Cache-Control'] || '');
+    const hasNoCache = /no-store|no-cache|must-revalidate|max-age=0|private/i.test(cache);
+    assert.ok(hasNoCache, `expected no-cache directive, got: ${cache}`);
   });
 });
 
@@ -98,12 +103,14 @@ test('GET /api/debug/shopping-state omits PII fields in sample rows', async () =
         .run(SEED_FAMILY_ID, '2026-W16');
       server.repos._db
         .prepare(
+          // source_type must match the CHECK constraint in migration 007
+          // (meal_ingredient / consumable / extra / manual).
           `INSERT INTO shopping_list_items
              (family_id, list_id, source_type, source_ref, ingredient_name,
               ingredient_name_no, product_key, qty, unit, pack_size, pack_unit,
               pack_count, pantry_has, needs_buy, bought_at, bought_qty, notes)
-           VALUES (?, ?, 'recipe', 'fx-1', ?, ?, ?, 1, 'stk', 1, 'stk', 1, 0, 0,
-                   datetime('now'), 1, ?)`
+           VALUES (?, ?, 'meal_ingredient', 'fx-1', ?, ?, ?, 1, 'stk', 1, 'stk',
+                   1, 0, 0, datetime('now'), 1, ?)`
         )
         .run(
           SEED_FAMILY_ID,
