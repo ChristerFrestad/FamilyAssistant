@@ -1,0 +1,288 @@
+# Baseline 2026-W17 — start av 7-ukers backend-gap-arbeid
+
+**Dato:** 2026-04-20 (mandag, ISO-uke 17)
+**Commit-baseline:** `d7a5c38` (main, post-merge av PR #54/#55/#57/#58)
+**Siste tag:** `v1.3.0` (commit `39b0645` — 2026-04-11)
+**Formål:** Dokumentere eksakt utgangspunkt før intensivt uke-1-til-7-arbeid
+slik at fremtidige uke-rapporter kan måle fremgang mot samme nullpunkt.
+
+---
+
+## 1. Test-status
+
+Kjørt: `npm test` og `npm run test:coverage:gate`, 2026-04-20.
+
+| Metrikk | Verdi |
+|---|---|
+| Antall tester totalt | **1129** |
+| Antall suites | 205 |
+| Antall test-filer | 67 |
+| Total linjer test-kode | 14 682 |
+| Pass / fail / skip / todo / cancelled | 1129 / 0 / 0 / 0 / 0 |
+| Samlet test-kjøretid | **8.94 s** |
+| Coverage · lines | **82.02 %** |
+| Coverage · branches | **72.72 %** |
+| Coverage · functions | **79.70 %** |
+| Coverage-gate-terskler | lines ≥ 80, branches ≥ 68, functions ≥ 72 — **OK** |
+
+Ingen tester merket som `skip` eller `todo`. Ingen lange kjørere
+identifisert (samlet tid 8.94 s er godt under 5 s per suite-snitt).
+
+Laveste dekning pr fil-modul (fra coverage-rapporten):
+
+- `server/stt.js` — 26.69 % lines (speech-to-text, delvis stubbet i tester)
+- `server/state-snapshot.js` — 64.95 % lines
+- `server/services/meal-planning.service.js` — 67.20 % lines
+- `server/services/receipt.service.js` — 62.97 % lines
+- `server/routes.js` — 69.80 % lines (stor fil med mange grenseruter)
+
+Kandidater for uke 2+-fokus hvis coverage-gapet skal tettes, men ikke
+prioritert akkurat nå.
+
+---
+
+## 2. ISO 25010-score (fra CHANGELOG v1.3.0)
+
+Samlet gjennomsnitt: **~8.55 / 10** (opp fra 7.33 før 10-ukers planen).
+
+| Karakteristikk | v1.3.0-score | Kommentar fra CHANGELOG |
+|---|---|---|
+| Funksjonell egnethet | 8.7 | SAF-2 la til allergi-post-filter |
+| Reliability | 8.5 | Chaos-testing (uke 6) |
+| Usability | 8.4 | UX + a11y (uke 4) |
+| Performance efficiency | 8.3 | SLO-oppsett (uke 5) |
+| Security | 8.7 | Supply chain + audit-log |
+| Compatibility | 8.2 | Portabilitets-uke (uke 7) |
+| Maintainability | 8.9 | Frontend-modularisering (uke 3) |
+| Portability | 8.4 | Cross-platform (Linux/macOS/Windows) |
+| Safety | 8.0 | Allergi-garantier + risk-register |
+
+Detaljert uke-for-uke oppsummering: `CHANGELOG.md` under `[1.3.0]`.
+Den formelle re-audit-rapporten ligger **ikke** i repoet; Christer
+holder `Familieassistenten_ISO25010_v2_re_audit.pdf` lokalt.
+
+> **Merk:** Uke 1-arbeidet i denne planen er ikke en v1.4.0-release,
+> så forventningen er at score **holdes** fremfor løftes. Ny formell
+> re-audit er naturlig ved fullført uke 7.
+
+---
+
+## 3. CI-status
+
+**Workflow-filer i `.github/workflows/` (7):**
+
+1. `ci.yml` — lint + format + typecheck + test-matrix (Node 20/22 × Ubuntu/macOS/Windows) + coverage gate + load baseline
+2. `docker.yml` — bygger og pusher `ghcr.io/christerfrestad/familyassistant:main` (pull_policy: always i Portainer)
+3. `performance.yml` — ytelses-regresjon mot baseline
+4. `backup-restore.yml` — verifiserer backup/restore-flyten periodisk
+5. `release.yml` — tag-drevet release-prosess
+6. `deploy.yml` — Railway-deploy (kontinuerlig feil — frosset løp, se CLAUDE.md DEL 6)
+7. `rebaseline-perf.yml` — re-seeder ytelses-baseline ved behov
+
+**CI på PR** (fra observerte PR-kjøringer i dag):
+- Test (Node 20.x, ubuntu-latest)
+- Test (Node 20.x, macos-latest)
+- Test (Node 20.x, windows-latest)
+- Test (Node 22.x, ubuntu-latest)
+- Coverage gate
+- Load baseline + regression gate (kjører kun når server-kode/perf-filer endres)
+- OSV vulnerability scan
+- SBOM generation
+- Security audit
+
+**Siste 10 CI-runs på main** (fra `gh run list --branch main --limit 10`):
+
+| Dato (UTC) | Tittel | Resultat |
+|---|---|---|
+| 2026-04-20 12:29 | Deploy to Railway | failure (frosset — forventet) |
+| 2026-04-20 12:26 | PR #58 — post-merge logs | success |
+| 2026-04-20 12:21 | Deploy to Railway | failure (frosset) |
+| 2026-04-20 12:17 | PR #57 — remove diagnostic endpoint | success |
+| 2026-04-20 10:13 | Deploy to Railway | failure (frosset) |
+| 2026-04-20 10:09 | PR #55 — post-merge logs | success |
+| 2026-04-20 09:57 | Deploy to Railway | failure (frosset) |
+| 2026-04-20 09:54 | PR #54 — add diagnostic endpoint | success |
+| 2026-04-19 | PR #46 — shopping bought-state hotfix | success |
+| 2026-04-19 | PR #45 — shelf-life learning (A.2) | success |
+
+"Deploy to Railway"-fails er **forventet** per CLAUDE.md DEL 6
+(Railway-løpet er fryst; workflow-en trigger men lander ikke).
+
+---
+
+## 4. Kode-metrikker
+
+### Backend (`server/`)
+
+| Metrikk | Verdi |
+|---|---|
+| Antall JS-filer | **84** |
+| Linjer totalt | **21 832** |
+| `services/*.service.js` | 21 |
+| Migrasjoner (`migrations/*.sql`) | 18 (001–018) |
+
+Service-filer (21):
+`allergy-filter`, `circuit-breaker`, `email`, `env-store`, `family`,
+`ingredient-normalizer`, `kassal-client`, `meal-planning`,
+`pantry-coverage`, `pantry-resolver`, `pantry`, `price-reference`,
+`product-resolver`, `receipt`, `recipe-import`, `recipe-similarity`,
+`recipe-sources`, `recipe-url-import`, `seed`, `shelf-life-learner`,
+`shopping-list`, `shopping-list-enricher`, `slugify`, `units`.
+
+### Frontend (`public/`)
+
+| Metrikk | Verdi |
+|---|---|
+| JS-filer | **20** |
+| Linjer JS | **4 603** |
+| CSS-filer | **4** |
+| Linjer CSS | **2 883** |
+
+Frontend JS: `auth`, `chat`, `chores`, `core`, `family-onboarding`,
+`family-ui`, `feedback`, `init`, `meals`, `notifications`, `pantry`,
+`recipe-import`, `settings`, `setup`, `shopping`, `tabs`, `theme`,
+`today`, `voice`. CSS-filer pre-cached via service worker:
+`base.css`, `glass.css`, `components-extended.css`, `settings.css`.
+
+### Tester (`tests/`)
+
+| Metrikk | Verdi |
+|---|---|
+| Test-filer | 67 |
+| Linjer test-kode | 14 682 |
+
+### Docs
+
+| Plassering | Antall `.md` |
+|---|---|
+| Root | 11 |
+| `docs/` | 2 (`DB_INDEXES.md`, `DOMAIN_MODEL.md`) |
+| `docs/analyses/` | 1 (`2026-04-20-diagnostic-endpoint.md`) |
+| `design/redesign-exploration-2026-04/` | 2 (ny, parkert i PR #60) |
+
+Root-whitelisten gjeldende (fra `tests/phase21-repo-hygiene.test.js`):
+`AGENT_LOG.md`, `CHANGELOG.md`, `CI.md`, `CLAUDE.md`, `CONTEXT.md`,
+`CONTRIBUTING.md`, `DEPLOY.md`, `README.md`, `REFERENCES.md`,
+`RUNBOOK.md`, `SECURITY.md`.
+
+---
+
+## 5. Avhengigheter
+
+Fra `package.json`, commit `d7a5c38`.
+
+### Runtime (`dependencies` — 3)
+
+- `better-sqlite3` ^12.9.0
+- `pino` ^10.3.1
+- `zod` ^4.3.6
+
+### Optional (`optionalDependencies` — 2)
+
+- `sql.js` ^1.14.1 (fallback hvis better-sqlite3 ikke kan bygges)
+- `@sentry/node` ^8.0.0 (opt-in crash reporting)
+
+### Dev (`devDependencies` — 10)
+
+- `@cyclonedx/cyclonedx-npm` ^4.2.1 (SBOM)
+- `@eslint/js` ^10.0.1
+- `@types/node` ^25.6.0
+- `eslint` ^10.2.0
+- `globals` ^17.5.0
+- `husky` ^9.1.7
+- `lint-staged` ^16.4.0
+- `openapi-typescript` ^7.13.0
+- `pino-pretty` ^13.1.3
+- `prettier` ^3.3.3
+- `typescript` ^5.9.3
+
+### Runtime-miljø
+
+- Node: `>=20.0.0 <23` (testes mot 20.x og 22.x i CI)
+- npm: `>=10.0.0`
+- OS: linux, darwin, win32
+- CPU: x64, arm64
+
+---
+
+## 6. Funksjons-matrix: dagens backend vs mockup-forutsetninger
+
+Matrix sammenligner hva FINNES i dag (server-side) med hva redesign-
+mockup-en i `design/redesign-exploration-2026-04/` FORUTSETTER.
+Referanse er mockup-ens `project/Familieassistenten.html` + de 5
+uploads/PNG-ene.
+
+| Feature-område | Finnes i dag | Mockup forutsetter | Gap |
+|---|---|---|---|
+| Meal-planning | Ja — `services/meal-planning.service.js`, `repositories/meal-plan.repo.js`, migrasjon `001` | Ja + kcal-felt per måltid | **Felt mangler** (kcal ikke i `recipes` eller `meal_plans`) |
+| Shopping-list | Ja — `services/shopping-list.service.js`, `repositories/shopping.repo.js`, migrasjon `007` | Ja + price + eksplisitt recipe-lenke per rad | **Felter mangler** (`est_price` finnes, men ikke `recipe_id`-FK på hver item-rad) |
+| Shopping-list-enrichment (Kassal) | Ja — `services/shopping-list-enricher.service.js` + `kassal-client.service.js` | Antatt ja | Ingen gap |
+| Pantry | Ja — `services/pantry.service.js`, `services/pantry-coverage.service.js`, migrasjon `004` | Ja + `level %` + `location` (kjøleskap / fryser / skap) | **Felter mangler** (`inventory`-tabellen har `qty`/`expires_est`, ikke `location` eller `level%`) |
+| Chores / Gjøremål | Ja — `repositories/chore.repo.js` + `cron.js` ukesplanlegger | Ja + XP + streaks + leaderboard + week-goal-progress | **Stort gap** — ingen gamification-tabeller |
+| Family-members | Ja — multi-tenant-skjema i migrasjon `014` (frosset per CLAUDE.md DEL 6) | Aktiv multi-user med profiler, roller, diett | **Frys må tines** — skjema finnes, men auth/routes ikke aktivert for prod |
+| Calendar-events | Ja — `repositories/calendar.repo.js` (internal only) | Google + Apple synk | **Integrasjoner mangler** — kun intern event-tabell |
+| LLM-chat | Ja — `services/llm.service.js` (Ollama/Anthropic/OpenAI/xAI via `llm/*`) | Ja | Ingen gap |
+| Receipt-OCR | Ja — `services/receipt.service.js` + `migrations/005_receipts.sql` | Antatt (ikke i mockup) | Ingen gap |
+| Recipe-import (URL) | Ja — `services/recipe-url-import.service.js` + `recipe-import.service.js` | Ja | Ingen gap |
+| Allergi-filter | Ja — `services/allergy-filter.service.js` (SAF-1, uke 9) | Per-medlem diett + dislikes | **Gap** — filter er familie-nivå, mockup forutsetter per-medlem |
+| Gamification (XP/streaks/leaderboard/goals) | **Nei** | Kjerne-feature i mockup | **Stort gap** — ingen `chore_completions`-tabell, ingen XP-beregning |
+| Preferred stores | Delvis — `chain_preferences`-tabell (migrasjon `013`), kun Kassal-kjeder | Ja med UI + flere kjeder | **Gap i UI**, backend har deler (`preferred_chain`, `secondary_chain`) |
+| Shelf-life learning | Ja — `services/shelf-life-learner.service.js` + migrasjon `017` | Ikke eksplisitt i mockup | Ingen gap |
+| Per-bruker profiler | **Nei** (single-tenant i praksis) | Ja — profil-bilde, diett, dislikes | **Stort gap** |
+
+---
+
+## 7. Åpne TODOs og kjente bugs
+
+### TODO-kommentarer i kode
+
+`grep -r "TODO" server/ public/js/ --include="*.js"`:
+
+**0 treff.** Kodebasen har ingen pendente TODO-markører.
+
+### Åpne GitHub Issues
+
+`gh issue list --state open`:
+
+**0 åpne issues** på repoet.
+
+### Kjente bugs (ikke-Issue-sporet)
+
+- **"Tom handleliste-UI vs 70 rader i DB"** — observert 2026-04-20,
+  analyse i PR #59 (draft). Venter på svar fra Christer før fix-fase.
+- **"Deploy to Railway" CI-job feiler** — forventet og dokumentert,
+  frosset per CLAUDE.md DEL 6.
+
+---
+
+## 8. Deploy-status
+
+| Felt | Verdi |
+|---|---|
+| Siste tag | `v1.3.0` (commit `39b0645`, 2026-04-11) |
+| Image-registry | `ghcr.io/christerfrestad/familyassistant:main` |
+| Pull-policy i Portainer | `always` |
+| Siste image-SHA på `:main` | Antatt `65abc5a` eller `d7a5c38` (etter PR #57/#58 docker-build-kjøringer; må verifiseres av Christer) |
+| Christers RPi Portainer tracker | `:main`-tag (per hans tidligere bekreftelse) |
+| Siste vellykkede produksjons-deploy fra Christers perspektiv | Ikke eksplisitt rapportert i AGENT_LOG; antatt 2026-04-20 etter diagnostikk-kjøringen |
+
+> **Spørsmål å følge opp med Christer:** Ønsker du at uke-rapportene
+> framover skal spore siste image-SHA på `:main` eksplisitt? Hvis ja,
+> kan vi legge til `gh api repos/.../packages/container/familyassistant`
+> som en automatisk sjekk i uke-1-retrospektivet.
+
+---
+
+## 9. Referanser
+
+- `CHANGELOG.md` → `[1.3.0]`-seksjonen
+- `CLAUDE.md` — arbeidsflyt og frys-liste (DEL 6)
+- `CONTEXT.md` → AKTIV OPPGAVE = DEL B (frontend empty-cart bug)
+- `AGENT_LOG.md` → siste tre innlegg (PR #54, #57, og pending PR #59)
+- `docs/analyses/2026-04-20-frontend-empty-shopping.md` — analyse for
+  PR #59 (draft)
+- `design/redesign-exploration-2026-04/` — parkert mockup (PR #60)
+
+Denne baseline-rapporten skal siteres i uke 2-7-rapporter som
+"nullpunkt før backend-gap-arbeidet". Ny baseline genereres ved
+fullført uke 7 eller før, avhengig av fremdrift.
