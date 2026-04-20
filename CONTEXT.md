@@ -98,7 +98,13 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Claude oppdaterer
 
-- Ingen
+- **PR #59** — `[ANALYSE] empty shopping list UI bug` (draft).
+  Venter på Christers 5 svar (branch for index.html-arbeid,
+  inkognito-test, DevTools Network-output, tidspunkt, siste
+  dato varer var synlige).
+- **PR #61** — `docs: add baseline status for week 17`.
+  Tester grønne, blokkert av GitHub Actions billing-feil
+  (Coverage/OSV/SBOM). Se Issue #62 eller VENTER PÅ CHRISTER.
 
 ---
 
@@ -106,9 +112,16 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Handlinger Claude ikke kan utføre selv. Fjernes når Christer har gjort det.
 
-- **Gi Claude branch-/commit-info for frontend-arbeidet i `index.html`**
-  slik at DEL B (analyse av tom handlekurv-bug) starter fra riktig
-  baseline uten antakelser. Se `## AKTIV OPPGAVE` under.
+- **Svar på de 5 spørsmålene i PR #59** (branch-SHA for index.html,
+  inkognito, DevTools-output, tidspunkt, siste dato). Velger H1/H2/H3
+  basert på svar.
+- **GitHub Actions billing-fiks.** Tre jobs (Coverage/OSV/SBOM)
+  blokkerer alle framtidige PR-er med CI-gate. Gå til GitHub →
+  Settings → Billing & plans, sjekk mislykket betaling / spending
+  limit. Detaljer i PR #61-kommentar og Issue #62.
+- **Svar på 7 beslutninger i Issue #62** (uke 2-beslutningsliste).
+  Kort format: `B1: a, B2: a, ...`. ANBEFALING + hvorfor står i
+  issuen. Nødvendig for å kunne skrive uke-2-planen.
 
 ---
 
@@ -116,6 +129,10 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Claude flytter hit etter merge
 
+- 2026-04-20: Parker redesign-mockup fra claude.ai/design i
+  `design/redesign-exploration-2026-04/` – **PR #60** – ISO-effekt:
+  ingen (docs-only). Mockup er eksplisitt merket PARKERT; plan for
+  implementering i uke 8+.
 - 2026-04-20: Fjernet midlertidig diagnostikk-endepunkt
   `GET /api/debug/shopping-state` – PR #57 – ISO-effekt: ingen
   (rent oppryddings-PR; koden ble aldri taggt i en release).
