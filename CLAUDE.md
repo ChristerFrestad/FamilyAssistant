@@ -434,11 +434,25 @@ sikkerhet eller kvalitet svekkes. Overgangen dokumenteres i
 
 - **Batch-push:** samle arbeid over flere dager (2-10 dager,
   avhengig av Christers tempo) og push som én meningsfull PR.
-- **Push skjer KUN når Christer eksplisitt sier "nå kan vi pushe"**
-  (eller tilsvarende). Claude Code pusher ALDRI proaktivt.
+- **Push skjer KUN når Christer eksplisitt nevner ordet "push"** i
+  sin instruksjon. Claude Code pusher ALDRI proaktivt.
 - Når Christer sier push: kjør full lokal CI én gang til, squash
   commits til 1-3 meningsfulle, push, vent på GitHub CI, merge
   kun hvis grønt.
+
+**Push-trigger-frase:**
+
+- Avtalt eksplisitt frase: **"nå pusher vi batch N"** (foretrukket
+  for utvetydighet).
+- Pragmatisk akseptert: enhver instruksjon fra Christer som **eksplisitt
+  inneholder ordet "push"** uten disclaimer (f.eks. "utfør, push",
+  "push nå", "greit, push det"). Dette reflekterer at presis fraseringen
+  noen ganger kommer på kort form, men intensjonen er tydelig når
+  "push" står der.
+- **IKKE akseptabelt:** å pushe proaktivt uten at Christer har nevnt
+  push i det hele tatt i den aktuelle meldingen. "Klar for push?" som
+  spørsmål fra Claude → ikke svar = ikke push.
+- Ved tvil: ikke push. Spør Christer først.
 
 #### 5.2.2 Lokal CI-pyramide (kjøres på HVER commit)
 
@@ -452,6 +466,27 @@ Alle tre nivåer MÅ passere lokalt før Claude Code anser arbeid
 som ferdig. Dette erstatter GitHub CI for daglig arbeid. Helhets-
 kjøringen gjøres via `scripts/local-ci.sh` (eller `.ps1` på
 Windows).
+
+**Strengere krav ved `docs/`-root-endringer:** hvis commit-en
+inkluderer nye eller endrede `.md`-filer **direkte i `docs/`-roten**
+(ikke i en subfolder), må **Tier 2 (hele test-suiten) kjøres FØR
+commit** — ikke bare før push. Grunnen: `tests/phase21-repo-
+hygiene.test.js` (policy-test) har eksakt-match-whitelist for
+`docs/*.md` og Tier 1 (lint/format/typecheck) fanger ikke denne
+typen brudd.
+
+Alternativ som unngår problemet helt: legg filen i en eksisterende
+subfolder. Phase21 ignorerer subfoldere per design:
+
+- `docs/analyses/` — analyse-dokumenter før feature-PR-er
+- `docs/baselines/` — ukentlige baseline-rapporter
+- `docs/workflow/` — arbeidsflyt- og prosess-dokumenter (f.eks.
+  batch-PR-beskrivelser, pending-decisions)
+- `docs/runbooks/` — deploy-sjekklister og drifts-prosedyrer
+- `docs/monitoring/` — metrics og alert-konfigurasjon
+
+Direkte-i-`docs/`-plassering er reservert for de to whitelistete
+filene (`DB_INDEXES.md`, `DOMAIN_MODEL.md`).
 
 #### 5.2.3 Squash-disiplin
 
