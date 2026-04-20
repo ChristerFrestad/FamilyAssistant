@@ -1,11 +1,18 @@
 # Batch 1 — lokal-først arbeidsflyt + uke 2-arbeid (B1 + B5)
 
-**Status (før push):** 12 lokale commits, 0 pushet. Venter på Christers
+**Status (før push):** 14 lokale commits, 0 pushet. Venter på Christers
 push-klarsignal.
 
 **Branch ved push:** `feat/gamification-chore-completions` (tuppen).
-Anbefaling: squash-merge **eller** splitt i 3 linjære PR-er per
-dependency-kjeden under.
+
+**Merge-strategi (besluttet av Christer 2026-04-20):** **én PR,
+"Create a merge commit".** Alle 14 commits bevares i main-historikken.
+Ikke squash, ikke rebase. Begrunnelse: både Gruppe A og Gruppe B
+endrer CLAUDE.md (henholdsvis DEL 5.2 og DEL 6.1/6.1b) — split i tre
+linjære PR-er ville krevd rebase-ing av B og C etter A er merget,
+med høy sjanse for merge-konflikter og 10-20 min ekstra admin pr
+runde. Første batch-push er ikke stedet å optimalisere audit-trail;
+granularitet beholdes uansett i historikken.
 
 ---
 
@@ -168,32 +175,46 @@ reverses isolert.
 
 ---
 
-## Dependency-kjede ved merge
+## Dependency-kjede og merge-strategi
 
-Hvis PR splittes i flere for lesbarhet, bruk denne rekkefølgen:
+**Besluttet:** én PR, "Create a merge commit". Alle 14 commits bevart
+på main.
+
+Intern commit-rekkefølge:
+
+```
+chore/local-first-workflow-setup         (6 commits, Gruppe A)
+   → feat/multi-tenant-activation         (5 commits, Gruppe B)
+      → feat/gamification-chore-completions (1 commit, Gruppe C)
+         → PR-beskrivelse + denne oppdateringen (2 commits, docs)
+            = 14 commits totalt ved tuppen av PR-en
+```
+
+Git-historikken på main etter merge vil vise alle 14 commits med
+merge-commit på toppen. Granularitet bevart; revert per commit mulig
+via `git revert <sha>` (se § selektivt revert-strategi).
+
+### Fallback: splitt i tre PR-er
+
+Forkastet av Christer i denne runden, men dokumentert for fremtidige
+batcher hvis logisk skille er klarere:
 
 ```
 1. Gruppe A:  chore/local-first-workflow-setup      → main
-              (6 commits, kan merges uavhengig)
+              (6 commits, infrastruktur-only)
               ↓
 2. Gruppe B:  feat/multi-tenant-activation           → main
-              (rebased på ny main, 5 commits,
-               CLAUDE.md DEL 5.2-referanse i C2
-               avhenger av at Gruppe A er merget)
+              (5 commits, avhenger av A-merge — CLAUDE.md DEL 5.2-
+               referanse i C2 forutsetter at DEL 5.2 eksisterer)
               ↓
 3. Gruppe C:  feat/gamification-chore-completions    → main
-              (1 commit, funksjonelt uavhengig av B1
-               men commit-historikken er på toppen)
+              (1 commit, funksjonelt uavhengig)
 ```
 
-Kompromiss: én enkelt squash-merge av feat/gamification-chore-
-completions → main gir én meningsfull commit på main med alle 12
-commits samlet. Kan være enklere å revertere som én enhet, men mister
-intern struktur.
-
-**Anbefaling:** splitt i tre linjære PR-er for ren git-historikk og
-tillatelse til å godkjenne hvert lag separat. Tar ~2-3 min ekstra
-ved merge, men gir mye renere audit-trail.
+**Kostnad ved split:** ~10-20 min admin (tre rebase-runder + tre CI-
+kjøringer + tre merge-godkjenninger). **Gevinst:** audit-trail per
+gruppe. Vurder for batch 2+ hvis logisk skille er renere og CLAUDE.md
+ikke røres av flere grupper samtidig.
 
 ---
 
@@ -231,18 +252,21 @@ ved merge, men gir mye renere audit-trail.
 
 1. **Les denne beskrivelsen grundig** — især Portainer-risiko-seksjonen
    og deploy-checklist.
-2. **Avgjør merge-strategi:** én squash eller tre linjære PR-er.
-3. **Si "nå pusher vi batch 1"** eller be om justeringer.
-4. Etter push: Jeg åpner PR-er i riktig rekkefølge, venter på CI
-   (nå billing-fikset, skal kjøre fullt grønt), og ber om din merge-
-   godkjenning per gruppe (B1 og B5 er feat/ → krever Christer-
-   godkjenning; Gruppe A er chore/ → autonom merge ved grønn CI).
+2. **Si "nå pusher vi batch 1"** eller be om justeringer.
+3. Etter push: Jeg åpner **én PR** fra `feat/gamification-chore-
+   completions` → `main` med beskrivelsen fra denne filen limet inn
+   som PR-body. Venter på CI (nå billing-fikset, skal kjøre fullt
+   grønt). Ber om din merge-godkjenning. Du velger "Create a merge
+   commit" i GitHub-UI.
 
 Ved push-klarsignal — oppsummering av kjente remote-konsekvenser:
 
 - **PR #61 (baseline) og PR #63 (uke 1-logs)** på GitHub kan lukkes
-  som "superseded" av Gruppe A. Deres innhold er cherry-picked hit.
-- **PR #59 (draft)** står urørt og venter på dine 5 svar.
+  som "superseded" av Gruppe A — deres innhold er cherry-picked hit.
+  Jeg gjør det autonomt etter at batch 1 er merget.
+- **PR #59 (draft) står urørt.** Batch 1 pushes uten frontend-bug-
+  fixet. Christer svarer på de 5 spørsmålene etter batch 1 er merget;
+  fix kommer i batch 2. Eksplisitt akseptert 2026-04-20.
 - **Issue #62** allerede lukket (2026-04-20) med dine beslutninger.
 
 **Ingen handling fra meg før du sier "nå pusher vi batch 1".**
