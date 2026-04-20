@@ -5,6 +5,7 @@ const { createRecipeRepos } = require('./recipe.repo');
 const { createInventoryRepos } = require('./inventory.repo');
 const { createMealRepos } = require('./meal.repo');
 const { createChoreRepos } = require('./chore.repo');
+const { createChoreCompletionRepos } = require('./chore-completion.repo');
 const { createShoppingRepos } = require('./shopping.repo');
 const { createPricingRepos } = require('./pricing.repo');
 const { createReceiptRepos } = require('./receipt.repo');
@@ -30,6 +31,7 @@ function createRepositories(db) {
   const { inventory, inventoryLog } = createInventoryRepos(db);
   const { mealPlans, mealHistory, sundayDrafts } = createMealRepos(db, tryParseJson);
   const { chores, choreSchedules } = createChoreRepos(db);
+  const { choreCompletions } = createChoreCompletionRepos(db);
   const { shoppingLists, shoppingExtras } = createShoppingRepos(db, tryParseJson);
   const { consumables, purchaseLog, priceReferences, priceHistory } = createPricingRepos(db);
   const { receipts, receiptItems, kassalProducts, productResolutions, kassalCache } =
@@ -64,6 +66,7 @@ function createRepositories(db) {
     mealPlans,
     chores,
     choreSchedules,
+    choreCompletions,
     shoppingExtras,
     shoppingLists,
     consumables,
