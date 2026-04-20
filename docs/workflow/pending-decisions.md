@@ -1,34 +1,35 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-20
+**Sist oppdatert:** 2026-04-20 (uke 2-beslutninger mottatt + billing løst)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
-ta før uke 2 kan starte. Primær-lokasjon for diskusjonen er
-**GitHub Issue #62** — denne filen er bare en in-repo-speiling slik
-at Claude husker på blokkeringen selv om issue-listen ikke er
-tilgjengelig.
-
-Oppdateres når Christer svarer.
+ta. Primær-lokasjon er **GitHub Issue #62** (uke 2-beslutninger —
+lukket 2026-04-20) og **PR #59** (frontend-bug analyse — åpen).
 
 ---
 
-## Blokker uke 2: beslutningsliste (Issue #62)
+## ✅ Uke 2-beslutninger (Issue #62 — LUKKET 2026-04-20)
 
-Syv beslutninger + én infra-sak. Alle har ANBEFALING med hvorfor
-og konsekvens i selve issuen.
+Christers svar, sitert for rask referanse:
 
-- [ ] **B1** — Multi-tenant aktivering (a/b/c). Anbefaling: **a**.
-- [ ] **B2** — LLM-strategi (a/b/c). Anbefaling: **a**, vurder c senere.
-- [ ] **B3** — E-post-leverandør for magic-link (a/b/c). Anbefaling: **b**.
-- [ ] **B4** — Cloudflare Tunnel (a/b/c). Anbefaling: **b**.
-- [ ] **B5** — Første gamification-feature (a/b/c). Anbefaling: **a**.
-- [ ] **B6** — Kalender: Google + Apple? (a/b/c). Anbefaling: **a**.
-- [ ] **B7** — Per-medlem diett (a/b/c). Anbefaling: **a**.
-- [ ] **Billing** — GitHub Actions billing-feil blokkerer PR #61 og
-      #63 merge. Ikke del av uke-2-plan per se, men blokkerer merge-
-      flyt til den er løst.
+- [x] **B1** — Multi-tenant aktivering → **(a)** uke 2.
+      *"Testes tidlig i prod-lignende kontekst før 5 familier inviteres."*
+- [x] **B2** — LLM-strategi → **(a)** min Ollama som felles ressurs.
+      *"5 familier, moderat bruk, ingen support-byrde. Kan byttes senere."*
+- [x] **B3** — Resend e-post → **(b)** uke 3-4.
+      *"Først etter multi-tenant er testet."*
+- [x] **B4** — Cloudflare Tunnel → **(b)** uke 4-5.
+      *"Ikke offentlig tilgjengelighet før appen er klar."*
+- [x] **B5** — Første gamification-feature → **(a)** `chore_completions`-tabell først.
+      *"Datamodell-avhengighet. Alt annet bygger på denne."*
+- [x] **B6** — Kalender → **(a)** bare Google.
+      *"Apple CalDAV er 3-4 uker ekstra arbeid."*
+- [x] **B7** — Per-medlem diett → **(a)** implementer i uke 1-7.
+      *"Bygge per-medlem nå er enklere enn refaktorere senere."*
+- [x] **Billing** — Løst 2026-04-20 (separat handling). Full CI
+      fungerer normalt fra og med neste push.
 
-Full kontekst: https://github.com/ChristerFrestad/FamilyAssistant/issues/62
+Full issue-historikk: https://github.com/ChristerFrestad/FamilyAssistant/issues/62
 
 ---
 
@@ -47,8 +48,22 @@ Full kontekst: https://github.com/ChristerFrestad/FamilyAssistant/pull/59
 
 ---
 
-## Når beslutningene er tatt
+## Uke 2-sekvens (etter B1–B7-svarene)
 
-Claude oppdaterer denne filen (marker `[x]` per besluttet punkt),
-skriver uke-2-plan basert på svarene, og starter fix-fase for
-PR #59 basert på hvilken hypotese som er bekreftet.
+Basert på svarene over er rekkefølgen:
+
+1. **B1 multi-tenant aktivering** — starter nå (uke 2). Tiner frysen
+   i CLAUDE.md DEL 6.1. Analyse først, så kode. Blokkerer B3, B4, B7.
+2. **B5 `chore_completions`-tabell** — kan startes parallelt (rent
+   datamodell-arbeid, uavhengig av multi-tenant). Gamification-fundament.
+3. **B7 per-medlem diett-datamodell** — etter B1 (krever multi-tenant-
+   skjema aktivt for å utvide med `user_members`-koblinger).
+4. **B3 Resend e-post** — uke 3-4, etter multi-tenant er testet.
+5. **B4 Cloudflare Tunnel** — uke 4-5.
+6. **B6 Google Calendar** — uke 4-6 (OAuth + sync-logikk).
+7. **B2 Ollama som felles LLM** — krever ingen kode-endring (eksisterende
+   konfig). Kan verifiseres/dokumenteres når multi-tenant er aktiv.
+
+PR #59-fix håndteres parallelt når Christer svarer på de 5 spørsmålene.
+
+Claude oppdaterer denne filen når uke 2-leveransene fullføres.
