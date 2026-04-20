@@ -1,10 +1,35 @@
 name: CI
 
+# 2026-04-20: restructured per CLAUDE.md DEL 5.2 (Lokal-først arbeidsflyt).
+#
+# Volume reduction: from ~300 GH-Actions jobs/day (8-10 × 7-10 pushes) to
+# ~1-2 PR-pushes/week (batch-push) × PR-cheap jobs + ~1-2 main merges/week
+# × cross-platform matrix + ~1 Sunday cron for OSV/SBOM. Target: ~75-90 %
+# reduction in compute without loss of safety.
+#
+# Trigger policy:
+#   - pull_request: minimal PR-gate (Linux Node 20 only)
+#   - push to main:  full cross-platform matrix (4 combos)
+#   - schedule:      Sunday 02:00 UTC weekly — OSV vulnerability + SBOM
+#                    generation (both are heavy and don't need per-PR runs)
+#
+# Branch-protection job names preserved so existing required-status-checks
+# keep matching:
+#   - "Test (Node 20.x, ubuntu-latest)" — always runs, is the PR gate
+#   - "Test (Node 20.x, macos-latest)" / "... windows-latest" / "... 22.x" —
+#     run only on main-push or schedule
+#   - "Coverage gate" — always runs (small, important)
+#   - "Security audit" — always runs (cheap)
+#   - "SBOM generation" + "OSV vulnerability scan" — main-push + schedule only
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Sunday 02:00 UTC — weekly OSV/SBOM. See CLAUDE.md DEL 5.2.4.
+    - cron: '0 2 * * 0'
 
 permissions:
   contents: read
@@ -15,28 +40,58 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Lint + format + tests på Node 20 + 22, og på Linux/macOS/Windows
-  # Uke 7 PORT-4: cross-platform matriks for å fange path-separator-bugs
-  # og Windows-spesifikke problemer (CRLF, better-sqlite3 native build).
-  # fail-fast: false slik at alle kombinasjoner rapporteres uavhengig.
+  # PR-gate: Linux Node 20 only. Runs on EVERY trigger. This is the single
+  # required status check for PR merge per branch protection.
   # ---------------------------------------------------------------------------
   test:
+    name: Test (Node 20.x, ubuntu-latest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint flat config)
+        run: npm run lint
+
+      - name: Format check (Prettier)
+        run: npm run format
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Run tests (node --test)
+        run: npm test
+        env:
+          NODE_ENV: test
+
+  # ---------------------------------------------------------------------------
+  # Cross-platform matrix: only runs on push to main or scheduled. Catches
+  # OS-specific regressions (path separator, CRLF, better-sqlite3 native
+  # build) without burning runner minutes on every PR-push.
+  # ---------------------------------------------------------------------------
+  test-cross-platform:
     name: Test (Node ${{ matrix.node }}, ${{ matrix.os }})
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node: ['20.x', '22.x']
-        exclude:
-          # Unngå redundans: ikke kjør begge Node-versjoner på alle OS.
-          # Linux kjører begge (kanonisk). macOS og Windows kjører kun 20
-          # (LTS, samme som produksjons-RPi5). Dette sparer CI-minutter
-          # mens vi fortsatt fanger OS-spesifikke bugs.
-          - os: macos-latest
-            node: '22.x'
-          - os: windows-latest
-            node: '22.x'
+        include:
+          - { os: 'macos-latest',   node: '20.x' }
+          - { os: 'windows-latest', node: '20.x' }
+          - { os: 'ubuntu-latest',  node: '22.x' }
 
     steps:
       # Uke 7 PORT-4: sett global autocrlf=false FØR checkout slik at
@@ -70,22 +125,15 @@ jobs:
       - name: Format check (Prettier)
         run: npm run format
 
-      - name: Typecheck (tsc --noEmit)
-        # Uke 8 TS-4: opt-in JSDoc type-checking for server/*.js filer
-        # med // @ts-check. Kjøres kun på Linux Node 20 for å spare
-        # CI-minutter — tsc-gate trenger ikke cross-platform-validering.
-        if: runner.os == 'Linux' && matrix.node == '20.x'
-        run: npm run typecheck
-
       - name: Run tests (node --test)
         run: npm test
         env:
           NODE_ENV: test
 
   # ---------------------------------------------------------------------------
-  # Test coverage med gate (feiler hvis lines/branches/functions faller)
+  # Test coverage med gate (feiler hvis lines/branches/functions faller).
   # Baseline 2026-04-10: 83.26% lines, 71.23% branches, 75.83% functions.
-  # Terskler i scripts/coverage-gate.js: 80% / 68% / 72%.
+  # Terskler i scripts/coverage-gate.js: 80% / 68% / 72%. Kjører på PR + main.
   # ---------------------------------------------------------------------------
   coverage:
     name: Coverage gate
@@ -118,7 +166,8 @@ jobs:
           retention-days: 14
 
   # ---------------------------------------------------------------------------
-  # Security: npm audit på runtime-deps (ikke dev, siden de ikke er i prod)
+  # Security: npm audit på runtime-deps (ikke dev, siden de ikke er i prod).
+  # Billig sjekk — kjører alltid.
   # ---------------------------------------------------------------------------
   security:
     name: Security audit
@@ -144,11 +193,13 @@ jobs:
         continue-on-error: true
 
   # ---------------------------------------------------------------------------
-  # SBOM (Software Bill of Materials) — CycloneDX 1.6, runtime-only
-  # Publiseres som build-artifact. Ved release gjenopprettes den av release.yml.
+  # SBOM (Software Bill of Materials) — CycloneDX 1.6, runtime-only.
+  # Kjører KUN ved merge til main og ved ukentlig cron (tung, trenger ikke
+  # kjøres per PR). Publiseres som build-artifact.
   # ---------------------------------------------------------------------------
   sbom:
     name: SBOM generation
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     needs: test
     steps:
@@ -190,11 +241,13 @@ jobs:
           retention-days: 90
 
   # ---------------------------------------------------------------------------
-  # OSV-Scanner — Google's Open Source Vulnerabilities database
-  # Kryssjekker package-lock.json mot OSV feed. Feil ved HIGH/CRITICAL.
+  # OSV-Scanner — Google's Open Source Vulnerabilities database.
+  # Kjører KUN ved merge til main og ved ukentlig cron (tung fetch mot OSV
+  # feed, irrelevant for features-branch-pushes).
   # ---------------------------------------------------------------------------
   osv-scan:
     name: OSV vulnerability scan
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     needs: test
     permissions:

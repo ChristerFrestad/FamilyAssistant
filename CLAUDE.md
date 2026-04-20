@@ -418,7 +418,87 @@ branch-typene:
 
 Kommando: `gh pr merge --squash --delete-branch`
 
-### 5.2 Krever Christer-godkjenning
+### 5.2 Lokal-først arbeidsflyt
+
+Vedtatt 2026-04-20 etter en måling som viste ~300 GitHub Actions-
+kjøringer/dag (8-10 jobs × 7-10 pushes). Billing ble blokkert og
+volumet er ikke bærekraftig. Claude jobber derfor **lokalt først**
+og samler arbeid til batch-pusher.
+
+Målet er 75-90 % reduksjon i GitHub Actions-forbruk uten at
+sikkerhet eller kvalitet svekkes. Overgangen dokumenteres i
+`docs/workflow/local-first-adoption-2026-04.md` og evalueres
+1. juni 2026.
+
+#### 5.2.1 Push-frekvens
+
+- **Batch-push:** samle arbeid over flere dager (2-10 dager,
+  avhengig av Christers tempo) og push som én meningsfull PR.
+- **Push skjer KUN når Christer eksplisitt sier "nå kan vi pushe"**
+  (eller tilsvarende). Claude Code pusher ALDRI proaktivt.
+- Når Christer sier push: kjør full lokal CI én gang til, squash
+  commits til 1-3 meningsfulle, push, vent på GitHub CI, merge
+  kun hvis grønt.
+
+#### 5.2.2 Lokal CI-pyramide (kjøres på HVER commit)
+
+| Nivå | Kommandoer | Tid |
+|---|---|---|
+| Instant | `npm run lint`, `npm run format:check`, `npm run typecheck` | sekunder |
+| Rask | unit-tester for berørte filer | 30-60 sek |
+| Full | hele test-suiten (`npm test`) + `npm run test:coverage:gate` + `npm run audit:prod` | 2-3 min |
+
+Alle tre nivåer MÅ passere lokalt før Claude Code anser arbeid
+som ferdig. Dette erstatter GitHub CI for daglig arbeid. Helhets-
+kjøringen gjøres via `scripts/local-ci.sh` (eller `.ps1` på
+Windows).
+
+#### 5.2.3 Squash-disiplin
+
+Før hver push: squash 10-15 lokale commits til 1-3 meningsfulle
+commits. Hver merge-commit skal:
+
+- Ha **én tydelig logisk enhet** ("multi-tenant auth aktivering",
+  ikke "wip" + "fix" + "retry").
+- Ha commit-melding som forklarer **HVA og HVORFOR**, ikke bare HVA.
+- Referere til relevante issues hvis aktuelt.
+
+#### 5.2.4 CI-strategi på GitHub (redusert)
+
+| Trigger | Jobs som kjører |
+|---|---|
+| PR-push (feature-branch) | lint, typecheck, unit tests (Linux Node 20 only), coverage-gate, npm audit |
+| Merge til `main` (push-event) | Cross-platform matrix (Linux 20/22, macOS, Windows) |
+| Ukentlig cron søndag 02:00 UTC | OSV vulnerability scan, SBOM generation, performance regression |
+
+Cross-platform matrix kjører **ikke** på feature-branch-pushes —
+det utsettes til merge. OSV/SBOM/perf tas én gang i uka i stedet
+for hver push.
+
+#### 5.2.5 Retry-grense ved CI-feil
+
+Hvis GitHub CI feiler etter push:
+
+- **Maks 3 forsøk på samme branch.** Hver korreksjon må inkludere
+  grundig lokal verifikasjon først, ikke "håpe at denne gangen
+  går det".
+- Etter 3 mislykkede forsøk: **STOPP**, rapporter til Christer
+  med full kontekst, vent på beslutning.
+- Hvert forsøk logges i `ops/logs/push-attempts/` med dato,
+  branch, feil-oppsummering, og hva som ble endret.
+
+#### 5.2.6 Daglig backup ikke aktuelt (ennå)
+
+Vi tar **ikke** daglig backup-push til GitHub i første omgang.
+Christers arbeid ligger på lokal SSD. Claude Code må passe på
+grundig lokal commit-disiplin slik at ingenting går tapt ved
+PC-krasj.
+
+Hvis Christer ønsker daglig backup senere, kan det legges til
+som eget tiltak — f.eks. daglig `git bundle` til ekstern disk
+eller push til en privat backup-remote som ikke trigger CI.
+
+### 5.3 Krever Christer-godkjenning
 
 - `feat/` – ny funksjonalitet
 - `fix/` – bug-fiks
@@ -431,7 +511,7 @@ Kommando: `gh pr merge --squash --delete-branch`
 Claude åpner PR, kjører CI, og venter. Ikke merge før eksplisitt OK
 fra Christer i PR-kommentar.
 
-### 5.3 Deploy-autonomi
+### 5.4 Deploy-autonomi
 
 Portainer henter `:main`-tag fra GHCR automatisk. **Dette betyr merge
 til `main` = automatisk tilgjengelig for Portainer pull.**
@@ -440,11 +520,11 @@ Implikasjoner:
 
 - Autonom merge av `chore/docs/test/deps` er lavrisiko for Portainer
   (endrer ikke oppstart)
-- Hvis PORTAINER-RISIKO utløst, merge krever Christer uansett (5.2)
+- Hvis PORTAINER-RISIKO utløst, merge krever Christer uansett (5.3)
 - For semver-tagger (`v1.4.0`, `v1.3.1`): Claude foreslår tag-navn i
   PR-beskrivelsen, Christer tagger manuelt
 
-### 5.4 Dependabot-auto-merge
+### 5.5 Dependabot-auto-merge
 
 Følger eksisterende `.github/dependabot.yml`-konfig. Claude blander seg
 ikke inn med mindre Christer ber om det.
