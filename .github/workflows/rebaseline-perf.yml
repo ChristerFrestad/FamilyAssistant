@@ -96,7 +96,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Open pull request with new baseline
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: |
             chore(perf): rebaseline perf-baseline.json on ubuntu-latest runner
