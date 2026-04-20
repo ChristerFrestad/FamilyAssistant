@@ -31,27 +31,49 @@
 > Christer oppdaterer denne seksjonen. Når flere oppgaver står her:
 > øverste har prioritet. Claude flytter ned til "Ferdig" etter merge.
 
-### Oppgave: <tittel>
+### Oppgave: Rot­årsaksanalyse — shopping-bought-state etter PR #46
 
 **Beskrivelse (Christer skriver fritt):**
 
-<Idé, krav, kontekst. Claude utleder detaljer i ANALYSE-dokumentet.>
+PR #46 hevdet å fikse at handleliste-rader feilaktig viste "kjøpt"-
+tilstand ved oppstart, via migrasjon 018 som skulle nullstille
+`bought_at`/`bought_qty`. Etter Portainer pull-and-redeploy ser
+Christer fortsatt rader som er merket "kjøpt" og grået ut, inkludert
+varer som er i pantry. Minst én av fire alvorlige feil gjelder:
+(a) migrasjonen kjørte ikke, (b) migrasjonen virket ikke,
+(c) rotårsaken er en annen enn PR #46 diagnostiserte, (d) noe skriver
+tilstanden tilbake etter migrasjonen. CI var "10/10 grønn" ved merge,
+som betyr testene ikke fanger reell oppstartstilstand på migrert DB.
 
-**Akseptansekriterier (hva "ferdig" betyr):**
+**Akseptansekriterier (hva "ferdig" betyr for denne analyse-PR-en):**
 
-- [ ] <konkret observerbar oppførsel>
-- [ ] <konkret observerbar oppførsel>
-- [ ] <konkret observerbar oppførsel>
+- [ ] `docs/analyses/2026-04-20-shopping-bought-state.md` dekker reisen
+      ende-til-ende, datamodell, alle skrive-punkter for `bought_at`,
+      full sitat av hva migrasjon 018 gjør, Portainer-oppstartssekvens,
+      rangerte hypoteser med disproof-metode, CI-reliability-gap, og
+      eksplisitt ANBEFALING.
+- [ ] Draft PR åpnet med analyse-dokumentet som eneste commit.
+- [ ] CONTEXT.md AKTIV OPPGAVE oppdatert (denne seksjonen).
+- [ ] AGENT_LOG.md har første innlegg.
+- [ ] Christer har fått nok grunnlag til å velge hvilken hypotese
+      som skal diagnostiseres først.
 
-**Utenfor scope:**
+**Utenfor scope (denne analyse-PR-en):**
 
-- <ting Claude IKKE skal gjøre selv om det føles relatert>
+- Ikke skriv ny kode.
+- Ikke forsøk å "fikse" ved å lage migrasjon 019 eller
+  admin-reset-endpoint. Begge deler løser kun symptomet.
+- Ikke spekuler utover hva som er observerbart i kode og migrasjons­
+  historikk.
 
-**Prioritet:** <må-ha | bør-ha | nice-to-have>
+**Prioritet:** må-ha (blokkerer videre PR B / PR C)
 
-**Kompleksitet (Christers magefølelse):** <liten | middels | stor>
+**Kompleksitet (Christers magefølelse):** middels (analyse), stor
+(hvis rotårsaken krever endring i oppstarts-stien)
 
-**Portainer-risiko (Christers magefølelse):** <lav | middels | høy>
+**Portainer-risiko (Christers magefølelse):** høy — migrasjon er en
+oppstartshendelse. Fix kan kreve ny oppstarts-sti-test (Steg 3b
+PORTAINER-RISIKO utløses i fix-PR-en).
 
 ---
 
