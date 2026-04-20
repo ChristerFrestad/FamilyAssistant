@@ -6,12 +6,19 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-### Added
+### Temporary diagnostics (added and removed within this cycle)
 
-- Temporary `GET /api/debug/shopping-state` endpoint for shopping-bought-state
-  diagnostic (PR #53 investigation). Returns counts and PII-free structural
-  samples only. Scheduled for removal at most 7 days after merge, or
-  immediately when the PR #53 fix lands — whichever comes first.
+- `GET /api/debug/shopping-state` — **added in PR #54** (2026-04-20),
+  **removed in PR #56** (2026-04-20). Short-lived structural snapshot
+  endpoint used to gather counts and PII-free samples from the
+  production DB under Bearer auth, so we could discriminate between
+  hypotheses H1/H2/H3 in analysis PR #53. All three hypotheses were
+  falsified by the collected data (70 shopping rows total,
+  0 bought_rows; the originally reported test-0.2 bug had already
+  been fixed by PR #44 + #46 before diagnosis). Endpoint removed
+  ahead of the 7-day deadline now that its purpose is complete.
+  **Net API surface change this cycle: none** — the endpoint never
+  shipped in a tagged release.
 
 ## [1.3.0] — 2026-04-11 (ISO/IEC 25010 forbedringsplan — komplett)
 
