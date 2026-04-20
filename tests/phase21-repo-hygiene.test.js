@@ -68,23 +68,36 @@ describe('Phase 21 · Kept docs are exactly the intended set', () => {
       .readdirSync(REPO)
       .filter((f) => f.endsWith('.md'))
       .sort();
+    // Whitelist extended for the CLAUDE.md workflow (see CLAUDE.md section
+    // 6.5 — policy-tests vs code-tests). AGENT_LOG, CLAUDE, CONTEXT, and
+    // REFERENCES are intentional root-level governance docs; they live in
+    // root per CLAUDE.md DEL 0 and REFERENCES.md "Toppnivå-dokumentasjon".
     assert.deepEqual(rootMds, [
+      'AGENT_LOG.md',
       'CHANGELOG.md',
       'CI.md',
+      'CLAUDE.md',
+      'CONTEXT.md',
       'CONTRIBUTING.md',
       'DEPLOY.md',
       'README.md',
+      'REFERENCES.md',
       'RUNBOOK.md',
       'SECURITY.md',
     ]);
   });
 
-  test('docs/ folder contains only DB_INDEXES.md', () => {
+  test('docs/ folder contains only the governance .md set', () => {
+    // Only direct .md children count against the whitelist. Subfolders like
+    // docs/analyses/ and docs/monitoring/ are managed by the CLAUDE.md
+    // workflow and are deliberately not enumerated here (see CLAUDE.md
+    // section 6.5).
     const docs = fs
-      .readdirSync(path.join(REPO, 'docs'))
-      .filter((f) => f.endsWith('.md'))
+      .readdirSync(path.join(REPO, 'docs'), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+      .map((entry) => entry.name)
       .sort();
-    assert.deepEqual(docs, ['DB_INDEXES.md']);
+    assert.deepEqual(docs, ['DB_INDEXES.md', 'DOMAIN_MODEL.md']);
   });
 });
 
