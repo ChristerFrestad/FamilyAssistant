@@ -13,10 +13,18 @@ function switchTab(el) {
     clearTimeout(enrichmentPollTimer);
     enrichmentPollTimer = null;
   }
-  if (view === 'viewToday') loadToday();
-  if (view === 'viewMeals') loadMeals();
-  if (view === 'viewShopping') loadShopping();
-  if (view === 'viewChores') loadChores();
+  // Defensive: typeof-guards mirror the pattern already used in settings.js
+  // and pantry.js. If one module fails to load (cached-stale SW, 404, CSP),
+  // the others still work — we do not crash the tab-switch wholesale.
+  // Regression context: the handleliste-empty bug (PR #59) surfaced because
+  // a cached shopping.js from before PR #46 was still served by the SW,
+  // making loadShopping undefined at click-time; switchTab then threw
+  // silently and no fetch fired. SW VERSION is bumped in the same change
+  // to force cache invalidation; these guards are belt-and-suspenders.
+  if (view === 'viewToday' && typeof loadToday === 'function') loadToday();
+  if (view === 'viewMeals' && typeof loadMeals === 'function') loadMeals();
+  if (view === 'viewShopping' && typeof loadShopping === 'function') loadShopping();
+  if (view === 'viewChores' && typeof loadChores === 'function') loadChores();
   // FASE_E: oppdater FAB synlighet
   if (typeof updateFabVisibility === 'function') updateFabVisibility();
 }
