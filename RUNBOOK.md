@@ -935,3 +935,203 @@ end-to-end-testen:
 Hvis 1-4 viser kryss-kontaminasjon: STOPP og rapporter. Det er
 et regresjon i auth-middleware eller AsyncLocalStorage-wrapping.
 
+---
+
+## §13 LLM-backend — felles Ollama + per-familie-override (uke 2 B2, 2026-04-22)
+
+Christers beslutning B2 (Issue #62): én felles Ollama på RPi for
+alle pilot-familier. Dette speiler nåværende kode-oppførsel, og
+avsnittet dekker drifts-aspektene operatøren må være klar over.
+
+> **Merk:** Ingen empirisk cross-family-verifikasjon er gjort
+> 2026-04-22 — pilot-containeren er nede pga.
+> SESSION_SECRET-deploy-gate
+> ([`docs/known-issues/portainer-session-secret-deploy-gate.md`](known-issues/portainer-session-secret-deploy-gate.md)).
+> Verifiseringen kjøres når containeren er oppe igjen (antatt uke 4).
+> Se **§13.7** for test-prosedyre.
+
+### §13.1 Dagens kode-oppførsel
+
+Chat og meal-suggestion i `POST /api/llm/chat` ([routes.js:2011](../server/routes.js#L2011))
+kaller `chat()` i [`server/llm.js`](../server/llm.js) som bruker
+**globalt** `OLLAMA_HOST` fra `config.js`. Alle familier treffer
+samme Ollama-instans uavhengig av eventuell per-familie-config.
+
+Per-familie-config lagres i `llm_configs`-tabellen
+(migrasjon 014, `server/repositories/llm-config.repo.js`) og
+eksponeres via `/api/family/llm`-endepunkter
+([`server/auth/llm-routes.js`](../server/auth/llm-routes.js)), men
+brukes **kun** av test-endepunktet `POST /api/family/llm/test` —
+ikke av selve chat-flyten ennå.
+
+**Konsekvens for pilot:** Alle 5 familier bruker Christers Ollama
+direkte. Ingen isolasjon på LLM-laget; ingen familiesspesifikk
+modell-valg eller API-nøkler i praksis (selv om DB-en ser ut til å
+støtte det).
+
+### §13.2 Operatør-flyt: konfigurere LLM per familie
+
+> **Scope-varsel:** Dette dekker UI-flyten operatøren kan bruke,
+> men per §13.1 tar ikke chat-flyten hensyn til resultatet enda.
+> Dvs. å sette familie-spesifikk config per i dag gir bare
+> test-muligheten + lagring-i-DB; ingen runtime-effekt på chat.
+
+**Som owner for en familie:**
+
+```bash
+# Hent nåværende config (alltid trygt — viser aldri API-nøkkel)
+curl -s -H "Cookie: fa_session=<owner-sid>" \
+  http://<host>:7777/api/family/llm
+
+# Eksempel-respons:
+# { "config": { "backend": "ollama", "model": "qwen2.5:3b",
+#               "baseUrl": "http://host.docker.internal:11434",
+#               "hasKey": false } }
+
+# Sett familie-spesifikk config (owner-only)
+curl -X PUT -H "Cookie: fa_session=<owner-sid>" \
+  -H "Content-Type: application/json" \
+  -d '{"backend":"anthropic","model":"claude-sonnet-4-5","apiKey":"<anthropic-key>"}' \
+  http://<host>:7777/api/family/llm
+
+# Test at config-en fungerer (any authed member)
+curl -X POST -H "Cookie: fa_session=<member-sid>" \
+  http://<host>:7777/api/family/llm/test
+# { "ok": true, "backend": "anthropic", "model": "...", "result": "..." }
+```
+
+**Tilgjengelige backends** (fra `SUPPORTED_BACKENDS` i
+`llm-config.repo.js:21`):
+
+- `ollama` — default; `baseUrl` peker til Ollama-instans
+- `llamacpp` — alternativ lokal runtime
+- `anthropic` — Claude API (krever `apiKey`)
+- `openai` — GPT-4/5 (krever `apiKey`)
+- `xai` — Grok (krever `apiKey`)
+
+**Nøkkel-håndtering:**
+
+- API-nøkler AES-256-GCM-krypteres med `ENCRYPTION_KEY` før lagring
+  i `llm_configs.api_key_ciphertext`.
+- `apiKey: undefined` → behold eksisterende.
+- `apiKey: ''` → slett eksisterende.
+- `apiKey: '<streng>'` → krypter og lagre.
+- Chiffertekst leses aldri tilbake til klient — `/api/family/llm`
+  returnerer kun `hasKey: boolean`.
+
+### §13.3 Fallback når Ollama er nede
+
+**Symptom:** Chat returnerer 503 eller "LLM ikke tilgjengelig".
+
+**Sjekk:**
+
+```bash
+# Fra appens kontainer:
+curl -sf http://host.docker.internal:11434/api/tags
+# Tom respons = Ollama nede. JSON med modell-liste = OK.
+
+# App-status:
+curl -s http://localhost:7777/api/status | jq '.breakers.ollama,.llm'
+```
+
+**Circuit breaker-state:** Hvis Ollama kontinuerlig feiler, åpner
+breakeren og serverer 503 i cooldown-perioden (se §3).
+
+**Rot-årsaker for Ollama nede:**
+
+1. Ollama-service ikke startet på RPi-hosten:
+   `sudo systemctl status ollama`
+2. Modellen ikke lastet: `ollama list` viser ikke `qwen2.5:3b`.
+   Fix: `ollama pull qwen2.5:3b`
+3. Port 11434 blokkert mellom container og host —
+   `host.docker.internal:host-gateway` må være satt i
+   docker-compose.yml (allerede satt, linje 117-118).
+4. RAM-utmattelse: qwen2.5:3b trenger ~2 GB. Hvis RPi-en
+   samtidig kjører andre ML-tjenester kan OOM-killer ta Ollama.
+   Sjekk `free -m` og `journalctl -u ollama -n 50`.
+
+**Ingen automatisk fallback** til andre backends i dagens kode.
+Chat returnerer 503 til familien til Ollama er oppe igjen.
+
+### §13.4 Ressurs-hensyn ved samtidig bruk fra flere familier
+
+Ollama på RPi5 8 GB håndterer seriell chat godt, men parallell bruk
+fra 5 familier kan bli en flaskehals.
+
+**Ressurs-budsjett (grovestimat):**
+
+| Komponent | RAM |
+|---|---|
+| qwen2.5:3b-modell lastet | ~2.0 GB |
+| Ollama-prosess overhead | ~0.3 GB |
+| Familieassistenten-container | ~0.5 GB (cap 512 MB per docker-compose) |
+| HomeAssistant (hvis samlokert) | ~0.8 GB |
+| OS + øvrig | ~1.0 GB |
+| **Sum** | ~4.6 GB |
+
+Gjenstående ~3.4 GB brukes til inferens-context-caching og
+konkurrerende requests.
+
+**Teoretisk latens** (ikke målt for 5-familie-scenario; basert på
+generell Ollama-oppførsel + eksisterende load-baseline):
+
+- Seriell chat (én familie): p95 < 2 sekunder for 200-ord-respons
+- 2 parallelle: p95 øker typisk til ~4 sekunder (Ollama kø)
+- 3+ parallelle: p95 > 6 sekunder forventet
+
+**Målinger er ikke gjort for 5 samtidige familier** — verifiseres
+i §13.7-prosedyren når containeren er oppe.
+
+**Mitigation hvis kapasitet blir problem:**
+
+- Bytt til mindre modell: `qwen2.5:1.5b` (halv RAM, ~3x raskere)
+- Aktiver per-familie cloud-backend via `/api/family/llm` (betalt
+  av familien selv) — krever først kode-endring per §13.1-gap
+- Kjøp kraftigere RPi / NUC (RAM-begrenset, ikke CPU)
+
+### §13.5 LLM-cache som buffer mot gjentatte spørsmål
+
+[server/services/llm-cache.service.js](../server/services/llm-cache.service.js)
+lagrer samme (user-query + context) → samme svar i 7 dager.
+Sparer roundtrips til Ollama ved gjentatte spørsmål. Treff-rate
+sjekkes via `GET /api/status`-breakers-feltet.
+
+### §13.6 Endring av global LLM-backend
+
+I nåværende pilot-oppsett styres default via Portainer-stack-env
+(docker-compose.yml linje 73-75):
+
+```
+LLM_BACKEND: ${LLM_BACKEND:-ollama}
+OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+```
+
+Endring krever:
+
+1. Oppdater Portainer-stack-env-vars.
+2. Redeploy (Portainer → "Update the stack")
+3. Verifiser via `GET /api/status` → `backend: 'ollama'` og
+   `backend-health: up`.
+
+### §13.7 Empirisk verifikasjons-prosedyre (TODO — utsatt til post-deploy-gate)
+
+**TODO:** kjøres når `portainer-session-secret-deploy-gate`
+er løst (antatt uke 4).
+
+1. Containeren oppe + 2 familier inviteres og logger inn.
+2. Begge familier sender `POST /api/llm/chat` med forskjellige
+   meldinger samtidig (to separate cookie-jars).
+3. Verifiser:
+   - Begge får svar innen rimelig tid (< 10 sek p95).
+   - Familiene ser ikke hverandres chat-historikk
+     (`repos.kb` skal være family-scoped).
+   - Ollama-host-log viser to separate requests (ikke én).
+4. Dokumenter faktisk latens og RAM-forbruk i §13.4 og i neste
+   uke-baseline.
+
+**Hvis pilot viser uakseptabel latens:** aktiver per-familie-
+config ved å wire `getClientForFamily()` inn i chat-handleren —
+krever kode-endring i `server/routes.js:2011-2042` og ny
+analyse-PR per CLAUDE.md DEL 3.
+

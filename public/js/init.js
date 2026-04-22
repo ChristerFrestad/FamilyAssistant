@@ -11,6 +11,20 @@ loadTheme();
   const ok = await bootAuth();
   if (!ok) return;
   loadToday();
+  // PR #59 fix — preload shopping data on boot. The handleliste-empty bug
+  // surfaced because clicking the tab never triggered a fetch in some
+  // browser environments (suspected SW-cached stale shopping.js). Preloading
+  // here guarantees shoppingData is populated by the time the user switches
+  // to the handleliste-tab, regardless of switchTab/loadShopping timing or
+  // any lingering cache quirks. The cost is one extra request on boot
+  // (~30ms for a few KB of JSON); the safety it buys is worth it until
+  // we have stronger evidence the tab-switch path is 100% reliable.
+  if (typeof loadShopping === 'function') {
+    loadShopping().catch(() => {
+      /* preload is best-effort; failures surface via the normal tab-click
+         flow. Do not toast from here — user has not requested shopping yet. */
+    });
+  }
   checkLlmStatus();
   initVoice();
   setInterval(checkNotifications, 30 * 60 * 1000);

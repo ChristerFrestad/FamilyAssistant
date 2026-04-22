@@ -332,6 +332,133 @@ function annotateRecipe(recipe, profile) {
   return Object.assign({}, recipe || {}, check);
 }
 
+// ============================================================
+// B7 — Per-member allergy check (D7 lag 1: HARDT filter)
+// ============================================================
+//
+// Same deterministic substring-match as checkRecipe(), but extended to
+// carry per-member attribution. Every blocked ingredient now records
+// WHICH members are affected (blockedFor: string[]) so the UI can say
+// "Inneholder gluten — truer Lise, Kari".
+//
+// Fallback semantics (D6 fallback-arv): a member with allergies=null
+// inherits familyAllergies. A member with allergies=[] explicitly
+// has no allergies (does NOT fall back). Same logic for dislikes.
+//
+// safeForFamily is false if any member has at least one blocked
+// ingredient — allergy is a HARD filter per D7 (no override).
+
+/**
+ * @typedef {object} FamilyMemberContext
+ * @property {number} id
+ * @property {string} name
+ * @property {string[]|null} [allergies] - null = inherit familyAllergies
+ * @property {string[]|null} [dislikes] - null = inherit familyDislikes
+ * @property {string[]} [dietTags]
+ * @property {string|null} [customDietNote]
+ */
+
+/**
+ * @typedef {object} FamilyContext
+ * @property {string[]} familyAllergies - family_profile.allergies
+ * @property {string[]} familyDislikes - family_profile.dislikes
+ * @property {FamilyMemberContext[]} members
+ */
+
+/**
+ * @typedef {object} PerMemberBlockedIngredient
+ * @property {string} ingredient
+ * @property {string} allergy
+ * @property {string} trigger
+ * @property {string[]} blockedFor - Names of members whose allergies were hit
+ */
+
+/**
+ * @typedef {object} PerMemberAllergyResult
+ * @property {boolean} safeForFamily
+ * @property {PerMemberBlockedIngredient[]} blockedIngredients
+ * @property {string[]} effectiveAllergies - Union across all members
+ */
+
+function effectiveAllergiesForMember(member, familyAllergies) {
+  // null = inherit, [] = explicit empty, array = own list
+  if (member.allergies === null || member.allergies === undefined) {
+    return Array.isArray(familyAllergies) ? familyAllergies : [];
+  }
+  return Array.isArray(member.allergies) ? member.allergies : [];
+}
+
+/**
+ * Check a recipe against a family context (per-member allergies).
+ *
+ * @param {{ingredients?: Array<{name?: string, ingredient?: string}>}} recipe
+ * @param {FamilyContext} familyContext
+ * @returns {PerMemberAllergyResult}
+ */
+function checkRecipeForFamily(recipe, familyContext) {
+  const fa = Array.isArray(familyContext?.familyAllergies) ? familyContext.familyAllergies : [];
+  const members = Array.isArray(familyContext?.members) ? familyContext.members : [];
+
+  // Per-member trigger maps: Map<triggerSubstring, Set<memberName>>.
+  // Also collect the union for effectiveAllergies.
+  /** @type {Map<string, { allergy: string, members: Set<string> }>} */
+  const triggerByMember = new Map();
+  const unionAllergies = new Set();
+
+  // If no members, fall back to family-level for a single virtual "family" member.
+  // This matches the backward-compat behavior where checkRecipe(recipe, { allergies: [...] })
+  // treats the family as a single entity.
+  const effectiveMembers =
+    members.length > 0
+      ? members.map((m) => ({
+          name: m.name || 'Ukjent',
+          effective: effectiveAllergiesForMember(m, fa),
+        }))
+      : [{ name: 'familie', effective: fa }];
+
+  for (const m of effectiveMembers) {
+    for (const a of m.effective) {
+      if (typeof a !== 'string' || !a.trim()) continue;
+      unionAllergies.add(a);
+    }
+    const memberMap = buildTriggerMap(m.effective);
+    for (const [trigger, allergy] of memberMap.entries()) {
+      if (!triggerByMember.has(trigger)) {
+        triggerByMember.set(trigger, { allergy, members: new Set() });
+      }
+      triggerByMember.get(trigger).members.add(m.name);
+    }
+  }
+
+  /** @type {PerMemberBlockedIngredient[]} */
+  const blocked = [];
+  const ingredients = recipe?.ingredients || [];
+
+  for (const ing of ingredients) {
+    const rawName = (ing && (ing.name || ing.ingredient)) || '';
+    if (typeof rawName !== 'string' || !rawName.trim()) continue;
+    const lower = rawName.toLowerCase();
+
+    for (const [trigger, { allergy, members: affected }] of triggerByMember.entries()) {
+      if (lower.includes(trigger)) {
+        blocked.push({
+          ingredient: rawName,
+          allergy,
+          trigger,
+          blockedFor: Array.from(affected).sort(),
+        });
+        break; // one match per ingredient
+      }
+    }
+  }
+
+  return {
+    safeForFamily: blocked.length === 0,
+    blockedIngredients: blocked,
+    effectiveAllergies: Array.from(unionAllergies),
+  };
+}
+
 module.exports = {
   ALLERGY_TRIGGERS,
   normalizeAllergyKey,
@@ -339,4 +466,7 @@ module.exports = {
   checkRecipe,
   checkRecipes,
   annotateRecipe,
+  // B7 — per-member API
+  checkRecipeForFamily,
+  effectiveAllergiesForMember,
 };
