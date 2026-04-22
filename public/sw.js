@@ -13,7 +13,14 @@
 //
 // Cache-versjon bumpes ved hver deploy så gamle caches ryddes automatisk.
 
-const VERSION = 'v1.7-phase22';
+// v1.8-phase23: bumped 2026-04-22 to force cache invalidation of cached
+// shopping.js from before PR #44/#46 (shopping UX fixes). Stale cached
+// shopping.js is the strongest working hypothesis for why the handleliste
+// tab shows empty without any /api/shopping/list/current fetch in DevTools
+// (see docs/analyses/2026-04-22-frontend-empty-shopping-resolved.md).
+// Naming-convention vN.M-phaseN asserted by phase14-sw-multitenant.test.js.
+// Bump this VERSION for any PR that changes public/js/*.js or public/css/*.
+const VERSION = 'v1.8-phase23';
 const STATIC_CACHE = `fam-static-${VERSION}`;
 const API_CACHE = `fam-api-${VERSION}`;
 
