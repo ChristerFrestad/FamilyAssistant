@@ -1211,7 +1211,12 @@ function registerRoutes(router, { repos, serverState }) {
   router.put('/api/chores/complete', validateBody(schemas.choreCompleteBody), (ctx) => {
     const { weekYear, choreId } = ctx.body;
     const wk = weekYear || ensureCurrentWeek(repos);
-    repos.choreSchedules.markDone(wk, choreId);
+    // B5 gamification: attribute the completion to a real user id when
+    // possible. Synthetic LOCAL_USER (pilot single-tenant) has id=0 and
+    // is not a row in users — pass null so the chore_completions.user_id
+    // FK stays satisfied.
+    const userId = ctx.user && !ctx.user._synthetic ? ctx.user.id : null;
+    repos.choreSchedules.markDone(wk, choreId, { userId });
     invalidate('chores', 'today');
     ctx.json({ ok: true });
   });

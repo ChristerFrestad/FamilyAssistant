@@ -165,6 +165,36 @@ function loadConfig() {
     if (bv.llmBackend && !process.env.LLM_BACKEND) process.env.LLM_BACKEND = bv.llmBackend;
     if (bv.ollamaHost && !process.env.OLLAMA_HOST) process.env.OLLAMA_HOST = bv.ollamaHost;
     if (bv.logLevel && !process.env.LOG_LEVEL) process.env.LOG_LEVEL = bv.logLevel;
+    // Multi-tenant auth (uke 2 B1): promote persisted sessionSecret (from
+    // wizard v2+ or from the self-healer below).
+    if (bv.sessionSecret && !process.env.SESSION_SECRET) {
+      process.env.SESSION_SECRET = bv.sessionSecret;
+    }
+
+    // Multi-tenant auth bootstrap (uke 2 B1): ensure SESSION_SECRET exists
+    // in bootstrap.json. Fresh installs via the setup-wizard write it
+    // during handleComplete. Upgrade installs that predate multi-tenant
+    // activation get it self-healed here — we generate one, merge it
+    // into the existing file, and expose it on env before zod runs.
+    // Skipped in NODE_ENV=test to keep fixtures deterministic.
+    if (process.env.NODE_ENV !== 'test') {
+      try {
+        const { ensureSessionSecretInBootstrapFile } = require('./auth/bootstrap-session-secret');
+        const result = ensureSessionSecretInBootstrapFile(bootstrap.path);
+        if (result.secret && !process.env.SESSION_SECRET) {
+          process.env.SESSION_SECRET = result.secret;
+        }
+      } catch (err) {
+        // Self-healing is best-effort. If we cannot write the file, log
+        // and continue — the production-only validation below still
+        // enforces that SESSION_SECRET is set (via env) when Google
+        // OAuth is configured.
+        console.warn(
+          `⚠️  SESSION_SECRET self-heal failed (${err.message}). ` +
+            `Set SESSION_SECRET in env or fix file permissions on bootstrap.json.`
+        );
+      }
+    }
   }
 
   const parsed = envSchema.safeParse(process.env);
@@ -264,16 +294,36 @@ function loadConfig() {
     console.error('⚠️  GOOGLE_CLIENT_ID requires APP_URL for redirect URI construction.');
     process.exit(1);
   }
-  // In production with any multi-tenant feature enabled, require proper secrets.
-  if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID) {
+  // In production with any HMAC-signing auth feature enabled, require
+  // SESSION_SECRET. Multi-tenant activation (uke 2 B1, C3): extend the
+  // previous Google-OAuth-only gate to also catch magic-link flows, which
+  // sign their state via SESSION_SECRET in server/auth/routes.js. The
+  // previous gate silently let magic-link deploys run on whatever
+  // SESSION_SECRET happened to be populated (or empty).
+  //
+  // PILOT_BYPASS is deliberately EXCLUDED: its cookie is a raw session
+  // id (no HMAC), so SESSION_SECRET is never consulted on that path.
+  // PILOT_BYPASS has its own guardrails via PILOT_BYPASS_PRODUCTION_ACK.
+  const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
+  if (cfg.NODE_ENV === 'production' && hmacSigningEnabled) {
     if (!cfg.SESSION_SECRET) {
-      console.error('⚠️  SESSION_SECRET is required in production when Google OAuth is enabled.');
+      console.error(
+        '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +
+          'magic-link email, or MAGIC_LINK_CONSOLE is enabled.'
+      );
+      console.error(
+        '   Either set SESSION_SECRET in env, or let the bootstrap wizard ' +
+          '(/setup.html) generate one. Existing installs are self-healed on ' +
+          'boot — see server/auth/bootstrap-session-secret.js.'
+      );
       process.exit(1);
     }
-    if (!cfg.ENCRYPTION_KEY) {
-      console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
-      process.exit(1);
-    }
+  }
+  // ENCRYPTION_KEY remains Google-OAuth-specific (used by
+  // server/auth/crypto.js to AES-256-GCM-encrypt stored LLM keys).
+  if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID && !cfg.ENCRYPTION_KEY) {
+    console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
+    process.exit(1);
   }
 
   // Pilot bypass safety belt: PILOT_BYPASS=true disables all auth via

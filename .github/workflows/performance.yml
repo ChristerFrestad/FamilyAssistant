@@ -1,25 +1,25 @@
 name: Performance
 
-# Uke 5 PERF-2: nightly performance check + regresjonsgate.
+# Uke 5 PERF-2: performance check + regresjonsgate.
 # Kjører load-baseline.js mot en server startet i GitHub Actions og
 # sammenligner p95 mot committed perf-baseline.json. Feiler hvis p95
 # dropper mer enn 20% versus baseline.
 #
+# 2026-04-20: endret til ukentlig kadence per CLAUDE.md DEL 5.2.4.
+# Tidligere: nightly + PR-sjekk på server/-endringer. Nå: søndag 02:00 UTC
+# (samtidig med OSV/SBOM) + manuell trigger. Perf-regresjon er ikke
+# tidskritisk for daglig PR-flyt siden PR-gate-testene likevel fanger
+# funksjonelle regressjoner, og lokal-først-arbeidsflyten reduserer
+# hyppigheten av merger vesentlig.
+#
 # Triggers:
-#   - nightly (02:30 UTC = 04:30 Europe/Oslo sommertid)
-#   - manuelt via workflow_dispatch
-#   - ved pull request som endrer server/, scripts/load-baseline.js,
-#     eller perf-baseline.json (sanity-sjekk før merge)
+#   - schedule: søndag 02:00 UTC (ukentlig)
+#   - workflow_dispatch: manuell trigger fra GitHub UI
 
 on:
   schedule:
-    - cron: '30 2 * * *'
+    - cron: '0 2 * * 0'
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'server/**'
-      - 'scripts/load-baseline.js'
-      - 'perf-baseline.json'
 
 permissions:
   contents: read

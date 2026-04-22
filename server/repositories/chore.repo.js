@@ -81,29 +81,64 @@ function createChoreRepos(db) {
       `
       ).run(newDay, familyId, weekYear, choreId);
     },
-    markDone(weekYear, choreId) {
+    /**
+     * Mark a chore as done for a given week, and append a gamification
+     * history row in the same transaction. B5 (uke 2): the history row
+     * is used by future XP/streak/leaderboard features.
+     *
+     * @param {string} weekYear — 'YYYY-WNN'
+     * @param {number} choreId
+     * @param {object} [opts]
+     * @param {number|null} [opts.userId] — id of the user who completed,
+     *        or null for synthetic LOCAL_USER (single-tenant pilot).
+     */
+    markDone(weekYear, choreId, opts = {}) {
       const familyId = getFamilyId();
-      db.prepare(
-        `
-        UPDATE chore_schedules SET status = 'done', completed_at = datetime('now')
-        WHERE family_id = ? AND week_year = ? AND chore_id = ?
-      `
-      ).run(familyId, weekYear, choreId);
+      const userId = opts.userId ?? null;
+      const tx = db.transaction(() => {
+        db.prepare(
+          `UPDATE chore_schedules SET status = 'done', completed_at = datetime('now')
+            WHERE family_id = ? AND week_year = ? AND chore_id = ?`
+        ).run(familyId, weekYear, choreId);
+        // History insert — atomic with the schedule update so we never
+        // end up with status='done' but no history row (or vice versa).
+        db.prepare(
+          `INSERT INTO chore_completions (family_id, week_year, chore_id, user_id)
+             VALUES (?, ?, ?, ?)`
+        ).run(familyId, weekYear, choreId, userId);
+      });
+      tx();
     },
     /**
-     * Undo "done" or "postponed" — resets the row to 'pending'. Used
-     * by PUT /api/chores/undone. Works for both done and postponed
-     * rows; one action handles any accidental click.
+     * Undo "done" or "postponed" — resets the row to 'pending' AND
+     * removes the most recent history row for the (family, week, chore)
+     * triple. Used by PUT /api/chores/undone. Atomic: either both
+     * happen or neither.
+     *
+     * Design note: we only delete the newest completion row. In the rare
+     * event a chore was completed twice in the same week (e.g., via
+     * future "do X twice"-logic), the earlier completion remains on
+     * record — undo rolls back exactly ONE action.
      */
     markUndone(weekYear, choreId) {
       const familyId = getFamilyId();
-      db.prepare(
-        `
-        UPDATE chore_schedules
-        SET status = 'pending', completed_at = NULL, postponed_to = NULL
-        WHERE family_id = ? AND week_year = ? AND chore_id = ?
-      `
-      ).run(familyId, weekYear, choreId);
+      const tx = db.transaction(() => {
+        db.prepare(
+          `UPDATE chore_schedules
+              SET status = 'pending', completed_at = NULL, postponed_to = NULL
+            WHERE family_id = ? AND week_year = ? AND chore_id = ?`
+        ).run(familyId, weekYear, choreId);
+        db.prepare(
+          `DELETE FROM chore_completions
+            WHERE id = (
+              SELECT id FROM chore_completions
+               WHERE family_id = ? AND week_year = ? AND chore_id = ?
+               ORDER BY completed_at DESC, id DESC
+               LIMIT 1
+            )`
+        ).run(familyId, weekYear, choreId);
+      });
+      tx();
     },
     add(weekYear, choreId, scheduledDay) {
       const familyId = getFamilyId();

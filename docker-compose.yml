@@ -66,6 +66,12 @@ services:
       # AUTH_TOKEN is optional on first deploy — the wizard generates
       # and persists it. Set this variable to skip the wizard.
       AUTH_TOKEN: ${AUTH_TOKEN:-}
+      # SESSION_SECRET is also optional on first deploy — generated
+      # alongside AUTH_TOKEN by the setup wizard and persisted to
+      # bootstrap.json. Upgrading installs that pre-date multi-tenant
+      # activation get it self-healed on next boot. Override here only
+      # if you want to rotate it manually.
+      SESSION_SECRET: ${SESSION_SECRET:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
       AUTH_TOKEN_CREATED_AT: ${AUTH_TOKEN_CREATED_AT:-}
       # LLM backend (optional — a single-family deploy can use Ollama

@@ -808,3 +808,130 @@ ls -lh $APP_ROOT/data/familieassistenten.db
 **Escalation:** Rulle tilbake siste deploy hvis regresjon etter
 release. Kjør `scripts/load-baseline.js --compare=perf-baseline.json`
 for å kvantifisere.
+
+---
+
+## §12 Multi-tenant drift (uke 2 B1, 2026-04-20)
+
+Multi-tenant-auth er aktiv fra og med commit `feat(auth): aktiver
+multi-tenant session-flyt`. Dette avsnittet dekker de vanligste
+drifts-oppgavene.
+
+### §12.1 SESSION_SECRET — rotasjon
+
+`SESSION_SECRET` signerer OAuth-state-cookies og magic-link-
+tokener. Rotering invaliderer alle aktive sessions og alle
+pågående innlogginger.
+
+**Når rotere:**
+- Hemmeligheten har lekket (logget til Sentry, committet i feil
+  fil, delt i chat)
+- Rutine-rotering (årlig anbefalt; ingen pålagt frekvens ennå)
+
+**Rotere uten å rive hele appen:**
+
+```bash
+# 1. Generer ny hemmelighet
+NEW=$(openssl rand -hex 32)
+
+# 2. Oppdater bootstrap.json (beholder alle andre felt)
+cd /var/lib/familyassistant/data   # eller der bootstrap.json ligger
+jq --arg s "$NEW" '.sessionSecret = $s | .sessionSecretGeneratedAt = now | todate' bootstrap.json > bootstrap.json.new
+chmod 600 bootstrap.json.new
+mv bootstrap.json.new bootstrap.json
+
+# 3. Restart container. Alle eksisterende sessions invalideres;
+#    brukere må logge inn på nytt.
+docker compose restart app
+```
+
+**Verifikasjon:** `GET /api/auth/me` fra en gammel browser-session
+skal returnere `{authenticated: false}`.
+
+### §12.2 Invitere en ny familie
+
+Nye familier onboardes via invitasjon fra en eksisterende
+familie-eier (owner-role).
+
+```bash
+# Som owner i family A:
+curl -X POST http://<rpi>:7777/api/family/invitations \
+  -H "Cookie: fa_session=<owner-session-id>" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "ny-bruker@example", "role": "adult"}'
+
+# Responsen inneholder { token }. Send lenken:
+#   http://<rpi>:7777/invite/<token>
+# til brukeren. De åpner den, logger inn (magic-link eller
+# Google OAuth), og blir automatisk lagt til family A.
+```
+
+**Edge-case:** Hvis brukeren allerede er i en annen familie,
+returnerer `POST /api/onboarding/create-family` 409 Conflict.
+Brukeren må forlate sin gamle familie først (eller eieren
+sletter den).
+
+### §12.3 Debug "tenant-mismatch" — bruker ser feil familie
+
+Symptom: Bruker B logger inn, ser data fra familie A.
+
+Mulige årsaker i rekkefølge av sannsynlighet:
+
+1. **Gammel service-worker-cache.** Bruker har ikke lastet
+   nettleseren etter deploy. Be om hard-refresh (Ctrl+F5) eller
+   inkognito-test.
+2. **Feil session-cookie.** Sjekk DevTools → Application →
+   Cookies → `fa_session`. Sammenlign med
+   `SELECT user_id, family_id FROM sessions WHERE id='<sid>'`
+   i DB.
+3. **AsyncLocalStorage-lekkasje.** Hvis middleware ikke wrapper
+   handler i `runWithFamily(familyId, ...)`, kan forrige
+   requests family_id "lekke" inn. Se `server/auth/family-context.js`
+   og søk etter ruter som ikke går gjennom authenticate().
+
+### §12.4 Slette en familie
+
+Kun owner kan slette. Alle data kaskade-slettes via
+`repos.family.deleteFamily(id)` — inkludert shopping_lists,
+pantry, meal_plans, chores, etc.
+
+```bash
+# Som owner:
+curl -X DELETE http://<rpi>:7777/api/family \
+  -H "Cookie: fa_session=<owner-session-id>"
+```
+
+**Advarsel:** irreversibelt. Ingen soft-delete. Hvis en familie
+inneholder verdifulle oppskrifter (`source='family-modified'`),
+vurder å eksportere dem via `GET /api/gdpr/export` først.
+
+### §12.5 Når session er utløpt midt i bruk
+
+User A sitter på UI, session utløper bakgrunnen. Neste request
+bør returnere 401 og `public/js/auth.js` skal da dirigere
+brukeren tilbake til `/login.html`. Verifiser at service-worker
+evicter API-cachen ved 401 (se `public/sw.js:149`) slik at
+forrige users data ikke lekker over.
+
+### §12.6 Verifisere empirisk tenant-isolation
+
+Etter hver auth-endring (C3 eller senere): gjennomfør
+end-to-end-testen:
+
+1. Åpne Chrome i normal modus, logg inn som User A, opprett
+   Family A, legg til `banana` i pantry.
+2. Åpne Firefox (eller Chrome inkognito med fresh cookies), logg
+   inn som User B, opprett Family B, legg til `apple` i pantry.
+3. Bytt tilbake til Chrome: `GET /api/pantry` skal kun vise
+   banana, ikke apple.
+4. Bytt til Firefox: `GET /api/pantry` skal kun vise apple, ikke
+   banana.
+5. Via SQLite:
+   ```sql
+   SELECT family_id, product_key, qty FROM inventory ORDER BY family_id;
+   ```
+   Skal vise to rader med forskjellige `family_id`.
+
+Hvis 1-4 viser kryss-kontaminasjon: STOPP og rapporter. Det er
+et regresjon i auth-middleware eller AsyncLocalStorage-wrapping.
+
