@@ -120,10 +120,6 @@ frontend-leveranse, FØR flere familier inviteres):**
       (intensjonalt minimum-endring i kode-fasen). Når UI er klar,
       oppgrader callers til å passere `members` → dermed respekteres
       også diet_tags i ukeplan-kandidater.
-- [ ] **Diabetiker-vennlig warning** — D3 inkluderer
-      `diabetiker-vennlig` som enum, men dette er en "mild" diet enn
-      en safety-regel. Vurder om UI skal vise den som warning (lag 2)
-      i stedet for hard filter (lag 3). Krever produkt-beslutning.
 
 **Referanser:**
 - D7-beslutning (tre-lags filter): Christers uke 2-melding 2026-04-22
@@ -134,3 +130,35 @@ frontend-leveranse, FØR flere familier inviteres):**
 UI landet, kan operatør-adult sette data via API, men det finnes ingen
 måte for vanlig bruker å administrere sin egen diett. Det bryter
 selvbetjeningsløftet fra B1-svaret.
+
+---
+
+## Diabetes-støtte — design pending
+
+Diabetes-støtte krever mer enn én enum-tag. For meningsfull verdi trengs:
+(1) næringsstoffinfo per oppskrift (carbs, sugars, fiber per porsjon),
+(2) per-medlem karbo/sukker-grenseverdier, (3) warning-basert filter-lag
+som viser avvik uten å blokkere. Utsatt til fase 2 (tidligst uke 6-10).
+Ikke implementert som halv-løsning i B7.
+
+**Status i B7 (batch-2):** `diabetiker-vennlig` ble bevisst fjernet fra
+D3-enum-listen (nå 13 verdier, ikke 14). Regression-test
+`updateMemberDiet rejects diabetiker-vennlig (deferred to phase 2)`
+i `tests/per-member-diet.repo.test.js` sikrer at verdien ikke
+stille re-introduseres uten design-prosess.
+
+**Hva som trengs for fase 2:**
+- Datamodell: `recipes.nutrition_per_serving` (carbs_g, sugars_g, fiber_g,
+  protein_g, fat_g) eller referanse til ekstern næringsstoff-DB.
+- Seed-data eller LLM-assistert parsing av eksisterende oppskrifter.
+- `family_profile_members.carb_limit_per_meal_g`,
+  `sugar_limit_per_day_g` eller lignende grenseverdi-felter.
+- Nytt filter-lag (eller utvidelse av lag 2 SOFT/warning) som rapporterer
+  "Høy karbo for Kari (54g vs. hennes 40g-grense)" uten å blokkere.
+- UI for å sette grenseverdier + vise warnings i oppskrifts-visning.
+
+**Hvorfor ikke som enum i B7:** En `diabetiker-vennlig` enum-tag som
+trigger "sukker/honning/ris/pasta"-ingredienser gir *falsk trygghet* —
+en diabetiker som stoler på at tagen filtrerer vekk problematiske måltider
+vil fortsatt kunne få risottoer med 80g karbo merket som "OK". Den
+medisinske verdien krever faktiske tall, ikke en ingrediens-heuristikk.

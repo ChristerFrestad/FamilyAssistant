@@ -123,7 +123,6 @@ function createFamilyRepo(db) {
     'lchf',
     'keto',
     'lav-fodmap',
-    'diabetiker-vennlig',
   ]);
   const VALID_DIET_TAG_SET = new Set(VALID_DIET_TAGS);
 

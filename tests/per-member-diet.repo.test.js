@@ -210,17 +210,33 @@ test('updateMemberDiet rejects unknown dietTags', () => {
   );
 });
 
-test('updateMemberDiet accepts all 14 documented D3 enum values', () => {
-  const familyId = createFamily('All-14-Tags');
+test('updateMemberDiet accepts all 13 documented D3 enum values', () => {
+  const familyId = createFamily('All-13-Tags');
   const m = server.repos.family.addMember(familyId, { name: 'Siri' });
 
   const allTags = server.repos.family.VALID_DIET_TAGS;
-  assert.equal(allTags.length, 14, 'expected 14 diet tags per D3');
+  // D3 enum is 13 values — 'diabetiker-vennlig' was excluded from the
+  // original proposal because diabetes requires per-recipe nutrient data
+  // and per-user carb/sugar thresholds (pending phase 2).
+  assert.equal(allTags.length, 13, 'expected 13 diet tags per D3');
 
   // Apply all at once — should not throw
   server.repos.family.updateMemberDiet(familyId, m.id, { dietTags: allTags });
   const got = server.repos.family.getMemberDiet(familyId, m.id);
   assert.deepEqual(got.dietTags.sort(), [...allTags].sort());
+});
+
+test('updateMemberDiet rejects diabetiker-vennlig (deferred to phase 2)', () => {
+  // Regression guard: ensure this tag is not silently re-added later.
+  const familyId = createFamily('No-Diabetiker-Tag');
+  const m = server.repos.family.addMember(familyId, { name: 'Kai' });
+  assert.throws(
+    () =>
+      server.repos.family.updateMemberDiet(familyId, m.id, {
+        dietTags: ['diabetiker-vennlig'],
+      }),
+    /invalid dietTags.*diabetiker-vennlig/
+  );
 });
 
 test('updateMemberDiet deduplicates dietTags', () => {

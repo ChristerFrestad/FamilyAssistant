@@ -102,7 +102,7 @@ filter besluttet 2026-04-22).
 | Commit | Innhold |
 |---|---|
 | `97676e7` | **Pre-kode analyse** (`docs/analyses/2026-04-22-per-member-diet.md`, 339 linjer). Kartlegging av nåværende allergy-filter-flyt + 5 call sites, eksisterende `family_profile_members`-skjema (migrasjon 014), 6 design-spørsmål (D1-D6) som Christer svarte på i chat, Portainer-risiko-vurdering, test-impact-mapping. |
-| `7a48801` | **Commit 1/3 — migrasjon 020 + repo.** `server/migrations/020_member_diets.sql` (31 linjer) — 4 `ADD COLUMN`: `allergies` (NULL = arv), `dislikes` (NULL = arv), `diet_tags` (NOT NULL DEFAULT `'[]'`, ingen arv), `custom_diet_note` (valgfri fritekst). `family.repo.js` utvidet med `getMemberDiet`/`updateMemberDiet` + 14-verdi enum-validering per D3. 22 nye repo-tester inkl. tenant-isolation. |
+| `7a48801` | **Commit 1/3 — migrasjon 020 + repo.** `server/migrations/020_member_diets.sql` — 4 `ADD COLUMN`: `allergies` (NULL = arv), `dislikes` (NULL = arv), `diet_tags` (NOT NULL DEFAULT `'[]'`, ingen arv), `custom_diet_note` (valgfri fritekst). `family.repo.js` utvidet med `getMemberDiet`/`updateMemberDiet` + 13-verdi enum-validering per D3 (`diabetiker-vennlig` utelatt — diabetes krever næringsstoffinfo og per-bruker-grenseverdier, utsatt til fase 2). 22 nye repo-tester inkl. tenant-isolation. |
 | `5d1e074` | **Commit 2/3 — tre-lags filter-arkitektur.** `allergy-filter.service.js` utvidet med `checkRecipeForFamily` (per-medlem `blockedFor[]`). Nye filer: `dislike-filter.service.js` (SOFT, kun warnings), `diet-filter.service.js` (HARD med `ignoreDietTags`-override), `recipe-filter.service.js` (fasade som orchestrerer alle tre). 32 filter-layer tester + 10 backward-compat regresjonstester. Legacy `checkRecipe`/`annotateRecipe` byte-kompatibelt bevart. |
 | `66beb93` | **Commit 3/3 — endpoints + call-site-migrering.** Nye ruter: `GET`/`PUT /api/family/members/:id/diet` (adult-only PUT, children read-only). 5 oppgraderte call sites (4 i `routes.js` + `isRecipeSafe` i `meal-planning.service.js`). `?ignoreDietTags=true` query-param for D7-override på recipe-listen. Responser inkluderer BÅDE legacy-felter (`safeForProfile`, `blockedIngredients`) OG nye `perMember` + `hiddenByAllergy`/`hiddenByDiet`/`shownWithDislikeWarning`. 17 endpoint-tester inkl. end-to-end D7-override-verifikasjon. |
 | `08fd6d2` | **Pending-decisions.md** oppdatert med B7-backend-status og UI-TODO (5 påkrevd UI-elementer før ekstern familie-invitasjon). |
@@ -196,7 +196,8 @@ risiko: D → C → B → A.
 
 | Arbeid | Status | Hvorfor ikke i batch 2 |
 |---|---|---|
-| **B7 UI** | Ikke startet | Eksplisitt dokumentert som pending (docs/workflow/pending-decisions.md). Må leveres i uke 3 FØR ekstern familie-invitasjon. Per-medlem-form, D7 override-toggle, blokkert-for-visualisering, meal-planning per-medlem-integrasjon, diabetiker-vennlig-severity-beslutning. |
+| **B7 UI** | Ikke startet | Eksplisitt dokumentert som pending (docs/workflow/pending-decisions.md). Må leveres i uke 3 FØR ekstern familie-invitasjon. Per-medlem-form, D7 override-toggle, blokkert-for-visualisering, meal-planning per-medlem-integrasjon. |
+| **Diabetes-støtte** | Design pending (fase 2, tidligst uke 6-10) | Krever næringsstoffinfo per oppskrift + per-bruker karbo/sukker-grenser + warning-basert filter-lag. `diabetiker-vennlig`-enum er bevisst IKKE med i D3-listen (13 verdier). Egen seksjon i `docs/workflow/pending-decisions.md`. |
 | **B7 meal-planning per-medlem-integrasjon** | Kode lagret allergy-only | `isRecipeSafe` bruker ny filter-service, men sender ikke `members[]`. Intensjonal minimum-endring for å unngå adferdsdrift i meal-planning mid-B7. UI-arbeidet i uke 3 gjør dette tryggere å aktivere samtidig. |
 | **Portainer SESSION_SECRET fix** | Utsatt til uke 4 | Dokumentert (gruppe A). 3 mitigering-alternativer skissert. Beslutning på valg utsatt til Christer har tid / bestemt tilnærming. |
 | **B3 Resend** | Utsatt til uke 3-4 | Per Issue #62 B3. |
@@ -300,7 +301,7 @@ Docs:
   docs/workflow/known-issues.md                             +48   / 0    (NY, C)
   docs/analyses/2026-04-22-per-member-diet.md               +339  / 0    (NY, D)
   docs/workflow/pending-decisions.md                        +52   / -2   (D)
-  docs/workflow/batch-2-pr-description.md                   +XXX  / 0    (NY, denne fila)
+  docs/workflow/batch-2-pr-description.md                   +341  / 0    (NY, denne fila)
 ```
 
 Omlag `+3800 / -46` på batch-2. Hoveddelene er B7 (code + tests) og

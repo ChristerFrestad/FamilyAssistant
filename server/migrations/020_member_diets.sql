@@ -19,7 +19,13 @@
 -- that adding a new tag later does not require a migration):
 --   vegetarian | vegan | pescetarian | halal | kosher
 --   laktosefri | glutenfri | eggfri | nøttefri
---   lavkarbo | lchf | keto | lav-fodmap | diabetiker-vennlig
+--   lavkarbo | lchf | keto | lav-fodmap
+--
+-- `diabetiker-vennlig` was considered and deliberately EXCLUDED:
+-- diabetes is not one category — it is a spectrum requiring nutrient
+-- info per recipe and per-user thresholds to be medically useful. A
+-- single enum-tag would offer false reassurance. Deferred to phase 2
+-- (uke 6-10 earliest). See `docs/workflow/pending-decisions.md`.
 --
 -- Portainer-risk: LOW. ADD COLUMN is idempotent; existing rows backfill
 -- to the declared default. Rollback safe (DROP COLUMN if rolled back).

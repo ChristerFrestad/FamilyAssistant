@@ -30,8 +30,13 @@
 
 /**
  * Seed-mapping fra diet_tag → trigger-substrings. Matcher D3 enum-liste
- * (14 verdier). Listene er konservative: heller ha false positives
+ * (13 verdier). Listene er konservative: heller ha false positives
  * (oppskrift skjules feil) enn missed blocks (vegetarianer får kjøtt).
+ *
+ * Note: `diabetiker-vennlig` er BEVISST utelatt — diabetes krever
+ * næringsstoffinfo per oppskrift + per-bruker karbo/sukker-grenser for
+ * å gi medisinsk nytte. Én enum-tag ville gitt falsk trygghet. Utsatt
+ * til fase 2 (tidligst uke 6-10). Se `docs/workflow/pending-decisions.md`.
  *
  * @type {Record<string, string[]>}
  */
@@ -279,21 +284,6 @@ const DIET_TAG_TRIGGERS = Object.freeze({
     'sopp',
     'blomkål',
     'blomkal',
-  ],
-  'diabetiker-vennlig': [
-    'sukker',
-    'sirup',
-    'honning',
-    'glukose',
-    'fruktose',
-    'hvitt brød',
-    'hvitt bread',
-    'ris',
-    'pasta',
-    'potet',
-    'kake',
-    'brus',
-    'saft',
   ],
 });
 

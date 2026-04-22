@@ -246,19 +246,25 @@ hvis behov oppstår.
 
 ### D3. Diet_tags: enum-verdier
 
-Forslag-til-liste (14 enum-verdier):
+Opprinnelig forslag (14 verdier) ble justert av Christer under gjennomgang:
+- `fodmap` → `lav-fodmap` (tydeligere semantikk)
+- `kostholdshensyn-annet` fjernet (dekkes av `custom_diet_note`-feltet)
+- `diabetiker-vennlig` vurdert og avvist — én enum-tag gir ikke medisinsk
+  nyttig dekning av diabetes-spekteret (krever næringsstoffinfo per oppskrift
+  og per-bruker-grenseverdier). Utsatt til fase 2.
+
+**Endelig D3-liste (13 enum-verdier):**
 ```
 vegetarian, vegan, pescetarian, halal, kosher,
 laktosefri, glutenfri, eggfri, nøttefri,
-lavkarbo, lchf, keto, fodmap, kostholdshensyn-annet
+lavkarbo, lchf, keto, lav-fodmap
 ```
 
-**Spørsmål:** Godkjenner du denne listen, eller mangler/feilaktige verdier?
-
-Alternative tilnærminger:
+Alternative tilnærminger (vurdert, forkastet):
 - Bare 6 grunnleggende tags (`vegetarian, vegan, halal, glutenfri,
   laktosefri, annet`) — lavere UI-kompleksitet, utvides ved behov.
-- Full 14-verdi-liste — dekker pilot pluss rimelig utvidelse.
+- 14-verdi-liste med `diabetiker-vennlig` — forkastet pga. falsk trygghet
+  uten næringsstoff-støtte.
 
 ### D4. UI-presentasjon (for kontekst — ikke i denne PR)
 
@@ -329,7 +335,7 @@ Følgende rekkefølge forventet for kode-fasen (3-4 commits):
 |---|---|---|
 | D1 Struktur-valg | Hybrid (C) | Ja |
 | D2 Skjema-plassering | Kolonner på members (A) | Ja (bekrefte) |
-| D3 Diet_tags enum | 14-verdi-liste | Ja |
+| D3 Diet_tags enum | 13-verdi-liste (endelig — `diabetiker-vennlig` utelatt) | Ja |
 | D4 UI-scope | Ikke i denne PR | Ja (bekrefte) |
 | D5 Default-verdi | NULL | Ja |
 | D6 Backward-compat | Fallback (C) — medlem NULL → arv familie-nivå | Ja |
