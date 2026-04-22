@@ -1,6 +1,6 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-20 (uke 2-beslutninger mottatt + billing løst)
+**Sist oppdatert:** 2026-04-22 (B7 backend landet lokalt; UI-arbeid forblir pending)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon er **GitHub Issue #62** (uke 2-beslutninger —
@@ -67,3 +67,53 @@ Basert på svarene over er rekkefølgen:
 PR #59-fix håndteres parallelt når Christer svarer på de 5 spørsmålene.
 
 Claude oppdaterer denne filen når uke 2-leveransene fullføres.
+
+---
+
+## B7 — Per-medlem diett UI (MÅ gjøres før eksterne familier inviteres)
+
+**Status (2026-04-22):** Backend-arbeidet er landet lokalt på
+`feat/per-member-diet`-branchen i 3 commits:
+
+- Migrasjon 020 + `updateMemberDiet`/`getMemberDiet` i `family.repo.js`
+- Tre-lags filter-arkitektur (`allergy-filter` utvidet, nye
+  `dislike-filter.service.js` og `diet-filter.service.js`, fasaden
+  `recipe-filter.service.js`)
+- `PUT`/`GET /api/family/members/:id/diet` + 5 oppgraderte call sites,
+  inkludert `?ignoreDietTags=true`-query-param for D7-override
+
+**Ikke gjort (pending UI-arbeid — må leveres i uke 3 eller ved ny
+frontend-leveranse, FØR flere familier inviteres):**
+
+- [ ] **UI for PUT /api/family/members/:id/diet** — per-medlem-form
+      med allergi-liste, dislike-liste, diet_tag-chip-velger (14 enum-
+      verdier fra D3) og custom_diet_note-fritekst. Uten denne kan
+      operatører sette data kun via `curl`/dev-tools.
+- [ ] **Override-toggle for diet_tags (D7)** — UI-komponent øverst i
+      oppskrifts-visning: "Vis alle oppskrifter uansett diett". Må
+      huske tilstand lokalt (localStorage eller URL-param). Setter
+      `?ignoreDietTags=true` på `GET /api/recipes`-kall. Server
+      persisterer ikke denne — se D7-avklaring.
+- [ ] **Per-medlem-visualisering** — "Truer Lise (gluten), Kari
+      (laktose)" via `perMember.allergy.blockedIngredients[].blockedFor`.
+      Matrise eller chip-liste. Må også vise `perMember.dislike.warnings`
+      som svakere hint (ikke rødt varsel).
+- [ ] **Meal-planning per-medlem-integrering** — nåværende
+      `isRecipeSafe` i meal-planning bruker KUN familie-nivå-allergier
+      (intensjonalt minimum-endring i kode-fasen). Når UI er klar,
+      oppgrader callers til å passere `members` → dermed respekteres
+      også diet_tags i ukeplan-kandidater.
+- [ ] **Diabetiker-vennlig warning** — D3 inkluderer
+      `diabetiker-vennlig` som enum, men dette er en "mild" diet enn
+      en safety-regel. Vurder om UI skal vise den som warning (lag 2)
+      i stedet for hard filter (lag 3). Krever produkt-beslutning.
+
+**Referanser:**
+- D7-beslutning (tre-lags filter): Christers uke 2-melding 2026-04-22
+- Analyse: `docs/analyses/2026-04-22-per-member-diet.md`
+- Tre commits: se `git log feat/per-member-diet`
+
+**Blokkering for ekstern invitasjon:** Inviteres en ny familie *uten*
+UI landet, kan operatør-adult sette data via API, men det finnes ingen
+måte for vanlig bruker å administrere sin egen diett. Det bryter
+selvbetjeningsløftet fra B1-svaret.
