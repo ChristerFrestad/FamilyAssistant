@@ -1,10 +1,27 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-22 (B7 backend landet lokalt; UI-arbeid forblir pending)
+**Sist oppdatert:** 2026-04-22 (batch-2 konsolidert lokalt — 4 enheter på `batch-2`-branchen, venter push-klarsignal "nå pusher vi batch 2")
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon er **GitHub Issue #62** (uke 2-beslutninger —
-lukket 2026-04-20) og **PR #59** (frontend-bug analyse — åpen).
+lukket 2026-04-20) og **PR #59** (frontend-bug analyse — åpen, fix
+inkludert i batch-2).
+
+---
+
+## Batch 2 — venter push-klarsignal
+
+**Branch:** `batch-2` (lokal). **Status:** 13 commits + 4 merge-commits,
+tier 1+2+3 grønn, PR-beskrivelse i `docs/workflow/batch-2-pr-description.md`.
+
+**Fire enheter:**
+- Gruppe A: Portainer SESSION_SECRET deploy-gate (docs)
+- Gruppe B: B2 LLM felles Ollama (RUNBOOK §13)
+- Gruppe C: PR #59 frontend empty-cart fix (3-lags defensiv)
+- Gruppe D: B7 per-medlem diett backend (migrasjon 020 + tre-lags filter + endpoints)
+
+Push utløses kun av eksakt frase "nå pusher vi batch 2" fra Christer.
+Ikke "ok", "push", "gå videre" eller lignende.
 
 ---
 
