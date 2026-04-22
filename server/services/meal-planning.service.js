@@ -15,7 +15,7 @@ const {
   subtractIngredientsFromInventory,
   keyForIngredient,
 } = require('./pantry-coverage.service');
-const allergyFilter = require('./allergy-filter.service');
+const recipeFilter = require('./recipe-filter.service');
 const { getOptionalFamilyId } = require('../auth/family-context');
 const { effectiveScale } = require('./family.service');
 
@@ -31,10 +31,15 @@ function resolveMode(repos) {
   }
 }
 
+// B7 — uses the new recipe-filter service. Kept intentionally family-only
+// (members not passed in) to preserve exact meal-planning behavior —
+// per-member filtering will come in a later iteration alongside UI work.
+// For a family with only family_profile.allergies this returns the SAME
+// result as the previous annotateRecipe()-based check.
 function isRecipeSafe(recipe, profile) {
-  // annotateRecipe gir { safeForProfile, blockedIngredients }
-  const annotated = allergyFilter.annotateRecipe(recipe, profile || {});
-  return annotated.safeForProfile !== false;
+  const ctx = recipeFilter.buildFamilyContext({ familyProfile: profile || {} });
+  const res = recipeFilter.filterRecipeForFamily(recipe, ctx);
+  return !res.hiddenByAllergy;
 }
 
 function getSwapSuggestions(repos, dayOfWeek, weekYear) {

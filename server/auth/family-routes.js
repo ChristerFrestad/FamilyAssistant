@@ -114,6 +114,59 @@ function handleDeleteMember(ctx, repos) {
 }
 
 // ============================================================
+// B7 — Per-member diet (allergies / dislikes / diet_tags / custom note)
+// ============================================================
+//
+// GET  /api/family/members/:id/diet  → { memberId, name, allergies,
+//                                        dislikes, dietTags, customDietNote }
+//     allergies/dislikes are either a string array OR null (null =
+//     inherit from family_profile.allergies/dislikes).
+//
+// PUT  /api/family/members/:id/diet  → same shape as GET after update.
+//     Body fields follow partial-update semantics:
+//       undefined  → keep existing value
+//       null       → clear (NULL for allergies/dislikes, '[]' for dietTags,
+//                    null for customDietNote)
+//       array/str  → replace
+//     diet_tags values are validated against family.repo.VALID_DIET_TAGS
+//     (14 D3 enum values); unknown values throw 400.
+
+function handleGetMemberDiet(ctx, repos) {
+  if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+  const memberId = parseInt(ctx.params.id, 10);
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    throw errors.badRequest('Invalid member id.');
+  }
+  const diet = repos.family.getMemberDiet(ctx.familyId, memberId);
+  if (!diet) throw errors.notFound('Member not found.');
+  return diet;
+}
+
+function handleUpdateMemberDiet(ctx, repos) {
+  if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+  const memberId = parseInt(ctx.params.id, 10);
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    throw errors.badRequest('Invalid member id.');
+  }
+  const body = ctx.body || {};
+  // Only pass through the 4 known fields; ignore unknowns to avoid
+  // surprise behavior when clients send extra keys.
+  const fields = {};
+  if ('allergies' in body) fields.allergies = body.allergies;
+  if ('dislikes' in body) fields.dislikes = body.dislikes;
+  if ('dietTags' in body) fields.dietTags = body.dietTags;
+  if ('customDietNote' in body) fields.customDietNote = body.customDietNote;
+  try {
+    const updated = repos.family.updateMemberDiet(ctx.familyId, memberId, fields);
+    if (!updated) throw errors.notFound('Member not found.');
+    return { ok: true, diet: updated };
+  } catch (err) {
+    if (err.status) throw err;
+    throw errors.badRequest(err.message);
+  }
+}
+
+// ============================================================
 // Invitations
 // ============================================================
 
@@ -374,6 +427,13 @@ function registerFamilyRoutes(router, { repos }) {
   );
   router.delete('/api/family/members/:id', requireRole('owner'), (ctx) =>
     handleDeleteMember(ctx, repos)
+  );
+
+  // B7 — Per-member diet. Read is any role (kids can view their own diet
+  // card), but edit is adult-only (children shouldn't mutate safety data).
+  router.get('/api/family/members/:id/diet', (ctx) => handleGetMemberDiet(ctx, repos));
+  router.put('/api/family/members/:id/diet', requireRole('adult'), (ctx) =>
+    handleUpdateMemberDiet(ctx, repos)
   );
 
   // Invitations — owner-only create/list/revoke.

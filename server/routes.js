@@ -523,6 +523,60 @@ function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // RECIPES
   // ============================================================
+
+  // B7 / D7 — Build FamilyContext from repos. Reads family_profile (for
+  // fallback-arv) + family_profile_members (for per-member diet data).
+  // Returns a FamilyContext compatible with recipe-filter.service.
+  // Defined as a route-local helper so tests that mock repos don't need
+  // to import it.
+  function buildFilterContext() {
+    const recipeFilter = require('./services/recipe-filter.service');
+    const familyProfile = repos.familyProfile.get();
+    // ctx.familyId lives on each request, but this helper is called
+    // inside handlers so we rely on AsyncLocalStorage via getFamilyId().
+    // Callers must ensure the family-context is set.
+    const { getFamilyId } = require('./auth/family-context');
+    const fid = getFamilyId();
+    const members = fid ? repos.family.listMembers(fid) : [];
+    return recipeFilter.buildFamilyContext({ familyProfile, members });
+  }
+
+  // B7 — parse ?ignoreDietTags=true (D7 override toggle). The toggle is
+  // UI-driven per D7 — the server does NOT persist it.
+  function parseIgnoreDietTags(query) {
+    const raw = query?.ignoreDietTags;
+    if (raw === true || raw === 'true' || raw === '1') return true;
+    return false;
+  }
+
+  // B7 — annotate a recipe with BOTH legacy fields (safeForProfile,
+  // blockedIngredients, checkedAgainst) AND new per-member fields
+  // (perMember.allergy/dislike/diet + hiddenByAllergy/hiddenByDiet/
+  // shownWithDislikeWarning). Legacy callers read the top-level keys;
+  // new callers read perMember.*. Both APIs coexist during transition.
+  function annotateRecipePerMember(recipe, familyContext, options) {
+    const recipeFilter = require('./services/recipe-filter.service');
+    const res = recipeFilter.filterRecipeForFamily(recipe, familyContext, options);
+    // Legacy fields derived from the new per-member result.
+    // safeForProfile is true iff no allergy was triggered (same as legacy).
+    const legacyBlocked = res.allergy.blockedIngredients.map(({ blockedFor, ...rest }) => rest);
+    return Object.assign({}, recipe || {}, {
+      // Legacy (uke 9 SAF-2 shape) — UI code that pre-dates B7 keeps working.
+      safeForProfile: res.allergy.safeForFamily,
+      blockedIngredients: legacyBlocked,
+      checkedAgainst: res.allergy.effectiveAllergies,
+      // B7 / D7 — per-member attribution + three-layer result
+      perMember: {
+        allergy: res.allergy,
+        dislike: res.dislike,
+        diet: res.diet,
+      },
+      hiddenByAllergy: res.hiddenByAllergy,
+      hiddenByDiet: res.hiddenByDiet,
+      shownWithDislikeWarning: res.shownWithDislikeWarning,
+    });
+  }
+
   router.get('/api/recipes', (ctx) => {
     // Fase F7: støtter ?source=mine|ai|all|imported
     // Filtrerer på recipes.source_type (enum), ikke recipes.source (fritt tekst)
@@ -536,43 +590,79 @@ function registerRoutes(router, { repos, serverState }) {
     } else if (source === 'imported') {
       filtered = all.filter((r) => (r.source_type || r.sourceType) === 'imported');
     }
-    // Uke 9 SAF-2: annoter hver oppskrift med safety-felter
-    const allergyFilter = require('./services/allergy-filter.service');
-    const profile = repos.familyProfile.get();
-    const annotated = filtered.map((r) => allergyFilter.annotateRecipe(r, profile));
-    ctx.json({ recipes: annotated });
+    // B7 / D7: Three-layer per-member filter with backward-compat legacy fields.
+    const familyContext = buildFilterContext();
+    const ignoreDietTags = parseIgnoreDietTags(ctx.query);
+    const annotated = filtered.map((r) =>
+      annotateRecipePerMember(r, familyContext, { ignoreDietTags })
+    );
+    ctx.json({
+      recipes: annotated,
+      filter: {
+        ignoreDietTags,
+        activeDietTags: Array.from(
+          new Set(annotated.flatMap((r) => r.perMember.diet.activeDietTags))
+        ),
+      },
+    });
   });
 
   router.get('/api/recipes/:id', (ctx) => {
     const id = requirePositiveInt(ctx.params.id);
     const recipe = repos.recipes.getById(id);
     if (!recipe) throw errors.notFound(`Oppskrift ${id} ikke funnet`);
-    // Uke 9 SAF-2: annoter med safety-sjekk
-    const allergyFilter = require('./services/allergy-filter.service');
-    const profile = repos.familyProfile.get();
-    const annotated = allergyFilter.annotateRecipe(recipe, profile);
+    const familyContext = buildFilterContext();
+    const ignoreDietTags = parseIgnoreDietTags(ctx.query);
+    const annotated = annotateRecipePerMember(recipe, familyContext, { ignoreDietTags });
     ctx.json({ recipe: annotated });
   });
 
   /**
-   * Uke 9 SAF-1/SAF-2: POST /api/profile/check-recipe
-   * Tar en oppskrift (eller bare ingredients) og returnerer deterministisk
-   * allergi-sjekk mot lagret family_profile. Brukes av:
-   *  - Recipe-import-flyten (før den lagrer LLM-output)
-   *  - Frontend som viser et advarsels-kort
-   *  - Testing / debugging
+   * POST /api/profile/check-recipe — deterministisk allergi-sjekk.
+   *
+   * Uke 9 SAF-1/SAF-2 kept backward-compatible: the legacy shape
+   * (safeForProfile + blockedIngredients + checkedAgainst) is preserved,
+   * and B7/D7 adds perMember + hiddenByAllergy/hiddenByDiet/
+   * shownWithDislikeWarning on the side.
+   *
+   * Body can override both profile (family-level) and members (per-member
+   * diet data) for "what-if" scenarios — useful for recipe-import flow
+   * that wants to validate against the current family without writing
+   * any data. If profile/members are omitted, the current family's
+   * data is used.
    */
   router.post('/api/profile/check-recipe', requireRole('adult'), (ctx) => {
-    const allergyFilter = require('./services/allergy-filter.service');
     const body = ctx.body || {};
     const recipe = body.recipe || { ingredients: body.ingredients || [] };
     if (!Array.isArray(recipe.ingredients)) {
       throw errors.badRequest('recipe.ingredients må være en array');
     }
-    // Tillat klient å overstyre profilen (for "sjekk mot hypotetisk profil")
-    const profile = body.profile || repos.familyProfile.get();
-    const result = allergyFilter.checkRecipe(recipe, profile);
-    ctx.json(result);
+    const recipeFilter = require('./services/recipe-filter.service');
+    const baseCtx = buildFilterContext();
+    // Allow caller to override profile and/or members; unset keys fall
+    // back to current-family data.
+    const familyContext = recipeFilter.buildFamilyContext({
+      familyProfile: body.profile || {
+        allergies: baseCtx.familyAllergies,
+        dislikes: baseCtx.familyDislikes,
+      },
+      members: Array.isArray(body.members) ? body.members : baseCtx.members,
+    });
+    const ignoreDietTags = parseIgnoreDietTags(ctx.query) || body.ignoreDietTags === true;
+    const res = recipeFilter.filterRecipeForFamily(recipe, familyContext, { ignoreDietTags });
+    // Legacy shape + per-member bundle.
+    const legacyBlocked = res.allergy.blockedIngredients.map(({ blockedFor, ...rest }) => rest);
+    ctx.json({
+      // Legacy
+      safeForProfile: res.allergy.safeForFamily,
+      blockedIngredients: legacyBlocked,
+      checkedAgainst: res.allergy.effectiveAllergies,
+      // B7 / D7
+      perMember: { allergy: res.allergy, dislike: res.dislike, diet: res.diet },
+      hiddenByAllergy: res.hiddenByAllergy,
+      hiddenByDiet: res.hiddenByDiet,
+      shownWithDislikeWarning: res.shownWithDislikeWarning,
+    });
   });
 
   /**
@@ -610,12 +700,26 @@ function registerRoutes(router, { repos, serverState }) {
       // Selve oppskriften lagres fortsatt (brukeren kan selv velge å beholde
       // den), men flagget stopper "usikker accept".
       if (result.recipe) {
-        const allergyFilter = require('./services/allergy-filter.service');
-        const profile = repos.familyProfile.get();
-        const safety = allergyFilter.checkRecipe(result.recipe, profile);
-        result.safeForProfile = safety.safeForProfile;
-        result.blockedIngredients = safety.blockedIngredients;
-        result.checkedAgainst = safety.checkedAgainst;
+        // B7 / D7 — per-member filter with legacy fields preserved.
+        const recipeFilter = require('./services/recipe-filter.service');
+        const familyContext = buildFilterContext();
+        const filterRes = recipeFilter.filterRecipeForFamily(result.recipe, familyContext);
+        // Legacy shape (uke 9 SAF-2) preserved for callers that pre-date B7
+        const legacyBlocked = filterRes.allergy.blockedIngredients.map(
+          ({ blockedFor, ...rest }) => rest
+        );
+        result.safeForProfile = filterRes.allergy.safeForFamily;
+        result.blockedIngredients = legacyBlocked;
+        result.checkedAgainst = filterRes.allergy.effectiveAllergies;
+        // B7 / D7 additions — callers can opt in
+        result.perMember = {
+          allergy: filterRes.allergy,
+          dislike: filterRes.dislike,
+          diet: filterRes.diet,
+        };
+        result.hiddenByAllergy = filterRes.hiddenByAllergy;
+        result.hiddenByDiet = filterRes.hiddenByDiet;
+        result.shownWithDislikeWarning = filterRes.shownWithDislikeWarning;
       }
       ctx.json({ ok: true, ...result }, 201);
     }
