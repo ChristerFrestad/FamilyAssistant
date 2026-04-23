@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import enforceDevIsolation from './vite-plugins/enforce-isolation';
 
 // Frontend v2 — built into <repo>/public/v2 so the existing Express
 // static handler can serve it via the /v2/* route prefix. See
@@ -14,7 +15,10 @@ import path from 'node:path';
 //        gitignored; CI rebuilds it before serving.
 
 export default defineConfig({
-  plugins: [react()],
+  // enforceDevIsolation() MUST run in every Vite invocation (dev + build
+  // alike). Its `enforce: 'pre'` makes it fire before react()'s resolver
+  // so an illegal app -> dev import fails fast with a clear error.
+  plugins: [enforceDevIsolation(), react()],
 
   // Base URL for all emitted asset paths. Must match the route prefix
   // the backend serves on, otherwise <script src="/assets/..."> breaks.
