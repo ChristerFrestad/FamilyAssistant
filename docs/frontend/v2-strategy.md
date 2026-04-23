@@ -84,11 +84,15 @@ grunner:
 npm start                    # Express på :7777
 
 # Frontend (ny terminal)
-npm run dev:client           # Vite dev-server på :5173 med /api-proxy
+npm run dev:client           # Vite dev-server på :7778 med /api-proxy
 ```
 
-Åpne `http://localhost:5173/v2/` — Vite server HMR med automatisk
+Åpne `http://localhost:7778/v2/` — Vite server HMR med automatisk
 re-rendering. API-kall til `/api/*` proxies til backend på 7777.
+
+> Vite-port `7778` (ikke standard `5173`) er valgt for å sitte rett
+> ved siden av backend på `7777`. Hele port-matrisen for utvikler-
+> maskinen er dokumentert i `CLAUDE.md` DEL 7.8.
 
 ### Vil du se hvordan prod-bygget ser ut?
 

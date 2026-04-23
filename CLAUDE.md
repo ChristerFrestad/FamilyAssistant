@@ -806,14 +806,39 @@ agentens kontekst.
    en annen port (f.eks. la Vite velge dynamisk uten `strictPort`),
    eller spør Christer om å frigjøre den. Aldri tving.
 
-**Porter som Christer typisk bruker manuelt:**
+**Generelt prinsipp:** Hvis en port i bruk ikke er listet under som
+**vårt prosjekt**, anta at den er Christers og IKKE drep prosessen
+som lytter på den.
 
-- `5173` — Vite dev-server (klient)
-- `7777` — Express backend (server)
+**Porter på Christers utviklermaskin — konkret kart:**
 
-Andre porter skal antas å være Christers hvis du ikke selv startet
-prosessen som lytter på dem. Når du er i tvil: behandle den som
-hans og spør.
+| Port(er) | Tjeneste | Kilde | Røres? |
+|---|---|---|---|
+| `80`, `81`, `443` | Nginx Proxy Manager | Christers | ❌ Aldri |
+| `5173` | Understand-Anything (Lum1104 på GitHub — kontinuerlig læringsverktøy) | Christers | ❌ Aldri |
+| `7777` | FamilieAssistant Express backend | **Vårt prosjekt** | ✅ Ja, hvis vi startet prosessen |
+| `7778` | FamilieAssistant Vite dev-server (`npm run dev:client`) | **Vårt prosjekt** | ✅ Ja, hvis vi startet prosessen |
+| `7779` | FamilieAssistant Vite preview (`npm run preview:client`) | **Vårt prosjekt** | ✅ Ja, hvis vi startet prosessen |
+| `8080` | OpenWebUI | Christers | ❌ Aldri |
+| `8123` | Home Assistant | Christers | ❌ Aldri |
+| `9000`, `9443` | Portainer | Christers | ❌ Aldri |
+| `11434` | Ollama | Christers | ❌ Aldri |
+
+Vite dev-server og preview er konfigurert med `strictPort: true` i
+`client/vite.config.ts` slik at de feiler tydelig hvis 7778/7779 er
+opptatt — ingen stille fallback til 5173 eller andre porter som
+tilhører Christer.
+
+For våre egne porter (7777-7779): hvis vi selv startet en prosess
+som lytter, eier vi lifecyclet og må stoppe den med samme task-ID
+vi fikk ved oppstart. Hvis 7777-7779 er opptatt av en prosess vi
+**ikke** startet, gjelder samme regel som for Christers porter:
+STOPP og rapporter, ikke kill. Det kan være Christer som kjører en
+manuell parallell-instans for sammenligning.
+
+Andre porter som ikke er i tabellen over skal antas å være
+Christers hvis du ikke selv startet prosessen. Når du er i tvil:
+behandle den som hans og spør.
 
 **Hvis du ved et uhell allerede har drept en prosess:** rapporter
 det umiddelbart i samme tur, beklag kort (ikke lang unnskyldning),

@@ -7,9 +7,14 @@ import enforceDevIsolation from './vite-plugins/enforce-isolation';
 // static handler can serve it via the /v2/* route prefix. See
 // docs/frontend/v2-strategy.md for the full story.
 //
-// Dev: `npm run dev:client` — Vite dev-server on :5173 with /api proxied
+// Dev: `npm run dev:client` — Vite dev-server on :7778 with /api proxied
 //      to the backend (:7777). WebSocket upgrades proxied too (ws:true)
 //      so future real-time endpoints work without config change.
+//      Ports 7778 (dev-server) and 7779 (preview) sit next to the
+//      backend on 7777 to keep our project's port family contiguous.
+//      Vite's default 5173 is reserved for an unrelated tool on the
+//      developer machine — see CLAUDE.md DEL 7.8 for the full port
+//      matrix.
 //
 // Build: `npm run build:client` — writes public/v2/. That folder is
 //        gitignored; CI rebuilds it before serving.
@@ -34,7 +39,10 @@ export default defineConfig({
   },
 
   server: {
-    port: 5173,
+    port: 7778,
+    // strictPort: fail loudly if 7778 is occupied instead of silently
+    // walking up to 7779, 7780, ... — keeps port behavior predictable
+    // and surfaces accidental double-starts immediately.
     strictPort: true,
     proxy: {
       // Backend API lives on 7777 (configured via PORT). All /api calls
@@ -51,7 +59,7 @@ export default defineConfig({
   },
 
   preview: {
-    port: 5174,
+    port: 7779,
     strictPort: true,
   },
 });

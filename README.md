@@ -93,11 +93,15 @@ npm install
 # Terminal 1 — backend on :7777
 npm start
 
-# Terminal 2 — Vite dev-server on :5173 with /api proxied to :7777
+# Terminal 2 — Vite dev-server on :7778 with /api proxied to :7777
 npm run dev:client
 
-# Open http://localhost:5173/v2/  — hot reload works end-to-end
+# Open http://localhost:7778/v2/  — hot reload works end-to-end
 ```
+
+(Vite-port `7778` (ikke standard `5173`) sitter rett ved backend
+på `7777`. Full port-matrise for utviklermaskinen er i `CLAUDE.md`
+DEL 7.8.)
 
 Prod-style build:
 ```bash
