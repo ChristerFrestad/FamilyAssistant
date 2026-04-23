@@ -144,6 +144,42 @@ Kjør `npm run lint:fix && npm run format:fix` før commit.
 
 ---
 
+## Frontend-struktur: `app/` vs `dev/`
+
+V2-frontenden (React-redesign under `client/`) har en hard grense mellom
+produksjons-kode og dev-only-verktøy. Regelen er enkel:
+
+- Alt under `client/src/app/` (og `client/src/main.tsx`, som er
+  entry-point for produksjons-appen) er **produksjonskode** og skal
+  ende opp i bundlen.
+- Alt under `client/src/dev/` er **utviklerverktøy** — komponent-
+  gallerier, debug-panel, preview-sider, eksperimenter — som aldri
+  skal ende opp i produksjon.
+- **Produksjonskode kan IKKE importere fra `dev/`.** Dev-kode kan
+  importere fritt fra `app/` (en preview-side for `Button` skal
+  selvsagt bruke den ekte `Button`-komponenten).
+
+Grensen er maskinelt håndhevet:
+
+- `client/vite-plugins/enforce-isolation.ts` fanger ethvert
+  `app → dev`-import-forsøk og krasjer bygget med en tydelig
+  feilmelding som navngir både importer og target. Pluginet kjører
+  i både `npm run dev:client` og `npm run build:client`.
+- `tests/client-dev-isolation.test.js` beviser at pluginen virker
+  ved å kjøre en ekte Vite-build mot en probe som bryter grensen
+  (forventer feil) og en som ikke gjør det (forventer success).
+  Testen kjører som del av `npm test`.
+
+Hvis du havner i en situasjon der kode i `dev/` ville vært nyttig
+i produksjonen, flytt den til `client/src/app/lib/` først — og
+importer den deretter fra begge steder. Ikke strekk gjennom grensen.
+
+Se også `client/src/dev/README.md` for detaljer og CLAUDE.md
+seksjon 7.7 for den bredere regelen om teknisk gjeld som denne
+grensen er én manifestasjon av.
+
+---
+
 ## Testkrav
 
 Alle PR-er må passere:
