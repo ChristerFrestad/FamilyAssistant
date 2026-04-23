@@ -781,6 +781,45 @@ av en urelatert grunn under Fase 1-2-arbeid, kan kommentarer i den
 berørte funksjonen oversettes som del av samme commit. Ikke påkrevd.
 Ingen drive-by over hele filen.
 
+### 7.8 Prosess-hygiene på delt maskin (2026-04-23)
+
+Christers utviklermaskin er delt mellom Claude Code (automatisert
+arbeid) og Christer selv (manuell utforskning, egne test-kjøringer,
+dev-servere kjørt for å forstå oppsettet). En prosess som "ser
+stranded ut" er ofte Christers — den er bevisst startet utenfor
+agentens kontekst.
+
+**Regler — ingen unntak:**
+
+1. **Du skal aldri drepe en prosess du ikke selv startet.** Selv om
+   den ser ubrukt eller "stranded" ut. Det inkluderer
+   `taskkill /F`, `kill -9`, `pkill`, `killall`, `Stop-Process`,
+   eller hva som helst som terminerer en PID du ikke vet er din.
+2. **Hvis du starter en prosess (dev-server, test-runner, watcher,
+   ngrok-tunnel, osv.), er du ansvarlig for å stoppe den selv** når
+   du er ferdig. Bruk samme task-ID / shell-ID du fikk ved oppstart.
+   Ikke avhengig av at noen andre rydder etter deg.
+3. **Hvis en port du trenger er opptatt: STOPP og rapporter.** Ikke
+   kill prosessen som holder porten. Be Christer enten frigjøre
+   porten eller bekreft at du kan bruke en annen.
+4. **Hvis du må teste noe som krever en bestemt port:** enten finn
+   en annen port (f.eks. la Vite velge dynamisk uten `strictPort`),
+   eller spør Christer om å frigjøre den. Aldri tving.
+
+**Porter som Christer typisk bruker manuelt:**
+
+- `5173` — Vite dev-server (klient)
+- `7777` — Express backend (server)
+
+Andre porter skal antas å være Christers hvis du ikke selv startet
+prosessen som lytter på dem. Når du er i tvil: behandle den som
+hans og spør.
+
+**Hvis du ved et uhell allerede har drept en prosess:** rapporter
+det umiddelbart i samme tur, beklag kort (ikke lang unnskyldning),
+og foreslå hva som må til for at Christer kan starte den på nytt
+hvis det er åpenbart.
+
 ---
 
 ## DEL 8: AGENT_LOG.md-FORMAT
