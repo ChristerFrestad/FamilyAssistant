@@ -3,8 +3,26 @@
 Kilde: `source/Familieassistenten.html`. Kildekoden er én enkelt HTML-fil
 (2845 linjer) med inline React via Babel standalone + Tailwind via CDN.
 Dette dokumentet ekstraherer designtokenene slik at implementering i
-produksjon-stack (Next.js/Vite + Tailwind-build eller CSS modules) kan
-matche det visuelle uttrykket 1:1.
+produksjon-stack (Vite + Tailwind v3 + React 18 + TypeScript, låst
+per D6) kan matche det visuelle uttrykket 1:1.
+
+---
+
+## 🔒 Låste beslutninger relevant for design-systemet
+
+Fra Christers gjennomgang 2026-04-23:
+
+- **v1 leverer:** light + dark mode (begge)
+- **Color blind-tema:** utsatt, men arkitektur må støtte flere temaer
+  senere uten omskriving (token-basert + data-theme-attribute-drevet)
+- **Tokens er ekstenderbare:** ikke hardkod to-valg; bygg som liste
+  tema-navn slik at `blue-accessible`, `high-contrast`, `purple-neon`,
+  osv. kan legges til via CSS-import i senere faser
+- **Toolchain:** Vite + Tailwind v3 + React 18 + TypeScript (strict)
+- **Tailwind-config** bruker CSS custom properties (ikke hardkodede
+  Tailwind-farger) slik at tema-bytter fungerer i runtime uten
+  rebuild
+- **Ingen kcal-felt i v1** — fjernes fra mockup-implementering
 
 ---
 
@@ -294,19 +312,63 @@ delen og bygge en ekte responsiv layout i produksjon.
 
 ---
 
-## 12. Dark mode-implementering
+## 12. Tema-arkitektur (v1: light + dark, utvidbar)
 
-Aktiveres via `document.documentElement.setAttribute("data-theme", "dark|light")`.
-All tokens er CSS custom properties som bytter ved `[data-theme="light"]`-
+Aktiveres via `document.documentElement.setAttribute("data-theme", <themeName>)`.
+All tokens er CSS custom properties som bytter ved `[data-theme="<name>"]`-
 selector. Tailwind `dark:`-klasser brukes IKKE — dette er et bevisst
-valg for å holde tokens sentralisert.
+valg for å holde tokens sentralisert og la flere enn to temaer
+sameksistere.
 
-Brukeren kan overstyre med knapp i TopBar (sun/moon-ikon). Preferanse
-lagres ikke i `localStorage` i mockup-en (kun `tab`-state persisteres).
+**V1 temaer:** `dark` (default), `light`.
 
-**Implementerings-anbefaling:** persister tema i `localStorage` + respekter
-`prefers-color-scheme` ved første-last. Settings-skjermen har allerede
-UI for dette.
+**Arkitektur for utvidelse (uten omskriving):**
+
+```css
+/* design/tokens/themes/dark.css */
+html[data-theme="dark"] { --bg-0: ...; --mint: ...; /* etc */ }
+
+/* design/tokens/themes/light.css */
+html[data-theme="light"] { --bg-0: ...; /* etc */ }
+
+/* Fremtidig — laste inn kun hvis bruker velger eller accessibility-flag */
+/* design/tokens/themes/color-blind-protanopia.css */
+html[data-theme="color-blind-protanopia"] { /* deut-trygge aksenter */ }
+
+/* design/tokens/themes/high-contrast.css */
+html[data-theme="high-contrast"] { /* WCAG AAA kontrast-nivåer */ }
+```
+
+**Implementerings-detaljer v1:**
+
+1. Temavalg lagres i `localStorage('fa:theme')` + eksponeres via
+   `GET /api/user/preferences`-endpoint senere (ikke v1).
+2. Respekter `prefers-color-scheme` ved første-last hvis ingen lagret
+   verdi.
+3. Theme-switcher i app-shell returnerer en **liste** av tilgjengelige
+   temaer, ikke en boolsk `dark?:true/false`. Dette holder utvidbarheten
+   synlig i UI-kontrakten.
+4. Settings-skjermen (v1) viser kun "Lys"/"Mørk"-valg; utvidelse til
+   color-blind modus krever kun å legge til CSS-fil + utvide drop-down,
+   ikke refaktorere komponent.
+
+```typescript
+// client/src/hooks/useTheme.ts (v1-skisse)
+type ThemeId = 'light' | 'dark';  // union utvides når nye themes legges til
+
+export const availableThemes: Array<{id: ThemeId, label: string}> = [
+  { id: 'light', label: 'Lys' },
+  { id: 'dark',  label: 'Mørk' },
+  // Utvides i senere faser:
+  // { id: 'high-contrast', label: 'Høy kontrast' },
+  // { id: 'color-blind-protanopia', label: 'Fargeblind (protanopia)' },
+];
+```
+
+**Hvordan CSS-filene lastes:**
+Alle tema-filer importeres i én `tokens.css` ved app-start (bundle
+inkluderer begge). Framtidige accessibility-temaer kan lazy-lastes om
+bundle-størrelsen blir kritisk.
 
 ---
 

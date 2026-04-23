@@ -10,6 +10,29 @@ Issue #62.
 
 ---
 
+## 🔒 Låste beslutninger relevant for backend
+
+Fra Christers gjennomgang 2026-04-23:
+
+- **Kcal-felter fjernes fra v1.** Ikke i datamodell, ikke i UI.
+  Diabetes-støtte er pushed til fase 2 per B7 locked-decisions.
+  → Migrasjon 022 IKKE inkluderer `kcal_per_serving`.
+- **Tags på oppskrifter:** inkluderes i migrasjon 022.
+- **Achievements:** nivå 1 family-toggle via
+  `families.gamification_enabled`-kolonne. Nivå 2 (per-medlem) kommer
+  senere.
+  → Migrasjon 022 (eller egen 023) inkluderer `families.gamification_enabled BOOLEAN NOT NULL DEFAULT 0`.
+- **Kassal per-familie** (D4): hver familie registrerer egen nøkkel i
+  Settings. Link til `https://kassal.app/api` i oppsettet. Ingen
+  global fallback, ingen hybrid.
+- **Kalender ↔ chore-kobling:** utsatt til v1.1. Notert, ikke bygget.
+- **Apple CalDAV:** arkitektonisk forberedelse (D2). `calendar_integrations.provider`-felt
+  designet med enum som støtter `google`, `apple`, `future-*`. UI viser
+  "Koble til Apple Calendar" som disabled/"kommer senere". Ingen
+  CalDAV-kode.
+
+---
+
 ## 1. Sammendrag
 
 | Kategori | Status | Arbeid |
@@ -43,15 +66,11 @@ ikke "drop-in"; kalender-integrasjonen alene (B6) er estimert 3-6 uker.
 **Eksisterende backend:**
 - `GET /api/today` — ✅ returnerer dagens meal fra `meal_plans` join `recipes`
 - Ingredient-coverage: ✅ `pantry-coverage.service.js` beregner "have" vs "total"
-- Tags: ⚠️ `recipes`-tabellen har ikke et `tags[]`-felt. Designet viser "Familiens favoritt", "Omega-3", "Glutenfri". Krever nytt felt eller separat `recipe_tags`-tabell.
+- Tags: ⚠️ `recipes`-tabellen har ikke et `tags[]`-felt. Designet viser "Familiens favoritt", "Omega-3", "Glutenfri". **Løst via migrasjon 022 — se §8.**
 - `servings` og `time`: ✅ `recipes.servings` + `recipes.prep_time` finnes
-- `kcal per porsjon`: ❌ **IKKE i datamodell** — diskutert i B7 som fase 2 (for diabetes-støtte)
-
-**Kalori-feltet på dashboard:** `"620 kcal"` er seed-hardkodet i mockup.
-For å fjerne feltet eller implementere det, velg én:
-1. Fjern kcal fra UI (enkleste — matcher dagens tilstand)
-2. Legg til `recipes.kcal_per_serving` (migrasjon), manuelt pr oppskrift
-3. LLM-assistert estimering ved recipe-import
+- **kcal:** 🔒 **LÅST: Fjernet fra v1.** Mockup-implementeringen skal IKKE
+  vise kcal-felt. Diabetes-støtte er pushed til fase 2 (se
+  `docs/workflow/pending-decisions.md` Diabetes-støtte).
 
 ### Agenda-strip (dagens kalender)
 **Mockup:** viser neste 4 events i dag (`calendarEvents.filter(e => e.dayIndex === TODAY_IDX)`).
@@ -292,14 +311,54 @@ PUT /api/chores/:id/postpone    (body: {toDay: 'YYYY-MM-DD'})
 ### Kalender-tilkobling
 Se §3.
 
-### Kassal.app-nøkkel
+### Kassal.app-nøkkel (🔒 **LÅST: per-familie** per D4)
 **Mockup:** Maskert `kslp_●●●●●●●●●●●●●a9f2`, "Endre"-knapp.
 
-**Backend:** ⚠️ **Eksisterer, men for global config, ikke per-familie.**
-- `env-store.service.js` håndterer global API-key
-- Designet antyder per-familie-nøkkel ("ingen data sendes via oss")
+**Beslutning (D4, 2026-04-23):** Per-familie-nøkkel. Hver familie
+registrerer egen Kassal-nøkkel i Settings. Ingen global fallback,
+ingen hybrid. UI viser link til `https://kassal.app/api` slik at
+familier enkelt finner der de får nøkkel.
 
-**Beslutningspunkt:** Skal Kassal være global (billigere, Christer betaler) eller per-familie (dyrere, men "selvhost"-venlig)?
+**Eksisterende backend:**
+- `env-store.service.js` håndterer global API-key — **skal byttes til
+  per-familie-lagring** for Kassal.
+- Ny tabell eller gjenbruk av generisk `integration_configs`-mønster
+  (se `docs/vision/integration-platform-future.md` §3):
+
+```sql
+-- Generisk tabell for per-familie-integration-konfig
+-- (matcher Christers "kjør overalt"-visjon for flere integrasjoner)
+CREATE TABLE integration_configs (
+  family_id       INTEGER NOT NULL,
+  integration_id  TEXT    NOT NULL,   -- 'kassal', 'oda', etc.
+  config_json     TEXT    NOT NULL,   -- encrypted API-key + andre felt
+  enabled         INTEGER NOT NULL DEFAULT 1,
+  updated_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (family_id, integration_id),
+  FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
+);
+```
+
+**API-endepunkter:**
+- `GET /api/integrations/installed` → liste
+- `PUT /api/integrations/installed/kassal/config` body `{apiKey: '...'}`
+- `DELETE /api/integrations/installed/kassal` → deaktiver
+- `GET /api/integrations/installed/kassal/status` → test-ping
+
+**UI-flyt (Settings → Kassal-seksjon):**
+```
+[Kassal.app ikke satt opp]
+| Hent din egen nøkkel på [kassal.app/api ↗]
+| [API-nøkkel: _________________]  [Lagre]
+```
+
+Etter save:
+```
+[Kassal.app ✓ konfigurert]
+| kslp_●●●●●●●●●●●●●a9f2             [Endre] [Test] [Fjern]
+```
+
+**Estimat:** 1-2 dager (migrasjon + service + 3 endepunkter + UI).
 
 ### Foretrukne butikker
 **Mockup:** 6 butikk-valg (Kiwi, Rema, Meny, Coop, Spar, Bunnpris).
@@ -320,20 +379,29 @@ Se §3.
 
 ---
 
-## 8. Nye migrasjoner oppsummert
+## 8. Nye migrasjoner oppsummert (oppdatert 2026-04-23)
 
-For full mockup-implementering kreves (minst) følgende migrasjoner:
+For full mockup-implementering kreves følgende migrasjoner. Rekkefølgen
+matcher implementerings-fasene i §10.
 
-| Migrasjon | Formål |
-|---|---|
-| 021 | `inventory.location` (kjøleskap/kjøkkenskap/fryser) |
-| 022 | `recipes.tags` (JSON array) + muligens `recipes.kcal_per_serving` |
-| 023 | `ingredient_preferences` tabell (unpreferred) |
-| 024 | `achievement_definitions` + `user_achievements` tabeller |
-| 025 | `week_goals` tabell |
-| 026 | `calendar_events` + `calendar_integrations` tabeller (B6) |
-| 027 | `event_chore_links` tabell (kalender ↔ gjøremål) |
-| 028 | `meal_pattern_favorites` (hvis ønsket) |
+| # | Migrasjon | Formål | Status |
+|---|---|---|---|
+| 021 | `inventory.location` | Kjøleskap/kjøkkenskap/fryser for pantry-view | Fase 3 |
+| 022 | `recipes.tags` (JSON array) + `families.gamification_enabled BOOLEAN` + `integration_configs` tabell | **Kcal IKKE med (låst).** Tags-støtte for dashboard/week-menu. Gamification family-toggle (nivå 1). Generisk integrasjon-konfig (Kassal først). | Fase 2-3 |
+| 023 | `ingredient_preferences` | "Vil ikke ha i X"-funksjonalitet | Fase 3 |
+| 024 | `achievement_definitions` + `user_achievements` | Achievement-system (nivå 1 family-toggle styrer visning) | Fase 4 |
+| 025 | `week_goals` | Ukesmål + belønning | Fase 4 |
+| 026 | `calendar_events` + `calendar_integrations` | B6 kalender. **`calendar_integrations.provider`** må ha enum med `google`, `apple`, `caldav` (for framtidig utvidelse) selv om kun `google` implementeres i v1. | Fase 4 (avhengig av B6) |
+| 027 | `event_chore_links` | 🔒 **UTSATT til v1.1.** Notert, ikke bygget nå. | v1.1 |
+| 028 | `meal_pattern_favorites` | Lagre ukeplan som favoritt (valgfri) | Fase 4 eller droppes |
+| 029 | `user_preferences` | Per-bruker theme + language preference (v1-nivå basic, fungerer uten API ved å bruke localStorage først) | Fase 1d / 2 |
+
+**Endringer fra forrige versjon:**
+- 022 fikk nye ansvar: tags, `families.gamification_enabled`, `integration_configs` generisk tabell
+- kcal fjernet fra 022
+- 027 merket som v1.1-arbeid (utsatt)
+- 026 fikk krav om provider-enum som inkluderer `apple` for framtidig
+- 029 lagt til for user preferences
 
 ---
 

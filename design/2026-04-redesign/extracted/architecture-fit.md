@@ -12,6 +12,37 @@ Christers prod + andre familiers selvhost, konfigurert via env-variabler").
 
 ---
 
+## 🔒 Låste beslutninger (2026-04-23)
+
+Christers svar på de 6 beslutningspunktene i §6:
+
+- **D1** Design for auth+onboarding: **Start Fase 1 (toolchain + design-system + shell) nå.** Auth-skjermer venter på at claude.ai/design-kvoten resetter. Denne analysen står — implementering av auth kommer som egen fase etter claude.ai leverer.
+- **D2** Apple-integrasjon: **Arkitektonisk forberedelse, ikke implementering.** `calendar_integrations.provider` designes med enum som støtter flere providers. UI viser "Koble til Apple Calendar" som **disabled/"kommer senere"**. Faktisk CalDAV-kode skrives ikke i v1.
+- **D3** Feature-gating: **Klient-side via `/api/config/features`.**
+- **D4** Kassal: **per-familie-nøkkel** i Settings (se `backend-requirements.md` §7 oppdatering).
+- **D5** SPA med React Router.
+- **D6** Vite + Tailwind v3 + React 18 + TypeScript (strict).
+
+### Nye strategiske føringer fra samme runde
+
+- **Arkitektur-mål "kjør overalt":** én kodebase, konfigurerbar for:
+  - Christers offentlige prod: Cloudflare Tunnel + eget domene + Google OAuth + Resend magic-link
+  - Self-host: lokal Portainer, magic-link via console, ingen Google, ingen Cloudflare
+  - Frontend detekterer tilgjengelige providers via `/api/config/features`
+- **Domene-fleksibilitet:** nåværende domene er midlertidig. Må kunne byttes uten kode-endring. Se `domain-scan-report.md` for skanning — konklusjon: `APP_URL`-mønsteret er allerede etablert i backend, frontend må bruke relative URLer + lese `appUrl` fra `/api/config/public`.
+- **Tema-system:** light + dark for v1, arkitektur støtter flere temaer senere uten omskriving (se `design-system.md` §12).
+- **i18n:** bygges inn fra start. Primær norsk, engelsk neste. RTL-støtte i layout-systemet fra dag én (for arabisk etc).
+- **Navigasjon:** responsive. Bunnmeny mobil, sidemeny desktop. Samme informasjonsarkitektur, ulik presentasjon.
+
+### Nye relevante beslutninger
+
+- **Kcal fjernes fra v1** (ikke i datamodell, ikke i UI). Se `backend-requirements.md` låste-beslutninger.
+- **Tags-migrasjon (022)** inkluderes. Dashboard/ukesmeny kan vise tags.
+- **Achievements:** nivå 1 family-toggle via `families.gamification_enabled`-kolonne. Nivå 2 (per-medlem) senere.
+- **Kalender ↔ chore-kobling** utsatt til v1.1. Notert, ikke bygget.
+
+---
+
 ## 1. TL;DR
 
 **Mockup-en tar IKKE høyde for kjør-overalt-arkitekturen.** Den antar en
