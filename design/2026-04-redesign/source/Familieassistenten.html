@@ -1,0 +1,2845 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Familieassistenten — Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  :root {
+    /* Dark (default) */
+    --bg-0: oklch(0.16 0.015 95);
+    --bg-1: oklch(0.20 0.018 95);
+    --bg-2: oklch(0.24 0.02 95);
+    --surface: oklch(0.24 0.018 95 / 0.55);
+    --surface-strong: oklch(0.28 0.02 95 / 0.72);
+    --stroke: oklch(1 0 0 / 0.08);
+    --stroke-strong: oklch(1 0 0 / 0.14);
+    --text-1: oklch(0.97 0.01 85);
+    --text-2: oklch(0.78 0.015 85);
+    --text-3: oklch(0.58 0.015 85);
+    --mint: oklch(0.82 0.15 155);
+    --mint-deep: oklch(0.55 0.14 155);
+    --cyan: oklch(0.82 0.12 215);
+    --cyan-deep: oklch(0.55 0.11 215);
+    --amber: oklch(0.82 0.13 75);
+    --coral: oklch(0.78 0.14 25);
+    --shadow-glow: 0 0 60px -12px oklch(0.82 0.15 155 / 0.35);
+  }
+  html[data-theme="light"] {
+    --bg-0: oklch(0.97 0.008 85);
+    --bg-1: oklch(0.99 0.005 85);
+    --bg-2: oklch(0.94 0.01 85);
+    --surface: oklch(1 0 0 / 0.72);
+    --surface-strong: oklch(1 0 0 / 0.88);
+    --stroke: oklch(0 0 0 / 0.06);
+    --stroke-strong: oklch(0 0 0 / 0.12);
+    --text-1: oklch(0.22 0.02 85);
+    --text-2: oklch(0.42 0.02 85);
+    --text-3: oklch(0.58 0.015 85);
+    --mint: oklch(0.58 0.14 155);
+    --mint-deep: oklch(0.45 0.13 155);
+    --cyan: oklch(0.60 0.11 215);
+    --cyan-deep: oklch(0.48 0.10 215);
+    --amber: oklch(0.68 0.14 75);
+    --coral: oklch(0.62 0.16 25);
+    --shadow-glow: 0 20px 50px -20px oklch(0.55 0.14 155 / 0.25);
+  }
+
+  html, body { background: var(--bg-0); color: var(--text-1); }
+  body {
+    font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01","cv11";
+  }
+  .font-display { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; letter-spacing: -0.01em; }
+  .font-mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+
+  /* Aurora background */
+  .aurora {
+    position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
+  }
+  .aurora::before, .aurora::after {
+    content: ""; position: absolute; border-radius: 50%;
+    filter: blur(80px); opacity: 0.55;
+  }
+  .aurora::before {
+    width: 560px; height: 560px;
+    background: radial-gradient(circle, var(--mint) 0%, transparent 60%);
+    top: -120px; left: -100px;
+  }
+  .aurora::after {
+    width: 620px; height: 620px;
+    background: radial-gradient(circle, var(--cyan) 0%, transparent 60%);
+    bottom: -160px; right: -120px;
+    opacity: 0.40;
+  }
+  html[data-theme="light"] .aurora::before { opacity: 0.28; }
+  html[data-theme="light"] .aurora::after { opacity: 0.22; }
+
+  /* Glass */
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+  }
+  .glass-strong {
+    background: var(--surface-strong);
+    border: 1px solid var(--stroke-strong);
+    backdrop-filter: blur(32px) saturate(160%);
+    -webkit-backdrop-filter: blur(32px) saturate(160%);
+  }
+  .ring-mint { box-shadow: 0 0 0 1px oklch(0.82 0.15 155 / 0.35), 0 0 40px -10px oklch(0.82 0.15 155 / 0.4); }
+  .ring-cyan { box-shadow: 0 0 0 1px oklch(0.82 0.12 215 / 0.35), 0 0 40px -10px oklch(0.82 0.12 215 / 0.4); }
+
+  /* Subtle inner highlight on glass */
+  .glass-hl { position: relative; }
+  .glass-hl::before {
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background: linear-gradient(180deg, oklch(1 0 0 / 0.06), transparent 40%);
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--stroke-strong); border-radius: 4px; }
+
+  /* Striped placeholder */
+  .ph-stripes {
+    background-image:
+      linear-gradient(135deg, var(--stroke) 0 2px, transparent 2px 14px);
+    background-color: var(--bg-2);
+  }
+
+  /* Checkbox custom */
+  .chk {
+    width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--stroke-strong);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all .2s ease; flex-shrink: 0;
+  }
+  .chk.on {
+    background: linear-gradient(135deg, var(--mint), var(--mint-deep));
+    border-color: transparent;
+    box-shadow: 0 0 14px -2px var(--mint);
+  }
+
+  /* Progress ring */
+  .ring-track { stroke: var(--stroke-strong); }
+  .ring-progress { stroke: var(--mint); filter: drop-shadow(0 0 6px oklch(0.82 0.15 155 / 0.5)); }
+
+  /* Pulse */
+  @keyframes pulseGlow {
+    0%,100% { box-shadow: 0 0 0 0 oklch(0.82 0.15 155 / 0.5); }
+    50% { box-shadow: 0 0 0 8px oklch(0.82 0.15 155 / 0); }
+  }
+  .pulse-glow { animation: pulseGlow 2.4s ease-out infinite; }
+
+  /* Shimmer on bought-state */
+  @keyframes lineThrough {
+    from { background-size: 0% 1px; }
+    to { background-size: 100% 1px; }
+  }
+  .bought-text {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 60%;
+    background-size: 100% 1px;
+    animation: lineThrough .35s ease forwards;
+    opacity: 0.45;
+  }
+
+  /* Tab underline animation */
+  .tab-dot {
+    width: 4px; height: 4px; border-radius: 50%; background: var(--mint);
+    box-shadow: 0 0 8px var(--mint);
+  }
+
+  /* Streak flame gradient */
+  .flame-grad {
+    background: linear-gradient(180deg, var(--amber), var(--coral));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  /* Hover lift */
+  .lift { transition: transform .25s ease, box-shadow .25s ease; }
+  .lift:hover { transform: translateY(-2px); }
+
+  /* Device frame (mobile preview on desktop) */
+  .device-frame {
+    border-radius: 44px;
+    padding: 10px;
+    background: linear-gradient(180deg, oklch(0.28 0.02 95), oklch(0.12 0.01 95));
+    box-shadow: 0 40px 80px -20px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.06), inset 0 0 0 1px oklch(1 0 0 / 0.04);
+  }
+  html[data-theme="light"] .device-frame {
+    background: linear-gradient(180deg, oklch(0.82 0.01 85), oklch(0.62 0.01 85));
+    box-shadow: 0 40px 80px -20px oklch(0 0 0 / 0.25), 0 0 0 1px oklch(0 0 0 / 0.06);
+  }
+
+  /* Bottom tab blur bar */
+  .tabbar { backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); }
+
+  /* Tiny hide-scroll */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+
+  /* Segmented chip */
+  .chip {
+    padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 500;
+    border: 1px solid var(--stroke); color: var(--text-2); white-space: nowrap;
+    transition: all .2s ease; cursor: pointer;
+  }
+  .chip.active {
+    background: oklch(1 0 0 / 0.06); color: var(--text-1);
+    border-color: var(--stroke-strong);
+  }
+  html[data-theme="light"] .chip.active { background: oklch(0 0 0 / 0.05); }
+
+  /* XP bar */
+  .xp-fill {
+    background: linear-gradient(90deg, var(--mint), var(--cyan));
+    box-shadow: 0 0 12px -2px var(--mint);
+  }
+
+  /* Shopping category bg */
+  .cat-bg { background: linear-gradient(135deg, oklch(1 0 0 / 0.02), oklch(1 0 0 / 0.0)); }
+  html[data-theme="light"] .cat-bg { background: linear-gradient(135deg, oklch(0 0 0 / 0.02), transparent); }
+
+  /* Scroll snap meal week */
+  .snap-x-mandatory { scroll-snap-type: x mandatory; }
+  .snap-start { scroll-snap-align: start; }
+
+  /* Focus ring */
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed; right: 16px; bottom: 16px; z-index: 60;
+    width: 280px; max-height: 70vh; overflow: auto;
+    display: none;
+  }
+  .tweaks.open { display: block; }
+</style>
+</head>
+<body class="min-h-screen">
+  <div class="aurora"></div>
+  <div id="root" class="relative z-10"></div>
+
+<script type="text/babel" data-presets="react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "dark",
+  "accent": "mint",
+  "familyName": "Familien Hansen",
+  "density": "balanced",
+  "showDeviceFrame": true,
+  "gamification": true
+}/*EDITMODE-END*/;
+
+const { useState, useEffect, useMemo, useRef } = React;
+
+/* ------------------ ICONS (inline, stroked) ------------------ */
+const I = {
+  home: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>,
+  utensils: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 3v7a3 3 0 0 0 3 3v8"/><path d="M10 3v7a3 3 0 0 1-3 3"/><path d="M7 3v7"/><path d="M17 3c-2 0-3 2-3 5s1 5 3 5v8"/></svg>,
+  cart: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="9" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/><path d="M3 4h2l2.5 12h12L22 7H6"/></svg>,
+  sparkles: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/></svg>,
+  broom: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M14 4l6 6"/><path d="M11 7l6 6-7 7c-2 2-6 2-8 0l9-13z"/></svg>,
+  settings: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1A2 2 0 1 1 4.4 17l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7 4.4l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>,
+  mic: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>,
+  plus: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" {...p}><path d="M12 5v14M5 12h14"/></svg>,
+  close: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" {...p}><path d="M18 6L6 18M6 6l12 12"/></svg>,
+  check: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 12l4.5 4.5L19 7"/></svg>,
+  chevron: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 6l6 6-6 6"/></svg>,
+  clock: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>,
+  flame: (p={}) => <svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M12 2s1 3-1 6-4 3-4 7a5 5 0 0 0 10 0c0-2-1-3-2-4 1 2-1 3-2 3 1-3 1-5-1-8-1-2 0-4 0-4z"/></svg>,
+  trophy: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M7 6H4a3 3 0 0 0 3 3M17 6h3a3 3 0 0 1-3 3"/><path d="M10 13h4v3h-4zM8 20h8M12 16v4"/></svg>,
+  bell: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 8a6 6 0 1 1 12 0v5l1.5 3h-15L6 13V8z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>,
+  sun: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.5 4.5l1.5 1.5M18 18l1.5 1.5M4.5 19.5 6 18M18 6l1.5-1.5"/></svg>,
+  moon: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20 14a8 8 0 1 1-10-10 6 6 0 0 0 10 10z"/></svg>,
+  search: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>,
+  fridge: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 10h14M8 6v2M8 13v3"/></svg>,
+  heart: (p={}) => <svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>,
+  calendar: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>,
+  bolt: (p={}) => <svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>,
+  car: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 13l2-5h10l2 5M3 17v-4h18v4M6 17v2M18 17v2"/><circle cx="7" cy="15" r="1"/><circle cx="17" cy="15" r="1"/></svg>,
+  cake: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 13v7h16v-7M3 13c0-2 2-3 4-3s2 1 2 2-1 2-2 2-2-1-2-2M9 13c0-2 2-3 4-3s2 1 2 2-1 2-2 2-2-1-2-2M15 13c0-2 2-3 4-3s2 1 2 2-1 2-2 2-2-1-2-2M7 10V4M12 10V3M17 10V4"/></svg>,
+  briefcase: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18"/></svg>,
+  activity: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>,
+  book: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 4h7a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H4zM20 4h-7a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h8z"/></svg>,
+  medical: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="6" width="18" height="15" rx="2"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M12 11v5M9.5 13.5h5"/></svg>,
+  package: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 8v12l-9 2-9-2V8M3 8l9-4 9 4-9 4z"/><path d="M12 12v10"/></svg>,
+  google: (p={}) => <svg viewBox="0 0 24 24" {...p}><path fill="#4285F4" d="M22 12c0-.7-.1-1.4-.2-2H12v4h5.6c-.2 1.3-1 2.4-2 3.1v2.5h3.3c1.9-1.8 3-4.4 3-7.6z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.7-2.4l-3.3-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC04" d="M6.4 14C6.1 13.3 6 12.6 6 12s.1-1.3.4-2V7.4H3A10 10 0 0 0 2 12c0 1.6.4 3.2 1 4.6L6.4 14z"/><path fill="#EA4335" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 12 2 10 10 0 0 0 3 7.4L6.4 10c.8-2.3 3-4.1 5.6-4.1z"/></svg>,
+  apple: (p={}) => <svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M17 12c0-2.8 2.3-4 2.3-4-1.3-1.8-3.2-2-3.8-2-1.7-.2-3.2 1-4 1s-2.1-.9-3.5-.9c-1.8 0-3.4 1-4.3 2.6-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.3 2.5 1.3 0 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.2 3.1-2.5.6-.8 1.1-1.8 1.5-2.9-1.9-.7-3-3.6-2.7-4.1zM14.5 4.3c.8-.9 1.3-2.1 1.2-3.3-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.2-.5 2.9-1.4z"/></svg>,
+  school: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 9l9-5 9 5-9 5z"/><path d="M6 11v5c2 2 10 2 12 0v-5M21 9v5"/></svg>,
+  link: (p={}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M10 14a4 4 0 0 1 0-5.6l3-3a4 4 0 0 1 5.6 5.6L17 12.4"/><path d="M14 10a4 4 0 0 1 0 5.6l-3 3a4 4 0 0 1-5.6-5.6L7 11.6"/></svg>,
+};
+
+/* ------------------ FAMILY ------------------ */
+const familyMembers = {
+  Per:  { name: "Per",  color: "mint",  shortName: "P" },
+  Lise: { name: "Lise", color: "cyan",  shortName: "L" },
+  Ida:  { name: "Ida",  color: "coral", shortName: "I" },
+  Mats: { name: "Mats", color: "amber", shortName: "M" },
+  Alle: { name: "Alle familien", color: "mint", shortName: "⌂" },
+};
+
+/* ------------------ DATA ------------------ */
+const todayMealData = {
+  title: "Kremet laks med asparges",
+  subtitle: "I kveld, klokka 18:30",
+  time: 35,
+  servings: 4,
+  tags: ["Familiens favoritt", "Omega-3", "Glutenfri"],
+  ingredientsHave: 6,
+  ingredientsTotal: 8,
+};
+
+const weekMeals = [
+  { day: "Man", date: "20", name: "Kremet laks med asparges", tag: "Fisk", time: 35, planned: true, kcal: 620 },
+  { day: "Tir", date: "21", name: "Kjøttdeig-tacos", tag: "Mexican", time: 25, planned: true, kcal: 710 },
+  { day: "Ons", date: "22", name: "Pasta pesto med kylling", tag: "Italiensk", time: 20, planned: true, kcal: 590 },
+  { day: "Tor", date: "23", name: "Linsegryte med ris", tag: "Vegetar", time: 40, planned: true, kcal: 540 },
+  { day: "Fre", date: "24", name: "Hjemmelaget pizza", tag: "Familiekveld", time: 45, planned: true, kcal: 780 },
+  { day: "Lør", date: "25", name: null, tag: null, time: null, planned: false },
+  { day: "Søn", date: "26", name: "Søndagsmiddag hos mormor", tag: "Ute", time: null, planned: true, external: true },
+];
+
+const shoppingData = [
+  { cat: "Frukt & grønt", color: "mint", items: [
+    { name: "Asparges", qty: "1 bunt", bought: false, price: 39, recipe: "Kremet laks" },
+    { name: "Sitron", qty: "2 stk", bought: true, price: 18, recipe: "Kremet laks" },
+    { name: "Babyspinat", qty: "200 g", bought: false, price: 34, recipe: "Pasta pesto" },
+    { name: "Avokado", qty: "3 stk", bought: false, price: 45, recipe: null },
+  ]},
+  { cat: "Kjøtt & fisk", color: "coral", items: [
+    { name: "Laksefilet", qty: "600 g", bought: false, price: 149, recipe: "Kremet laks" },
+    { name: "Kyllingfilet", qty: "500 g", bought: true, price: 89, recipe: "Pasta pesto" },
+  ]},
+  { cat: "Meieri", color: "cyan", items: [
+    { name: "Kremåte", qty: "3 dl", bought: false, price: 32, recipe: "Kremet laks" },
+    { name: "Smør", qty: "1 pk", bought: true, price: 48, recipe: null },
+    { name: "Parmesan", qty: "100 g", bought: false, price: 65, recipe: "Pasta pesto" },
+  ]},
+  { cat: "Tørrvare", color: "amber", items: [
+    { name: "Pasta (penne)", qty: "500 g", bought: true, price: 25, recipe: "Pasta pesto" },
+    { name: "Ris (basmati)", qty: "1 kg", bought: false, price: 42, recipe: "Linsegryte" },
+  ]},
+];
+
+/* recurrence: "daily" (hele uka), "weekdays" (man-fre), "custom" (valgte dager, 0=man..6=søn)
+   dayIndex: hvilken dag i uka instansen tilhører (0=man..6=søn).
+   postponedFrom: om instansen er flyttet fra en tidligere dag.   */
+const TODAY_IDX = 0; // Mandag i vår demo-uke
+const chores = [
+  { id: 1, task: "Støvsuge stuen",    assignee: "Ida",  avatar: "I", xp: 15, recur: "weekdays", days:[0,1,2,3,4], dayIndex: 0, done: false, color: "mint" },
+  { id: 2, task: "Ta ut søppel",       assignee: "Mats", avatar: "M", xp: 5,  recur: "custom",   days:[0,3],      dayIndex: 0, done: true,  color: "cyan" },
+  { id: 3, task: "Lufte hunden (kveld)",assignee:"Mats", avatar: "M", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 0, done: true,  color: "cyan" },
+  { id: 4, task: "Rydde kjøkken",      assignee: "Ida",  avatar: "I", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 0, done: false, color: "mint" },
+  { id: 5, task: "Vaske badet",        assignee: "Per",  avatar: "P", xp: 30, recur: "custom",   days:[1],         dayIndex: 1, done: false, color: "amber" },
+  { id: 6, task: "Støvsuge stuen",     assignee: "Ida",  avatar: "I", xp: 15, recur: "weekdays", days:[0,1,2,3,4], dayIndex: 1, done: false, color: "mint" },
+  { id: 7, task: "Lufte hunden (kveld)",assignee:"Mats", avatar: "M", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 1, done: false, color: "cyan" },
+  { id: 8, task: "Rydde kjøkken",      assignee: "Ida",  avatar: "I", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 1, done: false, color: "mint" },
+  { id: 9, task: "Handle uka",         assignee: "Lise", avatar: "L", xp: 20, recur: "custom",   days:[2],         dayIndex: 2, done: false, color: "coral" },
+  { id:10, task: "Støvsuge stuen",     assignee: "Ida",  avatar: "I", xp: 15, recur: "weekdays", days:[0,1,2,3,4], dayIndex: 2, done: false, color: "mint" },
+  { id:11, task: "Lufte hunden (kveld)",assignee:"Mats", avatar: "M", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 2, done: false, color: "cyan" },
+  { id:12, task: "Rydde kjøkken",      assignee: "Ida",  avatar: "I", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 2, done: false, color: "mint" },
+  { id:13, task: "Vanne planter",      assignee: "Per",  avatar: "P", xp: 5,  recur: "custom",   days:[3],         dayIndex: 3, done: false, color: "amber" },
+  { id:14, task: "Lufte hunden (kveld)",assignee:"Mats", avatar: "M", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 3, done: false, color: "cyan" },
+  { id:15, task: "Rydde kjøkken",      assignee: "Ida",  avatar: "I", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 3, done: false, color: "mint" },
+  { id:16, task: "Vaske klær",         assignee: "Lise", avatar: "L", xp: 20, recur: "custom",   days:[4],         dayIndex: 4, done: false, color: "coral" },
+  { id:17, task: "Rydde kjøkken",      assignee: "Ida",  avatar: "I", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 4, done: false, color: "mint" },
+  { id:18, task: "Storhandel",         assignee: "Per",  avatar: "P", xp: 25, recur: "custom",   days:[5],         dayIndex: 5, done: false, color: "amber" },
+  { id:19, task: "Rydde kjøkken",      assignee: "Ida",  avatar: "I", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 5, done: false, color: "mint" },
+  { id:20, task: "Lufte hunden (kveld)",assignee:"Mats", avatar: "M", xp: 10, recur: "daily",    days:[0,1,2,3,4,5,6], dayIndex: 6, done: false, color: "cyan" },
+  { id:21, task: "Forberede uka",      assignee: "Lise", avatar: "L", xp: 15, recur: "custom",   days:[6],         dayIndex: 6, done: false, color: "coral" },
+];
+
+const family = [
+  { name: "Per", role: "Pappa", xp: 340, streak: 12, color: "amber", avatar: "P" },
+  { name: "Lise", role: "Mamma", xp: 410, streak: 21, color: "coral", avatar: "L" },
+  { name: "Ida", role: "Datter, 12", xp: 285, streak: 8, color: "mint", avatar: "I" },
+  { name: "Mats", role: "Sønn, 9", xp: 190, streak: 4, color: "cyan", avatar: "M" },
+];
+
+/* ------------------ CALENDAR ------------------
+   Kilde-typer: 'internal' (fra appen selv — middag, oppgaver, henting),
+                'google' / 'apple' (synket fra ekstern kalender).
+   Event-kinds: meal, chore, appointment, school, pickup, birthday, delivery, work.
+   Tid i 'HH:mm'-format; dayIndex 0=man..6=søn. allDay=true = uten klokkeslett. */
+const calendarEvents = [
+  // MANDAG
+  { id:"c1",  dayIndex:0, time:"07:30", endTime:"08:00", title:"Lever Mats i barnehage", kind:"pickup",      who:"Per",  source:"internal" },
+  { id:"c2",  dayIndex:0, time:"08:15", endTime:"14:00", title:"Ida · skole",            kind:"school",      who:"Ida",  source:"google", location:"Haukåsen skole" },
+  { id:"c3",  dayIndex:0, time:"09:00", endTime:"17:00", title:"Jobb — arkitektkontoret",kind:"work",        who:"Lise", source:"google", location:"Oslo sentrum" },
+  { id:"c4",  dayIndex:0, time:"15:30", endTime:"16:00", title:"Henter Mats",            kind:"pickup",      who:"Per",  source:"internal" },
+  { id:"c5",  dayIndex:0, time:"17:00", endTime:"18:00", title:"Ida fotballtrening",     kind:"activity",    who:"Ida",  source:"google", location:"Haukåsen kunstgress" },
+  { id:"c6",  dayIndex:0, time:"18:30",                  title:"Middag · Kremet laks",   kind:"meal",        who:"Alle", source:"internal", link:"meals" },
+  { id:"c7",  dayIndex:0, time:"20:00",                  title:"Lufte hunden",           kind:"chore",       who:"Mats", source:"internal", link:"chores" },
+  // TIRSDAG
+  { id:"c10", dayIndex:1, time:"08:15", endTime:"14:00", title:"Ida · skole",            kind:"school",      who:"Ida",  source:"google" },
+  { id:"c11", dayIndex:1, time:"10:30", endTime:"11:15", title:"Tannlege — Mats",        kind:"medical",     who:"Mats", source:"google", location:"Tannlegen på Bøler" },
+  { id:"c12", dayIndex:1, time:"16:00",                  title:"Vaske badet",            kind:"chore",       who:"Per",  source:"internal", link:"chores" },
+  { id:"c13", dayIndex:1, time:"18:30",                  title:"Middag · Kjøttdeig-tacos",kind:"meal",       who:"Alle", source:"internal", link:"meals" },
+  // ONSDAG
+  { id:"c20", dayIndex:2, time:"08:15", endTime:"14:00", title:"Ida · skole",            kind:"school",      who:"Ida",  source:"google" },
+  { id:"c21", dayIndex:2, time:"17:30", endTime:"19:00", title:"Handlelevering Oda",     kind:"delivery",    who:"Alle", source:"internal" },
+  { id:"c22", dayIndex:2, time:"18:30",                  title:"Middag · Pasta pesto",   kind:"meal",        who:"Alle", source:"internal", link:"meals" },
+  { id:"c23", dayIndex:2, time:"19:30", endTime:"21:00", title:"Foreldremøte Mats",      kind:"appointment", who:"Lise", source:"google", location:"Bøler barnehage" },
+  // TORSDAG
+  { id:"c30", dayIndex:3, time:"08:15", endTime:"14:00", title:"Ida · skole",            kind:"school",      who:"Ida",  source:"google" },
+  { id:"c31", dayIndex:3, time:"17:00", endTime:"18:00", title:"Ida fotballtrening",     kind:"activity",    who:"Ida",  source:"google" },
+  { id:"c32", dayIndex:3, time:"18:30",                  title:"Middag · Linsegryte",    kind:"meal",        who:"Alle", source:"internal", link:"meals" },
+  // FREDAG
+  { id:"c40", dayIndex:4, time:"08:15", endTime:"14:00", title:"Ida · skole",            kind:"school",      who:"Ida",  source:"google" },
+  { id:"c41", dayIndex:4, time:"18:30",                  title:"Middag · Hjemmelaget pizza",kind:"meal",     who:"Alle", source:"internal", link:"meals" },
+  // LØRDAG
+  { id:"c50", dayIndex:5, allDay:true,                   title:"Mats bursdag 🎂 (9 år!)",kind:"birthday",    who:"Mats", source:"apple" },
+  { id:"c51", dayIndex:5, time:"13:00", endTime:"16:00", title:"Bursdagsselskap hjemme", kind:"appointment", who:"Alle", source:"internal" },
+  // SØNDAG
+  { id:"c60", dayIndex:6, time:"15:00",                  title:"Middag hos mormor",      kind:"meal",        who:"Alle", source:"internal" },
+];
+
+/* Event-type display mapping */
+const eventKinds = {
+  meal:        { label:"Middag",   Icon:I.utensils, color:"mint"  },
+  chore:       { label:"Gjøremål", Icon:I.broom,    color:"amber" },
+  appointment: { label:"Avtale",   Icon:I.bell,     color:"coral" },
+  school:      { label:"Skole",    Icon:I.school,   color:"cyan"  },
+  pickup:      { label:"Henting",  Icon:I.car,      color:"mint"  },
+  birthday:    { label:"Bursdag",  Icon:I.cake,     color:"coral" },
+  delivery:    { label:"Levering", Icon:I.package,  color:"cyan"  },
+  work:        { label:"Jobb",     Icon:I.briefcase,color:"amber" },
+  activity:    { label:"Aktivitet",Icon:I.activity, color:"mint"  },
+  medical:     { label:"Lege",     Icon:I.medical,  color:"coral" },
+};
+const weekDayNames = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
+const weekDayShort = ["Man","Tir","Ons","Tor","Fre","Lør","Søn"];
+const weekDates    = ["20","21","22","23","24","25","26"];
+
+const pantryLow = [
+  { name: "Olivenolje", level: 15 },
+  { name: "Smør", level: 25 },
+  { name: "Egg", level: 30 },
+];
+
+/* Hva har vi hjemme? Full pantry-lager gruppert på plassering */
+const pantryData = [
+  { loc: "Køleskap", color: "cyan", items: [
+    { name: "Melk", qty: "1 l",    level: 60, exp: "25.04" },
+    { name: "Smør", qty: "1 pk",  level: 25, exp: "30.04" },
+    { name: "Egg",  qty: "6 stk",  level: 30, exp: "28.04" },
+    { name: "Ost (Jarlsberg)", qty: "400 g", level: 80, exp: "15.05" },
+    { name: "Yoghurt naturell", qty: "3 dl", level: 45, exp: "22.04" },
+  ]},
+  { loc: "Kjøkkenskap", color: "amber", items: [
+    { name: "Olivenolje", qty: "5 dl", level: 15, exp: null },
+    { name: "Pasta (penne)", qty: "500 g", level: 90, exp: null },
+    { name: "Basmati-ris", qty: "1 kg", level: 70, exp: null },
+    { name: "Tomatsaus", qty: "2 bokser", level: 100, exp: null },
+  ]},
+  { loc: "Fryser", color: "mint", items: [
+    { name: "Kylling", qty: "500 g", level: 50, exp: null },
+    { name: "Erter", qty: "1 pk",    level: 100, exp: null },
+    { name: "Bakst", qty: "3 pk",    level: 75, exp: null },
+  ]},
+];
+
+/* ------------------ HELPERS ------------------ */
+const accentVar = (c) => ({
+  mint: "var(--mint)", cyan: "var(--cyan)", amber: "var(--amber)", coral: "var(--coral)"
+}[c] || "var(--mint)");
+
+const Avatar = ({ letter, color="mint", size=36, ring=false }) => (
+  <div className={"relative inline-flex items-center justify-center font-semibold " + (ring ? "ring-2 ring-offset-2" : "")}
+       style={{
+         width: size, height: size, borderRadius: "50%",
+         background: `linear-gradient(135deg, ${accentVar(color)}, oklch(0.35 0.05 95))`,
+         color: "oklch(0.15 0.02 95)",
+         fontSize: size*0.4,
+         boxShadow: `0 6px 14px -6px ${accentVar(color)}`
+       }}>
+    {letter}
+  </div>
+);
+
+const Tag = ({ children, color="mint", soft=true }) => (
+  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full"
+        style={{
+          color: soft ? accentVar(color) : "oklch(0.15 0.02 95)",
+          background: soft ? `${accentVar(color).replace(")", " / 0.12)")}` : accentVar(color),
+          border: `1px solid ${accentVar(color).replace(")", " / 0.25)")}`
+        }}>
+    {children}
+  </span>
+);
+
+/* ------------------ TOPBAR ------------------ */
+function TopBar({ onSettings, theme, setTheme }) {
+  return (
+    <div className="flex items-center justify-between px-5 pt-6 pb-2">
+      <div className="text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Hjemme · mandag 20. april</div>
+      <div className="flex items-center gap-2">
+        <button onClick={()=>setTheme(theme==="dark"?"light":"dark")}
+                className="glass glass-hl w-10 h-10 rounded-full flex items-center justify-center lift"
+                style={{color:"var(--text-2)"}}>
+          {theme==="dark" ? <I.sun width="18" height="18"/> : <I.moon width="18" height="18"/>}
+        </button>
+        <button className="glass glass-hl w-10 h-10 rounded-full flex items-center justify-center lift relative"
+                style={{color:"var(--text-2)"}}>
+          <I.bell width="18" height="18"/>
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{background:"var(--coral)"}}></span>
+        </button>
+        <button onClick={onSettings}
+                className="glass glass-hl w-10 h-10 rounded-full flex items-center justify-center lift"
+                style={{color:"var(--text-2)"}}>
+          <I.settings width="18" height="18"/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ RING ------------------ */
+function Ring({ value, size=56, stroke=5, color="mint", label }) {
+  const r = (size - stroke)/2;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - value/100);
+  return (
+    <div className="relative inline-flex items-center justify-center" style={{width:size, height:size}}>
+      <svg width={size} height={size}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--stroke-strong)" strokeWidth={stroke}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={accentVar(color)} strokeWidth={stroke}
+                strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round"
+                style={{transform:"rotate(-90deg)", transformOrigin:"center", filter:`drop-shadow(0 0 6px ${accentVar(color)})`}}/>
+      </svg>
+      <div className="absolute text-center">
+        <div className="font-display text-[15px] leading-none" style={{color:"var(--text-1)"}}>{value}%</div>
+        {label && <div className="text-[9px] mt-0.5" style={{color:"var(--text-3)"}}>{label}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ DASHBOARD ------------------ */
+function Dashboard({ familyName, onOpenCalendar }) {
+  const firstName = familyName.replace(/^Familien\s+/i,"");
+  const [boughtPct] = useState(42);
+  return (
+    <div className="px-5 space-y-5">
+      {/* Greeting */}
+      <div className="flex items-end justify-between">
+        <div>
+          <div className="text-sm" style={{color:"var(--text-2)"}}>God ettermiddag,</div>
+          <div className="font-display text-[40px] leading-[1.05]" style={{color:"var(--text-1)"}}>
+            Hei <em className="not-italic" style={{background:"linear-gradient(120deg, var(--mint), var(--cyan))", WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent"}}>{firstName}</em> 👋
+          </div>
+          <div className="text-sm mt-1" style={{color:"var(--text-2)"}}>Her er hva som skjer hos dere i dag.</div>
+        </div>
+      </div>
+
+      {/* Agenda strip — i dag */}
+      <AgendaStrip onExpand={onOpenCalendar}/>
+
+      {/* Hero meal card */}
+      <div className="glass glass-hl rounded-[28px] p-5 relative overflow-hidden lift"
+           style={{boxShadow:"var(--shadow-glow)"}}>
+        <div className="absolute inset-0 pointer-events-none opacity-60"
+             style={{background:"radial-gradient(600px 200px at 100% 0%, oklch(0.82 0.15 155 / 0.25), transparent 60%)"}}></div>
+        <div className="flex items-start justify-between relative">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                    style={{background:"oklch(0.82 0.15 155 / 0.15)", color:"var(--mint)", border:"1px solid oklch(0.82 0.15 155 / 0.3)"}}>
+                I kveld · 18:30
+              </span>
+              <span className="flex items-center gap-1 text-[11px]" style={{color:"var(--text-3)"}}>
+                <I.clock width="12" height="12"/> {todayMealData.time} min
+              </span>
+            </div>
+            <div className="font-display text-[28px] leading-[1.1] max-w-[260px]" style={{color:"var(--text-1)"}}>
+              {todayMealData.title}
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {todayMealData.tags.map(t => <Tag key={t} color="mint">{t}</Tag>)}
+            </div>
+          </div>
+          {/* Meal meta — erstatter tidligere foto-placeholder */}
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            <div className="glass rounded-xl px-3 py-2 text-right min-w-[86px]">
+              <div className="font-display text-[22px] leading-none" style={{color:"var(--text-1)"}}>{todayMealData.servings}</div>
+              <div className="text-[9.5px] uppercase tracking-wider mt-0.5" style={{color:"var(--text-3)"}}>porsjoner</div>
+            </div>
+            <div className="glass rounded-xl px-3 py-2 text-right min-w-[86px]">
+              <div className="font-display text-[22px] leading-none" style={{color:"var(--text-1)"}}>620<span className="text-[11px] opacity-60"> kcal</span></div>
+              <div className="text-[9.5px] uppercase tracking-wider mt-0.5" style={{color:"var(--text-3)"}}>pr. porsjon</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-px my-4" style={{background:"var(--stroke)"}}></div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Ring value={Math.round(todayMealData.ingredientsHave/todayMealData.ingredientsTotal*100)} size={48} stroke={4} color="mint"/>
+            <div>
+              <div className="text-[13px] font-medium" style={{color:"var(--text-1)"}}>
+                {todayMealData.ingredientsHave} av {todayMealData.ingredientsTotal} ingredienser hjemme
+              </div>
+              <div className="text-[11px]" style={{color:"var(--text-3)"}}>2 må kjøpes · asparges, fløte</div>
+            </div>
+          </div>
+          <button className="px-4 py-2 rounded-full text-[13px] font-medium flex items-center gap-1.5"
+                  style={{background:"var(--text-1)", color:"var(--bg-0)"}}>
+            Oppskrift <I.chevron width="14" height="14"/>
+          </button>
+        </div>
+      </div>
+
+      {/* Two-column stat row */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="glass glass-hl rounded-2xl p-4 lift">
+          <div className="flex items-center gap-2 text-[11px] mb-2" style={{color:"var(--text-3)"}}>
+            <I.cart width="14" height="14"/> HANDLELISTE
+          </div>
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="font-display text-[28px] leading-none" style={{color:"var(--text-1)"}}>11</div>
+              <div className="text-[11px] mt-1" style={{color:"var(--text-2)"}}>varer igjen · ~{(11*45)} kr</div>
+            </div>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                 style={{background:"oklch(0.82 0.12 215 / 0.12)", color:"var(--cyan)"}}>
+              <I.chevron width="16" height="16"/>
+            </div>
+          </div>
+          <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{background:"var(--stroke-strong)"}}>
+            <div className="h-full xp-fill" style={{width:`${boughtPct}%`}}></div>
+          </div>
+        </div>
+
+        <div className="glass glass-hl rounded-2xl p-4 lift">
+          <div className="flex items-center gap-2 text-[11px] mb-2" style={{color:"var(--text-3)"}}>
+            <I.broom width="14" height="14"/> HUSARBEID
+          </div>
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="font-display text-[28px] leading-none" style={{color:"var(--text-1)"}}>3 / 5</div>
+              <div className="text-[11px] mt-1" style={{color:"var(--text-2)"}}>oppgaver gjenstår</div>
+            </div>
+            <div className="flex items-center gap-1 text-sm font-semibold flame-grad">
+              <I.flame width="16" height="16" style={{color:"var(--amber)"}}/>21
+            </div>
+          </div>
+          <div className="mt-3 flex -space-x-1.5">
+            {family.map(m => <div key={m.name}><Avatar letter={m.avatar} color={m.color} size={26}/></div>)}
+          </div>
+        </div>
+      </div>
+
+      {/* Pantry lavt */}
+      <div className="glass glass-hl rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 text-[11px]" style={{color:"var(--text-3)"}}>
+            <I.fridge width="14" height="14"/> GÅR TOMT SNART
+          </div>
+          <button className="text-[12px] flex items-center gap-1" style={{color:"var(--text-2)"}}>
+            Legg til alle <I.plus width="12" height="12"/>
+          </button>
+        </div>
+        <div className="space-y-2.5">
+          {pantryLow.map(p => (
+            <div key={p.name} className="flex items-center gap-3">
+              <div className="text-[13px] w-24" style={{color:"var(--text-1)"}}>{p.name}</div>
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:"var(--stroke-strong)"}}>
+                <div className="h-full rounded-full" style={{width:`${p.level}%`,
+                  background: p.level < 20 ? "var(--coral)" : p.level < 40 ? "var(--amber)" : "var(--mint)"}}></div>
+              </div>
+              <div className="text-[11px] font-mono w-10 text-right" style={{color:"var(--text-3)"}}>{p.level}%</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* AI suggestion */}
+      <div className="relative rounded-2xl p-4 overflow-hidden"
+           style={{background:"linear-gradient(135deg, oklch(0.82 0.15 155 / 0.15), oklch(0.82 0.12 215 / 0.15))",
+                   border:"1px solid oklch(0.82 0.15 155 / 0.25)"}}>
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 pulse-glow"
+               style={{background:"oklch(0.82 0.15 155 / 0.15)", color:"var(--mint)"}}>
+            <I.sparkles width="18" height="18"/>
+          </div>
+          <div className="flex-1">
+            <div className="text-[11px] uppercase tracking-widest mb-1" style={{color:"var(--mint)"}}>Assistenten foreslår</div>
+            <div className="text-[14px] leading-snug" style={{color:"var(--text-1)"}}>
+              Lørdag er åpen. Vil du at jeg planlegger noe raskt — kanskje <em className="font-display italic">wok med rester fra uka</em>?
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button className="px-3 py-1.5 rounded-full text-[12px] font-medium" style={{background:"var(--mint)", color:"oklch(0.15 0.02 95)"}}>Ja takk</button>
+              <button className="px-3 py-1.5 rounded-full text-[12px]" style={{border:"1px solid var(--stroke-strong)", color:"var(--text-2)"}}>Foreslå noe annet</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ UKESMENY ------------------ */
+function WeekMenu() {
+  const [active, setActive] = useState(0);
+  const activeMeal = weekMeals[active];
+  return (
+    <div className="px-5 space-y-5">
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Uke 17 · 20–26 april</div>
+        <h1 className="font-display text-[34px] leading-tight mt-1" style={{color:"var(--text-1)"}}>Ukens meny</h1>
+        <div className="text-sm" style={{color:"var(--text-2)"}}>6 av 7 middager planlagt · <span style={{color:"var(--mint)"}}>lagre mønster som favoritt</span></div>
+      </div>
+
+      {/* Day strip */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5">
+        {weekMeals.map((m,i) => (
+          <button key={i} onClick={()=>setActive(i)}
+                  className={"flex-shrink-0 rounded-2xl px-3 py-3 text-center transition-all lift "+
+                             (active===i ? "glass-strong ring-mint" : "glass")}
+                  style={{minWidth:64}}>
+            <div className="text-[10px] uppercase tracking-wider" style={{color: active===i ? "var(--mint)" : "var(--text-3)"}}>{m.day}</div>
+            <div className="font-display text-[22px] leading-none mt-0.5" style={{color:"var(--text-1)"}}>{m.date}</div>
+            <div className="mt-1.5 w-1 h-1 rounded-full mx-auto" style={{background: m.planned ? accentVar("mint") : "var(--stroke-strong)"}}></div>
+          </button>
+        ))}
+      </div>
+
+      {/* Active meal feature */}
+      <div className="glass glass-hl rounded-[28px] overflow-hidden">
+        <div className="h-44 ph-stripes relative flex items-end"
+             style={{background: activeMeal.planned && !activeMeal.external ?
+               "linear-gradient(180deg, transparent 40%, oklch(0.10 0.02 95 / 0.7)), linear-gradient(135deg, oklch(0.82 0.15 155 / 0.2), oklch(0.82 0.12 215 / 0.2))"
+               : undefined}}>
+          <div className="absolute top-3 right-3 flex gap-1.5">
+            {activeMeal.tag && <Tag color="mint">{activeMeal.tag}</Tag>}
+            {activeMeal.time && <Tag color="cyan"><I.clock width="10" height="10"/> {activeMeal.time} min</Tag>}
+          </div>
+          <div className="p-4">
+            <div className="text-[11px] uppercase tracking-wider" style={{color:"var(--mint)"}}>
+              {["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"][active]} {activeMeal.date}.
+            </div>
+            <div className="font-display text-[26px] leading-tight mt-1 max-w-[340px]" style={{color:"var(--text-1)"}}>
+              {activeMeal.name || "Ingen middag planlagt enda"}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {activeMeal.kcal && (
+              <>
+                <div className="text-[13px]" style={{color:"var(--text-2)"}}>
+                  <span className="font-mono font-medium" style={{color:"var(--text-1)"}}>{activeMeal.kcal}</span> kcal / porsjon
+                </div>
+                <div className="w-px h-4" style={{background:"var(--stroke)"}}></div>
+                <div className="text-[13px]" style={{color:"var(--text-2)"}}>
+                  <span className="font-mono font-medium" style={{color:"var(--text-1)"}}>4</span> porsjoner
+                </div>
+              </>
+            )}
+            {!activeMeal.planned && <div className="text-[13px]" style={{color:"var(--text-3)"}}>Spør assistenten om forslag</div>}
+          </div>
+          <div className="flex gap-2">
+            <button className="w-10 h-10 rounded-full flex items-center justify-center" style={{border:"1px solid var(--stroke-strong)", color:"var(--text-2)"}}>
+              <I.heart width="16" height="16"/>
+            </button>
+            <button className="px-4 py-2 rounded-full text-[13px] font-medium flex items-center gap-1.5"
+                    style={{background:"var(--text-1)", color:"var(--bg-0)"}}>
+              {activeMeal.planned ? "Åpne oppskrift" : "Planlegg"} <I.chevron width="14" height="14"/>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Whole week list */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-[12px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Hele uka</div>
+          <button className="text-[12px] flex items-center gap-1" style={{color:"var(--mint)"}}>
+            <I.sparkles width="12" height="12"/> Generer manglende
+          </button>
+        </div>
+
+        {weekMeals.map((m,i) => (
+          <button key={i} onClick={()=>setActive(i)}
+                  className={"w-full glass rounded-xl p-3 flex items-center gap-3 text-left lift "+
+                             (active===i ? "ring-mint" : "")}>
+            <div className="w-12 text-center flex-shrink-0">
+              <div className="text-[10px] uppercase tracking-wider" style={{color:"var(--text-3)"}}>{m.day}</div>
+              <div className="font-display text-[20px] leading-none" style={{color:"var(--text-1)"}}>{m.date}</div>
+            </div>
+            <div className="w-10 h-10 rounded-lg ph-stripes flex-shrink-0" style={{border:"1px solid var(--stroke)"}}></div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-medium truncate" style={{color: m.planned ? "var(--text-1)" : "var(--text-3)"}}>
+                {m.name || "+ Legg til middag"}
+              </div>
+              <div className="text-[11px] flex items-center gap-2 mt-0.5" style={{color:"var(--text-3)"}}>
+                {m.tag && <span>{m.tag}</span>}
+                {m.time && <><span>·</span><span>{m.time} min</span></>}
+                {m.external && <span>· hos mormor</span>}
+              </div>
+            </div>
+            {m.planned && <I.chevron width="16" height="16" style={{color:"var(--text-3)"}}/>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ PANTRY sub-view ------------------ */
+function Pantry() {
+  const [data, setData] = useState(pantryData);
+
+  const levelColor = (l) => l < 20 ? "var(--coral)" : l < 40 ? "var(--amber)" : "var(--mint)";
+  const all = data.flatMap(g => g.items);
+  const lowCount = all.filter(x => x.level < 40).length;
+  const expSoon = all.filter(x => x.exp).length;
+
+  return (
+    <div className="space-y-5">
+      {/* Summary */}
+      <div className="glass glass-hl rounded-[24px] p-5">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+               style={{background:"oklch(0.82 0.12 215 / 0.12)", color:"var(--cyan)"}}>
+            <I.fridge width="22" height="22"/>
+          </div>
+          <div className="flex-1">
+            <div className="font-display text-[24px] leading-tight" style={{color:"var(--text-1)"}}>
+              {all.length} varer hjemme
+            </div>
+            <div className="text-[12px]" style={{color:"var(--text-2)"}}>
+              <span style={{color:"var(--coral)"}}>{lowCount} går tomt snart</span> · {expSoon} med dato
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Add quick row */}
+      <div className="glass rounded-full flex items-center gap-2 px-4 py-2.5">
+        <I.plus width="16" height="16" style={{color:"var(--mint)"}}/>
+        <input placeholder="Legg til vare i pantry…" className="bg-transparent flex-1 text-[14px] outline-none" style={{color:"var(--text-1)"}}/>
+        <button className="w-7 h-7 rounded-full flex items-center justify-center" style={{background:"oklch(0.82 0.15 155 / 0.15)", color:"var(--mint)"}}>
+          <I.mic width="14" height="14"/>
+        </button>
+      </div>
+
+      {/* Grupper */}
+      <div className="space-y-4">
+        {data.map((g) => (
+          <div key={g.loc} className="glass rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 cat-bg"
+                 style={{borderBottom:"1px solid var(--stroke)"}}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-2 h-2 rounded-full" style={{background: accentVar(g.color), boxShadow:`0 0 8px ${accentVar(g.color)}`}}></div>
+                <div className="text-[13px] font-medium" style={{color:"var(--text-1)"}}>{g.loc}</div>
+                <div className="text-[11px]" style={{color:"var(--text-3)"}}>{g.items.length} varer</div>
+              </div>
+              <button className="text-[11px] flex items-center gap-1" style={{color:"var(--text-2)"}}>
+                <I.plus width="11" height="11"/> Legg til
+              </button>
+            </div>
+            <div className="divide-y" style={{borderColor:"var(--stroke)"}}>
+              {g.items.map((it, ii) => (
+                <div key={ii} className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="text-[14px]" style={{color:"var(--text-1)"}}>{it.name}</div>
+                      {it.exp && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md"
+                              style={{background:"oklch(1 0 0 / 0.04)", color:"var(--text-3)", border:"1px solid var(--stroke)"}}>
+                          {it.exp}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex-1 h-1.5 rounded-full overflow-hidden max-w-[160px]" style={{background:"var(--stroke-strong)"}}>
+                        <div className="h-full rounded-full" style={{width:`${it.level}%`, background: levelColor(it.level)}}></div>
+                      </div>
+                      <div className="text-[11px] font-mono" style={{color:"var(--text-3)"}}>{it.qty}</div>
+                    </div>
+                  </div>
+                  {it.level < 40 && (
+                    <button className="text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 whitespace-nowrap"
+                            style={{background:"oklch(0.82 0.15 155 / 0.12)", color:"var(--mint)", border:"1px solid oklch(0.82 0.15 155 / 0.22)"}}>
+                      <I.cart width="11" height="11"/> Handle
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-[11px] text-center" style={{color:"var(--text-3)"}}>
+        Nivåer oppdateres automatisk når du huker av i handleliste eller registrerer bruk.
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ HANDLETUR ------------------ */
+function ShoppingList() {
+  const [data, setData] = useState(shoppingData);
+  const [filter, setFilter] = useState("alle");
+  const [menuOpen, setMenuOpen] = useState(null); // "ci-ii"
+  const [toast, setToast] = useState(null);
+  const [unpreferred, setUnpreferred] = useState([]); // [{name, recipe}]
+
+  const pingToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 2500); };
+
+  const toggle = (ci, ii) => {
+    setData(d => d.map((c,i) => i!==ci ? c : {...c, items: c.items.map((it,j) => j!==ii ? it : {...it, bought: !it.bought})}));
+  };
+  const removeItem = (ci, ii) => {
+    const item = data[ci].items[ii];
+    setData(d => d.map((c,i) => i!==ci ? c : {...c, items: c.items.filter((_,j)=>j!==ii)}));
+    setMenuOpen(null);
+    pingToast(`Fjernet «${item.name}» fra handlelista`);
+  };
+  const haveAtHome = (ci, ii) => {
+    const item = data[ci].items[ii];
+    setData(d => d.map((c,i) => i!==ci ? c : {...c, items: c.items.filter((_,j)=>j!==ii)}));
+    setMenuOpen(null);
+    pingToast(`✓ La «${item.name}» til i pantry`);
+    // send til backend: POST /pantry + DELETE fra handleliste
+  };
+  const unpreferredFor = (ci, ii) => {
+    const item = data[ci].items[ii];
+    setData(d => d.map((c,i) => i!==ci ? c : {...c, items: c.items.filter((_,j)=>j!==ii)}));
+    setUnpreferred(u => [...u, {name: item.name, recipe: item.recipe || "Kremet laks"}]);
+    setMenuOpen(null);
+    pingToast(`Skal ikke foreslå «${item.name}» til ${item.recipe || "denne retten"} lenger`);
+    // send til backend: POST /preferences/unpreferred {ingredient, recipe}
+  };
+
+  const all = data.flatMap(c => c.items);
+  const bought = all.filter(x=>x.bought).length;
+  const total = all.length;
+  const sum = all.filter(x=>!x.bought).reduce((a,b)=>a+b.price, 0);
+
+  return (
+    <div className="space-y-5">
+      {/* Progress panel */}
+      <div className="glass glass-hl rounded-[24px] p-5 relative overflow-hidden">
+        <div className="flex items-center gap-5">
+          <Ring value={Math.round(bought/total*100)} size={72} stroke={6} color="mint" label="ferdig"/>
+          <div className="flex-1">
+            <div className="text-[13px]" style={{color:"var(--text-2)"}}>
+              <span className="font-mono font-semibold" style={{color:"var(--text-1)"}}>{bought}</span> av <span className="font-mono">{total}</span> plukket
+            </div>
+            <div className="font-display text-[24px] leading-tight whitespace-nowrap" style={{color:"var(--text-1)"}}>
+              ~{sum} kr igjen
+            </div>
+            <div className="text-[11px]" style={{color:"var(--text-3)"}}>Estimat · priser fra Kassal i dag</div>
+          </div>
+          <button className="w-11 h-11 rounded-full flex items-center justify-center"
+                  style={{background:"var(--mint)", color:"oklch(0.15 0.02 95)", boxShadow:"var(--shadow-glow)"}}>
+            <I.plus width="18" height="18"/>
+          </button>
+        </div>
+      </div>
+
+      {/* Search + filters */}
+      <div className="space-y-2.5">
+        <div className="glass rounded-full flex items-center gap-2 px-4 py-2.5">
+          <I.search width="16" height="16" style={{color:"var(--text-3)"}}/>
+          <input placeholder="Legg til eller søk vare…" className="bg-transparent flex-1 text-[14px] outline-none" style={{color:"var(--text-1)"}}/>
+          <button className="w-7 h-7 rounded-full flex items-center justify-center" style={{background:"oklch(0.82 0.15 155 / 0.15)", color:"var(--mint)"}}>
+            <I.mic width="14" height="14"/>
+          </button>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-5 px-5">
+          {["alle","frukt & grønt","kjøtt & fisk","meieri","tørrvare","hvis lavt hjemme"].map(f =>
+            <button key={f} className={"chip "+(filter===f?"active":"")} onClick={()=>setFilter(f)}>{f}</button>
+          )}
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div className="space-y-4">
+        {data.map((cat, ci) => (
+          <div key={cat.cat} className="glass rounded-2xl overflow-hidden" data-ci={ci}>
+            <div className="flex items-center justify-between px-4 py-3 cat-bg"
+                 style={{borderBottom:"1px solid var(--stroke)"}}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-2 h-2 rounded-full" style={{background: accentVar(cat.color), boxShadow:`0 0 8px ${accentVar(cat.color)}`}}></div>
+                <div className="text-[13px] font-medium" style={{color:"var(--text-1)"}}>{cat.cat}</div>
+                <div className="text-[11px]" style={{color:"var(--text-3)"}}>
+                  {cat.items.filter(x=>!x.bought).length} igjen
+                </div>
+              </div>
+              <div className="text-[11px] font-mono" style={{color:"var(--text-3)"}}>
+                {cat.items.filter(x=>!x.bought).reduce((a,b)=>a+b.price,0)} kr
+              </div>
+            </div>
+            <div className="divide-y" style={{borderColor:"var(--stroke)"}}>
+              {cat.items.map((it, ii) => {
+                const key = `${ci}-${ii}`;
+                const open = menuOpen === key;
+                return (
+                <div key={ii} className="relative">
+                  <div className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[oklch(1_0_0_/_0.02)]">
+                    <div onClick={()=>toggle(ci,ii)} className={"chk cursor-pointer "+(it.bought?"on":"")}>
+                      {it.bought && <I.check width="14" height="14" style={{color:"oklch(0.15 0.02 95)"}}/>}
+                    </div>
+                    <div onClick={()=>toggle(ci,ii)} className="flex-1 min-w-0 cursor-pointer">
+                      <div className={"text-[14px] " + (it.bought ? "bought-text" : "")} style={{color:"var(--text-1)"}}>
+                        {it.name}
+                      </div>
+                      <div className="text-[11px] flex items-center gap-1.5" style={{color:"var(--text-3)"}}>
+                        <span>{it.qty}</span>
+                        {it.recipe && (<><span>·</span>
+                          <span className="italic" style={{color:"var(--text-2)"}}>til {it.recipe}</span>
+                        </>)}
+                      </div>
+                    </div>
+                    <div className={"text-[12px] font-mono " + (it.bought ? "opacity-40 line-through" : "")} style={{color:"var(--text-2)"}}>
+                      {it.price} kr
+                    </div>
+                    <button onClick={(e)=>{e.stopPropagation(); setMenuOpen(open ? null : key);}}
+                            className="w-7 h-7 rounded-full flex items-center justify-center -mr-1"
+                            style={{color:"var(--text-3)"}} title="Flere valg">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                    </button>
+                  </div>
+
+                  {open && (
+                    <>
+                      <div onClick={()=>setMenuOpen(null)} className="fixed inset-0 z-30"></div>
+                      <div className="glass-strong rounded-2xl absolute right-3 top-12 z-40 w-[260px] p-1.5 overflow-hidden"
+                           style={{boxShadow:"0 20px 50px -10px oklch(0 0 0 / 0.5)"}}>
+                        <button onClick={()=>haveAtHome(ci,ii)}
+                                className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-[oklch(1_0_0_/_0.05)]">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                               style={{background:"oklch(0.82 0.15 155 / 0.15)", color:"var(--mint)"}}>
+                            <I.fridge width="16" height="16"/>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-[13px] font-medium" style={{color:"var(--text-1)"}}>Har denne varen</div>
+                            <div className="text-[11px] mt-0.5" style={{color:"var(--text-3)"}}>Legger til i pantry, fjerner fra handlelista</div>
+                          </div>
+                        </button>
+                        <button onClick={()=>unpreferredFor(ci,ii)}
+                                className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-[oklch(1_0_0_/_0.05)]">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                               style={{background:"oklch(0.82 0.13 75 / 0.15)", color:"var(--amber)"}}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-[13px] font-medium" style={{color:"var(--text-1)"}}>Vil ikke ha i {it.recipe || "denne retten"}</div>
+                            <div className="text-[11px] mt-0.5" style={{color:"var(--text-3)"}}>Assistenten unngår denne neste gang</div>
+                          </div>
+                        </button>
+                        <button onClick={()=>removeItem(ci,ii)}
+                                className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-[oklch(1_0_0_/_0.05)]">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                               style={{background:"oklch(0.78 0.14 25 / 0.12)", color:"var(--coral)"}}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-[13px] font-medium" style={{color:"var(--text-1)"}}>Fjern fra listen</div>
+                            <div className="text-[11px] mt-0.5" style={{color:"var(--text-3)"}}>Bare denne gangen</div>
+                          </div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {unpreferred.length > 0 && (
+        <div className="glass rounded-2xl p-3 flex items-start gap-3"
+             style={{border:"1px solid oklch(0.82 0.13 75 / 0.22)"}}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+               style={{background:"oklch(0.82 0.13 75 / 0.12)", color:"var(--amber)"}}>
+            <I.sparkles width="15" height="15"/>
+          </div>
+          <div className="flex-1">
+            <div className="text-[12px] font-medium mb-1" style={{color:"var(--text-1)"}}>Lagret som uforetrukket</div>
+            <div className="text-[11px] leading-relaxed" style={{color:"var(--text-3)"}}>
+              {unpreferred.map((u,i) =>
+                <span key={i}>{i>0 && ", "}<em className="not-italic" style={{color:"var(--text-2)"}}>{u.name}</em> i {u.recipe}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 glass-strong rounded-full px-4 py-2.5 text-[13px] whitespace-nowrap"
+             style={{color:"var(--text-1)", boxShadow:"0 12px 30px -8px oklch(0 0 0 / 0.5)"}}>
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Shopping() {
+  const [sub, setSub] = useState("list"); // list | pantry
+  return (
+    <div className="px-5 space-y-5">
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>
+          {sub==="list" ? "Kassal · REMA 1000" : "Lager · oppdatert i dag"}
+        </div>
+        <h1 className="font-display text-[34px] leading-tight mt-1" style={{color:"var(--text-1)"}}>
+          {sub==="list" ? "Handletur" : "Hva har vi hjemme?"}
+        </h1>
+      </div>
+
+      {/* Segmented toggle */}
+      <div className="glass rounded-full p-1 flex">
+        <button onClick={()=>setSub("list")}
+                className="flex-1 py-2 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
+                style={{
+                  background: sub==="list" ? "var(--text-1)" : "transparent",
+                  color: sub==="list" ? "var(--bg-0)" : "var(--text-2)"
+                }}>
+          <I.cart width="15" height="15"/> Handleliste
+        </button>
+        <button onClick={()=>setSub("pantry")}
+                className="flex-1 py-2 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
+                style={{
+                  background: sub==="pantry" ? "var(--text-1)" : "transparent",
+                  color: sub==="pantry" ? "var(--bg-0)" : "var(--text-2)"
+                }}>
+          <I.fridge width="15" height="15"/> Hva har vi hjemme?
+        </button>
+      </div>
+
+      {sub === "list" ? <ShoppingList/> : <Pantry/>}
+    </div>
+  );
+}
+
+/* ------------------ GJØREMÅL ------------------ */
+const DAYS_SHORT = ["Man","Tir","Ons","Tor","Fre","Lør","Søn"];
+const DAYS_LONG  = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];
+const DATES      = ["20","21","22","23","24","25","26"];
+
+function RecurBadge({ recur, days }) {
+  let label = "Hele uka";
+  let color = "cyan";
+  if (recur === "weekdays") { label = "Man–fre"; color = "mint"; }
+  else if (recur === "custom") {
+    label = days.length === 1 ? DAYS_SHORT[days[0]] : days.map(d=>DAYS_SHORT[d].slice(0,2)).join("·");
+    color = "amber";
+  }
+  return (
+    <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium"
+          style={{background:`${accentVar(color).replace(")", " / 0.12)")}`, color: accentVar(color),
+                  border:`1px solid ${accentVar(color).replace(")", " / 0.22)")}`}}>
+      {label}
+    </span>
+  );
+}
+
+function ChoreRow({ c, onToggle, onPostpone, onAssign, onOverride, showPostpone, compact, currentUser }) {
+  const [showAssign, setShowAssign] = useState(false);
+  const isParent = currentUser.role.includes("Pappa") || currentUser.role.includes("Mamma");
+  const isMine = c.assignee === currentUser.name;
+  // Rolle-regler: forelder kan tildele og overstyre alt; barn kan bare toggle sine egne.
+  const canToggle = isParent || isMine;
+  const canReassign = isParent;
+  const canPostpone = isParent || isMine;
+  // Opphev vises bare når oppgaven er merket gjort av noen andre enn en forelder som allerede har overstyrt
+  const doneByChild = c.done && c.doneBy && c.doneBy !== "override";
+  const showOverride = isParent && c.done && !isMine;
+
+  return (
+    <div className={"glass rounded-2xl p-3 flex items-center gap-3 lift relative "+(c.done ? "opacity-70" : "")}>
+      <div onClick={()=> canToggle && onToggle(c.id, currentUser.name)}
+           className={"chk "+(canToggle?"cursor-pointer":"cursor-not-allowed opacity-50 ")+(c.done?"on":"")}
+           title={canToggle ? "" : "Bare tildelt person eller forelder kan huke av"}>
+        {c.done && <I.check width="14" height="14" style={{color:"oklch(0.15 0.02 95)"}}/>}
+      </div>
+      {!compact && <Avatar letter={c.avatar} color={c.color} size={36}/>}
+      <div className="flex-1 min-w-0">
+        <div className={"text-[14px] font-medium "+(c.done?"bought-text":"")} style={{color:"var(--text-1)"}}>
+          {c.task}
+          {c.postponedFrom !== undefined && (
+            <span className="ml-1.5 text-[10px] font-normal" style={{color:"var(--amber)"}}>
+              ↷ fra {DAYS_SHORT[c.postponedFrom].toLowerCase()}
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] mt-0.5 flex items-center gap-1.5 flex-wrap" style={{color:"var(--text-3)"}}>
+          <button
+            onClick={(e)=>{ e.stopPropagation(); if (canReassign) setShowAssign(!showAssign); }}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 -ml-1.5 rounded-md"
+            style={{color: canReassign ? "var(--text-2)":"var(--text-3)",
+                    background: canReassign ? "oklch(1 0 0 / 0.03)" : "transparent",
+                    border: canReassign ? "1px dashed var(--stroke-strong)" : "none",
+                    cursor: canReassign ? "pointer" : "default"}}>
+            <Avatar letter={c.avatar} color={c.color} size={14}/>
+            <span>{c.assignee}</span>
+            {canReassign && <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>}
+          </button>
+          <span>·</span>
+          <RecurBadge recur={c.recur} days={c.days}/>
+          {c.done && c.doneBy && (
+            <>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1"
+                    style={{color: c.doneBy==="override" ? "var(--amber)" : "var(--mint)"}}>
+                <I.check width="10" height="10"/>
+                {c.doneBy==="override" ? `Overstyrt av ${c.overriddenBy||"forelder"}` : `Merket av ${c.doneBy}`}
+              </span>
+            </>
+          )}
+        </div>
+        {showAssign && canReassign && (
+          <div className="mt-2 flex flex-wrap gap-1.5 p-2 rounded-xl"
+               style={{background:"var(--surface)", border:"1px solid var(--stroke)"}}>
+            <div className="w-full text-[10px] uppercase tracking-widest mb-0.5" style={{color:"var(--text-3)"}}>
+              Tildel til {c.postponedFrom!==undefined && "· hentes tilbake er ok"}
+            </div>
+            {family.map(m => (
+              <button key={m.name}
+                      onClick={(e)=>{e.stopPropagation(); onAssign(c.id, m); setShowAssign(false);}}
+                      className={"flex items-center gap-1.5 px-2 py-1 rounded-full text-[11.5px] "+(m.name===c.assignee ? "ring-mint":"")}
+                      style={{background: m.name===c.assignee ? `${accentVar(m.color).replace(")"," / 0.16)")}` : "transparent",
+                              color: m.name===c.assignee ? accentVar(m.color) : "var(--text-1)",
+                              border: `1px solid ${accentVar(m.color).replace(")", " / 0.3)")}`}}>
+                <Avatar letter={m.avatar} color={m.color} size={16}/>
+                {m.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <div className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md"
+             style={{background:`${accentVar(c.color).replace(")", " / 0.12)")}`, color: accentVar(c.color)}}>
+          +{c.xp} XP
+        </div>
+        {showOverride && (
+          <button onClick={(e)=>{e.stopPropagation(); onOverride(c.id, currentUser.name);}}
+                  className="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded-md"
+                  style={{color:"var(--amber)", background:"oklch(0.82 0.13 75 / 0.1)", border:"1px solid oklch(0.82 0.13 75 / 0.3)"}}
+                  title="Opphev — marker oppgaven som ikke gjort">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>
+            opphev
+          </button>
+        )}
+        {showPostpone && !c.done && canPostpone && (
+          <button onClick={(e)=>{e.stopPropagation(); onPostpone(c.id);}}
+                  className="text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-md"
+                  style={{color:"var(--text-2)", border:"1px solid var(--stroke)"}}
+                  title="Utsett til i morgen">
+            ↷ utsett
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Chores({ gamification = true }) {
+  const [list, setList] = useState(chores);
+  const [currentUserName, setCurrentUserName] = useState("Per"); // demo: kan skifte rolle
+  const currentUser = family.find(f=>f.name===currentUserName);
+  const isParent = currentUser.role.includes("Pappa") || currentUser.role.includes("Mamma");
+  const [view, setView] = useState("today"); // today | week
+  const [selectedDay, setSelectedDay] = useState(TODAY_IDX);
+  const leader = [...family].sort((a,b)=>b.xp-a.xp)[0];
+  const [weekGoal, setWeekGoal] = useState(1000); // redigerbart, foreldre-only
+  const [weekReward, setWeekReward] = useState("Filmkveld fredag");
+  const [rewardIcon, setRewardIcon] = useState("🎬");
+  const [editGoal, setEditGoal] = useState(false);
+  const weekXP = family.reduce((a,b)=>a+b.xp, 0);
+
+  const toggle = (id, by) => setList(list.map(c => {
+    if (c.id !== id) return c;
+    if (c.done) {
+      // Avkrysning — fjern done-status
+      const {doneBy, overriddenBy, ...rest} = c;
+      return {...rest, done: false};
+    }
+    return {...c, done: true, doneBy: by};
+  }));
+  const override = (id, parentName) => setList(list.map(c => {
+    if (c.id !== id) return c;
+    // Opphev: marker som ikke gjort + logg at forelder overstyrte (for audit/UX)
+    const {doneBy, ...rest} = c;
+    return {...rest, done: false, overriddenBy: parentName, lastOverrideAt: Date.now()};
+  }));
+  const postpone = (id) => setList(list.map(c => {
+    if (c.id !== id) return c;
+    const next = Math.min(6, c.dayIndex + 1);
+    return {...c, dayIndex: next, postponedFrom: c.postponedFrom ?? c.dayIndex};
+  }));
+  const assign = (id, m) => setList(list.map(c => c.id===id ? {...c, assignee: m.name, avatar: m.avatar, color: m.color} : c));
+
+  const forDay = (d) => list.filter(c => c.dayIndex === d);
+  const today = forDay(TODAY_IDX);
+  const todayDone = today.filter(c=>c.done).length;
+
+  return (
+    <div className="px-5 space-y-5">
+      <div className="flex items-end justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>{gamification ? "Familielag · uke 17" : "Uke 17"}</div>
+          <h1 className="font-display text-[34px] leading-tight mt-1" style={{color:"var(--text-1)"}}>Gjøremål</h1>
+          <div className="text-sm" style={{color:"var(--text-2)"}}>
+            {gamification ? "Sammen gjør vi uka lettere" : "Oppgaver fordelt i familien"}
+          </div>
+        </div>
+        {gamification && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass">
+            <I.flame width="14" height="14" style={{color:"var(--amber)"}}/>
+            <span className="font-mono text-[13px] font-semibold flame-grad">{weekXP}</span>
+            <span className="text-[11px]" style={{color:"var(--text-3)"}}>XP</span>
+          </div>
+        )}
+      </div>
+
+      {/* Rolle-indikator — viser hvem som er pålogget, og lar deg bytte for demo */}
+      <div className="glass rounded-2xl p-2 flex items-center gap-1">
+        <div className="text-[10.5px] uppercase tracking-widest px-2" style={{color:"var(--text-3)"}}>Du er</div>
+        <div className="flex-1 flex gap-1">
+          {family.map(m => {
+            const active = m.name === currentUserName;
+            const parent = m.role.includes("Pappa") || m.role.includes("Mamma");
+            return (
+              <button key={m.name} onClick={()=>setCurrentUserName(m.name)}
+                      className={"flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[11.5px] transition-colors "+(active?"glass-strong":"")}
+                      style={{color: active ? accentVar(m.color) : "var(--text-2)"}}>
+                <Avatar letter={m.avatar} color={m.color} size={18}/>
+                <span className="font-medium">{m.name}</span>
+                <span className="text-[9px] uppercase tracking-widest px-1 py-0.5 rounded"
+                      style={{background: parent ? "oklch(0.82 0.13 75 / 0.14)" : "oklch(0.74 0.17 210 / 0.14)",
+                              color: parent ? "var(--amber)" : "var(--cyan)"}}>
+                  {parent ? "forelder" : "barn"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {!isParent && (
+        <div className="-mt-2 text-[11px] px-3 py-2 rounded-xl flex items-center gap-2"
+             style={{background:"oklch(0.74 0.17 210 / 0.08)", color:"var(--cyan)", border:"1px solid oklch(0.74 0.17 210 / 0.25)"}}>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          Som barn kan du fullføre oppgavene dine, men bare en forelder kan tildele dem videre.
+        </div>
+      )}
+
+      {/* Leaderboard — øverst så man ser hvem som leder */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[12px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Ukens mester</div>
+          <div className="text-[11px] flex items-center gap-1" style={{color:"var(--text-2)"}}>
+            <I.trophy width="11" height="11" style={{color:"var(--mint)"}}/> {leader.name} leder
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {family.map(m => (
+            <div key={m.name} className={"glass glass-hl rounded-2xl p-3 text-center lift "+(m.name===leader.name?"ring-mint":"")}>
+              <div className="relative inline-block">
+                <Avatar letter={m.avatar} color={m.color} size={44}/>
+                {m.name===leader.name && <div className="absolute -top-1 -right-1 text-[14px]">👑</div>}
+              </div>
+              <div className="text-[12px] font-medium mt-2 truncate" style={{color:"var(--text-1)"}}>{m.name}</div>
+              <div className="text-[10px]" style={{color:"var(--text-3)"}}>{m.role}</div>
+              <div className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-mono px-1.5 py-0.5 rounded-md"
+                   style={{background:`${accentVar(m.color).replace(")", " / 0.14)")}`,
+                           color: accentVar(m.color),
+                           border:`1px solid ${accentVar(m.color).replace(")", " / 0.3)")}`}}>
+                <I.bolt width="11" height="11"/> <span className="font-semibold">{m.xp}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 text-[10.5px] mt-1" style={{color:"var(--text-2)"}}>
+                <I.flame width="11" height="11" style={{color:"var(--coral)"}}/>
+                <span className="font-mono font-medium">{m.streak}</span>
+                <span style={{color:"var(--text-3)"}}>dager</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Week goal */}
+      <div className="glass glass-hl rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="text-[11px] uppercase tracking-widest" style={{color:"var(--text-3)"}}>Ukens lagmål</div>
+              {isParent && !editGoal && (
+                <button onClick={()=>setEditGoal(true)}
+                        className="text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1"
+                        style={{color:"var(--text-2)", background:"var(--surface)", border:"1px solid var(--stroke)"}}>
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7H12zM18 13l-1.5-1.5M2 22l4.5-1L18.5 8.5 15 5 3 17z"/></svg>
+                  Endre
+                </button>
+              )}
+            </div>
+            <div className="text-[14px] mt-1" style={{color:"var(--text-1)"}}>
+              <span className="font-mono font-semibold">{weekXP}</span> / {weekGoal} XP
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-[12px] flex-shrink-0" style={{color:"var(--mint)"}}>
+            <span className="text-[16px]">{rewardIcon}</span> {weekReward}
+          </div>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden" style={{background:"var(--stroke-strong)"}}>
+          <div className="h-full xp-fill" style={{width:`${Math.min(100, weekXP/weekGoal*100)}%`}}></div>
+        </div>
+
+        {/* Rediger-panel for foreldre */}
+        {editGoal && (
+          <div className="mt-4 pt-4 border-t" style={{borderColor:"var(--stroke)"}}>
+            <div className="space-y-3">
+              <div>
+                <div className="text-[10.5px] uppercase tracking-widest mb-1.5" style={{color:"var(--text-3)"}}>XP-mål</div>
+                <div className="flex items-center gap-2">
+                  <input type="range" min="200" max="2500" step="50" value={weekGoal}
+                         onChange={e=>setWeekGoal(+e.target.value)}
+                         className="flex-1 accent-[var(--mint)]"/>
+                  <span className="font-mono text-[13px] min-w-[56px] text-right" style={{color:"var(--mint)"}}>
+                    {weekGoal}
+                  </span>
+                </div>
+                <div className="flex gap-1 mt-2">
+                  {[500, 1000, 1500, 2000].map(g => (
+                    <button key={g} onClick={()=>setWeekGoal(g)}
+                            className="text-[10.5px] px-2 py-1 rounded-full"
+                            style={{background: weekGoal===g ? "oklch(0.82 0.15 155 / 0.14)" : "var(--surface)",
+                                    color: weekGoal===g ? "var(--mint)" : "var(--text-2)",
+                                    border:`1px solid ${weekGoal===g?"oklch(0.82 0.15 155 / 0.3)":"var(--stroke)"}`}}>
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10.5px] uppercase tracking-widest mb-1.5" style={{color:"var(--text-3)"}}>Belønning</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {["🎬","🍕","🎮","🍦","🎢","🏖️","✨"].map(e => (
+                      <button key={e} onClick={()=>setRewardIcon(e)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[15px] transition-all"
+                              style={{background: rewardIcon===e ? "oklch(0.82 0.15 155 / 0.14)" : "var(--surface)",
+                                      border: `1px solid ${rewardIcon===e?"oklch(0.82 0.15 155 / 0.4)":"var(--stroke)"}`,
+                                      transform: rewardIcon===e ? "scale(1.08)" : "scale(1)"}}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <input value={weekReward} onChange={e=>setWeekReward(e.target.value)}
+                       placeholder="f.eks. Filmkveld fredag"
+                       className="w-full mt-2 px-3 py-2 rounded-xl text-[13px] outline-none"
+                       style={{background:"var(--surface)", border:"1px solid var(--stroke)", color:"var(--text-1)"}}/>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {["Filmkveld fredag","Pizza lørdag","Tur til svømmehallen","Ekstra skjermtid","Kino"].map(r => (
+                    <button key={r} onClick={()=>setWeekReward(r)}
+                            className="text-[10.5px] px-2 py-0.5 rounded-full"
+                            style={{background:"transparent", color:"var(--text-3)", border:"1px dashed var(--stroke-strong)"}}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button onClick={()=>setEditGoal(false)}
+                        className="text-[12px] px-3 py-1.5 rounded-full"
+                        style={{color:"var(--text-2)", border:"1px solid var(--stroke)"}}>
+                  Avbryt
+                </button>
+                <button onClick={()=>setEditGoal(false)}
+                        className="text-[12px] font-medium px-3 py-1.5 rounded-full"
+                        style={{background:"var(--mint)", color:"oklch(0.15 0.02 95)"}}>
+                  Lagre mål
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* DAGENS OPPGAVER — øverst, alltid synlig */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[12px] uppercase tracking-[0.18em]" style={{color:"var(--mint)"}}>
+            Dagens oppgaver · mandag
+          </div>
+          <div className="text-[11px]" style={{color:"var(--text-3)"}}>
+            {todayDone}/{today.length} ferdig
+          </div>
+        </div>
+        <div className="space-y-2">
+          {today.map(c => (
+            <ChoreRow key={c.id} c={c} onToggle={toggle} onPostpone={postpone} onAssign={assign} onOverride={override} currentUser={currentUser} showPostpone={true}/>
+          ))}
+          <button className="w-full glass rounded-2xl p-3 flex items-center justify-center gap-2 text-[13px]"
+                  style={{color:"var(--text-2)", borderStyle:"dashed"}}>
+            <I.plus width="14" height="14"/> Ny oppgave
+          </button>
+        </div>
+      </div>
+
+      {/* (Ukens mester flyttet opp) */}
+
+      {/* HELE UKA — oversikt */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[12px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Hele uka</div>
+          <div className="flex gap-1 text-[11px]">
+            <span className="flex items-center gap-1" style={{color:"var(--text-3)"}}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{background:"var(--mint)"}}></span>man–fre
+            </span>
+            <span className="mx-1" style={{color:"var(--text-3)"}}>·</span>
+            <span className="flex items-center gap-1" style={{color:"var(--text-3)"}}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{background:"var(--cyan)"}}></span>hele uka
+            </span>
+            <span className="mx-1" style={{color:"var(--text-3)"}}>·</span>
+            <span className="flex items-center gap-1" style={{color:"var(--text-3)"}}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{background:"var(--amber)"}}></span>valgte
+            </span>
+          </div>
+        </div>
+
+        {/* Day-strip */}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 mb-3">
+          {DAYS_SHORT.map((d, i) => {
+            const items = forDay(i);
+            const done = items.filter(x=>x.done).length;
+            const isToday = i === TODAY_IDX;
+            const isSel = selectedDay === i;
+            return (
+              <button key={i} onClick={()=>setSelectedDay(i)}
+                      className={"flex-shrink-0 rounded-2xl px-3 py-2.5 text-center transition-all lift min-w-[62px] "+
+                                 (isSel ? "glass-strong ring-mint" : "glass")}>
+                <div className="text-[10px] uppercase tracking-wider"
+                     style={{color: isSel ? "var(--mint)" : "var(--text-3)"}}>
+                  {d}{isToday && " ·"}
+                </div>
+                <div className="font-display text-[20px] leading-none mt-0.5" style={{color:"var(--text-1)"}}>
+                  {DATES[i]}
+                </div>
+                <div className="text-[9px] font-mono mt-1" style={{color: done===items.length && items.length>0 ? "var(--mint)" : "var(--text-3)"}}>
+                  {done}/{items.length}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected day's full list */}
+        <div className="glass rounded-2xl p-3">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="text-[13px] font-medium" style={{color:"var(--text-1)"}}>
+              {DAYS_LONG[selectedDay]} {DATES[selectedDay]}.
+            </div>
+            <div className="text-[11px]" style={{color:"var(--text-3)"}}>
+              {forDay(selectedDay).length} oppgaver
+            </div>
+          </div>
+          <div className="space-y-2">
+            {forDay(selectedDay).length === 0 && (
+              <div className="text-[13px] text-center py-4" style={{color:"var(--text-3)"}}>
+                Ingen oppgaver denne dagen.
+              </div>
+            )}
+            {forDay(selectedDay).map(c => (
+              <ChoreRow key={c.id} c={c} onToggle={toggle} onPostpone={postpone} onAssign={assign} onOverride={override} currentUser={currentUser}
+                        showPostpone={selectedDay === TODAY_IDX} compact={false}/>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Achievements */}
+      <div>
+        <div className="text-[12px] uppercase tracking-[0.18em] mb-2" style={{color:"var(--text-3)"}}>Merker denne uka</div>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5">
+          {[
+            {name:"Frokostkongen", emoji:"🍳", new:true},
+            {name:"Ryddemester", emoji:"🧺", new:false},
+            {name:"7-dagers streak", emoji:"🔥", new:true},
+            {name:"Pantry-helt", emoji:"🥫", new:false},
+            {name:"Tidlig morgen", emoji:"🌅", new:false},
+          ].map(b => (
+            <div key={b.name} className="flex-shrink-0 glass rounded-2xl p-3 w-[118px] text-center relative">
+              {b.new && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full" style={{background:"var(--mint)", boxShadow:"0 0 6px var(--mint)"}}></div>}
+              <div className="text-[28px]">{b.emoji}</div>
+              <div className="text-[11px] mt-1" style={{color:"var(--text-1)"}}>{b.name}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ CALENDAR ------------------ */
+function EventDot({ color, size=8 }) {
+  return <span className="inline-block rounded-full flex-shrink-0" style={{width:size, height:size, background:accentVar(color), boxShadow:`0 0 6px ${accentVar(color)}`}}/>;
+}
+
+function PersonPill({ who, compact=false }) {
+  const m = familyMembers[who] || familyMembers.Alle;
+  if (compact) {
+    return <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono"
+                style={{background:`${accentVar(m.color).replace(")", " / 0.25)")}`, color: accentVar(m.color), border:`1px solid ${accentVar(m.color).replace(")", " / 0.35)")}`}}>
+      {m.shortName}
+    </div>;
+  }
+  return <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium"
+              style={{background:`${accentVar(m.color).replace(")", " / 0.14)")}`, color:accentVar(m.color), border:`1px solid ${accentVar(m.color).replace(")", " / 0.3)")}`}}>
+    <span className="w-1.5 h-1.5 rounded-full" style={{background:accentVar(m.color)}}></span>
+    {m.name}
+  </div>;
+}
+
+function EventRow({ ev, onTap, compact=false }) {
+  const kind = eventKinds[ev.kind] || eventKinds.appointment;
+  const Icon = kind.Icon;
+  const m = familyMembers[ev.who] || familyMembers.Alle;
+  const timeStr = ev.allDay ? "Hele dagen" : (ev.endTime ? `${ev.time}–${ev.endTime}` : ev.time);
+  return (
+    <button onClick={onTap} className="w-full text-left flex items-stretch gap-3 py-2.5 px-2 rounded-xl transition-colors hover:bg-[oklch(1_0_0_/_0.03)] group">
+      {/* Left rail: time + source */}
+      <div className="flex-shrink-0 w-[62px] pt-0.5">
+        <div className="text-[12px] font-mono" style={{color:"var(--text-1)"}}>{ev.allDay ? "—" : ev.time}</div>
+        {ev.endTime && <div className="text-[9.5px] font-mono mt-0.5" style={{color:"var(--text-3)"}}>→ {ev.endTime}</div>}
+      </div>
+      {/* Rail divider with person color */}
+      <div className="w-[3px] rounded-full flex-shrink-0 my-0.5" style={{background:accentVar(m.color), opacity:0.7}}></div>
+      {/* Body */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+               style={{background:`${accentVar(kind.color).replace(")", " / 0.14)")}`, color:accentVar(kind.color)}}>
+            <Icon width="14" height="14"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13.5px] leading-tight" style={{color:"var(--text-1)"}}>{ev.title}</div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[11px]" style={{color:"var(--text-3)"}}>
+              <PersonPill who={ev.who}/>
+              {ev.location && <span className="inline-flex items-center gap-1">· {ev.location}</span>}
+              {ev.source === "google" && <span className="inline-flex items-center gap-1" title="Fra Google Kalender">
+                <I.google width="10" height="10"/> Google</span>}
+              {ev.source === "apple" && <span className="inline-flex items-center gap-1" title="Fra Apple Kalender">
+                <I.apple width="10" height="10"/> Apple</span>}
+              {ev.link && <span className="inline-flex items-center gap-1" style={{color:accentVar(kind.color)}}>
+                <I.link width="10" height="10"/>{ev.link==="meals" ? "Se oppskrift" : "Se oppgave"}</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* Horisontal agenda-stripe for dashboard */
+function AgendaStrip({ onExpand, dayIndex = TODAY_IDX }) {
+  const todayEvents = calendarEvents.filter(e => e.dayIndex === dayIndex);
+  const now = "14:45"; // demo
+  const upcoming = todayEvents.filter(e => !e.allDay && e.time >= now).slice(0, 4);
+  const nextCount = upcoming.length;
+  const allCount = todayEvents.length;
+  return (
+    <div className="glass glass-hl rounded-[22px] p-4 space-y-3 lift">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+               style={{background:"oklch(0.82 0.15 155 / 0.14)", color:"var(--mint)"}}>
+            <I.calendar width="14" height="14"/>
+          </div>
+          <div>
+            <div className="text-[12.5px] font-medium" style={{color:"var(--text-1)"}}>I dag · {nextCount} igjen</div>
+            <div className="text-[10.5px]" style={{color:"var(--text-3)"}}>{allCount} hendelser · Google + Apple synket</div>
+          </div>
+        </div>
+        <button onClick={onExpand} className="text-[11px] font-medium flex items-center gap-0.5" style={{color:"var(--mint)"}}>
+          Hele uka <I.chevron width="12" height="12"/>
+        </button>
+      </div>
+
+      {/* Horizontal event pills */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+        {upcoming.length === 0 ? (
+          <div className="text-[11.5px] py-2" style={{color:"var(--text-3)"}}>Ingen flere hendelser i dag ✓</div>
+        ) : upcoming.map(ev => {
+          const kind = eventKinds[ev.kind] || eventKinds.appointment;
+          const Icon = kind.Icon;
+          const m = familyMembers[ev.who] || familyMembers.Alle;
+          return (
+            <button key={ev.id} onClick={onExpand}
+                    className="flex-shrink-0 flex items-center gap-2.5 pl-2.5 pr-3 py-2 rounded-xl"
+                    style={{background:"var(--surface)", border:`1px solid ${accentVar(m.color).replace(")", " / 0.22)")}`}}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                   style={{background:`${accentVar(kind.color).replace(")", " / 0.16)")}`, color:accentVar(kind.color)}}>
+                <Icon width="13" height="13"/>
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-mono" style={{color:"var(--text-2)"}}>{ev.time}</span>
+                  <EventDot color={m.color} size={6}/>
+                </div>
+                <div className="text-[12px] leading-tight whitespace-nowrap" style={{color:"var(--text-1)"}}>{ev.title}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* Full kalender-skjerm */
+function Calendar({ initialDay = TODAY_IDX, onOpenLink, onOpenSettings }) {
+  const [selected, setSelected] = useState(initialDay);
+  const [viewMode, setViewMode] = useState("timeline"); // "timeline" | "week"
+  const [newEventOpen, setNewEventOpen] = useState(false);
+  const selectedEvents = calendarEvents.filter(e => e.dayIndex === selected);
+  const sorted = [...selectedEvents].sort((a,b) => {
+    if (a.allDay && !b.allDay) return -1;
+    if (!a.allDay && b.allDay) return 1;
+    return (a.time || "").localeCompare(b.time || "");
+  });
+
+  // People filter
+  const [activePeople, setActivePeople] = useState(null); // null = alle
+
+  const peopleFilter = (ev) => !activePeople || activePeople === ev.who || ev.who === "Alle";
+  const filteredSorted = sorted.filter(peopleFilter);
+
+  return (
+    <div className="px-5 space-y-5">
+      {/* Header */}
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Uke 17 · 20–26 april</div>
+        <div className="flex items-end justify-between mt-1">
+          <h1 className="font-display text-[34px] leading-tight" style={{color:"var(--text-1)"}}>Kalender</h1>
+          <div className="inline-flex items-center p-0.5 rounded-full glass" style={{border:"1px solid var(--stroke)"}}>
+            <button onClick={()=>setViewMode("timeline")}
+                    className="rounded-full px-3 py-1.5 text-[11px] flex items-center gap-1.5 transition-all"
+                    style={{
+                      background: viewMode==="timeline" ? "var(--ink)" : "transparent",
+                      color: viewMode==="timeline" ? "var(--ink-contrast)" : "var(--text-2)",
+                      fontWeight: viewMode==="timeline" ? 600 : 400,
+                    }}>
+              <I.clock width="11" height="11"/> Dag
+            </button>
+            <button onClick={()=>setViewMode("week")}
+                    className="rounded-full px-3 py-1.5 text-[11px] flex items-center gap-1.5 transition-all"
+                    style={{
+                      background: viewMode==="week" ? "var(--ink)" : "transparent",
+                      color: viewMode==="week" ? "var(--ink-contrast)" : "var(--text-2)",
+                      fontWeight: viewMode==="week" ? 600 : 400,
+                    }}>
+              <I.calendar width="11" height="11"/> Uke
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-1 text-[12px]" style={{color:"var(--text-2)"}}>
+          <span className="inline-flex items-center gap-1"><I.google width="11" height="11"/> Google</span>
+          <span>+</span>
+          <span className="inline-flex items-center gap-1"><I.apple width="11" height="11" style={{color:"var(--text-2)"}}/> Apple</span>
+          <span style={{color:"var(--text-3)"}}>· synket 2 min siden</span>
+        </div>
+      </div>
+
+      {/* People filter */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5">
+        <button onClick={()=>setActivePeople(null)}
+                className={"flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap flex-shrink-0 "+(activePeople===null?"ring-mint":"")}
+                style={{background: activePeople===null ? "oklch(0.82 0.15 155 / 0.14)" : "var(--surface)",
+                        color: activePeople===null ? "var(--mint)" : "var(--text-2)",
+                        border:"1px solid var(--stroke)"}}>
+          Alle familien
+        </button>
+        {Object.values(familyMembers).filter(m=>m.name!=="Alle familien").map(m => (
+          <button key={m.name} onClick={()=>setActivePeople(activePeople===m.name ? null : m.name)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap flex-shrink-0"
+                  style={{background: activePeople===m.name ? `${accentVar(m.color).replace(")", " / 0.18)")}` : "var(--surface)",
+                          color: activePeople===m.name ? accentVar(m.color) : "var(--text-2)",
+                          border: `1px solid ${activePeople===m.name ? accentVar(m.color).replace(")", " / 0.35)") : "var(--stroke)"}`}}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{background:accentVar(m.color)}}></span>
+            {m.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Day strip */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5">
+        {weekDayShort.map((d, i) => {
+          const dayEvents = calendarEvents.filter(e => e.dayIndex === i).filter(peopleFilter);
+          const isSelected = selected === i;
+          const isToday = i === TODAY_IDX;
+          // Unique people colors for the dots row
+          const peopleColors = [...new Set(dayEvents.map(e => familyMembers[e.who]?.color || "mint"))];
+          return (
+            <button key={i} onClick={()=>setSelected(i)}
+                    className={"flex-shrink-0 rounded-2xl px-3 py-2.5 text-center transition-all lift "+(isSelected?"glass-strong ring-mint":"glass")}
+                    style={{minWidth:58}}>
+              <div className="text-[10px] uppercase tracking-wider" style={{color: isSelected?"var(--mint)":"var(--text-3)"}}>{d}</div>
+              <div className="font-display text-[22px] leading-none mt-0.5 relative inline-block" style={{color:"var(--text-1)"}}>
+                {weekDates[i]}
+                {isToday && <span className="absolute -top-0.5 -right-2 w-1.5 h-1.5 rounded-full" style={{background:"var(--mint)", boxShadow:"0 0 6px var(--mint)"}}></span>}
+              </div>
+              <div className="flex justify-center gap-0.5 mt-1.5 min-h-[4px]">
+                {peopleColors.slice(0,4).map((c,idx) => (
+                  <span key={idx} className="w-1 h-1 rounded-full" style={{background:accentVar(c)}}></span>
+                ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {viewMode === "timeline" ? (
+        <>
+          {/* Day summary card */}
+          <div className="glass rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-1">
+              <div className="font-display text-[22px] whitespace-nowrap" style={{color:"var(--text-1)"}}>{weekDayNames[selected]} {weekDates[selected]}. april</div>
+              <div className="text-[11px] flex-shrink-0 ml-2" style={{color:"var(--text-3)"}}>{filteredSorted.length} hendelser</div>
+            </div>
+            {/* Timeline */}
+            <div className="mt-3 divide-y" style={{borderColor:"var(--stroke)"}}>
+              {filteredSorted.length === 0 ? (
+                <div className="text-[12px] py-4 text-center" style={{color:"var(--text-3)"}}>Ingen hendelser denne dagen</div>
+              ) : filteredSorted.map(ev => (
+                <div key={ev.id} className="pt-1 first:pt-0">
+                  <EventRow ev={ev} onTap={()=>ev.link && onOpenLink && onOpenLink(ev.link)}/>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>setNewEventOpen(true)}
+                    className="w-full mt-3 rounded-xl py-2.5 text-[12.5px] flex items-center justify-center gap-1.5"
+                    style={{background:"var(--surface-strong)", color:"var(--text-1)", border:"1px dashed var(--stroke-strong)"}}>
+              <I.plus width="13" height="13"/> Legg til hendelse
+            </button>
+          </div>
+        </>
+      ) : (
+        /* Week listing — én seksjon per dag */
+        <div className="space-y-3">
+          {weekDayNames.map((dn, i) => {
+            const dayEv = calendarEvents.filter(e => e.dayIndex === i).filter(peopleFilter)
+              .sort((a,b) => (a.allDay?-1:1) - (b.allDay?-1:1) || (a.time||"").localeCompare(b.time||""));
+            if (dayEv.length === 0) return null;
+            return (
+              <div key={i} className="glass rounded-2xl p-3">
+                <div className="flex items-center justify-between mb-1 px-2">
+                  <div className="flex items-baseline gap-2">
+                    <div className="font-display text-[18px]" style={{color:"var(--text-1)"}}>{dn}</div>
+                    <div className="text-[11px] font-mono" style={{color:"var(--text-3)"}}>{weekDates[i]}. april</div>
+                    {i === TODAY_IDX && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:"oklch(0.82 0.15 155 / 0.14)", color:"var(--mint)"}}>i dag</span>}
+                  </div>
+                  <div className="text-[10px]" style={{color:"var(--text-3)"}}>{dayEv.length}</div>
+                </div>
+                <div className="divide-y" style={{borderColor:"var(--stroke)"}}>
+                  {dayEv.map(ev => <EventRow key={ev.id} ev={ev} onTap={()=>ev.link && onOpenLink && onOpenLink(ev.link)}/>)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Integration strip */}
+      <div className="glass rounded-2xl p-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+               style={{background:"var(--surface)"}}>
+            <I.link width="14" height="14" style={{color:"var(--text-2)"}}/>
+          </div>
+          <div>
+            <div className="text-[12.5px]" style={{color:"var(--text-1)"}}>2 kalendere synket</div>
+            <div className="text-[10.5px]" style={{color:"var(--text-3)"}}>Google (Lise, Per) · Apple (Per) · toveis</div>
+          </div>
+        </div>
+        <button onClick={onOpenSettings} className="text-[11px] font-medium" style={{color:"var(--mint)"}}>Håndter →</button>
+      </div>
+
+      {newEventOpen && <NewEventModal defaultDay={selected} onClose={()=>setNewEventOpen(false)}/>}
+    </div>
+  );
+}
+
+function NewEventModal({ defaultDay = 0, onClose }) {
+  const [title, setTitle] = useState("");
+  const [day, setDay] = useState(defaultDay);
+  const [time, setTime] = useState("17:00");
+  const [duration, setDuration] = useState(60);
+  const [who, setWho] = useState("Alle");
+  const [location, setLocation] = useState("");
+  const [cal, setCal] = useState("google");
+  const [notify, setNotify] = useState(true);
+
+  const people = ["Alle","Per","Lise","Ida","Mats"];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3"
+         style={{background:"oklch(0 0 0 / 0.45)", backdropFilter:"blur(8px)"}}
+         onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()}
+           className="glass glass-hl rounded-3xl w-full max-w-[380px] overflow-hidden"
+           style={{background:"var(--surface-strong)"}}>
+        {/* Header */}
+        <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b" style={{borderColor:"var(--stroke)"}}>
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Ny hendelse</div>
+            <div className="font-display text-[20px]" style={{color:"var(--text-1)"}}>Legg til i kalender</div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{background:"var(--surface)", color:"var(--text-2)"}}>
+            <I.close width="14" height="14"/>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
+          {/* Title */}
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.14em] mb-1.5" style={{color:"var(--text-3)"}}>Tittel</div>
+            <input autoFocus value={title} onChange={e=>setTitle(e.target.value)}
+                   placeholder="F.eks. Fotballtrening"
+                   className="w-full rounded-xl px-3 py-2.5 text-[14px] outline-none"
+                   style={{background:"var(--surface)", color:"var(--text-1)", border:"1px solid var(--stroke)"}}/>
+          </div>
+
+          {/* Day picker */}
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.14em] mb-1.5" style={{color:"var(--text-3)"}}>Dag</div>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {weekDayNames.map((dn, i) => (
+                <button key={i} onClick={()=>setDay(i)}
+                        className="flex-shrink-0 rounded-xl px-3 py-2 text-center transition-all"
+                        style={{
+                          background: day===i ? "var(--ink)" : "var(--surface)",
+                          color: day===i ? "var(--ink-contrast)" : "var(--text-2)",
+                          border:"1px solid var(--stroke)",
+                          minWidth: 52,
+                        }}>
+                  <div className="text-[10px] uppercase tracking-wider opacity-70">{dn.slice(0,3)}</div>
+                  <div className="text-[14px] font-semibold font-mono mt-0.5">{20+i}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Time + duration */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="text-[10.5px] uppercase tracking-[0.14em] mb-1.5" style={{color:"var(--text-3)"}}>Starter</div>
+              <input type="time" value={time} onChange={e=>setTime(e.target.value)}
+                     className="w-full rounded-xl px-3 py-2.5 text-[14px] font-mono outline-none"
+                     style={{background:"var(--surface)", color:"var(--text-1)", border:"1px solid var(--stroke)"}}/>
+            </div>
+            <div>
+              <div className="text-[10.5px] uppercase tracking-[0.14em] mb-1.5" style={{color:"var(--text-3)"}}>Varighet</div>
+              <select value={duration} onChange={e=>setDuration(+e.target.value)}
+                     className="w-full rounded-xl px-3 py-2.5 text-[14px] outline-none"
+                     style={{background:"var(--surface)", color:"var(--text-1)", border:"1px solid var(--stroke)"}}>
+                <option value={30}>30 min</option>
+                <option value={60}>1 time</option>
+                <option value={90}>1t 30min</option>
+                <option value={120}>2 timer</option>
+                <option value={0}>Hele dagen</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Who */}
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.14em] mb-1.5" style={{color:"var(--text-3)"}}>Hvem</div>
+            <div className="flex gap-1.5 flex-wrap">
+              {people.map(p => (
+                <button key={p} onClick={()=>setWho(p)}
+                        className="rounded-full px-3 py-1.5 text-[12px] transition-all"
+                        style={{
+                          background: who===p ? "var(--ink)" : "var(--surface)",
+                          color: who===p ? "var(--ink-contrast)" : "var(--text-2)",
+                          border:"1px solid var(--stroke)",
+                        }}>{p}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Location */}
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.14em] mb-1.5" style={{color:"var(--text-3)"}}>Sted <span style={{color:"var(--text-3)"}}>(valgfritt)</span></div>
+            <input value={location} onChange={e=>setLocation(e.target.value)}
+                   placeholder="Legg til sted eller lenke"
+                   className="w-full rounded-xl px-3 py-2.5 text-[14px] outline-none"
+                   style={{background:"var(--surface)", color:"var(--text-1)", border:"1px solid var(--stroke)"}}/>
+          </div>
+
+          {/* Calendar destination */}
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.14em] mb-1.5" style={{color:"var(--text-3)"}}>Synk til</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={()=>setCal("google")}
+                      className="rounded-xl px-3 py-2.5 flex items-center justify-center gap-1.5 text-[12.5px]"
+                      style={{
+                        background: cal==="google" ? "var(--surface-strong)" : "var(--surface)",
+                        color:"var(--text-1)",
+                        border:`1px solid ${cal==="google" ? "var(--mint)" : "var(--stroke)"}`
+                      }}>
+                <I.google width="13" height="13"/> Google
+              </button>
+              <button onClick={()=>setCal("apple")}
+                      className="rounded-xl px-3 py-2.5 flex items-center justify-center gap-1.5 text-[12.5px]"
+                      style={{
+                        background: cal==="apple" ? "var(--surface-strong)" : "var(--surface)",
+                        color:"var(--text-1)",
+                        border:`1px solid ${cal==="apple" ? "var(--mint)" : "var(--stroke)"}`
+                      }}>
+                <I.apple width="13" height="13"/> Apple
+              </button>
+            </div>
+          </div>
+
+          {/* Notify */}
+          <div className="flex items-center justify-between rounded-xl px-3 py-2.5"
+               style={{background:"var(--surface)", border:"1px solid var(--stroke)"}}>
+            <div>
+              <div className="text-[13px]" style={{color:"var(--text-1)"}}>Påminnelse</div>
+              <div className="text-[11px]" style={{color:"var(--text-3)"}}>15 minutter før</div>
+            </div>
+            <Toggle on={notify} onChange={setNotify}/>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 flex items-center gap-2 border-t" style={{borderColor:"var(--stroke)"}}>
+          <button onClick={onClose} className="flex-1 rounded-xl py-2.5 text-[13px]"
+                  style={{background:"var(--surface)", color:"var(--text-2)", border:"1px solid var(--stroke)"}}>
+            Avbryt
+          </button>
+          <button onClick={onClose} disabled={!title.trim()}
+                  className="flex-[1.6] rounded-xl py-2.5 text-[13px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  style={{background:"var(--ink)", color:"var(--ink-contrast)"}}>
+            <I.plus width="13" height="13"/> Legg til
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ SETTINGS ------------------ */
+function SettingsRow({ icon: Icon, iconColor="mint", title, subtitle, right, onClick, danger=false }) {
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-3 py-3 px-3 rounded-xl text-left transition-colors hover:bg-[oklch(1_0_0_/_0.03)]">
+      {Icon && <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                   style={{background: danger ? "oklch(0.78 0.14 25 / 0.12)" : `${accentVar(iconColor).replace(")", " / 0.14)")}`,
+                           color: danger ? "var(--coral)" : accentVar(iconColor)}}>
+        <Icon width="15" height="15"/>
+      </div>}
+      <div className="flex-1 min-w-0">
+        <div className="text-[13.5px]" style={{color: danger ? "var(--coral)" : "var(--text-1)"}}>{title}</div>
+        {subtitle && <div className="text-[11px] mt-0.5" style={{color:"var(--text-3)"}}>{subtitle}</div>}
+      </div>
+      <div className="flex-shrink-0 flex items-center gap-1.5" style={{color:"var(--text-3)"}}>{right}</div>
+    </button>
+  );
+}
+
+function SettingsGroup({ title, children }) {
+  return (
+    <div>
+      {title && <div className="text-[10.5px] uppercase tracking-[0.18em] mb-2 px-2" style={{color:"var(--text-3)"}}>{title}</div>}
+      <div className="glass rounded-2xl overflow-hidden divide-y" style={{borderColor:"var(--stroke)"}}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Toggle({ on, onChange }) {
+  return (
+    <button onClick={(e)=>{e.stopPropagation(); onChange(!on);}}
+            className="relative w-[38px] h-[22px] rounded-full transition-colors flex-shrink-0"
+            style={{background: on ? "var(--mint)" : "var(--stroke-strong)"}}>
+      <span className="absolute top-0.5 w-[18px] h-[18px] rounded-full transition-all"
+            style={{left: on ? "18px" : "2px", background:"white", boxShadow:"0 2px 4px oklch(0 0 0 / 0.2)"}}></span>
+    </button>
+  );
+}
+
+/* Detaljvisning for ett familiemedlem */
+function MemberDetail({ member, onBack, onClose }) {
+  const [name, setName] = useState(member.name);
+  const [role, setRole] = useState(member.role);
+  const [color, setColor] = useState(member.color);
+  const [isAdmin, setIsAdmin] = useState(member.name==="Lise" || member.name==="Per");
+  const [canAddEvents, setCanAddEvents] = useState(true);
+  const [canAddShop, setCanAddShop] = useState(true);
+  const [syncGoogle, setSyncGoogle] = useState(member.name==="Lise" || member.name==="Per");
+  const [syncApple, setSyncApple] = useState(member.name==="Per");
+
+  // Diettpreferanser mock — per person
+  const defaultDiet = {
+    "Lise": ["Vegetar"],
+    "Mats": ["Nøtteallergi"],
+    "Ida":  [],
+    "Per":  [],
+  }[member.name] || [];
+  const [diet, setDiet] = useState(defaultDiet);
+  const [dislikes, setDislikes] = useState({
+    "Ida": ["Sopp", "Oliven"],
+    "Mats": ["Løk", "Tomat"],
+    "Per": [],
+    "Lise": ["Kylling"],
+  }[member.name] || []);
+
+  const colorOptions = ["mint","cyan","amber","coral"];
+  const dietOptions = ["Vegetar","Vegan","Glutenfri","Laktosefri","Nøtteallergi","Halal","Kosher","Skalldyrallergi"];
+
+  return (
+    <div className="px-5 pt-2 pb-8 space-y-5">
+      {/* Header with back */}
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="glass w-10 h-10 rounded-full flex items-center justify-center"
+                style={{color:"var(--text-2)"}}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <div className="text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Familiemedlem</div>
+        <button onClick={onClose} className="glass w-10 h-10 rounded-full flex items-center justify-center"
+                style={{color:"var(--text-2)"}}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      {/* Profile hero */}
+      <div className="glass glass-hl rounded-[28px] p-5 text-center relative overflow-hidden"
+           style={{boxShadow:`0 24px 60px -24px ${accentVar(color).replace(")", " / 0.4)")}`}}>
+        <div className="absolute inset-0 pointer-events-none opacity-40"
+             style={{background:`radial-gradient(500px 180px at 50% 0%, ${accentVar(color).replace(")", " / 0.3)")}, transparent 60%)`}}></div>
+        <div className="relative">
+          <div className="inline-block relative">
+            <Avatar letter={member.avatar} color={color} size={84}/>
+            <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center"
+                    style={{background:"var(--surface-strong)", color:"var(--text-1)", border:"1px solid var(--stroke-strong)"}}>
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7H12zM18 13l-1.5-1.5M2 22l4.5-1L18.5 8.5 15 5 3 17z"/></svg>
+            </button>
+          </div>
+          <div className="font-display text-[28px] mt-3 leading-tight" style={{color:"var(--text-1)"}}>{name}</div>
+          <div className="text-[13px]" style={{color:"var(--text-2)"}}>{role}</div>
+          <div className="flex items-center justify-center gap-4 mt-3">
+            <div className="flex items-center gap-1 text-[12px]" style={{color:accentVar(color)}}>
+              <I.bolt width="12" height="12"/><span className="font-mono font-semibold">{member.xp}</span><span style={{color:"var(--text-3)"}}>XP</span>
+            </div>
+            <div className="w-px h-3" style={{background:"var(--stroke)"}}></div>
+            <div className="flex items-center gap-1 text-[12px]" style={{color:"var(--amber)"}}>
+              <I.flame width="12" height="12"/><span className="font-mono font-semibold">{member.streak}</span><span style={{color:"var(--text-3)"}}>dager</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Basic info */}
+      <SettingsGroup title="Profil">
+        <div className="px-3 py-3">
+          <div className="text-[10.5px] uppercase tracking-widest mb-1.5" style={{color:"var(--text-3)"}}>Navn</div>
+          <input value={name} onChange={e=>setName(e.target.value)}
+                 className="w-full bg-transparent text-[14px] outline-none" style={{color:"var(--text-1)"}}/>
+        </div>
+        <div className="px-3 py-3">
+          <div className="text-[10.5px] uppercase tracking-widest mb-1.5" style={{color:"var(--text-3)"}}>Rolle</div>
+          <input value={role} onChange={e=>setRole(e.target.value)}
+                 className="w-full bg-transparent text-[14px] outline-none" style={{color:"var(--text-1)"}}/>
+        </div>
+        <div className="px-3 py-3">
+          <div className="text-[10.5px] uppercase tracking-widest mb-2" style={{color:"var(--text-3)"}}>Farge</div>
+          <div className="flex gap-2">
+            {colorOptions.map(c => (
+              <button key={c} onClick={()=>setColor(c)}
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-transform"
+                      style={{background:accentVar(c), transform: color===c?"scale(1.1)":"scale(1)",
+                              boxShadow: color===c?`0 0 0 3px var(--bg-0), 0 0 0 5px ${accentVar(c)}`:"none"}}>
+                {color===c && <I.check width="14" height="14" style={{color:"oklch(0.15 0.02 95)"}}/>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </SettingsGroup>
+
+      {/* Permissions */}
+      <SettingsGroup title="Tilganger">
+        <SettingsRow
+          icon={I.settings} iconColor="mint"
+          title="Administrator"
+          subtitle="Kan endre innstillinger og legge til medlemmer"
+          right={<Toggle on={isAdmin} onChange={setIsAdmin}/>}/>
+        <SettingsRow
+          icon={I.calendar} iconColor="cyan"
+          title="Legge til kalenderhendelser"
+          right={<Toggle on={canAddEvents} onChange={setCanAddEvents}/>}/>
+        <SettingsRow
+          icon={I.cart} iconColor="amber"
+          title="Redigere handlelisten"
+          right={<Toggle on={canAddShop} onChange={setCanAddShop}/>}/>
+      </SettingsGroup>
+
+      {/* Kalender-kilder for denne personen */}
+      <SettingsGroup title="Koblede kalendere">
+        <SettingsRow
+          icon={I.google} iconColor="mint"
+          title="Google Kalender"
+          subtitle={syncGoogle ? `${name.toLowerCase()}@gmail.com · toveis` : "Ikke koblet"}
+          right={<Toggle on={syncGoogle} onChange={setSyncGoogle}/>}/>
+        <SettingsRow
+          icon={I.apple} iconColor="cyan"
+          title="Apple Kalender"
+          subtitle={syncApple ? "iCloud · toveis" : "Ikke koblet"}
+          right={<Toggle on={syncApple} onChange={setSyncApple}/>}/>
+      </SettingsGroup>
+
+      {/* Diett + allergier */}
+      <SettingsGroup title="Diett og allergier">
+        <div className="p-3">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {diet.length === 0 && <div className="text-[12px] py-1" style={{color:"var(--text-3)"}}>Ingen spesielle behov</div>}
+            {diet.map(d => (
+              <span key={d} className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1 rounded-full"
+                    style={{background:"oklch(0.82 0.15 155 / 0.14)", color:"var(--mint)", border:"1px solid oklch(0.82 0.15 155 / 0.3)"}}>
+                {d}
+                <button onClick={()=>setDiet(diet.filter(x=>x!==d))} style={{color:"var(--mint)"}}>×</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {dietOptions.filter(o=>!diet.includes(o)).map(o => (
+              <button key={o} onClick={()=>setDiet([...diet, o])}
+                      className="text-[11.5px] px-2.5 py-1 rounded-full"
+                      style={{background:"var(--surface)", color:"var(--text-2)", border:"1px dashed var(--stroke-strong)"}}>
+                + {o}
+              </button>
+            ))}
+          </div>
+        </div>
+      </SettingsGroup>
+
+      {/* Dislikes */}
+      <SettingsGroup title="Liker ikke">
+        <div className="p-3">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {dislikes.length === 0 && <div className="text-[12px] py-1" style={{color:"var(--text-3)"}}>Ingen registrerte</div>}
+            {dislikes.map(d => (
+              <span key={d} className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1 rounded-full"
+                    style={{background:"oklch(0.82 0.13 75 / 0.14)", color:"var(--amber)", border:"1px solid oklch(0.82 0.13 75 / 0.3)"}}>
+                {d}
+                <button onClick={()=>setDislikes(dislikes.filter(x=>x!==d))} style={{color:"var(--amber)"}}>×</button>
+              </span>
+            ))}
+          </div>
+          <button className="text-[11.5px] px-2.5 py-1 rounded-full"
+                  style={{background:"var(--surface)", color:"var(--text-2)", border:"1px dashed var(--stroke-strong)"}}>
+            + Legg til ingrediens
+          </button>
+          <div className="text-[10.5px] mt-2" style={{color:"var(--text-3)"}}>
+            Assistenten unngår disse i middag- og handleforslag.
+          </div>
+        </div>
+      </SettingsGroup>
+
+      {/* Contact (for SMS etc) */}
+      <SettingsGroup title="Kontakt (valgfritt)">
+        <SettingsRow
+          icon={I.bell} iconColor="cyan"
+          title="Telefonnummer"
+          subtitle="For SMS-påminnelser"
+          right={<>
+            <span className="text-[12px] font-mono" style={{color:"var(--text-3)"}}>+47 999 00 000</span>
+            <I.chevron width="14" height="14"/>
+          </>}/>
+      </SettingsGroup>
+
+      {/* Danger */}
+      <SettingsGroup>
+        <SettingsRow danger
+          icon={({width,height}) => <svg viewBox="0 0 24 24" width={width||15} height={height||15} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>}
+          title={`Fjern ${name} fra husstanden`}/>
+      </SettingsGroup>
+    </div>
+  );
+}
+
+function Settings({ onClose, familyName, setFamilyName, theme, setTheme, gamification, setGamification }) {
+  const [notifMeal, setNotifMeal] = useState(true);
+  const [notifChore, setNotifChore] = useState(true);
+  const [notifCal, setNotifCal] = useState(true);
+  const [notifLow, setNotifLow] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(true);
+  const [smartSuggest, setSmartSuggest] = useState(true);
+  const [weekStart, setWeekStart] = useState("monday");
+  const [activeMember, setActiveMember] = useState(null); // name | null
+
+  if (activeMember) {
+    return <MemberDetail member={family.find(f=>f.name===activeMember)} onBack={()=>setActiveMember(null)} onClose={onClose}/>;
+  }
+
+  return (
+    <div className="px-5 pt-2 pb-8 space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--text-3)"}}>Hjemme · konto</div>
+          <h1 className="font-display text-[34px] leading-tight mt-1" style={{color:"var(--text-1)"}}>Innstillinger</h1>
+        </div>
+        <button onClick={onClose} className="glass w-10 h-10 rounded-full flex items-center justify-center"
+                style={{color:"var(--text-2)"}}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      {/* Household card */}
+      <div className="glass glass-hl rounded-[22px] p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+               style={{background:"linear-gradient(135deg, var(--mint), var(--cyan))", color:"oklch(0.15 0.02 95)"}}>
+            <I.home width="24" height="24"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px]" style={{color:"var(--text-3)"}}>Hjem</div>
+            <div className="font-display text-[22px] leading-tight" style={{color:"var(--text-1)"}}>{familyName}</div>
+            <div className="text-[11px]" style={{color:"var(--text-3)"}}>4 medlemmer · Oslo</div>
+          </div>
+          <button className="text-[12px] font-medium px-3 py-1.5 rounded-full"
+                  style={{background:"var(--surface)", color:"var(--text-1)", border:"1px solid var(--stroke)"}}>
+            Endre
+          </button>
+        </div>
+      </div>
+
+      {/* Family members */}
+      <SettingsGroup title="Familiemedlemmer">
+        {family.map((m, i) => (
+          <SettingsRow key={m.name}
+            icon={({width,height}) => <Avatar letter={m.avatar} color={m.color} size={28}/>}
+            title={m.name}
+            subtitle={`${m.role} · ${m.xp} XP`}
+            onClick={()=>setActiveMember(m.name)}
+            right={<>
+              <span className="w-2 h-2 rounded-full" style={{background:accentVar(m.color)}}></span>
+              <I.chevron width="14" height="14"/>
+            </>}
+          />
+        ))}
+        <SettingsRow
+          icon={I.plus} iconColor="mint"
+          title="Legg til familiemedlem"
+          subtitle="Barn, partner, eller andre i husstanden"
+          right={<I.chevron width="14" height="14"/>}/>
+      </SettingsGroup>
+
+      {/* Integrations */}
+      <SettingsGroup title="Tilkoblinger">
+        <SettingsRow
+          icon={I.google} iconColor="mint"
+          title="Google Kalender"
+          subtitle="Tilkoblet · Lise + Per · toveis synk"
+          right={<Toggle on={true} onChange={()=>{}}/>}/>
+        <SettingsRow
+          icon={I.apple} iconColor="cyan"
+          title="Apple Kalender"
+          subtitle="Tilkoblet · Per · toveis synk"
+          right={<Toggle on={true} onChange={()=>{}}/>}/>
+        <SettingsRow
+          icon={I.link} iconColor="coral"
+          title="Koble til ny tjeneste"
+          subtitle="Vipps familiebudsjett · Spotify · Hue m.m."
+          right={<I.chevron width="14" height="14"/>}/>
+      </SettingsGroup>
+
+      {/* Handel og butikker — Kassal.app */}
+      <SettingsGroup title="Handel og butikker">
+        <div className="p-3 pb-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                   style={{background:"oklch(0.82 0.15 155 / 0.14)", color:"var(--mint)"}}>
+                <I.cart width="14" height="14"/>
+              </div>
+              <div>
+                <div className="text-[13px]" style={{color:"var(--text-1)"}}>Kassal.app</div>
+                <div className="text-[10.5px]" style={{color:"var(--text-3)"}}>Prissammenligning og tilbud — egen nøkkel</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                  style={{background:"oklch(0.82 0.15 155 / 0.16)", color:"var(--mint)", border:"1px solid oklch(0.82 0.15 155 / 0.3)"}}>
+              Koblet
+            </span>
+          </div>
+          <div className="rounded-xl px-3 py-2.5 flex items-center gap-2 font-mono text-[11.5px]"
+               style={{background:"var(--surface)", border:"1px solid var(--stroke)", color:"var(--text-2)"}}>
+            <span style={{color:"var(--text-3)"}}>API-nøkkel</span>
+            <span className="flex-1 truncate">kslp_●●●●●●●●●●●●●a9f2</span>
+            <button className="text-[11px] font-medium" style={{color:"var(--mint)"}}>Endre</button>
+          </div>
+          <div className="text-[10.5px] mt-2" style={{color:"var(--text-3)"}}>
+            Bruker din egen Kassal.app-nøkkel — ingen data sendes via oss. Hent nøkkel på kassal.app/api.
+          </div>
+        </div>
+        <div className="p-3 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="text-[13px]" style={{color:"var(--text-1)"}}>Foretrukne butikker</div>
+              <div className="text-[10.5px]" style={{color:"var(--text-3)"}}>Assistenten prioriterer disse når den henter priser</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              {id:"kiwi",    name:"Kiwi",       color:"mint",  sel:true},
+              {id:"rema",    name:"Rema 1000",  color:"coral", sel:true},
+              {id:"meny",    name:"Meny",       color:"amber", sel:false},
+              {id:"coop",    name:"Coop Xtra",  color:"cyan",  sel:true},
+              {id:"spar",    name:"Spar",       color:"mint",  sel:false},
+              {id:"bunnpris",name:"Bunnpris",   color:"coral", sel:false},
+            ].map(s => (
+              <button key={s.id}
+                      className="rounded-xl px-2 py-2.5 text-left transition-all"
+                      style={{
+                        background: s.sel ? `${accentVar(s.color).replace(")", " / 0.14)")}` : "var(--surface)",
+                        border: s.sel ? `1px solid ${accentVar(s.color).replace(")", " / 0.5)")}` : "1px solid var(--stroke)",
+                        color: s.sel ? accentVar(s.color) : "var(--text-2)"
+                      }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-medium">{s.name}</span>
+                  {s.sel && <I.check width="12" height="12"/>}
+                </div>
+                <div className="text-[9.5px] mt-0.5" style={{color: s.sel ? "currentColor" : "var(--text-3)", opacity: s.sel ? 0.75 : 1}}>
+                  {s.sel ? "Aktiv" : "Trykk for å velge"}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <SettingsRow
+          icon={I.bolt} iconColor="amber"
+          title="Henter tilbud automatisk"
+          subtitle="Oppdaterer ukentlig · torsdag 06:00"
+          right={<Toggle on={true} onChange={()=>{}}/>}/>
+        <SettingsRow
+          icon={I.cart} iconColor="cyan"
+          title="Oda handlelevering"
+          subtitle="Tilkoblet · onsdager 17:30"
+          right={<Toggle on={true} onChange={()=>{}}/>}/>
+      </SettingsGroup>
+
+      {/* AI assistant */}
+      <SettingsGroup title="Assistenten">
+        <SettingsRow
+          icon={I.sparkles} iconColor="mint"
+          title="Smarte forslag"
+          subtitle="AI foreslår middag, oppgaver, handleliste"
+          right={<Toggle on={smartSuggest} onChange={setSmartSuggest}/>}/>
+        <SettingsRow
+          icon={I.mic} iconColor="cyan"
+          title="Stemmeassistent"
+          subtitle="Hold mic-knappen eller si «Hei Fam»"
+          right={<Toggle on={voiceOn} onChange={setVoiceOn}/>}/>
+        <SettingsRow
+          icon={I.heart} iconColor="coral"
+          title="Diettpreferanser og allergier"
+          subtitle="Vegetar (Lise) · Nøtteallergi (Mats)"
+          right={<I.chevron width="14" height="14"/>}/>
+        <SettingsRow
+          icon={I.book} iconColor="amber"
+          title="Lær assistenten"
+          subtitle="14 tilbakemeldinger · 3 uforetrukne"
+          right={<I.chevron width="14" height="14"/>}/>
+      </SettingsGroup>
+
+      {/* Family life / gamification */}
+      <SettingsGroup title="Familieliv">
+        <SettingsRow
+          icon={I.trophy} iconColor="amber"
+          title="Gamification"
+          subtitle={gamification
+            ? "XP, streaks, merker og leaderboard for Gjøremål"
+            : "Av — gjøremål vises uten poeng og belønninger"}
+          right={<Toggle on={gamification} onChange={setGamification}/>}/>
+        {gamification && (
+          <>
+            <SettingsRow
+              icon={I.bolt} iconColor="mint"
+              title="Vis XP og merker på dashboard"
+              subtitle="Dine medlemmer ser poengene sine på forsiden"
+              right={<Toggle on={true} onChange={()=>{}}/>}/>
+            <SettingsRow
+              icon={I.flame} iconColor="coral"
+              title="Ukentlig belønning"
+              subtitle="Sett mål og belønning i Gjøremål"
+              right={<I.chevron width="14" height="14"/>}/>
+          </>
+        )}
+      </SettingsGroup>
+
+      {/* Notifications */}
+      <SettingsGroup title="Varsler">
+        <SettingsRow
+          icon={I.utensils} iconColor="mint"
+          title="Påminnelse om middag"
+          subtitle="1 time før middagstid"
+          right={<Toggle on={notifMeal} onChange={setNotifMeal}/>}/>
+        <SettingsRow
+          icon={I.broom} iconColor="amber"
+          title="Gjøremål"
+          subtitle="Om morgenen kl. 08:00"
+          right={<Toggle on={notifChore} onChange={setNotifChore}/>}/>
+        <SettingsRow
+          icon={I.calendar} iconColor="cyan"
+          title="Kalenderhendelser"
+          subtitle="30 min før avtaler"
+          right={<Toggle on={notifCal} onChange={setNotifCal}/>}/>
+        <SettingsRow
+          icon={I.fridge} iconColor="coral"
+          title="Lavt på varer"
+          subtitle="Når en vare går mot tomt"
+          right={<Toggle on={notifLow} onChange={setNotifLow}/>}/>
+      </SettingsGroup>
+
+      {/* Preferences */}
+      <SettingsGroup title="Preferanser">
+        <SettingsRow
+          icon={I.calendar} iconColor="mint"
+          title="Uken starter"
+          right={<>
+            <span className="text-[12.5px]" style={{color:"var(--text-1)"}}>{weekStart==="monday"?"Mandag":"Søndag"}</span>
+            <I.chevron width="14" height="14"/>
+          </>}
+          onClick={()=>setWeekStart(weekStart==="monday"?"sunday":"monday")}/>
+        <SettingsRow
+          icon={theme==="dark"?I.moon:I.sun} iconColor={theme==="dark"?"cyan":"amber"}
+          title="Utseende"
+          right={<>
+            <span className="text-[12.5px]" style={{color:"var(--text-1)"}}>{theme==="dark"?"Mørk":"Lys"}</span>
+            <I.chevron width="14" height="14"/>
+          </>}
+          onClick={()=>setTheme(theme==="dark"?"light":"dark")}/>
+        <SettingsRow
+          icon={I.bolt} iconColor="amber"
+          title="Valuta og enheter"
+          right={<>
+            <span className="text-[12.5px]" style={{color:"var(--text-1)"}}>NOK · kg/l</span>
+            <I.chevron width="14" height="14"/>
+          </>}/>
+      </SettingsGroup>
+
+      {/* Account + support */}
+      <SettingsGroup title="Konto og personvern">
+        <SettingsRow icon={I.settings} iconColor="mint" title="Administrer abonnement"
+          subtitle="Familie Plus · fornyes 15. mai" right={<I.chevron width="14" height="14"/>}/>
+        <SettingsRow icon={I.search} iconColor="cyan" title="Personvern og data"
+          subtitle="Last ned · slett data" right={<I.chevron width="14" height="14"/>}/>
+        <SettingsRow icon={I.bell} iconColor="amber" title="Hjelp og tilbakemelding"
+          right={<I.chevron width="14" height="14"/>}/>
+      </SettingsGroup>
+
+      {/* Danger zone */}
+      <SettingsGroup>
+        <SettingsRow danger
+          icon={({width,height}) => <svg viewBox="0 0 24 24" width={width||15} height={height||15} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>}
+          title="Logg ut"/>
+      </SettingsGroup>
+
+      <div className="text-center text-[10.5px] pt-2" style={{color:"var(--text-3)"}}>
+        Familieassistenten · v3.2.1 · <span className="font-mono">build 2026.04.20</span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ BOTTOM NAV ------------------ */
+const tabs = [
+  { id: "today",   label: "I dag",    Icon: I.home },
+  { id: "cal",     label: "Kalender", Icon: I.calendar },
+  { id: "meals",   label: "Ukesmeny", Icon: I.utensils },
+  { id: "shop",    label: "Handle",   Icon: I.cart },
+  { id: "chores",  label: "Gjøremål", Icon: I.broom },
+];
+
+function BottomNav({ tab, setTab }) {
+  return (
+    <div className="sticky bottom-0 left-0 right-0 z-30 px-3 pb-4 pt-2"
+         style={{background:"linear-gradient(180deg, transparent, var(--bg-0) 70%)"}}>
+      <div className="tabbar glass-strong rounded-full p-1.5 flex items-center gap-0.5"
+           style={{boxShadow:"0 12px 40px -12px oklch(0 0 0 / 0.4)"}}>
+        {tabs.map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={()=>setTab(t.id)}
+                    className={"flex items-center justify-center gap-1.5 py-2.5 rounded-full transition-all whitespace-nowrap "+
+                               (active ? "px-3" : "flex-1 px-1")}
+                    style={{
+                      background: active ? "var(--text-1)" : "transparent",
+                      color: active ? "var(--bg-0)" : "var(--text-2)",
+                      flex: active ? "0 0 auto" : "1 1 0",
+                      minWidth: active ? undefined : 0,
+                    }}>
+              <t.Icon width="18" height="18"/>
+              {active && <span className="text-[12px] font-medium whitespace-nowrap">{t.label}</span>}
+            </button>
+          );
+        })}
+        <button className="w-10 h-10 rounded-full flex items-center justify-center ml-0.5 flex-shrink-0"
+                style={{background:"linear-gradient(135deg, var(--mint), var(--cyan))", color:"oklch(0.15 0.02 95)",
+                        boxShadow:"0 0 20px -4px var(--mint)"}}>
+          <I.mic width="17" height="17"/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ DEVICE WRAPPER ------------------ */
+function StatusBar() {
+  return (
+    <div className="flex items-center justify-between px-7 pt-3 pb-1 text-[12px] font-medium" style={{color:"var(--text-1)"}}>
+      <span className="font-mono">9:41</span>
+      <div className="flex items-center gap-1">
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><path d="M1 8h2V6H1v2zm4 0h2V4H5v4zm4 0h2V2H9v6zm4 0h2V0h-2v8z"/></svg>
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><path d="M7 1.5a7 7 0 0 1 5 2l-1 1a5.5 5.5 0 0 0-8 0l-1-1a7 7 0 0 1 5-2zm0 3a4 4 0 0 1 2.8 1.2L8.7 6.7a2.5 2.5 0 0 0-3.5 0L4.2 5.7A4 4 0 0 1 7 4.5zm0 3a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>
+        <svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="currentColor"><rect x="0.5" y="0.5" width="19" height="9" rx="2"/><rect x="2" y="2" width="14" height="6" fill="currentColor"/><rect x="20" y="3" width="1" height="4" fill="currentColor"/></svg>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ APP ------------------ */
+function App() {
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [tab, setTab] = useState(localStorage.getItem("fa:tab") || "today");
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => { localStorage.setItem("fa:tab", tab); }, [tab]);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", tweaks.theme);
+  }, [tweaks.theme]);
+
+  // Edit mode wiring
+  useEffect(() => {
+    const onMsg = (e) => {
+      const d = e.data || {};
+      if (d.type === "__activate_edit_mode") setEditMode(true);
+      if (d.type === "__deactivate_edit_mode") setEditMode(false);
+    };
+    window.addEventListener("message", onMsg);
+    window.parent.postMessage({type:"__edit_mode_available"}, "*");
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  const update = (patch) => {
+    const next = {...tweaks, ...patch};
+    setTweaks(next);
+    window.parent.postMessage({type:"__edit_mode_set_keys", edits: patch}, "*");
+  };
+
+  const view = (
+    <>
+      <StatusBar/>
+      <TopBar
+        onSettings={()=>setSettingsOpen(true)}
+        theme={tweaks.theme}
+        setTheme={(t)=>update({theme:t})}
+      />
+      {settingsOpen ? (
+        <div className="pb-4" data-screen-label="00 Innstillinger">
+          <Settings
+            onClose={()=>setSettingsOpen(false)}
+            familyName={tweaks.familyName}
+            setFamilyName={(v)=>update({familyName:v})}
+            theme={tweaks.theme}
+            setTheme={(t)=>update({theme:t})}
+            gamification={tweaks.gamification}
+            setGamification={(v)=>update({gamification:v})}
+          />
+        </div>
+      ) : (
+        <div className="pb-4" data-screen-label={
+          tab==="today" ? "01 Dashboard" :
+          tab==="cal"   ? "02 Kalender"  :
+          tab==="meals" ? "03 Ukesmeny"  :
+          tab==="shop"  ? "04 Handletur" : "05 Gjøremål"
+        }>
+          {tab==="today" && <Dashboard familyName={tweaks.familyName} onOpenCalendar={()=>setTab("cal")}/>}
+        {tab==="cal"   && <Calendar onOpenLink={(l)=>setTab(l==="meals"?"meals":"chores")} onOpenSettings={()=>setSettingsOpen(true)}/>}
+        {tab==="meals" && <WeekMenu/>}
+        {tab==="shop"  && <Shopping/>}
+        {tab==="chores"&& <Chores gamification={tweaks.gamification}/>}
+      </div>
+      )}
+      <BottomNav tab={tab} setTab={setTab}/>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen">
+      {/* Desktop: center device frame. Mobile: fullscreen */}
+      <div className="md:py-10 md:px-8 md:max-w-[1400px] md:mx-auto">
+        <div className="md:hidden">{view}</div>
+        <div className="hidden md:grid md:grid-cols-[1fr_auto_1fr] md:gap-10 md:items-start">
+          {/* Left column info */}
+          <div className="pt-10 space-y-8 pl-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{color:"var(--text-3)"}}>Redesign · April 2026</div>
+              <div className="font-display text-[56px] leading-[1.02]" style={{color:"var(--text-1)"}}>
+                Familieassistenten, <em className="italic">nytt antrekk</em>.
+              </div>
+              <div className="text-[15px] mt-4 max-w-[380px]" style={{color:"var(--text-2)"}}>
+                En varm, familievennlig omdesign i glassmorphism og subtile neon-aksenter — bygget på dine
+                eksisterende funksjoner. Dagens middag, ukesmeny, handletur og et kontrollrom med gamification.
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 max-w-[420px]">
+              {[
+                {k:"Aesthetic", v:"Glass · Aurora"},
+                {k:"Palette", v:"Mint · Cyan · Warm off-black"},
+                {k:"Type", v:"Instrument Serif + Geist"},
+                {k:"Platform", v:"Responsiv · iOS-prioritet"},
+              ].map(x => (
+                <div key={x.k} className="glass rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-widest" style={{color:"var(--text-3)"}}>{x.k}</div>
+                  <div className="text-[13px] mt-1" style={{color:"var(--text-1)"}}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+            <div className="glass rounded-xl p-4 max-w-[420px]">
+              <div className="text-[11px] uppercase tracking-widest mb-2" style={{color:"var(--text-3)"}}>Naviger</div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {tabs.map(t => (
+                  <button key={t.id} onClick={()=>setTab(t.id)}
+                          className={"rounded-lg p-2 flex flex-col items-center gap-1 text-[10.5px] "+
+                                     (tab===t.id ? "ring-mint" : "")}
+                          style={{background: tab===t.id ? "oklch(0.82 0.15 155 / 0.12)" : "transparent",
+                                  color: tab===t.id ? "var(--mint)" : "var(--text-2)"}}>
+                    <t.Icon width="17" height="17"/>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="text-[11px]" style={{color:"var(--text-3)"}}>
+              Klikk fanene over, eller bruk bunn-tablinjen i telefonen. Åpne Tweaks nede i høyre hjørne for å bytte tema og aksent.
+            </div>
+          </div>
+
+          {/* Device frame */}
+          <div className="flex justify-center">
+            <div className="device-frame" style={{width: 400}}>
+              <div className="rounded-[36px] overflow-hidden relative" style={{background:"var(--bg-0)", height: 820}}>
+                <div className="absolute inset-0 aurora"></div>
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[110px] h-[28px] rounded-full z-20"
+                     style={{background:"oklch(0.10 0.01 95)"}}></div>
+                <div className="relative z-10 h-full overflow-y-auto no-scrollbar flex flex-col">
+                  <div className="flex-1">{view}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right column: screens overview */}
+          <div className="pt-10 pr-4 space-y-3">
+            <div className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{color:"var(--text-3)"}}>Skjermer</div>
+            {[
+              {id:"today",  t:"01 — Dashboard", d:"Hilsen, agenda-stripe for i dag, kveldens middag, pantry lavt, AI-forslag."},
+              {id:"cal",    t:"02 — Kalender",  d:"Synket med Google/Apple. Dag- og ukesvisning, farger pr. familiemedlem, filter."},
+              {id:"meals",  t:"03 — Ukesmeny",  d:"Dag-strip, hero-kort pr. dag, hele uka som liste, generer manglende."},
+              {id:"shop",   t:"04 — Handletur", d:"Progress ring, voice-input, kategorier med aksentfarger, 'kjøpt' anim."},
+              {id:"chores", t:"05 — Gjøremål",  d:"Dagens oppgaver, hele uka, utsett til i morgen, XP, merker og streaks."},
+            ].map((s,i) => (
+              <button key={s.id} onClick={()=>setTab(s.id)}
+                      className={"glass glass-hl rounded-2xl p-4 w-full text-left lift "+
+                                 (tab===s.id ? "ring-mint" : "")}>
+                <div className="text-[11px] font-mono" style={{color:"var(--text-3)"}}>0{i+1}</div>
+                <div className="font-display text-[20px] mt-1" style={{color:"var(--text-1)"}}>{s.t.split(" — ")[1]}</div>
+                <div className="text-[12px] mt-1" style={{color:"var(--text-2)"}}>{s.d}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tweaks trigger */}
+      <button onClick={()=>setTweaksOpen(!tweaksOpen)}
+              className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 glass-strong rounded-full px-4 py-2 text-[12px] flex items-center gap-1.5"
+              style={{color:"var(--text-1)"}}>
+        <I.settings width="14" height="14"/> Tweaks
+      </button>
+
+      <div className={"tweaks glass-strong rounded-2xl p-4 " + (tweaksOpen ? "open" : "")}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-display text-[18px]">Tweaks</div>
+          <button onClick={()=>setTweaksOpen(false)} className="text-[18px]" style={{color:"var(--text-3)"}}>×</button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest mb-1.5" style={{color:"var(--text-3)"}}>Tema</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {["dark","light"].map(t => (
+                <button key={t} onClick={()=>update({theme:t})}
+                        className={"rounded-lg py-2 text-[12px] capitalize "+(tweaks.theme===t?"ring-mint":"")}
+                        style={{background: tweaks.theme===t ? "oklch(0.82 0.15 155 / 0.12)" : "var(--surface)", color:"var(--text-1)", border:"1px solid var(--stroke)"}}>
+                  {t==="dark"?"Mørk":"Lys"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] uppercase tracking-widest mb-1.5" style={{color:"var(--text-3)"}}>Familienavn</div>
+            <input value={tweaks.familyName} onChange={e=>update({familyName:e.target.value})}
+                   className="w-full bg-[var(--surface)] rounded-lg px-3 py-2 text-[13px] outline-none"
+                   style={{border:"1px solid var(--stroke)", color:"var(--text-1)"}}/>
+          </div>
+
+          <div>
+            <div className="text-[10px] uppercase tracking-widest mb-1.5" style={{color:"var(--text-3)"}}>Skjerm</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {tabs.map(t => (
+                <button key={t.id} onClick={()=>setTab(t.id)}
+                        className={"rounded-lg py-2 text-[12px] flex items-center justify-center gap-1.5 "+(tab===t.id?"ring-mint":"")}
+                        style={{background: tab===t.id ? "oklch(0.82 0.15 155 / 0.12)" : "var(--surface)", color:"var(--text-1)", border:"1px solid var(--stroke)"}}>
+                  <t.Icon width="14" height="14"/>{t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-[10px] pt-2" style={{color:"var(--text-3)"}}>
+            Bytt tema/skjermer live. Dette er en ren designprototype — ingen data endres.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
