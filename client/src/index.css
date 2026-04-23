@@ -1,0 +1,15 @@
+/* Tailwind base + components + utilities. Design-tokens (OKLCH-farger,
+ * glass-morphism, aurora-gradient) legges til i Fase 1b. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Placeholder-styling for Fase 1a — fjernes i Fase 1b når design-tokens
+ * overtar. Holdes nakent med vilje for å verifisere at build og serving
+ * fungerer før vi introduserer tema-komplekseten. */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #1a1a1a;
+  color: #eee;
+}

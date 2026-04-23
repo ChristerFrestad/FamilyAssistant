@@ -60,3 +60,8 @@ sbom.xml
 # Perf-artifakter — BEHOLD perf-baseline.json (dette er "truth"),
 # men ignorer perf-current.json som genereres av CI
 perf-current.json
+
+# Frontend v2 build output — genereres av `npm run build:client`.
+# CI og prod-image-bygging regenererer dette fra client/src/.
+# Kilde er client/; bygget er midlertidig og skal ikke i git.
+public/v2/
