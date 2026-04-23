@@ -459,3 +459,255 @@ matcher implementerings-fasene i §10.
 
 **Kritisk:** Fase 4 avhenger av at B6-beslutning (kalender) er avklart
 først. Uten B6 blir dashboard-agenda-strip begrenset til interne events.
+
+---
+
+## 11. Onboarding-flyt — backend-krav (lagt til 2026-04-23)
+
+Kilde: `source/Onboarding og Auth.html`, skjerm 01-07. Dette er
+endepunktene som kreves for å drive auth+onboarding end-to-end mot
+mockupen. Flere finnes allerede — se hver underseksjon for status.
+
+### 11.1 `GET /api/config/features` — **IKKE implementert**
+
+**Formål:** Frontend leser denne ved app-boot for å gating'e
+auth-knapper, feature-kort og integrasjons-rader. Dette er
+implementerings-arven fra D3 (feature-gating klient-side).
+
+**Respons-skjema (foreslag):**
+```json
+{
+  "authProviders": ["google", "email", "console"],
+  "features": {
+    "llm": true,
+    "voice": false,
+    "calendar": { "google": true, "apple": false },
+    "kassal": true,
+    "achievements": false,
+    "gamification": true
+  },
+  "deployment": {
+    "mode": "production" | "self-host" | "dev",
+    "appUrl": "https://family.local",
+    "bootstrap": false
+  }
+}
+```
+
+**Hvordan provider-listen bygges:**
+- `google` inkluderes hvis `config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET` er satt.
+- `email` inkluderes hvis `config.RESEND_API_KEY` er satt (eller annen email-provider).
+- `console` inkluderes hvis `config.ALLOW_CONSOLE_MAGIC_LINK === true` eller hvis deployment-mode er `self-host` (default på).
+
+**Sikkerhet:** Ingen sensitive verdier i responsen. Kun booleaner og
+public URL-er. Endpoint er offentlig (ingen auth-krav) — nødvendig fordi
+Login-skjermen må leses før bruker er innlogget.
+
+**Estimat:** 0.5 dag — liten `/http/config.js`-modul som leser `config`
+og serialiserer.
+
+### 11.2 Magic-link — `POST /api/auth/magic-link/start` — **Delvis implementert**
+
+**Eksisterende:** `server/auth/magic-link.js` har
+`POST /api/auth/magic-link/start { email }` som:
+- Genererer en token med session-signert payload
+- Hvis `RESEND_API_KEY` er satt → sender email
+- **TODO-verifisering:** logger den også til console som fallback når
+  Resend mangler? La meg notere som "må verifiseres".
+
+**Mockup-kontrakt:** `ScreenLogin` sender email til dette endepunktet
+når bruker trykker "Send lenke". For console-provider trykker bruker
+"Console magic-link" som simulerer `kind="console"`-payload.
+
+**Tilpasning som trengs:**
+1. Endpoint må støtte `?kind=console` eller egen rute for console-modus
+   slik at klienten får bekreftelse på at linken ble logget, ikke
+   sendt på email.
+2. Respons bør inkludere `{ sent: true, method: "email" | "console" }`
+   slik at `ScreenMagicSent` kan velge riktig tekst ("Sjekk e-posten
+   din" vs "Sjekk server-loggen").
+
+**Estimat:** 0.5 dag — utvide eksisterende endpoint med kind-parameter
+og respons-utvidelse.
+
+### 11.3 Magic-link verify — `GET /api/auth/magic-link/verify` — **Implementert**
+
+**Eksisterende:** `GET /api/auth/magic-link/verify?token=...` finnes
+og validerer token + oppretter session-cookie + redirecter til app.
+
+**Mockup-kontrakt:** Bruker klikker lenke i email eller kopierer URL fra
+console. Browser havner på denne URL-en, som igjen redirecter til
+`/v2/today` (eller tilsvarende).
+
+**Ingen endring nødvendig** utover å sikre at redirect-URL peker til
+den nye frontend-ruten (`/v2/`) når redesignet er i bruk.
+
+### 11.4 Bootstrap-status — `GET /api/bootstrap/status` — **Implementert**
+
+**Eksisterende:** `server/http/bootstrap.js` har `GET /api/bootstrap/status`
+som returnerer `{ mode: 'bootstrap' | 'normal', hasAuthToken: bool, ... }`.
+
+**Mockup-kontrakt:** `App`-komponenten i `Onboarding og Auth.html` må
+kalle denne ved boot. Hvis `mode === 'bootstrap'` → vis
+`ScreenBootstrap` (wizard). Hvis `mode === 'normal'` → vis `ScreenWelcome`
+eller `ScreenLogin` avhengig av om bruker har session-cookie.
+
+**Frontend-flyt:**
+```typescript
+// client/src/App.tsx
+const { mode } = await fetch('/api/bootstrap/status').then(r => r.json());
+if (mode === 'bootstrap') return <BootstrapWizard/>;
+const { user } = await fetch('/api/auth/whoami').then(r => r.json());
+if (!user) return <WelcomeOrLogin/>;
+return <AppShell/>;
+```
+
+**Ingen backend-endring nødvendig.**
+
+### 11.5 Bootstrap-wizard — `POST /api/bootstrap/complete` — **Delvis implementert**
+
+**Eksisterende:** `POST /api/bootstrap/complete` tar
+`{ authToken, allowedOrigins, sessionSecret }` og persisterer til
+`/app/data/bootstrap.json`.
+
+**Mockup-kontrakt:** `ScreenBootstrap` step 4 samler inn:
+- SESSION_SECRET (fra step 1, auto eller custom)
+- Auth-provider-valg (console/email/google, fra step 2)
+- Provider-spesifikk konfig (fra step 3):
+  - console: ingenting
+  - email: Resend API-key + avsender-email
+  - google: Client ID + Client Secret
+
+**Tilpasning som trengs:**
+1. `/api/bootstrap/complete` må aksepere utvidet body:
+   ```json
+   {
+     "sessionSecret": "...",
+     "authProvider": "console" | "email" | "google",
+     "providerConfig": {
+       "resendApiKey"?: "re_...",
+       "resendFromEmail"?: "noreply@...",
+       "googleClientId"?: "...",
+       "googleClientSecret"?: "..."
+     }
+   }
+   ```
+2. `env-store.service.js` må ta imot providerConfig og persistere til
+   `.env`/`bootstrap.json` avhengig av deploy-modell.
+3. Validering per provider før write (Resend-nøkkel-format, Google-
+   client-id-format).
+
+**Estimat:** 1-2 dager — utvide bootstrap-komplet med multi-provider-støtte.
+
+**Admin-bruker-opprettelse (etter wizard):** step 4 i `ScreenBootstrap`
+`goto('signup-1')` — altså bruker faller inn i det vanlige signup-flow
+med `formData.selfHost: true`. Admin-opprettelsen skjer der via
+`POST /api/onboarding/create-family`.
+
+### 11.6 Onboarding — `POST /api/onboarding/create-family` — **Implementert**
+
+**Eksisterende:** `POST /api/onboarding/create-family` finnes og tar
+familie-navn + første medlem.
+
+**Mockup-kontrakt:** `ScreenSignup2` "Opprett familie"-knapp sender:
+```json
+{
+  "familyName": "Familien Frestad",
+  "timezone": "Europe/Oslo",
+  "language": "no",
+  "firstMember": {
+    "name": "Christer",
+    "role": "adult" | "teen" | "child",
+    "email": "christer@example.com",
+    "portionFactor": 1.0
+  }
+}
+```
+
+**Tilpasning som trengs (krever verifisering):**
+- Sjekk at endepunktet allerede tar `timezone`, `language`, `portionFactor` —
+  disse er nye felter introdusert av mockup-redesignet.
+- Hvis ikke: utvide body-skjema + migrasjon for familie-tabellen
+  (timezone-felt finnes sannsynligvis; portionFactor per medlem
+  finnes i diett-migrasjon 020).
+
+**Estimat:** 0.5-1 dag — mindre utvidelse av eksisterende endpoint.
+
+### 11.7 Session-introspection — `GET /api/auth/whoami` — **Må verifiseres**
+
+**Formål:** Frontend leser denne ved boot for å avgjøre om bruker er
+innlogget. Returnerer `{ user: {...}, family: {...} }` eller
+`{ user: null }`.
+
+**Status:** Må verifiseres i `server/auth/routes.js`. Sannsynligvis
+finnes `/api/auth/me` eller lignende.
+
+**Estimat:** 0.25 dag (hvis må lages).
+
+### 11.8 Oppsummering: hva trenger vi å bygge for onboarding
+
+| Endpoint | Status | Arbeid |
+|---|---|---|
+| `GET /api/config/features` | ❌ Ikke implementert | 0.5 dag — ny modul |
+| `POST /api/auth/magic-link/start` | ⚠️ Delvis (eksisterer, trenger kind-parameter) | 0.5 dag |
+| `GET /api/auth/magic-link/verify` | ✅ Implementert | 0 |
+| `GET /api/bootstrap/status` | ✅ Implementert | 0 |
+| `POST /api/bootstrap/complete` | ⚠️ Delvis (eksisterer, trenger provider-felt) | 1-2 dager |
+| `POST /api/onboarding/create-family` | ⚠️ Delvis (eksisterer, trenger nye felt) | 0.5-1 dag |
+| `GET /api/auth/whoami` | ❓ Må verifiseres | 0-0.25 dag |
+
+**Totalt estimat for onboarding-backend:** 2.5-4.25 dager. Dette er
+**mindre enn antatt** i opprinnelig `architecture-fit.md` §7 (2-3 dager
+for auth-flyt + 1-2 dager feature-gating). Onboarding-leveransen har
+redusert usikkerheten fordi mønsteret er nå eksplisitt i design.
+
+### 11.9 Feature-gating — implementasjons-forslag
+
+`GET /api/config/features` er hjørnesteinen. Alle conditional renderings
+i frontend leser fra denne.
+
+**Frontend-hook (v1-skisse):**
+```typescript
+// client/src/hooks/useConfig.ts
+const { data: config } = useSWR('/api/config/features', fetcher);
+
+// Components use it:
+{config?.authProviders.includes('google') && <GoogleButton/>}
+{config?.features.voice && <MicButton/>}
+{config?.features.calendar.google && <AgendaStrip/>}
+```
+
+**Caching:** `useSWR` med `revalidateOnFocus: false` — config endrer
+seg sjelden, trenger ikke være tight-sync.
+
+**Server-side (v1-skisse):**
+```javascript
+// server/http/config.js
+function getFeatures(config) {
+  const providers = [];
+  if (config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET) providers.push('google');
+  if (config.RESEND_API_KEY) providers.push('email');
+  if (config.ALLOW_CONSOLE_MAGIC_LINK || config.DEPLOY_MODE === 'self-host') providers.push('console');
+
+  return {
+    authProviders: providers,
+    features: {
+      llm: !!config.OPENAI_API_KEY || !!config.OLLAMA_URL,
+      voice: !!config.WHISPER_URL,
+      calendar: { google: !!config.GOOGLE_CLIENT_ID, apple: false },
+      kassal: true, // per-familie, sjekkes i Settings per familie
+      achievements: false,
+      gamification: true, // alltid tilgjengelig, family-toggle avgjør faktisk visning
+    },
+    deployment: {
+      mode: config.DEPLOY_MODE || 'production',
+      appUrl: config.APP_URL,
+      bootstrap: false, // sett til true hvis bootstrap-mode
+    },
+  };
+}
+```
+
+**Testing:** Skal ha test som verifiserer at endepunktet er offentlig
+(ingen auth-krav) og returnerer forventet skjema. Tester for feature-
+gating per provider-kombinasjon.

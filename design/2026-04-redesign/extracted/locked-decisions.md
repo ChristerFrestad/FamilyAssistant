@@ -201,8 +201,66 @@ For å unngå scope-creep, dokumenterer vi hva som IKKE er besluttet:
 - `domain-scan-report.md` — domene-hardkoding-skanning
 - `docs/vision/integration-platform-future.md` — post-pilot integrasjons-visjon
 - `docs/workflow/pending-decisions.md` — B7 UI-pending + diabetes-støtte
-- `source/Familieassistenten.html` — kilde-mockup
+- `source/Familieassistenten.html` — kilde-mockup (hovedapp)
+- `source/Onboarding og Auth.html` — kilde-mockup (onboarding/auth, lagt til 2026-04-23)
 - `source/chat-transcript.md` — design-iterasjons-historikk
+- `source/README-onboarding.md` — Claude Design handoff-instruksjoner for onboarding-leveransen
+
+---
+
+## 9. Onboarding-leveranse — hva er bekreftet (2026-04-23)
+
+**Hendelse:** Oppfølgings-leveranse fra claude.ai/design levert
+2026-04-23 inneholder 7 nye onboarding/auth-skjermer i filen
+`source/Onboarding og Auth.html` (1639 linjer). Leveransen var
+antatt nødvendig i §3 D1 (over) og er nå mottatt.
+
+**Ingen låste beslutninger er rokket.** Leveransen bekrefter og
+operasjonaliserer eksisterende låste valg snarere enn å motsi dem.
+
+### 9.1 Bekreftede beslutninger
+
+| Beslutning | Hva leveransen bekrefter | Referanse |
+|---|---|---|
+| D1 Design for auth+onboarding | Design er levert; implementering kan startes i Fase 1e (etter 1b-d) | `architecture-fit.md` §9 |
+| D2 Apple CalDAV ikke i v1 | Onboarding-filen har **ingen** Apple-referanser. Matcher perfekt. | `architecture-fit.md` §9.2 |
+| D3 Feature-gating klient-side | `ScreenLogin` har eksplisitt `availableProviders`-props som skal komme fra `/api/config/features`. | `backend-requirements.md` §11.1 + 11.9 |
+| D4 Kassal per-familie | Onboarding-filen rører ikke Kassal (fornuftig — det hører hjemme i Settings etter onboarding). | — |
+| D5 SPA med React Router | Showcase-filen simulerer client-side routing mellom 7 skjermer. Validerer at SPA-pattern fungerer med auth-flyten. | — |
+| D6 Vite + Tailwind v3 + React 18 + TS strict | Onboarding-filen bruker same toolchain (React 18.3.1 UMD + Tailwind CDN i mockupen, ingen endring i teknologi-valg). | — |
+| 4.5 Tema-system utvidbar | Onboarding-filens light/dark-tokens er identiske med hovedappen — `tokens.css` dekker begge. | `design-system.md` §14.11 |
+| 4.6 i18n med RTL-støtte | Onboarding bruker `inset-inline-*`, `start`/`end` Tailwind-varianter, har NO/EN-picker. Ingen RTL-blokkering. | `user-preferences-fit.md` §9 (P3) |
+
+### 9.2 Nye low-level-beslutninger som følger av leveransen
+
+Disse er ikke "låste beslutninger" i samme formelle forstand som
+§3 D1-D6, men er konsekvenser av leveransen som bør noteres:
+
+- **Auth-flyten implementeres i ny Fase 1e** (etter 1b/1c/1d), ikke
+  som del av Fase 2. Begrunnelse: mindre kompleksitet, kan bygges
+  parallelt med hovedskjermene i Fase 2.
+- **Auth-komponent-base (ProviderCard, Field, ProgressDots, Button,
+  .term-blokk) bør bygges i Fase 1b** slik at Fase 1e er rask.
+  Se `architecture-fit.md` §10.1 option C.
+- **`teen`-rollen i mockup må avklares** før Fase 1e starter. Backend
+  har `'owner' | 'adult' | 'child'`, mockup har `'adult' | 'teen' | 'child'`.
+  Se `architecture-fit.md` §10.3.
+- **`ScreenStrip` og `ProviderTweakMenu` er dev-only** og skal **ikke**
+  implementeres i produksjon. Se `components-inventory.md` §11.11 og §12.
+- **Backend-estimat nedjustert:** Auth+onboarding-implementasjon
+  nedjustert fra 5-8 dager til 2.5-4.25 dager backend + 2-3 dager
+  frontend (se `architecture-fit.md` §11).
+
+### 9.3 Crosslinks
+
+Detaljert informasjon om onboarding-leveransen finnes i:
+- `components-inventory.md` §11 — 8 nye komponenter + §12 felles auth-atomer
+- `design-system.md` §14 — 11 nye token/pattern-utvidelser (progress dots, field, buttons, terminal, screen strip, copy-pattern, error-states, animasjoner, device-frame)
+- `backend-requirements.md` §11 — 7 endpoints (5 nye/utvidede, 2 eksisterende)
+- `architecture-fit.md` §9 — gap-by-gap-gjennomgang av de 3 opprinnelige hullene
+- `architecture-fit.md` §10 — gjenværende beslutningspunkter
+- `architecture-fit.md` §11 — justert scope-tabell
+- `user-preferences-fit.md` §9-§10 — P1-P4-dekningsstatus
 
 ---
 

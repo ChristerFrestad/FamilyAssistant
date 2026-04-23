@@ -1,7 +1,13 @@
 # Design-system — Familieassistenten redesign (april 2026)
 
-Kilde: `source/Familieassistenten.html`. Kildekoden er én enkelt HTML-fil
-(2845 linjer) med inline React via Babel standalone + Tailwind via CDN.
+Kilder (to filer, samme design-system):
+- `source/Familieassistenten.html` (2845 linjer) — hovedapp.
+- `source/Onboarding og Auth.html` (1639 linjer) — 7 onboarding/auth-
+  skjermer, lagt til 2026-04-23. Tokens er **identiske** med hovedfilen
+  (OKLCH-farger, Instrument Serif + Geist, aurora + glass) pluss et
+  knippe auth-spesifikke utvidelser (se §14). Alt skal kunne bygges med
+  samme `tokens.css` i produksjon.
+
 Dette dokumentet ekstraherer designtokenene slik at implementering i
 produksjon-stack (Vite + Tailwind v3 + React 18 + TypeScript, låst
 per D6) kan matche det visuelle uttrykket 1:1.
@@ -418,3 +424,315 @@ html[data-theme="light"] {
   --shadow-glow: 0 20px 50px -20px oklch(0.55 0.14 155 / 0.25);
 }
 ```
+
+---
+
+## 14. Onboarding/auth-utvidelser (fra `Onboarding og Auth.html`)
+
+Onboarding-filen bygger på **alle** tokens i §1-§13, men legger til en
+liten gruppe auth-spesifikke mønstre. Alle er mekanisk kompatible med
+dark/light-omskifting — onboarding-filen validerer i praksis at
+lys-temaet fungerer end-to-end for en helt annen sett av skjermer enn
+hovedappen.
+
+### 14.1 Nye farge-tokens
+
+Onboarding-filen introduserer én ny farge-token utover §1:
+
+| Token | Dark | Light | Bruk |
+|---|---|---|---|
+| `--rose` | `oklch(0.72 0.16 0)` | `oklch(0.58 0.17 0)` | "Uventet feil" (500) i `ScreenError` — en tredje alarm-tone utover coral/amber |
+| `--ink` | `oklch(0.97 0.01 85)` | `oklch(0.22 0.02 85)` | Primær-knapp-bakgrunn (invers av body). Samme fargebruk som tab-active-pille. |
+| `--ink-contrast` | `oklch(0.15 0.02 95)` | `oklch(0.99 0.005 85)` | Tekst på `--ink`-bakgrunn. |
+
+**Hvorfor `--ink` og `--ink-contrast` separates:** Dette gir primary-
+button-styling som automatisk inverterer under tema-skifte uten
+context-spesifikke overstyringer. Mønsteret bør gjenbrukes i hovedappen
+også (i dag håndtert ad hoc via `color-mix` + `bg-white dark:bg-black`-
+varianter).
+
+### 14.2 Progress-indikator-tokens
+
+Brukt i `ScreenSignup1`/`ScreenSignup2`/`ScreenBootstrap`:
+
+```css
+.pdot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--stroke-strong);
+  transition: all .25s ease;
+}
+.pdot.active {
+  width: 22px;                 /* pill-shape for aktiv step */
+  background: var(--mint);
+  border-radius: 3px;
+}
+.pdot.done {
+  background: var(--mint-deep); /* ferdigstilt step */
+}
+```
+
+Animerer seg inn via `transition: all .25s ease`. Dette gir en myk
+pille-animasjon når bruker går videre i wizard/signup.
+
+**Tailwind-mapping:** Ingen ren utility dekker "kompakt dot ↔ pill".
+Lag en `ProgressDots`-komponent (se `components-inventory.md` §11.12)
+med `.pdot`-klasser i `design/tokens/components.css`.
+
+### 14.3 Form-input-pattern (`.field`)
+
+```css
+.field {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  color: var(--text-1);
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  transition: border-color .2s ease, background .2s ease;
+}
+.field:hover { border-color: var(--stroke-strong); }
+.field:focus {
+  border-color: var(--mint);
+  outline: none;
+  background: var(--surface-strong);
+}
+.field::placeholder { color: var(--text-3); }
+```
+
+**Designkontrakt:** Alle inputs/selects/textareas i auth-skjermene bruker
+denne klassen. Bakgrunn er halvgjennomsiktig `--surface` (glass-kompatibelt).
+Focus-tilstand forsterker glasset + trekker opp mint-kant.
+
+**Focus-ring for keyboard-nav:**
+```css
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+```
+
+### 14.4 Knapp-pattern (`.btn-primary` / `.btn-ghost`)
+
+```css
+.btn-primary {
+  background: var(--ink);
+  color: var(--ink-contrast);
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: transform .15s ease, box-shadow .2s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px -8px oklch(0 0 0 / 0.3);
+}
+.btn-primary:disabled {
+  opacity: 0.45;
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-2);
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  border: 1px solid var(--stroke);
+  transition: background .2s ease, color .2s ease;
+}
+.btn-ghost:hover {
+  background: var(--surface);
+  color: var(--text-1);
+}
+```
+
+**Produksjon:** Lag `<Button variant="primary" | "ghost">`-komponent i
+Fase 1b. Hovedappen har liknende mønstre som er inline-stylet (§9 tabellen
+viser "glass rounded-2xl" osv.) — konsolider med samme tokens for å unngå
+drift.
+
+### 14.5 Terminal-blokk (`.term`)
+
+Brukt i `SecretGeneratorField` og `ConditionalConfigPanel`:
+
+```css
+.term {
+  background: oklch(0.14 0.015 95);    /* Litt mørkere enn --bg-0 */
+  color: oklch(0.82 0.15 155);         /* mint — monospace auth-green */
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 12px;
+  border: 1px solid oklch(1 0 0 / 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+html[data-theme="light"] .term {
+  background: oklch(0.22 0.02 85);     /* Holder dark-bakgrunn også i light mode */
+  color: oklch(0.82 0.15 155);         /* Samme mint */
+}
+```
+
+**Designvalg:** Terminal-blokken beholder mørk bakgrunn i light mode
+bevisst — imiterer faktisk CLI-estetikk. Tekstfargen er mint for å
+signalisere "hemmelig / vent her / dette er kode".
+
+### 14.6 Screen-strip (dev-only)
+
+```css
+.strip {
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+.strip-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-2);
+  border: 1px solid var(--stroke);
+  background: transparent;
+  white-space: nowrap;
+  transition: all .2s ease;
+}
+.strip-btn:hover {
+  color: var(--text-1);
+  border-color: var(--stroke-strong);
+}
+.strip-btn.active {
+  background: var(--ink);
+  color: var(--ink-contrast);
+  border-color: transparent;
+  font-weight: 500;
+}
+.strip-btn .num {
+  font-family: 'Geist Mono';
+  font-size: 10px;
+  opacity: 0.6;
+  margin-inline-end: 4px;
+}
+```
+
+**Rolle:** Brukes kun av `ScreenStrip`-dev-verktøyet. **Skal ikke inn i
+produksjon.** Unntak: hvis vi senere lager en intern "screens-gallery"-
+side for QA/designer-review, kan `.strip-btn`-mønsteret gjenbrukes.
+
+### 14.7 Copy-knapp-pattern
+
+Inline i `SecretGeneratorField`:
+
+```html
+<button class="absolute top-2 end-2 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px]"
+        style="background:oklch(1 0 0 / 0.08); color:var(--mint);
+               border:1px solid oklch(1 0 0 / 0.1);">
+  {copied ? <><I.check/> Kopiert</> : <><I.copy/> Kopier</>}
+</button>
+```
+
+**State-mekanisme:** `copied`-boolean flasher i 1.4s etter
+`navigator.clipboard.writeText()`. Kombineres med ikon-bytte (copy→check)
+og label-bytte ("Kopier" → "Kopiert"). Try/catch rundt clipboard-call
+for Safari-kompat.
+
+**Produksjon:** Lag gjenbrukbar `<CopyButton value={s}/>`-komponent som
+håndterer flash-state, clipboard-API-fallback, og a11y-announcement
+via `aria-live="polite"`.
+
+### 14.8 Error-state-varianter
+
+Fra `ScreenError`:
+
+| Variant | Farge-token | Semantikk | Ikon |
+|---|---|---|---|
+| offline | `--amber` | Midlertidig, bruker kan løse selv | `I.wifi` |
+| server | `--coral` | Ekstern feil, prøv igjen om litt | `I.server` |
+| unknown | `--rose` | Uventet feil, hentes av Sentry | `I.alert` |
+
+**Mønster for error-chip:**
+```html
+<div style="background: color-mix(in oklch, {variant.color} 10%, transparent);
+            color: {variant.color};
+            border: 1px solid color-mix(in oklch, {variant.color} 25%, transparent);">
+  {variant.badge}
+</div>
+```
+
+**Stor ikon-wrapper:**
+```html
+<div style="background: color-mix(in oklch, {variant.color} 14%, transparent);
+            border: 1px solid color-mix(in oklch, {variant.color} 30%, transparent);
+            color: {variant.color};">
+  <Icon size="52"/>
+</div>
+```
+
+`color-mix(in oklch, ...)` gir oss farge-varianter uten å tilføye nye
+tokens. Krever Chrome 111+, Firefox 113+, Safari 16.4+.
+
+### 14.9 Nye animasjoner
+
+```css
+@keyframes softPulse {
+  0%,100% { transform: scale(1);    box-shadow: 0 0 0 0 oklch(0.82 0.15 155 / 0.4); }
+  50%     { transform: scale(1.04); box-shadow: 0 0 0 20px oklch(0.82 0.15 155 / 0); }
+}
+.soft-pulse { animation: softPulse 2.6s ease-out infinite; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.slide-up { animation: slideUp .35s ease-out both; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-3px); }
+  40%, 80% { transform: translateX(3px); }
+}
+.shake { animation: shake .35s ease-in-out; }
+
+@keyframes wobble {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+.wobble { animation: wobble 2.4s ease-in-out infinite; }
+```
+
+**Semantisk bruk:**
+- `soft-pulse`: Magic-link-bekreftelse-sirkel (skjerm 06). Signaliserer "vent, noe skjer".
+- `slide-up`: Alle skjerm-overganger. Entry-animasjon, 350ms.
+- `shake`: Ikke brukt i mockupen, men tilgjengelig for feil-validering (bruker velger ugyldig input).
+- `wobble`: `ScreenError`-ikonet. Mild bevegelse for å signalisere "noe er galt, men ikke farlig".
+
+**A11y:** Alle disse må respektere `prefers-reduced-motion`:
+```css
+@media (prefers-reduced-motion: reduce) {
+  .soft-pulse, .slide-up, .shake, .wobble {
+    animation: none;
+  }
+}
+```
+
+### 14.10 Device-frame (dev-only)
+
+Samme mønster som i `Familieassistenten.html` men re-definert lokalt i
+onboarding-filen. Et lite avvik: onboarding bruker 860px fast høyde
+med `overflow-y: auto; no-scrollbar` inni, mens hovedappen er mer
+responsiv. Dette er et design-tool-valg — device-frame skal fjernes i
+produksjon og erstattes med ekte responsiv layout.
+
+### 14.11 Dark/light — light mode er fullt støttet også for onboarding
+
+Verifikasjon under gjennomgang 2026-04-23: Alle 7 onboarding-skjermer
+har `:root` + `html[data-theme="light"]` -tokens, og alle inline
+style-blokker bruker `var(--mint)`/`var(--surface)` osv. Ingen
+hardkodede farger. Tema-bytte vil fungere end-to-end for hele auth-
+flyten fra dag én — ingen ekstra arbeid i Fase 1b utover `tokens.css`.
+
+Samme gjelder aurora-bakgrunnen: `.aurora::before/::after` har `opacity`-
+overstyringer for light mode (0.28 / 0.22) — identisk med hovedappen.
+
+---

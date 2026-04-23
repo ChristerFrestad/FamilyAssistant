@@ -221,3 +221,173 @@ I Tailwind betyr det `ps-4` (padding-inline-start) over `pl-4`
 Nok til at UI kan toggle tema, språk, osv. Sync og server-persistens
 kommer i Fase 2. Dette gjør at Fase 1 kan fullføres uten å blokkere
 på backend-arbeid.
+
+---
+
+## 9. Onboarding-leveranse 2026-04-23 — P1-P4-dekningsstatus
+
+Kilde: `source/Onboarding og Auth.html`. Evaluerer hvor godt
+onboarding-flyten dekker de fire viktigste user-preference-kravene.
+
+### P1 — Tema (light/dark) ✅ Full dekning
+
+**Kriterie:** Alle 7 onboarding-skjermer må fungere i både lys og
+mørk tema uten visuelle bugs.
+
+**Verifikasjon (2026-04-23):**
+- `Onboarding og Auth.html:38-58` definerer komplett `html[data-theme="light"]`
+  override for alle tokens (--bg-0..2, --surface*, --stroke*, --text-1..3,
+  --mint*, --cyan*, --amber, --coral, --rose, --ink, --ink-contrast)
+- Alle styles bruker `var(--*)` — ingen hardkodede farger i inline-style
+  eller Tailwind-klasser (bekreftet via spot-check på ScreenWelcome,
+  ScreenLogin, ScreenBootstrap, ScreenMagicSent, ScreenError)
+- `.aurora::before/::after` har `opacity: 0.28`/`0.22` under light mode
+  (matcher hovedappen)
+- `.term`-blokken beholder mørk bakgrunn også i light mode (intentional —
+  terminal-estetikk)
+- `ThemeSwitch`-komponent (`Onboarding og Auth.html:1620`) bruker
+  `localStorage('fa-theme')` + `document.documentElement.setAttribute('data-theme', ...)`
+- Showcase-shell (`ScreenStrip`) har `<ThemeSwitch/>` i høyre hjørne, og
+  individuelle `ScreenWelcome`/`ScreenLogin` osv. har også `<ThemeToggle/>`
+  øverst i høyre hjørne
+
+**Arkitektur-konsistens:** Samme mønster som hovedappen. `useTheme()`-hook
+(fra user-preferences-fit.md §4.2) kan implementeres én gang og gjenbrukes
+på tvers av auth og app.
+
+**Konklusjon:** **Ingen ekstra arbeid i Fase 1b for å støtte onboarding-
+skjermers tema-bytte.** Token-CSS som bygges i Fase 1b dekker begge filer.
+
+### P2 — Onboarding-flyt (landing → opprett konto → dashboard) ✅ Komplett
+
+**Kriterie:** Fra "jeg har aldri brukt appen" til "jeg ser I dag-skjermen"
+uten dead-ends.
+
+**Flyt-kartlegging (happy path):**
+
+```
+ScreenWelcome (01)
+  ├─ "Opprett konto" → ScreenSignup1 (03) → ScreenSignup2 (04) → [setTimeout] → /v2/today
+  └─ "Jeg har en konto" → ScreenLogin (02)
+                           ├─ Google → [simulert OAuth] → /v2/today
+                           ├─ Email → ScreenMagicSent (06) → [bruker klikker link i mail] → /v2/today
+                           └─ Console → ScreenMagicSent (06) → [bruker kopierer link fra log] → /v2/today
+```
+
+**Alternative paths:**
+
+```
+ScreenBootstrap (05) for self-host fresh-install
+  └─ Step 0-4 → ScreenSignup1 (03) → ScreenSignup2 (04) → /v2/today
+```
+
+**Feilhåndtering:**
+
+```
+ScreenError (07) med 3 varianter
+  └─ "Prøv igjen" → /v2/today
+  └─ "Til forsiden" → ScreenWelcome (01)
+  └─ "Rapporter problem" → (krever implementering i prod — feedback-kanal)
+```
+
+**Ikke blokkerende gaps:**
+- "Jeg har glemt hvilken email jeg brukte" — ingen lookup-flyt. Akseptabelt for v1.
+- "Jeg vil endre email senere" — Settings-skjermen i hovedappen
+  håndterer dette.
+- "Hvordan inviterer jeg flere familiemedlemmer?" — dekket i Settings →
+  Familiemedlemmer (hovedapp). Onboarding-flyten er kun admin-bruker.
+
+**Konklusjon:** Happy path er komplett. **Fase 1/2-implementering har alt
+den trenger for å bygge end-to-end flyt.**
+
+### P3 — Språk (i18n + RTL-forberedelse) ✅ Strukturelt klar, tekst hardkodet
+
+**Kriterie:** Alle tekster må være oversettelses-nøkler (fra Fase 1c
+og fremover). RTL-layout må fungere automatisk når språk endres.
+
+**Observasjon 2026-04-23:**
+
+**Bra:** `ScreenSignup1` har eksplisitt språk-picker (NO/EN) som lagres
+i `formData.language`. Dette er **riktig plassering** — språk velges
+under onboarding før bruker ser appen.
+
+**Bra:** Onboarding-filen bruker `inset-inline-start`/`inset-inline-end`
+og `start`/`end` Tailwind-varianter istedenfor `left`/`right` —
+RTL-forberedelse fra dag én (f.eks. `Onboarding og Auth.html:77`
+`inset-inline-start: -100px`, og `Onboarding og Auth.html:488`
+`end-3` for inline-select-ikon).
+
+**Bra:** Tailwind-logical-properties i alle padding/margin (`ps-4`,
+`pe-4`, `ms-2`, `me-2` osv. der det trengs).
+
+**Ikke bra:** Tekstene er hardkodet på norsk. Dette er forventet i en
+mockup, men må konverteres til i18n-nøkler i produksjon.
+
+**Eksempler på tekster å ekstrahere til `messages/no.json`:**
+```json
+{
+  "onboarding.welcome.tagline": "Hverdagen, i {harmony}.",
+  "onboarding.welcome.harmony_word": "harmoni",
+  "onboarding.welcome.description": "Planlegg middager, handleliste...",
+  "onboarding.welcome.feature.meals": "Ukesmeny",
+  "onboarding.welcome.feature.shopping": "Handleliste",
+  "onboarding.welcome.cta.primary": "Opprett konto",
+  "onboarding.welcome.cta.secondary": "Jeg har en konto",
+  "onboarding.welcome.footer": "Self-host med Docker. Åpen kildekode. Dine data, din hage.",
+  "onboarding.login.title": "Velkommen tilbake",
+  "onboarding.login.description": "Logg inn for å fortsette til familien din.",
+  "onboarding.login.provider.google.label": "Fortsett med Google",
+  // ... etc (ca. 80-120 nøkler totalt for hele onboarding-flyten)
+}
+```
+
+**Konklusjon:** Strukturen er **RTL-klar fra dag én**. Tekstene må
+ekstraheres til locale-filer i Fase 1c (når i18n-biblioteket velges).
+Estimat: 0.5-1 dag for en samlet ekstraksjon av alle 7 skjermer.
+
+### P4 — Navigasjon (responsive, mobilvennlig) ✅ Oppfyller krav
+
+**Kriterie:** Auth-flyten må fungere på mobil og desktop uten
+layout-bugs. Bunnmeny (mobil) / sidemeny (desktop) er ikke aktuelt for
+auth-flyten (auth er pre-app) — men skjermene må skalere.
+
+**Observasjon:**
+- `PageShell` (`Onboarding og Auth.html:363`) gir max-width `440px`
+  sentrert. Dette er mobil-first og fungerer direkte på mobil og
+  desktop (sentrert på desktop).
+- Device-frame på desktop (`Onboarding og Auth.html:1509`) wrapper hele
+  skjermen i en "telefon-ramme" — dette er en design-tool-konsept og
+  **skal fjernes** i produksjon.
+- I produksjon: `PageShell`-innhold vises direkte, sentrert via
+  `max-w-[440px] mx-auto`.
+- Typografi skalerer: `text-[44px] sm:text-[56px]` på hero-heading
+  (medium-breakpoint = 768px).
+- Grid-er (f.eks. `grid-cols-2` i feature-teaser) er responsive uten
+  ekstra media-queries.
+
+**Ingen bottom-nav/sidemeny i auth-flyten:** Korrekt design. Auth-
+skjermene er "deep screens" uten global-nav. Bruker navigerer via
+`<Button>` + `<Link>` i innholdet.
+
+**Etter innlogging:** Bruker lander på `/v2/today` som har bunnmeny
+(mobil) og sidemeny (desktop) ifølge locked-decisions §4.7. Overgangen
+er clean — auth er sin egen "kapsel", app er sin egen.
+
+**Konklusjon:** **Ingen ekstra arbeid** i Fase 1d (app-shell + nav)
+for å håndtere auth-flyten. Auth har ikke app-shell — den har sin egen
+`PageShell`-variant som er self-contained.
+
+---
+
+## 10. Summert onboarding-P1-P4-status
+
+| Krav | Status | Fase-implementering | Estimat |
+|---|---|---|---|
+| P1 Tema (light+dark for 7 skjermer) | ✅ Full | Fase 1b (tokens dekker alt) | 0 ekstra |
+| P2 Onboarding-flyt (happy path komplett) | ✅ Full | Fase 1e (ny fase) | 2-3 dager |
+| P3 Språk-struktur (logical props, picker) | ✅ Strukturelt | Fase 1c (i18n) | 0.5-1 dag for ekstraksjon |
+| P4 Responsive (mobil + desktop) | ✅ Full | Fase 1d (nav) | 0 ekstra |
+
+**Total ekstra-arbeid for P1-P4 utover det som allerede er planlagt:**
+ca. 0.5-1 dag (kun i18n-ekstraksjonen). Alt annet er dekket av
+eksisterende fase-plan.

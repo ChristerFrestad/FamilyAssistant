@@ -45,28 +45,40 @@ Christers svar på de 6 beslutningspunktene i §6:
 
 ## 1. TL;DR
 
-**Mockup-en tar IKKE høyde for kjør-overalt-arkitekturen.** Den antar en
+**Status 2026-04-23 etter onboarding-leveranse:** De tre arkitektur-
+kritiske hullene fra v1-analysen er **alle adressert** av
+`Onboarding og Auth.html`. Se §9 for detaljert gjennomgang av hvert
+hull. Resterende arbeid er primært backend-utvidelser
+(se `backend-requirements.md` §11).
+
+**Opprinnelig kritikk (før onboarding-leveranse):**
+~~Mockup-en tar IKKE høyde for kjør-overalt-arkitekturen.~~ Den antok en
 allerede-innlogget familie på en fullt konfigurert deploy.
 
-**Tre arkitektur-kritiske hull:**
-1. **Ingen auth/login-skjerm** — designet starter på Dashboard med
-   hardkodet familienavn via `TWEAK_DEFAULTS`. Ingen flyt for
-   "ikke-innlogget bruker".
-2. **Hardkodet Google + Apple-integrasjoner** — Settings-seksjonen
-   "Tilkoblinger" viser Google + Apple uten conditional rendering.
-   Selvhost-familier uten OAuth-apper vil se knapper som ikke virker.
-3. **Ingen bootstrap-wizard** — fresh-install-flyten (brukeren åpner
-   appen første gang på en tom instance) er ikke designet.
+**Tre arkitektur-kritiske hull (opprinnelig) — status nå:**
+1. ~~**Ingen auth/login-skjerm**~~ → ✅ **Løst.** `ScreenLogin` (skjerm 02)
+   dekker dette med dynamisk provider-liste styrt av `availableProviders`-
+   props (som skal komme fra `GET /api/config/features`).
+2. ~~**Hardkodet Google + Apple-integrasjoner**~~ → ✅ **Delvis løst.**
+   Auth-flyten har ingen Apple-referanser i det hele tatt (matcher D2).
+   Settings-seksjonen i hovedappen (`Familieassistenten.html`) viser
+   fortsatt Google + Apple som hardkodet — må fortsatt gjøres conditional
+   basert på `features.calendar.google` og `features.calendar.apple` fra
+   config-endpoint.
+3. ~~**Ingen bootstrap-wizard**~~ → ✅ **Løst.** `ScreenBootstrap`
+   (skjerm 05) er en 5-step wizard som dekker SESSION_SECRET-gen,
+   auth-provider-valg, per-provider konfig og admin-bruker-transisjon
+   til signup-flow.
 
-**Verdivurdering:** designet er **UI-systemet + visuelle skjermer for en
-innlogget-opplevelse**. Resten må konstrueres fra null med samme design-
-tokens. Dette er estimert 3-5 dager ekstra designer-arbeid (auth,
-onboarding, provider-kort) pluss 5-10 dager implementering.
+**Verdivurdering etter onboarding-leveranse:** Designet er nå komplett
+for happy-path kjør-overalt. Estimat for auth/onboarding-frontend er
+nedjustert fra "3-5 dager designer-arbeid + 5-10 dager implementering"
+til "0 dager designer-arbeid + 5-8 dager implementering" — designet er
+klart, bare kode.
 
-**Beslutningspunkt for Christer:** Godta at 3-5 nye design-skjermer må
-lages internt (med samme stil) før redesign kan dekke kjør-overalt-
-scenarier, eller be claude.ai/design om oppfølgings-runde som inkluderer
-auth-flyt.
+**Nytt beslutningspunkt for Christer:** Se §10 for gjenværende
+oppmerksomhets-punkter (timing-spørsmål, Apple i Settings-skjermen,
+navn-kollisjoner mellom mockup-seed og backend-felt).
 
 ---
 
@@ -354,7 +366,214 @@ separat.
 4. Implementere i faser per `backend-requirements.md` §10.
 5. B6 kalender-beslutning må avklares før fase 4.
 
-**Kritisk:** denne analysen krever at Christer (evt. med claude.ai-
+**Kritisk:** ~~denne analysen krever at Christer (evt. med claude.ai-
 design-assistent) gjør en oppfølgings-runde for auth+onboarding før
-implementering starter. Ellers får vi en halvfungerende redesign som
-bare dekker innlogget-opplevelsen.
+implementering starter.~~ **Oppfølgings-runden er levert** (2026-04-23,
+`source/Onboarding og Auth.html`). Se §9 for detaljert evaluering av
+hvordan leveransen lukker hullene, og §10 for gjenværende
+beslutningspunkter.
+
+---
+
+## 9. Onboarding-leveranse 2026-04-23 — gap-by-gap gjennomgang
+
+**Leveransen:** 7 skjermer + nav-strip i ny fil `Onboarding og Auth.html`.
+Bruker samme design-tokens som hovedappen. Se `components-inventory.md`
+§11 for full komponent-breakdown.
+
+### 9.1 Gap #1 — Auth/login-skjerm ✅ Løst
+
+**Hva `ScreenLogin` leverer:**
+- Dynamisk provider-liste via props `availableProviders: ('google' | 'email' | 'console')[]`.
+  Skal kobles til `GET /api/config/features` i prod (se
+  `backend-requirements.md` §11.1).
+- Google OAuth-knapp: betinget rendering `{providers.includes('google') && …}`.
+- Magic-link via email: betinget rendering + inline input + send-knapp
+  med Enter-submit.
+- Console magic-link: "self-host"-badge + ekstra subtitle forklarer at
+  lenken printes til server-log.
+- Spinner-feedback på alle provider-knapper mens `sending !== null`.
+- Link til signup hvis bruker ikke har konto: "Ikke en konto? Opprett en".
+
+**Produksjons-tilpasning:**
+- Mockup kaller `goto('magic-sent', {email, kind})` lokalt. I prod:
+  `POST /api/auth/magic-link/start { email, kind }` og håndter
+  `{ sent: true, method: 'email' | 'console' }`-respons.
+- Mockup går rett til `today` ved Google-klikk; i prod redirectes
+  til OAuth-init-endepunktet (server-side redirect, browser følger).
+- `ScreenMagicSent` (skjerm 06) er bekreftelses-skjermen som brukeren
+  havner på etter email-sending.
+
+**Ikke dekket av denne leveransen:**
+- **PILOT_BYPASS-tilstand:** Auth-skjermene har ingen eksplisitt
+  PILOT_BYPASS-opsjon. Dette er akseptabelt fordi PILOT_BYPASS er et
+  admin/dev-middleware-flagg som ikke trenger UI — når flagget er
+  satt, skal Login-skjermen automatisk skippes via
+  `GET /api/auth/whoami` som returnerer en syntetisk user.
+- **AUTH_TOKEN bearer-flyt:** ingen UI-skjerm for dette. Også akseptabelt
+  — bearer-token brukes via curl/skript, ikke via browser.
+
+### 9.2 Gap #2 — Hardkodet Google + Apple-integrasjoner ⚠️ Delvis løst
+
+**Auth-flyten (nyeste leveransen):** Ingen Apple-referanser i
+`Onboarding og Auth.html`. Matcher D2 perfekt — Apple er helt fraværende
+fra førstegangs-innlogging. Leveransen validerer D2-beslutningen i
+design-lag.
+
+**Settings i hovedappen:** Fortsatt uløst. Gå til
+`source/Familieassistenten.html` og se MemberDetail-seksjonen samt
+Tilkoblinger-seksjonen i Settings — begge hardkoder Google + Apple som
+tilgjengelige toggler. Denne delen må fortsatt bygges med conditional
+rendering basert på `features.calendar.google` og
+`features.calendar.apple` fra config-endpoint.
+
+**Anbefaling:** I Fase 2-implementering, når Settings-skjermen bygges,
+bruk pattern fra `ProviderCard` i onboarding-filen (§11.8 i
+`components-inventory.md`) for å vise "Koble til Apple Calendar" med
+`disabled={true}` og subtitle "Kommer senere". Da er mønsteret konsistent
+på tvers av auth og Settings.
+
+### 9.3 Gap #3 — Ingen bootstrap-wizard ✅ Løst
+
+**Hva `ScreenBootstrap` leverer (5 steg):**
+
+| Step | Innhold | Kommentar |
+|---|---|---|
+| 0 | Velkomst-skjerm | 3-punkt-oversikt over hva som skal settes opp |
+| 1 | SESSION_SECRET-gen | Auto-48-tegn (trimmet alfabet) eller custom paste (min 16). Copy-knapp + refresh. |
+| 2 | Auth-provider-valg | 3-valg-stack: console (Enklest), email (Krever Resend), google (Avansert) |
+| 3 | Provider-konfig | Conditional per valg i step 2 — console=info-only, email=Resend-key, google=OAuth-credentials |
+| 4 | Admin-oversikt | Oppsummering + transisjon til signup-flow for admin-bruker |
+
+**Mapping mot eksisterende backend:**
+- `GET /api/bootstrap/status` finnes allerede — brukes til å detektere
+  om mode=bootstrap og rute brukeren hit fra `App.tsx`.
+- `POST /api/bootstrap/complete` finnes, men må utvides for å ta imot
+  `providerConfig` (se `backend-requirements.md` §11.5).
+- Etter wizard-komplettering sendes bruker til `signup-1` — samme flyt
+  som en helt ny bruker. Admin-opprettelsen bruker
+  `POST /api/onboarding/create-family` som allerede finnes.
+
+**Ikke dekket:**
+- **Middler av wizard-state når bruker trykker 'Tilbake' eller lukker
+  browser:** Ingen persistens. Bruker må starte på nytt hvis de
+  forlater. Akseptabelt for fresh-install (gjøres én gang).
+- **Valgfri Cloudflare Tunnel-setup for Christers prod-scenario:**
+  Ikke en del av wizard-flyten. Dette er admin-arbeid på
+  deployment-nivå, ikke brukervendt.
+
+### 9.4 Gap #4 — Feature-gating på klient-nivå (fra §3.4)
+
+**Før:** Delvis støtte via `tweaks.gamification`-toggle i hovedappen.
+**Nå:** `ScreenLogin` + implisitt kontrakt om `GET /api/config/features`
+validerer at mønsteret fungerer end-to-end. Frontend-kodebase bør
+formalisere dette til `useConfig()`-hook som alle conditional
+renderings leser fra (se `backend-requirements.md` §11.9).
+
+Onboarding-leveransen **dokumenterer, men implementerer ikke**, hele
+feature-gating-pattern. Konkret kode må bygges i Fase 1 (auth) + Fase 2
+(Settings).
+
+---
+
+## 10. Gjenværende beslutningspunkter (etter onboarding-leveranse)
+
+### 10.1 Timing: når bygges auth-flyten?
+
+**Kontekst:** D1-beslutningen låser at Fase 1b (design-system +
+base-komponenter) starter først, og auth-skjermene kommer senere. Med
+onboarding-leveransen i hånden er designet klart, så vi må bestemme:
+
+**A)** Bygg auth-flyten som egen Fase 1e etter Fase 1b/1c/1d. Holder
+D1-sekvensen intakt. Estimat: 3-5 dager ren frontend + 2.5-4.25 dager
+backend (se `backend-requirements.md` §11.8) = ~1 uke totalt.
+
+**B)** Flytt auth-flyten til Fase 2 (samtidig med første skjermer mot
+backend). Strekker tidslinjen noe, men auth-skjermene har få avhengigheter
+mot Fase 2-features og kan bygges uavhengig.
+
+**C)** Splitt: Fase 1b lager basis-komponenter som auth trenger
+(Field, ProgressDots, Button, terminal-blokk, soft-pulse-animasjon).
+Dermed er auth-flyten raskt sammensatt i Fase 1e uten å vente på Fase 2.
+
+**Min anbefaling:** **C**. Auth-komponenter er småe og dekker de mest
+fundamentale design-mønstrene. Hvis `Field`, `Button`, `ProgressDots`
+og `Term`-blokken er ferdig i Fase 1b, kan auth-flyten landes på 2-3
+dager i Fase 1e uten å blokkere Fase 2.
+
+### 10.2 Apple i Settings-skjermen (hovedapp)
+
+`Familieassistenten.html` viser fortsatt Apple-integrasjon som aktiv
+toggle i Settings → Tilkoblinger. Dette motsier D2-beslutningen.
+
+**Løsning:** Når Settings-skjermen implementeres (Fase 2 eller 3),
+konverter Apple-raden til en `<ProviderCard disabled subtitle="Kommer senere"/>`.
+Samme med MemberDetail "Koblede kalendere"-seksjonen.
+
+**Action item:** Ikke blokkerende for Fase 1. Noter i Fase 2-scope.
+
+### 10.3 Navn-kollisjoner mellom mockup og backend
+
+**Observert:** `formData.memberRole: 'adult' | 'teen' | 'child'` i
+`ScreenSignup2`, men backend-`users.role`-enum er
+`'owner' | 'adult' | 'child'` (fra batch 1 B1). Ingen `teen`-rolle.
+
+**Løsning 1:** Legg til `teen` i backend-enum (migrasjon).
+**Løsning 2:** Fjern `teen` fra mockup — bruker velger `adult` eller `child`.
+
+**Anbefaling:** Løsning 2. `teen`-rollen er nytt scope ikke dekket av
+eksisterende diet-preferences, permissions eller chore-assignments.
+Legg til senere som separat feature-arbeid hvis behov.
+
+### 10.4 Onboarding-skjermens timezone-liste er kort
+
+`ScreenSignup1` lister kun 6 timezones. For en "kjør overalt"-app må
+enten:
+- Utvide til full IANA-liste (~600 zones) med searchable select
+- La backend fylle listen fra `/api/config/public` (server leser
+  `Intl.supportedValuesOf('timeZone')`)
+- La bruker taste inn fritekst med auto-complete
+
+**Anbefaling:** Fase 2-arbeid. Mockupens 6-zones-liste er nok for
+pilot (Norden + UK + UTC). Full i18n-zone-støtte kommer når vi støtter
+flere regioner.
+
+### 10.5 Magic-link-email-mal
+
+`ScreenMagicSent` antar at email sendes med kjent utseende, men mockupen
+designer ikke selve email-innholdet. For Christers prod-deploy og for
+self-host-scenarier med Resend er email-mal nødvendig.
+
+**Ikke blokkerende for Fase 1/2.** Kommer senere som standalone
+Resend-template-arbeid.
+
+### 10.6 Nav-strip + device-frame (dev-tools)
+
+`ScreenStrip` og `ProviderTweakMenu` er design-tool-kode. **Skal ikke
+inn i produksjon.** Dette er åpenbart, men må noteres i implementerings-
+planen slik at kodereviewer fanger hvis noen kopierer inn ved et uhell.
+
+**Action item:** Legg inn lint-regel eller explicit note i
+`CONTRIBUTING.md` som sier "ingen `ScreenStrip`, `ProviderTweakMenu`,
+`device-frame` eller `strip-btn` i `client/src/`".
+
+### 10.7 `teen`-rolle kollisjon (kopi fra 10.3)
+
+Se 10.3 — gjenstår å avklares før Fase 1e.
+
+---
+
+## 11. Justert scope-tabell (etter onboarding-leveranse)
+
+| Del | Scope-estimat (opprinnelig) | Scope-estimat (etter onboarding-leveranse) |
+|---|---|---|
+| Design-supplement for auth/onboarding | 3-5 dager (designer) | 0 dager (levert) |
+| Auth-flyt frontend-implementering | 3-5 dager | 2-3 dager (mindre — designet er klart) |
+| Auth-flyt backend-endepunkter | 2-3 dager | 2.5-4.25 dager (se backend-req §11.8) |
+| Feature-gating backend (`/api/config/features`) | 1-2 dager | 0.5 dag (bekreftet enkel) |
+| Bootstrap-wizard frontend | 3-5 dager | 1-2 dager (designet er klart, 5 steg med allerede-definert state-maskin) |
+| Bootstrap-wizard backend-utvidelse | 2-3 dager | 1-2 dager (utvidelse av eksisterende) |
+
+**Netto:** Auth+onboarding-delen har gått fra ~18 dager til ~8 dager.
+Sparer ~10 dager netto på implementerings-scope takket være
+onboarding-leveransen. Pilot-MVP-estimatet nedjusteres tilsvarende.
