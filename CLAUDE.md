@@ -743,6 +743,44 @@ Test-filnavn-konvensjon – matcher nærmeste eksisterende mønster:
 - Skjemaer har labels
 - Følg mønstre etablert i uke 4 a11y-arbeidet (se `CHANGELOG.md`)
 
+### 7.7 Teknisk gjeld — forebygging (2026-04-23)
+
+Vedtatt under Fase 1b-forarbeidet. Ny kode som skrives fra dette
+punktet og frem til pre-deploy cleanup-sesjonen (estimert uke 9-10)
+skal ikke produsere ny teknisk gjeld. Konkret betyr det:
+
+- **Kommentarer og identifikatorer på engelsk US** (samme regel som
+  7.1) — aldri norsk i kommentarer, variabelnavn eller test-titler
+  fra nå av. UI-tekster og brukervendt kommunikasjon er fortsatt
+  norsk bokmål.
+- **Ingen dev-markører i produksjonskode.** Det vil si: ingen `TODO`
+  uten issue-referanse, ingen `FIXME`/`XXX`, ingen `console.log`
+  (bruk `server/logger.js`), ingen `eslint-disable` uten forklarende
+  kommentar, ingen `@ts-ignore`/`@ts-expect-error` uten forklaring,
+  ingen stub-funksjoner som bare kaster `throw new Error('not implemented')`.
+- **Ingen hardkodet test-data i produksjonskode.** Seed-data bor i
+  `server/seed.js` eller migrasjoner. Test-fikstur bor under
+  `tests/`. Aldri test-verdier blandet inn i `server/services/` eller
+  `client/src/`.
+- **Lint-clean og type-clean fra første commit.** Ny fil innfører
+  null nye lint-warnings og passerer `npm run typecheck` +
+  `npm run typecheck:client`.
+- **Dekk nye kode-grener med tester.** Hvis en `if`-gren skrives,
+  skal minst én test treffe den. Uoppdagede grener er forbudt.
+
+**Ikke rydd eksisterende kode under Fase 1-2.** Norske kommentarer,
+gamle `TODO`-er og akkumulert debt i eksisterende filer adresseres i
+én samlet sesjon senere. Se
+`docs/workflow/pre-deploy-cleanup-plan.md` for fullt scope,
+detektor-verktøy, og exit-kriterier for den sesjonen. Drive-by-fiks
+på tvers av feature-PR-er skjuler størrelsen på opprydningen og
+forurenser feature-diff-er.
+
+**Unntak:** hvis agenten allerede har en norsk-kommentert fil åpen
+av en urelatert grunn under Fase 1-2-arbeid, kan kommentarer i den
+berørte funksjonen oversettes som del av samme commit. Ikke påkrevd.
+Ingen drive-by over hele filen.
+
 ---
 
 ## DEL 8: AGENT_LOG.md-FORMAT
