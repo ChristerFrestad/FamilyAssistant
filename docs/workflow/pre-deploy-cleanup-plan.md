@@ -160,12 +160,88 @@ Scan for files that shouldn't be in the repo:
 - Consider whether the test file naming conventions (from
   `CLAUDE.md` §7.2) are followed throughout.
 
+### 4.7 Config-protection reactivation (new 2026-04-23)
+
+**This lane is different in nature from the other cleanup lanes.**
+4.1-4.6 remove accumulated debt. This lane *restores* a protection
+that was deliberately disabled at the start of Fase 1 to allow
+faster frontend-redesign work. It must complete before pilot users
+are invited.
+
+**Why reactivation is needed:** During Fase 1 the
+`pre:config-protection` hook (from the `everything-claude-code`
+plugin) is disabled via `ECC_DISABLED_HOOKS=pre:config-protection`
+so the agent can edit `eslint.config.mjs` and friends without
+asking for an unblock per change. Compensating controls in CLAUDE.md
+DEL 7.9 require manual STOP-and-report + audit-log entries, but
+those compensations only work as long as a human is reviewing the
+work. Once pilot users start using the system, the agent needs
+automated guard-rails again.
+
+**Estimate:** 1-2 days focused work.
+
+**Steps (matches the §2.6 sketch from the 2026-04-23 design report):**
+
+1. Decide the codeword phrase format. Recommended (not yet locked):
+   `KONFIG-OK <basename>` typed in Christer's prompt to authorize a
+   single edit. Final form chosen at implementation time.
+2. Decide the grant window. Recommended (not yet locked): 60 seconds
+   from grant creation to consumption. Long enough for "write grant,
+   immediately edit"; short enough that an abandoned grant cannot
+   linger and authorize a later unrelated edit. Final value chosen
+   at implementation time.
+3. Implement the grant-file mechanism. Two design options to pick
+   between:
+   - **Extend `config-protection.js` directly** in the marketplace
+     plugin folder. Simpler. Risk: plugin auto-update overwrites the
+     change.
+   - **Shadow-hook under `~/.claude/hooks/`** that runs alongside
+     the marketplace hook and adds the grant-check. Survives plugin
+     updates. Slightly more code.
+4. Write the agent-side protocol into `CLAUDE.md` DEL 7.x:
+   - When user prompt contains `KONFIG-OK <basename>`, the agent
+     writes a grant file at `~/.claude/.config-edit-grant.json`
+     just before invoking Edit on the named file. Grant has
+     `{basename, issued_at, expires_at}`.
+   - The agent never writes a grant without an explicit codeword
+     phrase in the user's prompt. Agent self-discipline; audit
+     log surfaces violations.
+5. Audit-logging continues automatically inside the hook to
+   `~/.claude/.config-protection-audit.log`. The Fase 1 manual
+   `ops/logs/config-changes/config-audit-log.md` becomes
+   read-only history at this point — no new entries needed.
+6. Test scenarios before reactivation goes live:
+   - Edit on protected file with no grant: blocks (regression test
+     for original behavior).
+   - Edit with valid grant for same basename: allows + consumes
+     grant.
+   - Edit with grant for a different basename: blocks + consumes
+     stale grant.
+   - Edit with expired grant: blocks + consumes expired grant.
+   - Two prompts in a row each with `KONFIG-OK`: each issues its
+     own grant; second edit needs the second grant.
+7. Re-enable the hook by removing `pre:config-protection` from
+   `ECC_DISABLED_HOOKS` in the user's shell config and restarting
+   Claude Code.
+8. Smoke-test once against a real edit scenario before pilot
+   invitations go out. The `chore/reactivate-config-protection`
+   commit is the milestone.
+
+**Cross-link:** the protected-file list lives in
+`docs/workflow/config-protected-files.md`. The Fase 1 manual
+audit-log is at `ops/logs/config-changes/config-audit-log.md`.
+Recommended-design notes for this lane were captured in the
+2026-04-23 exploration report and quoted above.
+
 ---
 
 ## 5. Workflow during cleanup session
 
 1. Branch `chore/pre-deploy-cleanup` off `main`.
-2. Each lane (4.1-4.6) is one or more commits — small, reviewable.
+2. Each lane (4.1-4.7) is one or more commits — small, reviewable.
+   Lane 4.7 (config-protection reactivation) is best landed last so
+   that earlier cleanup-lane commits do not have to thread through
+   the codeword grant mechanism.
 3. Run full local CI (Tier 1+2+3) after every commit.
 4. Aim for zero behavior change. Each commit's diff should be
    verifiable by inspection: comment rewording, dead-code removal,
@@ -194,6 +270,11 @@ Scan for files that shouldn't be in the repo:
 - `npx knip`, `npx depcheck`, `npx ts-prune` each report zero unused
   exports / dependencies / files (or each remaining item has a written
   justification in the PR body).
+- `pre:config-protection` hook is reactivated (lane 4.7 done):
+  `ECC_DISABLED_HOOKS=pre:config-protection` is removed from the
+  shell environment, the codeword-grant mechanism is implemented and
+  smoke-tested, and `CLAUDE.md` DEL 7.9 is updated to point to the
+  new automated flow instead of the Fase 1 manual disciplines.
 - The final PR passes local CI and remote CI on GitHub.
 - Christer approves the merge.
 
@@ -202,6 +283,12 @@ Scan for files that shouldn't be in the repo:
 ## 7. Links
 
 - `CLAUDE.md` DEL 7.1 and 7.7 — code quality rules this plan extends.
+- `CLAUDE.md` DEL 7.9 — Fase 1 manual disciplines for protected files
+  that lane 4.7 supersedes with automated grant-based protection.
+- `docs/workflow/config-protected-files.md` — the list of files
+  governed by lane 4.7's reactivation work.
+- `ops/logs/config-changes/config-audit-log.md` — Fase 1 manual
+  audit log; becomes read-only history once 4.7 is done.
 - `docs/workflow/local-first-adoption-2026-04.md` — context on why
   we batch work locally.
 - `docs/workflow/pending-decisions.md` — backlog of decisions that
@@ -214,3 +301,9 @@ Scan for files that shouldn't be in the repo:
 - 2026-04-23 — initial plan drafted as part of Phase 1b.0. Language
   standard, session scope, current-phase rule, and exit criteria
   established. No execution yet.
+- 2026-04-23 — added lane 4.7 (Config-protection reactivation),
+  updated workflow §5 to mention it, added exit-criterion for
+  hook reactivation, and added cross-links to
+  `config-protected-files.md`, `config-audit-log.md`, and CLAUDE.md
+  DEL 7.9. Triggered by the decision to disable
+  `pre:config-protection` for the duration of Fase 1.

@@ -1,0 +1,70 @@
+# Config-protection audit log
+
+This log tracks every edit to a file listed in
+`docs/workflow/config-protected-files.md` while the
+`pre:config-protection` hook is disabled (Fase 1 of the
+config-protection governance model — see `CLAUDE.md` DEL 7.9).
+
+When Fase 2 lands, the hook itself will resume automatic blocking
+plus codeword-based one-shot bypass with hook-managed audit logging.
+This file is the human-driven equivalent for the Fase 1 window.
+
+## Entry format
+
+Append a new entry below the latest one. Newest entry at the bottom.
+Each entry follows this template:
+
+```markdown
+### YYYY-MM-DD HH:MM (UTC offset) — <basename of edited file>
+
+- **Commit SHA:** `<full-sha>` (or `<short-sha>` if commit is from
+  the same PR/branch and the short form is unambiguous)
+- **File edited:** `<repo-relative-path>` (e.g. `eslint.config.mjs`)
+- **Authorizing prompt (verbatim short quote):**
+  > "<the exact phrase from Christer's instruction that triggered
+  > the change — under 200 characters, just enough to be searchable>"
+- **Why this change was needed:** <one or two sentences explaining
+  the underlying need. Not a description of the diff itself; that
+  belongs in the commit body. Here we capture the reason the change
+  is the right answer.>
+- **What changed (one-line summary):** <e.g. "Added flat-config
+  block enabling ESLint on client/**/*.{ts,tsx} with TypeScript
+  parser + react-hooks rules.">
+- **Reverse-change risk:** <low | medium | high — and one sentence
+  on what would happen if we had to revert.>
+```
+
+## Worked example (DO NOT TREAT AS REAL ENTRY)
+
+The block below is a synthetic example to show the expected level of
+detail. It is NOT a real audit entry. Real entries start in the
+"Audit entries" section.
+
+```markdown
+### 2026-04-25 14:32 (CEST) — eslint.config.mjs
+
+- **Commit SHA:** `abcd1234`
+- **File edited:** `eslint.config.mjs`
+- **Authorizing prompt (verbatim short quote):**
+  > "Fortsett med Fase 1b.1.5 commit 2: aktiver TypeScript ESLint på
+  > client/src/."
+- **Why this change was needed:** Phase 1b.1 surfaced that
+  `client/src/**/*.{ts,tsx}` files are not lint-covered at all. New
+  client-side code in the upcoming design-system phases must be
+  lint-clean from the first commit per CLAUDE.md DEL 7.7, which
+  requires TypeScript-aware linting that this config block enables.
+- **What changed (one-line summary):** Added flat-config block
+  registering `@typescript-eslint/parser` + recommended rules and
+  `eslint-plugin-react-hooks` for `client/**/*.{ts,tsx}`.
+- **Reverse-change risk:** Low. Block is additive — removing it
+  drops new client-side lint coverage but does not affect the
+  server, scripts, tests, or sw.js blocks already in the config.
+```
+
+## Audit entries
+
+<!-- Newest entry at the bottom. The first real entry is added when
+     a protected file is first modified during Fase 1. As of file
+     creation (2026-04-23) no entries exist yet. -->
+
+_(no entries yet)_

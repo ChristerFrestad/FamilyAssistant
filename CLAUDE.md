@@ -845,6 +845,59 @@ det umiddelbart i samme tur, beklag kort (ikke lang unnskyldning),
 og foreslå hva som må til for at Christer kan starte den på nytt
 hvis det er åpenbart.
 
+### 7.9 Beskyttede filer — ekstra forsiktighet under Fase 1 (2026-04-23)
+
+Plugin-en `everything-claude-code` har en `pre:config-protection`-hook
+som normalt blokkerer redigering av lint-/format-konfig-filer
+(eslint.config.mjs, .prettierrc.* osv. — full liste i
+`docs/workflow/config-protected-files.md`).
+
+**Status under Fase 1 (uke 3-9, frem til pre-deploy):** Hook-en er
+**deaktivert** via `ECC_DISABLED_HOOKS=pre:config-protection` i
+shell-miljøet. Det automatiske vernet er borte. Som kompensasjon
+gjelder følgende manuelle disiplin **per fil i den beskyttede
+listen** før agenten redigerer den:
+
+1. **STOPP og rapporter til Christer FØR den første endringen** av
+   en gitt fil under Fase 1. Dette er ikke en formalitet — det er
+   det som erstatter hook-en sin "hold-stang"-effekt. Bekreft
+   eksplisitt med Christer at endringen er ønsket før du går videre.
+   Dette gjelder per fil, ikke per edit: ytterligere endringer på
+   *samme* fil i *samme* autorisasjons-scope kan fortsette uten ny
+   stopp.
+2. **Eksplisitt begrunnelse i commit-melding** — body-en skal
+   forklare hvorfor endringen er nødvendig, ikke bare hva som
+   endret seg. Diffen viser hva.
+3. **Oppføring i `ops/logs/config-changes/config-audit-log.md`** —
+   nyeste innslag nederst, format dokumentert i loggens header.
+   Inkluder commit-SHA, fil-navn, kort sitat fra Christers
+   autoriserende prompt, hvorfor endringen er riktig, og
+   reverse-change-risiko.
+
+**Liste over beskyttede filer:** se
+`docs/workflow/config-protected-files.md` (snapshot av
+config-protection.js sin `PROTECTED_FILES`-sett tatt 2026-04-23).
+Ikke alle "config-aktige" filer er beskyttet — `package.json`,
+`tsconfig.json`, `vite.config.ts`, `tailwind.config.ts` osv. er
+uberørt av denne regelen.
+
+**Midlertidig — dette gjenopprettes automatisk i Fase 2.** Pre-deploy
+(uke 10-11) reaktiveres hook-en sammen med en kodeord-basert
+one-shot-bypass. Detaljer + plan i
+`docs/workflow/pre-deploy-cleanup-plan.md` under
+"Config-protection reactivation". Når Fase 2 lander forsvinner
+behovet for manuell audit-log — hook-en logger selv.
+
+**Hvorfor dette opplegget i det hele tatt?** Hook-en er designet for
+å hindre agent-drive-by-redigering av lint-config (svekke regelen
+istedenfor å fikse koden). Under Fase 1 trenger vi imidlertid
+flere legitime config-endringer (TS-eslint-aktivering på client,
+no-restricted-imports for app/dev-grensen, evt. mindre justeringer
+underveis i komponentbygg). Å skrive grant-mekanikken nå ville være
+prematur optimering. I stedet flytter vi vernet midlertidig til
+manuell disiplin — synlig for review i hver commit + audit-log —
+og bygger automatikken når Fase 2-koden uansett skal skrives.
+
 ---
 
 ## DEL 8: AGENT_LOG.md-FORMAT
