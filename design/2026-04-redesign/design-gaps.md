@@ -69,30 +69,37 @@ slettet felt.
 
 ## Aktuelle gaps
 
-### Primary Button-kontrast i dark mode
+### Primary Button light-mode-kontrast — formell WCAG-verifikasjon utestår
 
 - **Skjerm/Kontekst:** `Button`-komponent, variant `primary`
-  (`client/src/app/components/base/Button.tsx`)
-- **Oppdaget:** 2026-04-28, Fase 1b.3 part 1 (Button-implementasjon)
-- **Hva mangler:** Primary-knappen er specced som `bg-mint
-  text-ink`. Mint i light mode er `oklch(0.58 0.14 155)` (medium-grønt)
-  og ink er `oklch(0.22 0.02 85)` (mørk) — god kontrast. Mint i dark
-  mode er `oklch(0.82 0.15 155)` (knall lys grønt) og ink er
-  `oklch(0.97 0.01 85)` (nesten hvit) — *lys tekst på lyst grønt*.
-  Marginal kontrast, sannsynligvis under WCAG AA-grensen (4.5:1) for
-  body-text-størrelse.
-- **Blokkerende-nivå:** medium — knappen fungerer, men leselighet
-  i dark mode kan svikte for brukere med synsbegrensninger eller på
-  skjermer med lav brightness
-- **Midlertidig løsning:** Fulgte spec som gitt (bg-mint text-ink).
-  Ingen workaround i koden.
-- **Antatt design-grunnlag:** `--mint` og `--ink` fra
-  `client/src/app/styles/tokens.css`. Theme-switch er token-drevet.
-- **Spørsmål til design-runde:** "Skal `primary`-knappen ha en fast
-  mørk tekstfarge uavhengig av tema (alltid `text-ink-light` eller
-  lignende), eller skal vi velge en mørkere mint-variant i dark mode
-  så `text-ink` (lys i dark) får tilstrekkelig kontrast? Vis WCAG
-  AA-kontrastberegninger for begge alternativer."
+  (`client/src/app/components/base/Button.tsx`) i **light mode**
+- **Oppdaget:** 2026-04-28, follow-up til bug-fix `e3b8d6b`
+  (text-ink → text-ink-contrast). Dark mode er løst (se "Løste
+  gaps"), men light-mode-kontrasten krever uavhengig vurdering.
+- **Hva mangler:** Etter fix-commiten bruker primary-knappen
+  `bg-mint` + `text-ink-contrast`. I light mode betyr det
+  `oklch(0.58 0.14 155)` (medium mint) som bakgrunn og
+  `oklch(0.99 0.005 85)` (nær cream/hvit) som tekst. Lys cream-tekst
+  på medium mint gir hånd-estimert WCAG-kontrast på rundt 3:1 —
+  godt under AA-kravet på 4.5:1 for body-text. Bestått for
+  AA-Large-text (≥18 pt eller ≥14 pt fet) og for "graphical objects
+  and UI components" (3:1), men strengt tatt under for body-text.
+  Knappen vår bruker `font-body font-medium` på `text-body` (14 px
+  ikke-fet) i `md`-størrelse — kvalifiserer ikke for AA-Large.
+- **Blokkerende-nivå:** medium — knappen er lesbar, men WCAG AA
+  for body-text er ikke garantert
+- **Midlertidig løsning:** Bruker `bg-mint text-ink-contrast` per
+  spec. Ingen workaround.
+- **Antatt design-grunnlag:** `--mint` og `--ink-contrast` fra
+  `client/src/app/styles/tokens.css`
+- **Spørsmål til design-runde:** "Verifiser WCAG AA-kontrast for
+  primary-knappen i light mode med faktiske farge-konverteringsverktøy
+  (Polypane, WebAIM, Stark, eller @csstools/color). Tre alternativer
+  hvis nåværende valg er under AA: (1) mørkere mint i light mode
+  (f.eks. `oklch(0.48 0.14 155)`) for bedre kontrast med cream-tekst;
+  (2) bytte til mint-deep + samme ink-contrast; (3) hardkodet mørk
+  tekstfarge på primary uavhengig av tema (alltid mørk på mint).
+  Anbefal en — vis WCAG-tall for valgt alternativ."
 - **Status:** Pending
 
 ---
@@ -102,6 +109,41 @@ slettet felt.
 > Entries flyttes hit fra "Aktuelle" når de er designet, implementert,
 > og verifisert. Bevart som referanse for fremtidige diskusjoner og
 > for å demonstrere format-velging.
+
+### Primary Button-kontrast i dark mode
+
+- **Skjerm/Kontekst:** `Button`-komponent, variant `primary`
+  (`client/src/app/components/base/Button.tsx`)
+- **Oppdaget:** 2026-04-28, Fase 1b.3 part 1 (Button-implementasjon).
+  Re-klassifisert 2026-04-28 etter at Christer påpekte at den
+  spesifiserte `text-ink` var en implementeringsbug (light tekst på
+  lyst grønt i dark mode), ikke en design-mangel.
+- **Hva mangler:** Primary-knappen var specced og implementert som
+  `bg-mint text-ink hover:bg-mint-deep`. Mint i dark mode er
+  `oklch(0.82 0.15 155)` (lyst grønt), ink i dark mode er
+  `oklch(0.97 0.01 85)` (nær hvit). Hånd-estimert WCAG-kontrast i
+  dark mode kollapset til ca. 1.5:1 — *godt* under AA-grensen på
+  4.5:1 for body-text *og* under 3:1-floor for grafiske
+  UI-komponenter.
+- **Blokkerende-nivå:** kritisk i ettertid (under WCAG-floor i dark
+  mode); ikke flagget som kritisk i opprinnelig entry siden den
+  feilaktig ble klassifisert som design-mangel
+- **Midlertidig løsning:** Ingen — bug-en stod i koden frem til
+  fix-commiten
+- **Antatt design-grunnlag:** `--mint` og `--ink` fra
+  `client/src/app/styles/tokens.css`
+- **Spørsmål til design-runde:** n/a (var ikke design-spørsmål; var
+  feil token-valg)
+- **Status:** Implementert
+- **Resolusjon:** Løst — ikke design-mangel, men implementerings-bug.
+  Korrigert i commit `e3b8d6b` (`fix(client): use text-ink-contrast
+  on primary Button for dark-mode contrast`). Endringen byttet
+  `text-ink` → `text-ink-contrast` på `primary`-varianten i
+  `VARIANT_CLASSES`. Hånd-estimert dark-mode-kontrast etter fix:
+  ca. 10-12:1 (komfortabelt over AA og AAA). En følge-mangel om
+  light-mode-kontrast er åpnet som egen entry under "Aktuelle gaps"
+  fordi cream-tekst på medium mint (light mode-resultatet) ligger på
+  rundt 3:1 og krever formell WCAG-verifisering.
 
 ### Feilskjerm — generell tilstand for nettverks-/server-feil
 
