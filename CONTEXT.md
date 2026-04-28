@@ -31,41 +31,26 @@
 > Christer oppdaterer denne seksjonen. Når flere oppgaver står her:
 > øverste har prioritet. Claude flytter ned til "Ferdig" etter merge.
 
-### Oppgave: Undersøke "tom handlekurv"-bug i frontend (DEL B)
+### Master-plan til pilot — Sprint 1 (Prompt 1: Quick wins)
 
-**Beskrivelse:** `GET /api/debug/shopping-state` (kjørt 2026-04-20,
-før endepunktet ble fjernet i PR #57) bekreftet at DB-en har 70
-`shopping_list_items`-rader med `bought_rows=0`, men UI viser ingen
-varer i handlekurv-fanen. Dette er en SEPARAT bug fra test-0.2
-"defaults to bought"-saken som allerede er fikset av PR #44 + #46.
+**Sprint:** 1 av 8 (uke 1 av 8 mot pilot 24. juni 2026).
 
-Christer har flagget at det henger sammen med parallelt arbeid i
-`public/index.html`. Før analysen starter trenger Claude å vite
-hvilken branch/commit det parallelle arbeidet ligger på — så
-baseline for analysen blir riktig. Se `## VENTER PÅ CHRISTER` over.
+**Aktiv prompt:** Prompt 1 — Quick wins (ESLint-warnings, status-
+docs, patch-oppdateringer). Direkte på `main`, ingen feature-branch.
 
-**Akseptansekriterier (hva "ferdig" betyr):**
+**Kontekst:** Master-plan til pilot startet 2026-04-29 etter Fase 1b
+ble merget (PR #68). Hele 18-prompt-planen ligger som referanse i
+Christer's Del A/B-dokumenter. Pilot-mål: Christer's familie får
+appen til daglig bruk på `app.husholdningsplanleggeren.com`.
 
-- [ ] Root-årsak identifisert (frontend-rendering, family-scope,
-      uke-mismatch, service-worker-cache, eller annet)
-- [ ] Draft analyse-PR opprettet i `docs/analyses/<dato>-<slug>.md`
-      med reisen, minst 8 edge-cases, Portainer-oppstartsrisiko-sjekk,
-      ISO 25010-påvirkning, beslutninger med anbefaling
-- [ ] Christer godkjenner analysen før fix-koding starter
-- [ ] Fix-PR merget og verifisert mot UI + `GET /api/shopping/*`
+**Etter Prompt 1:** Prompt 2 (backend-sikkerhet-fundament) som er
+den største og viktigste sprint-1-fasen — auth/google.js coverage
+til 80 %+, negative multi-tenant-tester, server-side validering,
+rate limiting, audit-trail. Egen feature-branch + PR.
 
-**Utenfor scope:**
-
-- Ikke rør PR #53 (lukket) eller PR #54/#57 (merget)
-- Ikke start multi-tenant-deploy (venter på Christers eksplisitte
-  aktivering i DEL C)
-
-**Prioritet:** må-ha (blokkerer pilot-bruk av appen)
-
-**Kompleksitet (Christers magefølelse):** middels
-
-**Portainer-risiko (Christers magefølelse):** lav (frontend-bug,
-ingen DB-migrasjon forventet)
+**Pågående features (ingen):** Ingen Christer-eide feature-branches
+er aktive akkurat nå. Alle sletteoperasjoner i Runde C er fullført,
+Fase 1b er merget. Repo er i hvile før Sprint 1 utføres.
 
 ---
 
@@ -98,13 +83,10 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Claude oppdaterer
 
-- **PR #59** — `[ANALYSE] empty shopping list UI bug` (draft).
-  Venter på Christers 5 svar (branch for index.html-arbeid,
-  inkognito-test, DevTools Network-output, tidspunkt, siste
-  dato varer var synlige).
-- **PR #61** — `docs: add baseline status for week 17`.
-  Tester grønne, blokkert av GitHub Actions billing-feil
-  (Coverage/OSV/SBOM). Se Issue #62 eller VENTER PÅ CHRISTER.
+Ingen Christer-eide PR-er er åpne. Tre Dependabot-PR-er er åpne
+(`#67` Sentry/node major-bump, `#69` dev-minor-group, og en
+GitHub Actions OSV-scanner-bump) — disse håndteres av Dependabot
+og påvirker ikke Sprint 1-arbeidet.
 
 ---
 
@@ -112,16 +94,25 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Handlinger Claude ikke kan utføre selv. Fjernes når Christer har gjort det.
 
-- **Svar på de 5 spørsmålene i PR #59** (branch-SHA for index.html,
-  inkognito, DevTools-output, tidspunkt, siste dato). Velger H1/H2/H3
-  basert på svar.
-- **GitHub Actions billing-fiks.** Tre jobs (Coverage/OSV/SBOM)
-  blokkerer alle framtidige PR-er med CI-gate. Gå til GitHub →
-  Settings → Billing & plans, sjekk mislykket betaling / spending
-  limit. Detaljer i PR #61-kommentar og Issue #62.
-- **Svar på 7 beslutninger i Issue #62** (uke 2-beslutningsliste).
-  Kort format: `B1: a, B2: a, ...`. ANBEFALING + hvorfor står i
-  issuen. Nødvendig for å kunne skrive uke-2-planen.
+Ingen blokkerende handlinger akkurat nå. Beslutningspunkter for
+fremtidige sprint-faser er sporet i `docs/workflow/pending-
+decisions.md`:
+
+- **Kalender-arkitektur** (Sprint 5 / Prompt 10) — hybrid pass-
+  through bekreftes når kalender bygges; for pilot foretrekkes
+  bare familie-events.
+- **User-scoping innenfor Family** (Sprint 3 / Prompt 5) — for
+  pilot anbefales kun voksne logger inn, barn er "members".
+- **Settings-arkitektur** (Sprint 5 / Prompt 11) — bare family-
+  nivå for pilot.
+- **WCAG mint-kontrast-fix-strategi** (Sprint 6 / Prompt 12) —
+  velges under selve revisjonen.
+- **Personvernerklæring jurist-godkjenning** (Sprint 7 /
+  Prompt 18) — Christer sender utkast og videresender feedback.
+
+Alle øvrige beslutninger fra ukene før Master-planen
+(Issue #62 uke-2-beslutninger, batch-2 push-klarsignal, PR #59
+5 spørsmål) er enten besluttet eller løst i merget arbeid.
 
 ---
 
@@ -129,21 +120,39 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Claude flytter hit etter merge
 
+- 2026-04-28: Fase 1b — Frontend foundation (design-system,
+  16 base-komponenter, 180 tester, theme-system, i18n-klar
+  preview-side) – **PR #68** – ISO-effekt: usability +
+  maintainability (etablerer designsystemet). Sluttrapport i
+  `docs/workflow/fase-1b-summary.md`.
+- 2026-04-28: Repo-cleanup runde A+B+C (24 remote-branches og 3
+  lokale-branches slettet, 2 stashes droppet, PR #56 lukket
+  som hul placeholder). Status-rapport i `docs/workflow/repo-
+  cleanup-2026-04-runde-c.md`.
+- 2026-04-29: Repo-tilstand-revisjon (foreldreløse filer,
+  dependency-status, RLS-kartlegging, norsk-tekst-omfang).
+  Rapport i `docs/workflow/repo-cleanup-2026-04-oppgave-2.md`.
+- 2026-04-22: Batch 2 — B7 per-medlem-diett + PR #59-fix +
+  B2/Portainer-docs – **PR #65** – ISO-effekt: functional
+  suitability (per-medlem-diett-arkitektur).
+- 2026-04-22: Batch 1 — lokal-først arbeidsflyt + uke-2 (B1
+  multi-tenant + B5 gamification) – **PR #64** – ISO-effekt:
+  flere subkarakteristikker.
+- 2026-04-20: PR #59 (`[ANALYSE] empty shopping list UI bug`)
+  lukket etter at fix landet i Batch 2 (PR #65). PR #61
+  (week-17 baseline) lukket etter at billing-issue ble løst og
+  CI ble grønn på senere PR-er.
+- 2026-04-20: Issue #62 (uke-2-beslutninger) LUKKET med 7
+  Christer-svar (B1-B7) som danner grunnlag for batch-1/-2.
 - 2026-04-20: Parker redesign-mockup fra claude.ai/design i
   `design/redesign-exploration-2026-04/` – **PR #60** – ISO-effekt:
-  ingen (docs-only). Mockup er eksplisitt merket PARKERT; plan for
-  implementering i uke 8+.
+  ingen (docs-only).
 - 2026-04-20: Fjernet midlertidig diagnostikk-endepunkt
   `GET /api/debug/shopping-state` – PR #57 – ISO-effekt: ingen
-  (rent oppryddings-PR; koden ble aldri taggt i en release).
-  Analyse-PR #53 lukket samme dag med H1/H2/H3 falsifisert av
-  produksjonsdata (70 rader, 0 bought_rows, alle migrasjoner
-  kjørt inkl. 018). Originalbug fikset av PR #44 + #46.
+  (rent oppryddings-PR).
 - 2026-04-20: Midlertidig diagnostikk-endepunkt
-  `GET /api/debug/shopping-state` – PR #54 – ISO-effekt: observability
-  (midlertidig). Phase21-frysen fikk samtidig kodifisert unntak i
-  CLAUDE.md DEL 6.5 (policy-tester vs kode-tester).
-- <dato>: <oppgave> – PR #<nr> – ISO-effekt: <beskrivelse>
+  `GET /api/debug/shopping-state` – PR #54 – ISO-effekt:
+  observability (midlertidig).
 
 ---
 
@@ -151,9 +160,10 @@ Full beskrivelse: `README.md` + `REFERENCES.md`.
 
 > Ting Christer ikke har bestemt ennå. Blokkerer visse oppgaver.
 
-- Når skal internett-deploy-prosjektet starte? (krever nytt
-  CONTEXT.md-prosjekt)
-- <andre åpne spørsmål>
+Sentral plass for åpne beslutninger er nå
+`docs/workflow/pending-decisions.md`. Master-plan-spesifikke
+beslutninger som kommer inn i fremtidige sprint-er er listet i
+`VENTER PÅ CHRISTER` ovenfor.
 
 ---
 

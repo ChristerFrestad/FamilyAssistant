@@ -1,27 +1,33 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-28 (PR #56-temaer reformulert som pending-decisions etter PR-lukking — user-scoping, settings-arkitektur, AI-tier; kalender-arkitektur lagt til tidligere; batch-2 fortsatt konsolidert lokalt og venter push-klarsignal "nå pusher vi batch 2")
+**Sist oppdatert:** 2026-04-29 (Sprint 1 / Prompt 1 status-refresh — batch-2 markert merget, PR #59/#61 markert lukket, Master-plan til pilot er aktivt rammeverk; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
-ta. Primær-lokasjon er **GitHub Issue #62** (uke 2-beslutninger —
-lukket 2026-04-20) og **PR #59** (frontend-bug analyse — åpen, fix
-inkludert i batch-2).
+ta. Primær-lokasjon for Master-plan-beslutninger er
+`docs/master-plan-til-pilot-2026.md` (Christer-eid Del A) +
+fase-spesifikke prompter i Del B (1-18). Tidligere uke-2-
+beslutninger (Issue #62) og frontend-bug-analyse (PR #59) er
+nå lukket — listet i historikk-seksjon nedenfor.
 
 ---
 
-## Batch 2 — venter push-klarsignal
+## ✅ Batch 2 — merget i PR #65 (2026-04-22)
 
-**Branch:** `batch-2` (lokal). **Status:** 13 commits + 4 merge-commits,
-tier 1+2+3 grønn, PR-beskrivelse i `docs/workflow/batch-2-pr-description.md`.
+**Status:** Avsluttet. Branchen `batch-2` ble merget via PR #65
+*"Batch 2: B7 per-member diet + PR #59 fix + B2/Portainer docs"*
+2026-04-22T20:51:46Z. Lokal-branchen ble slettet under repo-
+cleanup Runde C (2026-04-28).
 
-**Fire enheter:**
+**Innhold som landet:**
 - Gruppe A: Portainer SESSION_SECRET deploy-gate (docs)
 - Gruppe B: B2 LLM felles Ollama (RUNBOOK §13)
 - Gruppe C: PR #59 frontend empty-cart fix (3-lags defensiv)
-- Gruppe D: B7 per-medlem diett backend (migrasjon 020 + tre-lags filter + endpoints)
+- Gruppe D: B7 per-medlem diett backend (migrasjon 020 + tre-lags
+  filter + endpoints)
 
-Push utløses kun av eksakt frase "nå pusher vi batch 2" fra Christer.
-Ikke "ok", "push", "gå videre" eller lignende.
+Den eksakte push-frasen "nå pusher vi batch 2" ble brukt av
+Christer for å utløse pushen, og PR #65 ble merget av Christer
+samme dag.
 
 ---
 
@@ -50,40 +56,35 @@ Full issue-historikk: https://github.com/ChristerFrestad/FamilyAssistant/issues/
 
 ---
 
-## Blokker frontend-bug-fix: 5 spørsmål i PR #59
+## ✅ Frontend-bug-fix landet i PR #65 (2026-04-22)
 
-PR #59 (draft `[ANALYSE] empty shopping list UI bug`) venter på
-svar før fix-fase kan velge hypotese.
+PR #59 (`[ANALYSE] empty shopping list UI bug`) ble lukket etter
+at fixen landet i Batch 2 (PR #65). De 5 opprinnelige spørsmålene
+ble besvart i analyse-arbeidet, hypotesen ble valgt, og en
+3-lags-defensiv fix ble inkludert i Gruppe C av batch-2.
 
-- [ ] **Q1** — Branch/commit-SHA for parallelt `public/index.html`-arbeid
-- [ ] **Q2** — Nettleser + inkognito-test (skiller H3 SW-cache)
-- [ ] **Q3** — DevTools → Network-response for `GET /api/shopping/list/current`
-- [ ] **Q4** — Tidspunkt for første observasjon + evt. "Ferdig handlet"-klikk (H2)
-- [ ] **Q5** — Siste dato varer var synlige (skiller H1 uke-mismatch)
-
-Full kontekst: https://github.com/ChristerFrestad/FamilyAssistant/pull/59
+Full historikk: https://github.com/ChristerFrestad/FamilyAssistant/pull/59
 
 ---
 
-## Uke 2-sekvens (etter B1–B7-svarene)
+## ✅ Uke-2-sekvens utført (Sprint 0)
 
-Basert på svarene over er rekkefølgen:
+Den opprinnelige uke-2-planen (B1-B7) er nå avsluttet:
 
-1. **B1 multi-tenant aktivering** — starter nå (uke 2). Tiner frysen
-   i CLAUDE.md DEL 6.1. Analyse først, så kode. Blokkerer B3, B4, B7.
-2. **B5 `chore_completions`-tabell** — kan startes parallelt (rent
-   datamodell-arbeid, uavhengig av multi-tenant). Gamification-fundament.
-3. **B7 per-medlem diett-datamodell** — etter B1 (krever multi-tenant-
-   skjema aktivt for å utvide med `user_members`-koblinger).
-4. **B3 Resend e-post** — uke 3-4, etter multi-tenant er testet.
-5. **B4 Cloudflare Tunnel** — uke 4-5.
-6. **B6 Google Calendar** — uke 4-6 (OAuth + sync-logikk).
-7. **B2 Ollama som felles LLM** — krever ingen kode-endring (eksisterende
-   konfig). Kan verifiseres/dokumenteres når multi-tenant er aktiv.
+1. ✅ **B1 multi-tenant aktivering** — landet i PR #64 (Batch 1).
+2. ✅ **B5 `chore_completions`-tabell** — landet i PR #64.
+3. ✅ **B7 per-medlem diett-datamodell** — landet i PR #65 (Batch 2).
+4. **B3 Resend e-post** — utsatt til Sprint 7 / Prompt 16 i
+   Master-planen til pilot.
+5. **B4 Cloudflare Tunnel** — utsatt til Sprint 7 / Prompt 15.
+6. **B6 Google Calendar** — bekreftet "kun Google" valg, men
+   kalender-implementasjonen er utsatt til Sprint 5 / Prompt 10
+   (med ny anbefaling om "kun familie-events" for pilot).
+7. ✅ **B2 Ollama som felles LLM** — bekreftet, ingen kode-endring
+   nødvendig, dokumentert i RUNBOOK §13 via Batch 2.
 
-PR #59-fix håndteres parallelt når Christer svarer på de 5 spørsmålene.
-
-Claude oppdaterer denne filen når uke 2-leveransene fullføres.
+Master-plan-en (Sprint 1-8 mot pilot 24. juni 2026) tok over fra
+2026-04-29 etter Fase 1b ble merget (PR #68).
 
 ---
 
