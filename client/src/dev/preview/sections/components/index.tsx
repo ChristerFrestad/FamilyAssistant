@@ -9,6 +9,7 @@ import ButtonPreview from './Button';
 import CardPreview from './Card';
 import FieldPreview from './Field';
 import InputPreview from './Input';
+import PortionFactorSliderPreview from './PortionFactorSlider';
 import RowPreview from './Row';
 import StackPreview from './Stack';
 import TagPreview from './Tag';
@@ -22,6 +23,7 @@ export default function Components(): JSX.Element {
       <InputPreview />
       <FieldPreview />
       <TogglePreview />
+      <PortionFactorSliderPreview />
       <CardPreview />
       <StackPreview />
       <RowPreview />
