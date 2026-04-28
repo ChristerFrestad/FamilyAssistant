@@ -1,6 +1,6 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-22 (batch-2 konsolidert lokalt — 4 enheter på `batch-2`-branchen, venter push-klarsignal "nå pusher vi batch 2")
+**Sist oppdatert:** 2026-04-28 (kalender-arkitektur lagt til som Fase 2-beslutning; batch-2 fortsatt konsolidert lokalt og venter push-klarsignal "nå pusher vi batch 2")
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon er **GitHub Issue #62** (uke 2-beslutninger —
@@ -400,3 +400,98 @@ samtidig. Et tenant-isolasjons-brudd i pilot-vinduet vil:
 
 Kostnaden av å ikke gjøre dette riktig er flere størrelses-orden
 høyere enn de 1-2 ukene det tar å gjøre det riktig.
+
+---
+
+## Kalender-arkitektur (Fase 2-beslutning)
+
+Notert 2026-04-28 ved oppstart av Fase 1b.3 Batch G (Modal). Krever
+beslutning før Fase 2-kalender implementeres (uke ~5-6 fra nå).
+
+**Spørsmål:** Hvordan håndterer appen kalender-data for å minimere
+GDPR-byrde og lagring?
+
+### Tre alternativer
+
+- **A: Lagre alt selv** — full kontroll over data, mest funksjonalitet
+  (offline, søk, historikk), men mest GDPR-byrde (hver families events
+  i vår database, må kunne eksporteres + slettes per GDPR Art. 15/17).
+- **B: Pass-through til Google/Apple** — minimal lagring (kun OAuth-
+  tokens), men krever nett ved hver kalender-rendering, og fungerer
+  ikke for familie-felles events som ikke eksisterer i en ekstern
+  kalender.
+- **C: Hybrid — pass-through for personlig, lokal for familie-felles** —
+  personlige events leses live fra Google/Apple ved hver visning;
+  familie-felles events (ukemøte, barnebursdag, felles middag) lagres
+  i vår database.
+
+**Christers preferanse:** **C (hybrid).**
+
+### Tekniske implikasjoner
+
+- Pass-through krever live API-kall ved hver kalender-rendering — må
+  være rask nok for daglig bruk.
+- **Cache-strategi** (~5 min minne-cache) trolig nødvendig for UX —
+  ellers vil "I dag"-fanen og uke-visningen føles tregere enn
+  forventet. Cache-invalidering ved eksplisitt refresh-handling.
+- **OAuth-tokens må fortsatt lagres** (refresh + access tokens per
+  bruker per provider). Det er minimal data og dekkes av ordinær
+  kryptografisk lagring i database.
+- **Familie-events trenger egen modell** — ny tabell
+  `family_events(id, family_id, title, starts_at, ends_at, location?,
+  notes?, created_by_member_id, ...)` med scoping på `family_id` på
+  samme måte som øvrige tabeller.
+
+### GDPR-implikasjoner
+
+- Hybrid betyr at personvernerklæringen kan si **"personlige events
+  lagres ikke hos oss"** — vi har kun et flyktig OAuth-token og en
+  cache som tømmes per request. Det er en betydelig fordel både
+  juridisk og kommunikasjonsmessig.
+- **Familie-events må fortsatt dekkes** (eksport/sletting per Art. 15/17),
+  men antallet er lavt (typisk få events per uke) og innholdet er
+  minimalt sammenlignet med en full kalenderhistorikk.
+- Krysser med entry **"Data-retensjon for inaktive familier"** ovenfor:
+  hva skjer med en families lagrede `family_events` når familien
+  defineres som inaktiv? Sletting-kaskade må tas med når den entryen
+  besvares.
+
+### Praktiske spørsmål for Fase 2
+
+- **Hvordan skille personlig vs familie-felles event i UI?** Egne
+  faner? Farge-koding? Toggle-filter? Dette påvirker tillit til at
+  "personlige" virkelig holdes utenfor vår database.
+- **Hvilken kalender-tjeneste er primær?** Google er allerede valgt
+  som primær per **B6**-svaret (uke 2-beslutninger ovenfor — "bare
+  Google", Apple CalDAV utsatt 3-4 uker). Hybrid-modellen påvirker
+  ikke det valget; pass-through fungerer for både Google og Apple
+  når den tid kommer.
+- **Sync-strategi for offline-bruk?** Pass-through fungerer dårlig
+  uten nett. To alternativer for offline:
+  1. Service Worker cacher siste vellykkede respons (begrenset, men
+     gir "siste sett" ved manglende nett).
+  2. Hybrid utvides til å kopiere personlige events til lokal cache
+     med kort TTL (24t?) — men det undergraver "lagres ikke hos oss"-
+     fortellingen og må vurderes opp mot GDPR-kommunikasjon.
+
+### Status og timing
+
+**Status:** Notert. Beslutning kreves før Fase 2-kalender implementeres
+(uke ~5-6 fra nå per gjeldende plan).
+
+**Timing:** før Fase 2-kalenderarbeidet startes. Hybrid-valget påvirker
+datamodell (`family_events`-tabell), API-design (egne endepunkter for
+familie-events vs proxy-endepunkter for personlige), og personvern-
+erklæringens ordlyd.
+
+**Anbefaling:** Bekreft hybrid-modellen formelt før Fase 2-arbeidet
+starter, og dokumenter utfallet i `design/2026-04-redesign/extracted/
+locked-decisions.md` slik at den ikke mistes mellom faser.
+
+**Krysslenker:**
+- **B6** (uke 2-beslutninger ovenfor): valg av Google som primær
+  kalender-tjeneste.
+- **Data-retensjon for inaktive familier** (denne filen): kaskade-
+  sletting av `family_events` ved familie-deaktivering.
+- `design/2026-04-redesign/extracted/locked-decisions.md` (når formelt
+  bekreftet): plassering av hybrid-modellen som fase-låst beslutning.
