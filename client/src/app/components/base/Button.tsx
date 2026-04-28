@@ -44,8 +44,26 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
+// Text-color choice per variant deserves an explicit note because
+// `--ink` and `--ink-contrast` look interchangeable but invert against
+// each other across themes:
+//   --ink           : dark in light theme, light in dark theme
+//                     (matches body-text direction)
+//   --ink-contrast  : light in light theme, dark in dark theme
+//                     (the readable color when --ink is the background)
+//
+// `bg-mint` is an accent that shifts lightness across themes — medium
+// green in light, bright green in dark. The text must invert against
+// the accent, not match the theme. `text-ink-contrast` does exactly
+// that: light text on the medium-green light-mode mint, dark text on
+// the bright-green dark-mode mint. Using `text-ink` here would
+// produce light text on bright mint in dark mode — poor contrast.
+//
+// `bg-surface` (secondary) and `bg-transparent` (ghost) both sit on
+// or near the canvas, so their text follows the theme via
+// `text-text-1`.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-mint text-ink hover:bg-mint-deep',
+  primary: 'bg-mint text-ink-contrast hover:bg-mint-deep',
   secondary: 'bg-surface text-text-1 hover:bg-surface-strong',
   ghost: 'bg-transparent text-text-1 hover:bg-surface',
 };
