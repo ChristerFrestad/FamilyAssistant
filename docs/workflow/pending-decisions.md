@@ -162,3 +162,241 @@ trigger "sukker/honning/ris/pasta"-ingredienser gir *falsk trygghet* —
 en diabetiker som stoler på at tagen filtrerer vekk problematiske måltider
 vil fortsatt kunne få risottoer med 80g karbo merket som "OK". Den
 medisinske verdien krever faktiske tall, ikke en ingrediens-heuristikk.
+
+---
+
+## Data-retensjon for inaktive familier (post-pilot)
+
+Notert 2026-04-28 ved Fase 1b.2-oppstart. Krever fokusert vurdering
+før pilot-invitering.
+
+Fem delspørsmål som må besvares:
+
+### 1. Anonymiseringsfilter for delte oppskrifter
+
+- Skal oppskrifter kunne deles til en fellesbase (på tvers av
+  familier)?
+- Hvordan filtreres familienavn, personlige referanser, allergier
+  knyttet til navngitte personer ("Pasta uten nøtter til Mats")?
+- Krever filtreringssystem — hvilken tilnærming?
+  - Regelbasert (NLP-tokenisering + blacklist)
+  - LLM-assistert anonymisering (drift, kostnad, kvalitet)
+  - Hybrid med menneskelig review-køsystem
+- Estimat: separat feature, flere ukers arbeid hvis bygget.
+
+### 2. Definisjon av "inaktiv familie"
+
+- Én bruker som er inaktiv, eller alle brukere i familien?
+- Hvor lenge før definert som inaktiv?
+  - 30 dager? 60? 90? 180?
+- Hvordan måles aktivitet?
+  - Login (sesjonsstart)?
+  - Faktisk handling (CRUD på meals/shopping/chores)?
+  - Hvor logges aktivitet i dag — er noen events allerede sporet?
+
+### 3. Hva skjer med inaktive familier
+
+- **Soft-delete med restore-mulighet** i X dager?
+- **Anonymiser og behold nyttige data** (oppskrifter, mønstre,
+  handle-statistikk uten PII)?
+- **Slett alt** (hard delete + cascading)?
+- Konsekvens av valget for backup-strategi (reverse-engineering
+  fra backup må være konsistent med valget).
+
+### 4. Brukerregistrering og analytics
+
+- Hva logges om bruksmønstre (sider besøkt, klikk, tids-mønstre)?
+- Hvordan brukes data til produktforbedring?
+- Eksplisitt opt-in eller anonyme aggregater?
+- Sentry brukes allerede for feil-sporing — hvor går grensen mellom
+  feil-rapport (legitimt) og bruksmønster (krever opt-in)?
+
+### 5. Personvernerklæring
+
+- Krever **juridisk gjennomgang** før publisering.
+- Må adressere alle punkter over (1-4) eksplisitt.
+- Norge-spesifikke krav:
+  - GDPR (allerede dekket av eksisterende `gdpr-routes.js`-export +
+    delete, men personvernerklæring må forklare det for brukerne)
+  - Datatilsynet-veiledning for husholdnings-apper
+- Personvernerklæringen skal lenkes fra Settings + onboarding-flyt.
+
+### Status og timing
+
+**Status:** Notert. Krever fokusert vurdering før pilot-invitering.
+
+**Timing:** avklares før pilot-deploy (uke 10-11+ per
+`docs/workflow/pre-deploy-cleanup-plan.md` reaktiveringsfasen).
+
+**Anbefaling:** hent juridisk rådgivning når personvernerklæring
+skrives. Ikke skriv ferdig erklæring uten review — kostnadsmessig
+billig forsikring mot GDPR-bot ved deploy.
+
+**Hvor er dette krysslinket fra:**
+- `design/2026-04-redesign/extracted/locked-decisions.md` §10
+  (peker til denne entryen for å sikre at temaet ikke glemmes
+  når implementering rulles ut).
+
+---
+
+## Oppskrifts-import via bilde (post-pilot feature)
+
+Notert 2026-04-28. Ikke i scope for v1.
+
+**Scope:** La bruker importere oppskrifter ved å ta bilde av kokebok,
+matblogg, eller skjermbilde. AI konverterer bilde til strukturert
+oppskrift som lagres i `recipes`-tabellen på lik linje med manuelt
+opprettede oppskrifter.
+
+**Foreløpige tanker:**
+
+- **Maks 25 bilder per import** for å begrense lagringsbehov og
+  konverteringskost. Bruker ser progress og kan avbryte.
+- **Bilde slettes etter konvertering** — kun den ekstraherte teksten
+  lagres. Ingen bilde-lagring i database eller filesystem ut over
+  konverterings-vinduet.
+- **Søk i eksisterende database FØR lagring** (duplikat-deteksjon).
+  Hindrer at samme oppskrift-side i en kokebok produserer flere rader
+  hvis bruker importerer stk for stk.
+- **Inspirasjon:**
+  - [Mealie](https://mealie.io/) (eksisterende open-source
+    oppskrifts-app — har URL-import, har vært diskutert som
+    referanse for v1)
+  - LightRAG (lokalt RAG-system, sannsynligvis brukt for det
+    semantiske duplikat-søket)
+  - Blokk-basert oppskrifts-modell (en oppskrift som sammensatt
+    av enheter: ingrediens-blokk, instruksjon-blokk, metadata-
+    blokk — slik at delvise treff i database kan flettes med ny
+    info i stedet for å bli dropet eller duplisert)
+- **Mål:** minimere manuell registrering for bruker. Pilot-familier
+  har sannsynligvis kokebøker med 50-200 favoritter; manuell
+  inntasting er den største friksjonsbarrieren.
+
+**Tekniske spørsmål som må adresseres:**
+
+- **Hvilken AI-modell konverterer bilde til tekst?**
+  - Tesseract OCR + LLM-strukturering?
+  - Multimodal LLM (Claude vision, GPT-4V, Llava lokalt)?
+  - Hybrid (OCR for tekst, LLM for strukturering)?
+- **Hvor kjører konverteringen?**
+  - Lokalt via Ollama + multimodal modell (krever GPU på pi eller
+    ekstern infra)
+  - Ekstern API (Anthropic/OpenAI — koster penger, krever opplæring
+    om hva som sendes ut)
+  - Hybrid (lokal OCR, ekstern strukturering)
+- **Språk-håndtering:**
+  - Norsk er primær — multimodal-modeller har varierende kvalitet
+    på norsk
+  - Internasjonale oppskrifter (engelsk kokebok hos Christer-familien)
+    må konverteres + evt. oversettes
+  - Flerspråklige ingredienser (`pasta + persille + parmesan`) må
+    normaliseres mot eksisterende `products`-tabell
+- **Duplikat-deteksjon:**
+  - Full tekst-match (rigid, fanger få treff)
+  - Semantisk likhet (LightRAG / embeddings — fanger varianter)
+  - Fuzzy-match på tittel + ingredienser-overlap
+  - Sannsynlig: kombinasjon, brukeren bekrefter ved tvilstilfelle
+- **Penger-konsekvens hvis ekstern API:**
+  - Kostnadsmodell per import-batch — hvem betaler?
+  - Familiekvote? Kasserolle-budget per måned?
+  - Default lokalt (gratis men sakte/lavere kvalitet) med
+    opt-in mot ekstern (raskt/bedre, koster)?
+
+**Status:** Notert som fremtidig feature. Ikke i scope for v1.
+
+**Timing:** vurderes for v1.1 eller v1.2 etter pilot. Krever post-
+pilot-data om hvor smertefull manuell oppskrifts-inntasting faktisk
+er for pilot-familiene.
+
+---
+
+## Sikkerhetsarkitektur (pre-pilot, må implementeres)
+
+Notert 2026-04-28. Krever fokusert arbeid før pilot-invitering går
+ut.
+
+**Scope:** Sikkerhets-fundamenter som må være på plass før eksterne
+brukere inviteres. Dette er ikke en valgfri "nice-to-have" — det er
+forutsetningen for at multi-tenant arkitekturen ikke lekker data
+mellom familier eller åpner appen for misbruk.
+
+**Punkter som må adresseres:**
+
+### 1. Row Level Security (RLS) i database
+
+- Sikre at **familie A ikke kan lese/endre data fra familie B**.
+- Tilnærming-valg:
+  - **PostgreSQL RLS-policies:** database håndhever isolasjon
+    direkte. Krever at vi flytter fra SQLite eller bruker SQLite-
+    ekvivalenter (RLS er ikke tilgjengelig i SQLite — så valget
+    påvirker arkitekturen vesentlig).
+  - **Applikasjonslag-validering:** alle queries går gjennom et
+    repository-lag som filtrerer på `family_id` automatisk via
+    AsyncLocalStorage. Vi har dette mønsteret allerede etablert
+    (se `server/repositories.js`-mønsteret + `getFamilyId()`-
+    helper).
+- **Anbefaling foreløpig:** behold app-lag, men gjør et eksplisitt
+  pass for å verifisere at ingen rute lekker. Skriv negative tester
+  (familie A med family_id=1 prøver å lese family_id=2-data, må
+  få 403/404 — ikke 200).
+- **Påvirker datamodell og spørringer** — alle nye tabeller må ha
+  `family_id` enten direkte eller via en kjent join-vei.
+
+### 2. Server-side validering
+
+- **All input fra klient må valideres serverside.** Klient-validering
+  er for UX, ikke sikkerhet.
+- **Schema-validering** — vi bruker allerede **Zod** i
+  `server/schemas.js`. Sjekkpunkt: alle nye endpoints i Fase 1e+
+  må definere Zod-schema og kalle `parse()` før forretningslogikk.
+- **Sanitisering av tekst-input** — særlig viktig for tekst som
+  rendres tilbake til klient (XSS-vinkel) og for tekst som havner
+  i SQL (som er parameterisert via better-sqlite3, men `LIKE`-
+  queries med wildcard-userinput kan fortsatt være rare).
+- **Filstørrelses-grenser** — relevant så snart vi tar imot bilder
+  (oppskrifts-import, profile-bilder, eller liknende). Express
+  `body-parser`-konfig + per-endpoint-limit.
+
+### 3. Rate limiting
+
+- **Per IP, per bruker, eller begge?**
+  - Per IP fanger uautentisert misbruk (login-bruteforce).
+  - Per bruker fanger autentisert misbruk (LLM-quota-spam etter
+    login).
+  - **Begge** anbefales — IP for pre-auth, bruker for post-auth.
+- **Hvilke endepunkter?**
+  - Alle har en grov default (f.eks. 100 req/min per IP).
+  - Sensitive: lavere grense (login: 10 req/min per IP, LLM-kall:
+    20 req/time per bruker).
+- **Grenseverdier:** må kalibreres mot pilot-bruksmønster. Default
+  konservativt + utvid hvis legitimate brukere blir blokkert.
+- **Implementering:**
+  - Middleware (`express-rate-limit` med `rate-limit-redis` for
+    multi-instance) — full kontroll, krever Redis (eller in-memory
+    for single-instance pilot)
+  - Reverse-proxy (Nginx Proxy Manager — Christer kjører dette
+    allerede på utviklermaskin per CLAUDE.md DEL 7.8) — enklere,
+    mindre granular
+  - **Anbefaling:** middleware for granularitet. Kan starte med
+    in-memory store for pilot, flytte til Redis hvis vi går
+    multi-instance.
+
+**Status:** Notert som pre-pilot security-arbeid. Må gjøres ferdig
+før pilot-invitering.
+
+**Timing:** før pilot-invitering (uke 10-11+ per
+`docs/workflow/pre-deploy-cleanup-plan.md`).
+
+**Anbefaling:** dedikert sikkerhets-fase i prosjektplanen.
+**Estimat:** 1-2 uker arbeid.
+
+**Hvorfor dette ikke kan utsettes:** Pilot inviterer fem familier
+samtidig. Et tenant-isolasjons-brudd i pilot-vinduet vil:
+1. Bryte tilliten hos alle fem familier samtidig
+2. Påvirke hva pilot-familiene tør dele med systemet videre
+3. Lage en GDPR-eksponering før personvernerklæringen er på plass
+4. Tvinge en hastig fix under press, noe som typisk introduserer
+   nye bugs
+
+Kostnaden av å ikke gjøre dette riktig er flere størrelses-orden
+høyere enn de 1-2 ukene det tar å gjøre det riktig.

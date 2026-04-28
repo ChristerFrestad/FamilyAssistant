@@ -98,11 +98,62 @@ pushed til fase 2 per B7 locked-decisions (se
 **Utsatt til v1.1.** Notert, ikke bygget nå.
 
 ### 4.5 Tema-system
-- **v1:** light + dark
-- **Color-blind tema:** utsatt, MEN arkitektur må støtte flere temaer
-  senere uten omskriving
-- Implementering: `data-theme`-attribute + CSS custom properties +
-  liste-basert themes-registry (se `design-system.md` §12)
+
+Den korte versjonen: light + dark i v1, ekstenderbar arkitektur.
+De detaljerte beslutningene som følger låst 2026-04-28 før Fase 1b.2
+starter.
+
+**Tilstander (tre):**
+- `system` — følger `prefers-color-scheme` media query (default for
+  nye brukere)
+- `light` — eksplisitt lys
+- `dark` — eksplisitt mørk
+
+**Default for nye brukere:** `system`. Brukerens nettleser-/OS-
+preferanse styrer initial visning. Manuell override settes i
+Settings og persisteres som `light` eller `dark`.
+
+**Tema-overgang:** animert fade på farge-egenskaper med 200 ms
+varighet. Påvirkede CSS-egenskaper:
+- `background-color`
+- `color`
+- `border-color`
+
+**Ikke** animert: `transform`, `opacity`, andre layout-relaterte
+egenskaper. Det ville forvirre overgangen og forsinke perceived
+ytelse. Holder vi det til farger får brukeren en tydelig "skift av
+palett" uten layout-fluks.
+
+**Persistens-strategi:**
+- **Innlogget bruker:** database (`users.theme_preference`) er
+  sannhetskilde. `localStorage` er cache for offline/første-render-
+  ytelse. Ved render: les fra `localStorage` umiddelbart, så
+  re-synkroniser med database etter login-respons og overstyr
+  hvis avvikende.
+- **Ikke-innlogget bruker:** kun `localStorage`. Ingen server-state.
+- **Ved login:**
+  1. Hent `users.theme_preference` fra database
+  2. Hvis ikke-null: synk til `localStorage`, bruk som ny verdi
+  3. Hvis null: behold `localStorage`-verdi (første gang innlogget
+     med eksisterende klient-preferanse) og send synk-skriving til
+     database for å persistere
+
+**Database-felt:** `users.theme_preference` (`TEXT`, nullable,
+default `null` som betyr "system"). Tre gyldige verdier: `'system'`,
+`'light'`, `'dark'`. Ikke-null `'system'` er ekvivalent med null
+(begge betyr "følg systempreferanse"); UI-laget normaliserer til null
+ved skriving for å unngå dobbel representasjon.
+
+**Migrasjons-plassering:** integrert i **Fase 1e** auth-arbeidet
+(når users-tabellen utvides for inviterte brukere uansett). Ikke
+egen migrasjon nå. Begrunnelse: kolonnen brukes ikke før
+auth-flyten er på plass; å legge til en kolonne som ikke leses ennå
+er teknisk gjeld vi unngår. Når Fase 1e migrerer, kommer
+`theme_preference` med som ett av flere user-preference-felt.
+
+**Color-blind tema:** utsatt fra v1, MEN arkitektur må støtte flere
+temaer senere uten omskriving (se `design-system.md` §12 og
+`user-preferences-fit.md` §3 for liste-basert themes-registry).
 
 ### 4.6 i18n
 - **v1:** norsk default, engelsk neste
@@ -261,6 +312,27 @@ Detaljert informasjon om onboarding-leveransen finnes i:
 - `architecture-fit.md` §10 — gjenværende beslutningspunkter
 - `architecture-fit.md` §11 — justert scope-tabell
 - `user-preferences-fit.md` §9-§10 — P1-P4-dekningsstatus
+
+---
+
+## 10. Pending-decision-pekere
+
+Disse temaene er **notert, ikke besluttet**, og venter på fokusert
+gjennomgang før pilot-deploy. Detaljene ligger i
+`docs/workflow/pending-decisions.md` for å holde denne filen ren
+for låste beslutninger:
+
+- **Data-retensjon for inaktive familier (post-pilot)** — fem
+  delspørsmål: anonymiseringsfilter for delte oppskrifter,
+  definisjon av "inaktiv", soft-delete-vs-anonymiser-vs-slett,
+  bruksmønster-logging, personvernerklæring (krever juridisk
+  rådgivning). Avklares før pilot-invitering. Se
+  `docs/workflow/pending-decisions.md` under
+  "Data-retensjon for inaktive familier".
+
+Krysslenke fra denne filen finnes for å sikre at fremtidige sesjoner
+ser at temaet er notert, ikke glemt. Når en beslutning lander,
+flyttes den hit som låst.
 
 ---
 
