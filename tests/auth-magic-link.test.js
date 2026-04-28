@@ -314,6 +314,16 @@ test('verifying an unknown token returns 400 Bad Request', async () => {
 
 test('rate limit returns 429 on the 6th start call for the same email within an hour', async () => {
   setupResend();
+  // Sprint 1 / Prompt 2 added a strict per-IP rate limit of 5/15min
+  // on /api/auth/*. With both limiters active, request 6 trips the
+  // per-email limit (which we want) AND the per-IP limit (which we
+  // don't want to test here). The "different email" follow-up would
+  // then fail because the per-IP limiter is still saturated.
+  //
+  // Bump the per-IP threshold high enough to deactivate it for this
+  // specific test, so we are exercising the per-email layer in
+  // magic-link.js in isolation.
+  process.env.AUTH_RATE_LIMIT_MAX = '1000';
   const server = await startTestServer();
   try {
     installFakeSender();
@@ -341,6 +351,7 @@ test('rate limit returns 429 on the 6th start call for the same email within an 
     resetFakeSender();
     await server.close();
     clearResend();
+    delete process.env.AUTH_RATE_LIMIT_MAX;
   }
 });
 
