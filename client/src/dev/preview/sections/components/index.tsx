@@ -10,6 +10,7 @@ import CardPreview from './Card';
 import CopyButtonPreview from './CopyButton';
 import FieldPreview from './Field';
 import InputPreview from './Input';
+import ModalPreview from './Modal';
 import PageShellPreview from './PageShell';
 import PortionFactorSliderPreview from './PortionFactorSlider';
 import ProgressDotsPreview from './ProgressDots';
@@ -42,6 +43,8 @@ export default function Components(): JSX.Element {
       <TagPreview />
       <ProgressDotsPreview />
       <TermPreview />
+      {/* Overlay */}
+      <ModalPreview />
     </section>
   );
 }
