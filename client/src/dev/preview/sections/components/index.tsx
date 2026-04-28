@@ -12,6 +12,7 @@ import InputPreview from './Input';
 import RowPreview from './Row';
 import StackPreview from './Stack';
 import TagPreview from './Tag';
+import TogglePreview from './Toggle';
 
 export default function Components(): JSX.Element {
   return (
@@ -20,6 +21,7 @@ export default function Components(): JSX.Element {
       <ButtonPreview />
       <InputPreview />
       <FieldPreview />
+      <TogglePreview />
       <CardPreview />
       <StackPreview />
       <RowPreview />
