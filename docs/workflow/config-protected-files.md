@@ -94,7 +94,7 @@ The following frequently-edited config files are **not** governed by
 `pre:config-protection` and may be modified normally without an audit
 entry (subject to the usual CLAUDE.md commit-quality rules):
 
-- `package.json` (for dependency updates, scripts, etc.)
+- `package.json` (for dependency updates, scripts, etc. — see nuance below)
 - `package-lock.json`
 - `tsconfig.json` and any project-specific `tsconfig.*.json`
 - `vite.config.ts`
@@ -103,6 +103,36 @@ entry (subject to the usual CLAUDE.md commit-quality rules):
 - `Dockerfile`, `docker-compose.yml`
 - Anything under `.github/workflows/` (CI config — protected separately
   by other governance, not by this hook)
+
+### `package.json`-edits — when an audit-log entry is appropriate
+
+`package.json` is intentionally NOT in the protected set so routine
+dependency work does not need a STOP-and-report dance. However, a
+subset of `package.json`-edits affect security or CI in ways that
+deserve the same explicit-justification treatment as a real
+config-protected file. Use the table below to decide whether your
+edit warrants an entry in `ops/logs/config-changes/config-audit-log.md`:
+
+| Type of edit | Audit-log entry? |
+|---|---|
+| `npm install` / `npm uninstall` (any dep type) | No |
+| Adding/removing entries in `devDependencies` | No |
+| Adding/extending entries in `scripts` (new test/build/lint commands, watch variants, etc.) | No |
+| Adding/removing entries in `dependencies` (production deps) | **Yes** |
+| Adding/removing entries in `optionalDependencies` (production deps) | **Yes** |
+| Modifying existing `scripts` that affect CI or security (`test`, `lint`, `format`, `ci`, `audit:prod`, `build:client`, `start`) | **Yes** |
+| Modifying `engines` (Node/npm version range) | **Yes** |
+| Modifying `os` / `cpu` constraints | **Yes** |
+| Modifying `lint-staged` config (which auto-runs at commit time) | **Yes** |
+| Field-renames or top-level structural changes (`name`, `version`, `main`, `license`, ...) | **Yes** |
+
+The principle is: changes that broaden what code reaches production,
+or that change what CI verifies, deserve a paper trail. Changes that
+only affect the developer's local toolbox do not.
+
+When in doubt, lean toward writing the audit-log entry — the cost of
+an extra paragraph is much smaller than the cost of an unnoticed CI
+gap or a silently widened production surface.
 
 ## How Fase 2 reactivation will restore protection
 

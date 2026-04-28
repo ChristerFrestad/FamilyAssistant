@@ -898,6 +898,37 @@ prematur optimering. I stedet flytter vi vernet midlertidig til
 manuell disiplin — synlig for review i hver commit + audit-log —
 og bygger automatikken når Fase 2-koden uansett skal skrives.
 
+### 7.10 Design-mangler under implementering (2026-04-28)
+
+Når du implementerer mot designmockup og oppdager mangler — manglende
+skjerm, manglende tilstand i en eksisterende skjerm (tom-tilstand,
+lasting, feil), uklar interaksjon, ny komponent som ikke er designet,
+eller en spesifisert design-detalj som ikke holder under implementering
+(kontrast, fokus-rekkefølge, responsive-breakpoint, ...) — gjør
+følgende **i samme tur** som du oppdaget mangelen:
+
+1. **Legg til entry i `design/2026-04-redesign/design-gaps.md`** med
+   det fullstendige formatet beskrevet i den filens header. Alle åtte
+   feltene fylles ut; bruk `n/a` der det ikke gir mening, aldri tomt.
+2. **Flag eksplisitt i fase-rapporten** under en egen seksjon
+   "Design-mangler oppdaget". Selv om svaret er "ingen", skriv det
+   eksplisitt — fraværet av en eksplisitt setning betyr "jeg har ikke
+   sjekket", ikke "ingen mangler funnet".
+3. **Hvis du måtte bygge en midlertidig løsning:** dokumenter konkret
+   hva du gjorde og hvilke tokens du brukte, både i `design-gaps.md`
+   sin "Midlertidig løsning"-felt og i fase-rapporten. Christer skal
+   kunne se eksakt hva som er stub vs. final.
+
+Christer leser `design-gaps.md` før hver `claude.ai/design`-runde for
+å bygge en prioritert design-prompt. Manglende entries her = tapte
+muligheter til å fange det opp før neste runde.
+
+**Hva er IKKE en mangel:** En bevisst nedprioritering av scope (f.eks.
+"recipe-import er post-pilot") er en scope-beslutning, ikke en
+design-mangel. En implementeringsdetalj som er åpenbar uten design
+(spacing-justering på 2 px, typo i en label) er en finpuss, ikke en
+mangel. Bruk dømmekraft.
+
 ---
 
 ## DEL 8: AGENT_LOG.md-FORMAT
@@ -938,6 +969,36 @@ konsekvenser i "Beslutninger"-seksjonen.
 - PR-beskrivelse: norsk for forklaring, engelsk for tekniske begreper
 - Branch-prefiks: se DEL 5
 - Branch-navn: engelsk, kebab-case
+
+### 9.1 Git operasjons-disiplin (2026-04-28)
+
+`git stash` skal kun brukes for **faktisk arbeid-i-prosess** som du
+midlertidig vil sette til side — for eksempel når du må bytte branch
+for å sjekke noe annet og vil bevare uncommitterte endringer.
+
+**Bruk ALDRI `git stash` for diagnostiske formål.** Eksempler på
+diagnostikk og rett verktøy:
+
+| Spørsmål | Riktig kommando |
+|---|---|
+| Er denne filen gitignored? | `git check-ignore <path>` |
+| Hva er state av arbeidstreet? | `git status` (eller `--short`) |
+| Hvilke filer er sporet av git? | `git ls-files` |
+| Hvilke filer matcher dette patternet? | `git ls-files <glob>` |
+| Hva sa siste commit? | `git log -1` (eller `--stat`) |
+| Diff mot main? | `git diff main..HEAD` (eller `--stat`) |
+
+Bakgrunn: `git stash` med tom staging area + uncommitterte endringer
+i arbeidstreet vil stash-e alle endringene og restorere arbeidstreet
+til siste commit. Hvis stash-en feiler eller du glemmer å pop-e den,
+mister du synlig arbeid. Bruker du istedenfor en read-only diagnostisk
+kommando (`git status`, `git check-ignore`, ...) skjer ingenting med
+arbeidstreet.
+
+**Hvis du ved et uhell stash-er endringer du ikke ville sette til
+side:** rapporter umiddelbart i samme tur, kjør `git stash pop` for
+å gjenopprette, og verifiser med `git status` at endringene er
+tilbake.
 
 ---
 
