@@ -13,13 +13,32 @@ import type { Config } from 'tailwindcss';
 // system-default (no attribute) and explicit data-theme="light"
 // fall through to the light values written by tokens.css.
 
+// Content patterns are resolved relative to process.cwd() — i.e. the
+// repo root where `npm run build:client` is invoked, NOT relative to
+// this config file. Hence the leading `client/` segment. Without it,
+// Tailwind's purge silently sees zero source files and emits a CSS
+// bundle with no utility classes at all.
+//
+// In dev mode we additionally scan client/dev.html and the dev/
+// folder so the design-system preview page gets its utility classes
+// generated. In prod mode the dev tree is excluded; otherwise
+// Tailwind would emit the preview's utility classes into the bundle
+// even though the JSX is correctly tree-shaken (they are static
+// strings the scanner sees, regardless of which JS chunk they end up
+// in). NODE_ENV is set to 'production' by `vite build` and
+// 'development' by the dev server, so this branch fires reliably.
+const isProdBuild = process.env.NODE_ENV === 'production';
+
+const PROD_CONTENT = [
+  './client/index.html',
+  './client/src/main.tsx',
+  './client/src/app/**/*.{ts,tsx}',
+];
+
+const DEV_CONTENT = [...PROD_CONTENT, './client/dev.html', './client/src/dev/**/*.{ts,tsx}'];
+
 const config: Config = {
-  // content paths are resolved relative to process.cwd() — i.e. the
-  // repo root where `npm run build:client` is invoked, NOT relative
-  // to this config file. Hence the leading `client/` segment.
-  // Without it, Tailwind's purge silently sees zero source files and
-  // emits a CSS bundle with no utility classes at all.
-  content: ['./client/index.html', './client/src/**/*.{ts,tsx}'],
+  content: isProdBuild ? PROD_CONTENT : DEV_CONTENT,
   darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {

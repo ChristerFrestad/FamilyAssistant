@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Familieassistenten v2 — design preview (dev)</title>
+    <meta
+      name="description"
+      content="Internal design-system preview for the v2 frontend. Dev-only — never ships to production."
+    />
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      Dev-only entry. Lives alongside index.html in client/ so Vite's
+      dev-server picks it up automatically at /v2/dev.html, but it is
+      excluded from prod-build via vite.config.ts -> build.rollupOptions.input
+      (which lists only index.html). The script below imports
+      PreviewPage from client/src/dev/preview/, which the
+      enforce-dev-isolation plugin allows because the importer
+      (dev-main.tsx) lives inside client/src/dev/ itself.
+    -->
+    <script type="module" src="/src/dev/preview/dev-main.tsx"></script>
+  </body>
+</html>

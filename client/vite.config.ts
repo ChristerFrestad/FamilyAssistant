@@ -36,6 +36,16 @@ export default defineConfig({
     outDir: path.resolve(__dirname, '..', 'public', 'v2'),
     emptyOutDir: true,
     sourcemap: true,
+    // Explicit input list for prod-build. Only index.html ships to
+    // production; dev.html (the dev-only design-system preview) is
+    // intentionally excluded so no preview code can leak into the
+    // public bundle. Vite's dev-server still serves dev.html by
+    // default — `rollupOptions.input` only constrains the build.
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+      },
+    },
   },
 
   server: {
