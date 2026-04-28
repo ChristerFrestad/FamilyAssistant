@@ -50,10 +50,18 @@ export default mergeConfig(
         provider: 'v8',
         reportsDirectory: path.resolve(__dirname, '..', 'coverage', 'client'),
         reporter: ['text', 'html', 'lcov'],
-        // Only include source files actually under test, never the
-        // dev-preview tree, vite plugin, or build artifacts.
+        // Only measure shippable component source. The dev-preview
+        // tree, Vite plugins, build artifacts, and the placeholder
+        // App.tsx (which has no tests until routing lands) all stay
+        // out of the report so coverage numbers reflect real app
+        // surface area rather than scaffolding.
         include: ['src/app/**/*.{ts,tsx}'],
-        exclude: ['src/app/**/*.d.ts', 'src/main.tsx', 'src/App.tsx'],
+        exclude: [
+          'src/app/**/*.d.ts',
+          'src/app/**/*.test.{ts,tsx}',
+          'src/app/App.tsx',
+          'src/main.tsx',
+        ],
       },
     },
   })
