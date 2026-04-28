@@ -69,6 +69,7 @@ DNS, Resend, volume mount, and backup.
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution flow, coding style |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history |
 | [`docs/DB_INDEXES.md`](docs/DB_INDEXES.md) | SQLite indexes and query plans |
+| [`docs/frontend/v2-strategy.md`](docs/frontend/v2-strategy.md) | New frontend (Vite + React) under `/v2/*` |
 
 ## Stack
 
@@ -76,9 +77,38 @@ DNS, Resend, volume mount, and backup.
 - **SQLite** via `better-sqlite3` (synchronous, fastest on an RPi5)
 - **Validation**: Zod
 - **Logging**: pino
-- **Frontend**: plain HTML / CSS / JS + a service worker, no build step
+- **Frontend (legacy, `/`)**: plain HTML / CSS / JS + a service worker, no build step
+- **Frontend (v2, `/v2/*`)**: Vite + React 18 + TypeScript + Tailwind v3 +
+  React Router — under active development, see
+  [`docs/frontend/v2-strategy.md`](docs/frontend/v2-strategy.md)
 - **LLM abstraction**: per-family backend — Anthropic, OpenAI, xAI,
   Ollama, or a local llama.cpp server
+
+### Frontend v2 dev quickstart
+
+```bash
+# Install frontend devDeps (already in root package.json)
+npm install
+
+# Terminal 1 — backend on :7777
+npm start
+
+# Terminal 2 — Vite dev-server on :7778 with /api proxied to :7777
+npm run dev:client
+
+# Open http://localhost:7778/v2/  — hot reload works end-to-end
+```
+
+(Vite-port `7778` (ikke standard `5173`) sitter rett ved backend
+på `7777`. Full port-matrise for utviklermaskinen er i `CLAUDE.md`
+DEL 7.8.)
+
+Prod-style build:
+```bash
+npm run build:client         # emits to public/v2/ (gitignored)
+npm start                    # serve via Express
+# Open http://localhost:7777/v2/
+```
 
 ## Production requirements
 

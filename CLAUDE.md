@@ -743,6 +743,192 @@ Test-filnavn-konvensjon – matcher nærmeste eksisterende mønster:
 - Skjemaer har labels
 - Følg mønstre etablert i uke 4 a11y-arbeidet (se `CHANGELOG.md`)
 
+### 7.7 Teknisk gjeld — forebygging (2026-04-23)
+
+Vedtatt under Fase 1b-forarbeidet. Ny kode som skrives fra dette
+punktet og frem til pre-deploy cleanup-sesjonen (estimert uke 9-10)
+skal ikke produsere ny teknisk gjeld. Konkret betyr det:
+
+- **Kommentarer og identifikatorer på engelsk US** (samme regel som
+  7.1) — aldri norsk i kommentarer, variabelnavn eller test-titler
+  fra nå av. UI-tekster og brukervendt kommunikasjon er fortsatt
+  norsk bokmål.
+- **Ingen dev-markører i produksjonskode.** Det vil si: ingen `TODO`
+  uten issue-referanse, ingen `FIXME`/`XXX`, ingen `console.log`
+  (bruk `server/logger.js`), ingen `eslint-disable` uten forklarende
+  kommentar, ingen `@ts-ignore`/`@ts-expect-error` uten forklaring,
+  ingen stub-funksjoner som bare kaster `throw new Error('not implemented')`.
+- **Ingen hardkodet test-data i produksjonskode.** Seed-data bor i
+  `server/seed.js` eller migrasjoner. Test-fikstur bor under
+  `tests/`. Aldri test-verdier blandet inn i `server/services/` eller
+  `client/src/`.
+- **Lint-clean og type-clean fra første commit.** Ny fil innfører
+  null nye lint-warnings og passerer `npm run typecheck` +
+  `npm run typecheck:client`.
+- **Dekk nye kode-grener med tester.** Hvis en `if`-gren skrives,
+  skal minst én test treffe den. Uoppdagede grener er forbudt.
+
+**Ikke rydd eksisterende kode under Fase 1-2.** Norske kommentarer,
+gamle `TODO`-er og akkumulert debt i eksisterende filer adresseres i
+én samlet sesjon senere. Se
+`docs/workflow/pre-deploy-cleanup-plan.md` for fullt scope,
+detektor-verktøy, og exit-kriterier for den sesjonen. Drive-by-fiks
+på tvers av feature-PR-er skjuler størrelsen på opprydningen og
+forurenser feature-diff-er.
+
+**Unntak:** hvis agenten allerede har en norsk-kommentert fil åpen
+av en urelatert grunn under Fase 1-2-arbeid, kan kommentarer i den
+berørte funksjonen oversettes som del av samme commit. Ikke påkrevd.
+Ingen drive-by over hele filen.
+
+### 7.8 Prosess-hygiene på delt maskin (2026-04-23)
+
+Christers utviklermaskin er delt mellom Claude Code (automatisert
+arbeid) og Christer selv (manuell utforskning, egne test-kjøringer,
+dev-servere kjørt for å forstå oppsettet). En prosess som "ser
+stranded ut" er ofte Christers — den er bevisst startet utenfor
+agentens kontekst.
+
+**Regler — ingen unntak:**
+
+1. **Du skal aldri drepe en prosess du ikke selv startet.** Selv om
+   den ser ubrukt eller "stranded" ut. Det inkluderer
+   `taskkill /F`, `kill -9`, `pkill`, `killall`, `Stop-Process`,
+   eller hva som helst som terminerer en PID du ikke vet er din.
+2. **Hvis du starter en prosess (dev-server, test-runner, watcher,
+   ngrok-tunnel, osv.), er du ansvarlig for å stoppe den selv** når
+   du er ferdig. Bruk samme task-ID / shell-ID du fikk ved oppstart.
+   Ikke avhengig av at noen andre rydder etter deg.
+3. **Hvis en port du trenger er opptatt: STOPP og rapporter.** Ikke
+   kill prosessen som holder porten. Be Christer enten frigjøre
+   porten eller bekreft at du kan bruke en annen.
+4. **Hvis du må teste noe som krever en bestemt port:** enten finn
+   en annen port (f.eks. la Vite velge dynamisk uten `strictPort`),
+   eller spør Christer om å frigjøre den. Aldri tving.
+
+**Generelt prinsipp:** Hvis en port i bruk ikke er listet under som
+**vårt prosjekt**, anta at den er Christers og IKKE drep prosessen
+som lytter på den.
+
+**Porter på Christers utviklermaskin — konkret kart:**
+
+| Port(er) | Tjeneste | Kilde | Røres? |
+|---|---|---|---|
+| `80`, `81`, `443` | Nginx Proxy Manager | Christers | ❌ Aldri |
+| `5173` | Understand-Anything (Lum1104 på GitHub — kontinuerlig læringsverktøy) | Christers | ❌ Aldri |
+| `7777` | FamilieAssistant Express backend | **Vårt prosjekt** | ✅ Ja, hvis vi startet prosessen |
+| `7778` | FamilieAssistant Vite dev-server (`npm run dev:client`) | **Vårt prosjekt** | ✅ Ja, hvis vi startet prosessen |
+| `7779` | FamilieAssistant Vite preview (`npm run preview:client`) | **Vårt prosjekt** | ✅ Ja, hvis vi startet prosessen |
+| `8080` | OpenWebUI | Christers | ❌ Aldri |
+| `8123` | Home Assistant | Christers | ❌ Aldri |
+| `9000`, `9443` | Portainer | Christers | ❌ Aldri |
+| `11434` | Ollama | Christers | ❌ Aldri |
+
+Vite dev-server og preview er konfigurert med `strictPort: true` i
+`client/vite.config.ts` slik at de feiler tydelig hvis 7778/7779 er
+opptatt — ingen stille fallback til 5173 eller andre porter som
+tilhører Christer.
+
+For våre egne porter (7777-7779): hvis vi selv startet en prosess
+som lytter, eier vi lifecyclet og må stoppe den med samme task-ID
+vi fikk ved oppstart. Hvis 7777-7779 er opptatt av en prosess vi
+**ikke** startet, gjelder samme regel som for Christers porter:
+STOPP og rapporter, ikke kill. Det kan være Christer som kjører en
+manuell parallell-instans for sammenligning.
+
+Andre porter som ikke er i tabellen over skal antas å være
+Christers hvis du ikke selv startet prosessen. Når du er i tvil:
+behandle den som hans og spør.
+
+**Hvis du ved et uhell allerede har drept en prosess:** rapporter
+det umiddelbart i samme tur, beklag kort (ikke lang unnskyldning),
+og foreslå hva som må til for at Christer kan starte den på nytt
+hvis det er åpenbart.
+
+### 7.9 Beskyttede filer — ekstra forsiktighet under Fase 1 (2026-04-23)
+
+Plugin-en `everything-claude-code` har en `pre:config-protection`-hook
+som normalt blokkerer redigering av lint-/format-konfig-filer
+(eslint.config.mjs, .prettierrc.* osv. — full liste i
+`docs/workflow/config-protected-files.md`).
+
+**Status under Fase 1 (uke 3-9, frem til pre-deploy):** Hook-en er
+**deaktivert** via `ECC_DISABLED_HOOKS=pre:config-protection` i
+shell-miljøet. Det automatiske vernet er borte. Som kompensasjon
+gjelder følgende manuelle disiplin **per fil i den beskyttede
+listen** før agenten redigerer den:
+
+1. **STOPP og rapporter til Christer FØR den første endringen** av
+   en gitt fil under Fase 1. Dette er ikke en formalitet — det er
+   det som erstatter hook-en sin "hold-stang"-effekt. Bekreft
+   eksplisitt med Christer at endringen er ønsket før du går videre.
+   Dette gjelder per fil, ikke per edit: ytterligere endringer på
+   *samme* fil i *samme* autorisasjons-scope kan fortsette uten ny
+   stopp.
+2. **Eksplisitt begrunnelse i commit-melding** — body-en skal
+   forklare hvorfor endringen er nødvendig, ikke bare hva som
+   endret seg. Diffen viser hva.
+3. **Oppføring i `ops/logs/config-changes/config-audit-log.md`** —
+   nyeste innslag nederst, format dokumentert i loggens header.
+   Inkluder commit-SHA, fil-navn, kort sitat fra Christers
+   autoriserende prompt, hvorfor endringen er riktig, og
+   reverse-change-risiko.
+
+**Liste over beskyttede filer:** se
+`docs/workflow/config-protected-files.md` (snapshot av
+config-protection.js sin `PROTECTED_FILES`-sett tatt 2026-04-23).
+Ikke alle "config-aktige" filer er beskyttet — `package.json`,
+`tsconfig.json`, `vite.config.ts`, `tailwind.config.ts` osv. er
+uberørt av denne regelen.
+
+**Midlertidig — dette gjenopprettes automatisk i Fase 2.** Pre-deploy
+(uke 10-11) reaktiveres hook-en sammen med en kodeord-basert
+one-shot-bypass. Detaljer + plan i
+`docs/workflow/pre-deploy-cleanup-plan.md` under
+"Config-protection reactivation". Når Fase 2 lander forsvinner
+behovet for manuell audit-log — hook-en logger selv.
+
+**Hvorfor dette opplegget i det hele tatt?** Hook-en er designet for
+å hindre agent-drive-by-redigering av lint-config (svekke regelen
+istedenfor å fikse koden). Under Fase 1 trenger vi imidlertid
+flere legitime config-endringer (TS-eslint-aktivering på client,
+no-restricted-imports for app/dev-grensen, evt. mindre justeringer
+underveis i komponentbygg). Å skrive grant-mekanikken nå ville være
+prematur optimering. I stedet flytter vi vernet midlertidig til
+manuell disiplin — synlig for review i hver commit + audit-log —
+og bygger automatikken når Fase 2-koden uansett skal skrives.
+
+### 7.10 Design-mangler under implementering (2026-04-28)
+
+Når du implementerer mot designmockup og oppdager mangler — manglende
+skjerm, manglende tilstand i en eksisterende skjerm (tom-tilstand,
+lasting, feil), uklar interaksjon, ny komponent som ikke er designet,
+eller en spesifisert design-detalj som ikke holder under implementering
+(kontrast, fokus-rekkefølge, responsive-breakpoint, ...) — gjør
+følgende **i samme tur** som du oppdaget mangelen:
+
+1. **Legg til entry i `design/2026-04-redesign/design-gaps.md`** med
+   det fullstendige formatet beskrevet i den filens header. Alle åtte
+   feltene fylles ut; bruk `n/a` der det ikke gir mening, aldri tomt.
+2. **Flag eksplisitt i fase-rapporten** under en egen seksjon
+   "Design-mangler oppdaget". Selv om svaret er "ingen", skriv det
+   eksplisitt — fraværet av en eksplisitt setning betyr "jeg har ikke
+   sjekket", ikke "ingen mangler funnet".
+3. **Hvis du måtte bygge en midlertidig løsning:** dokumenter konkret
+   hva du gjorde og hvilke tokens du brukte, både i `design-gaps.md`
+   sin "Midlertidig løsning"-felt og i fase-rapporten. Christer skal
+   kunne se eksakt hva som er stub vs. final.
+
+Christer leser `design-gaps.md` før hver `claude.ai/design`-runde for
+å bygge en prioritert design-prompt. Manglende entries her = tapte
+muligheter til å fange det opp før neste runde.
+
+**Hva er IKKE en mangel:** En bevisst nedprioritering av scope (f.eks.
+"recipe-import er post-pilot") er en scope-beslutning, ikke en
+design-mangel. En implementeringsdetalj som er åpenbar uten design
+(spacing-justering på 2 px, typo i en label) er en finpuss, ikke en
+mangel. Bruk dømmekraft.
+
 ---
 
 ## DEL 8: AGENT_LOG.md-FORMAT
@@ -783,6 +969,36 @@ konsekvenser i "Beslutninger"-seksjonen.
 - PR-beskrivelse: norsk for forklaring, engelsk for tekniske begreper
 - Branch-prefiks: se DEL 5
 - Branch-navn: engelsk, kebab-case
+
+### 9.1 Git operasjons-disiplin (2026-04-28)
+
+`git stash` skal kun brukes for **faktisk arbeid-i-prosess** som du
+midlertidig vil sette til side — for eksempel når du må bytte branch
+for å sjekke noe annet og vil bevare uncommitterte endringer.
+
+**Bruk ALDRI `git stash` for diagnostiske formål.** Eksempler på
+diagnostikk og rett verktøy:
+
+| Spørsmål | Riktig kommando |
+|---|---|
+| Er denne filen gitignored? | `git check-ignore <path>` |
+| Hva er state av arbeidstreet? | `git status` (eller `--short`) |
+| Hvilke filer er sporet av git? | `git ls-files` |
+| Hvilke filer matcher dette patternet? | `git ls-files <glob>` |
+| Hva sa siste commit? | `git log -1` (eller `--stat`) |
+| Diff mot main? | `git diff main..HEAD` (eller `--stat`) |
+
+Bakgrunn: `git stash` med tom staging area + uncommitterte endringer
+i arbeidstreet vil stash-e alle endringene og restorere arbeidstreet
+til siste commit. Hvis stash-en feiler eller du glemmer å pop-e den,
+mister du synlig arbeid. Bruker du istedenfor en read-only diagnostisk
+kommando (`git status`, `git check-ignore`, ...) skjer ingenting med
+arbeidstreet.
+
+**Hvis du ved et uhell stash-er endringer du ikke ville sette til
+side:** rapporter umiddelbart i samme tur, kjør `git stash pop` for
+å gjenopprette, og verifiser med `git status` at endringene er
+tilbake.
 
 ---
 

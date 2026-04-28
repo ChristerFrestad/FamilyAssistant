@@ -23,17 +23,24 @@
     "test:watch": "node scripts/run-tests.js --watch",
     "test:coverage": "node scripts/run-tests.js --experimental-test-coverage --test-reporter=spec",
     "test:coverage:gate": "node scripts/run-tests.js --experimental-test-coverage --test-reporter=spec | node scripts/coverage-gate.js",
+    "test:client": "vitest run --config client/vitest.config.ts --passWithNoTests",
+    "test:client:watch": "vitest --config client/vitest.config.ts",
+    "test:client:coverage": "vitest run --coverage --config client/vitest.config.ts --passWithNoTests",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --check \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"public/manifest.json\" \"package.json\"",
     "format:fix": "prettier --write \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"public/manifest.json\" \"package.json\"",
-    "ci": "npm run lint && npm run format && npm test",
+    "ci": "npm run lint && npm run format && npm test && npm run test:client",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "sbom": "cyclonedx-npm --omit dev --package-lock-only --output-format JSON --output-file sbom.json",
     "sbom:full": "cyclonedx-npm --package-lock-only --output-format JSON --output-file sbom-full.json",
     "typecheck": "tsc --noEmit",
     "openapi:types": "openapi-typescript openapi.yaml --output types/openapi.d.ts",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "dev:client": "vite --config client/vite.config.ts",
+    "build:client": "vite build --config client/vite.config.ts",
+    "preview:client": "vite preview --config client/vite.config.ts",
+    "typecheck:client": "tsc --noEmit --project client/tsconfig.json"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
@@ -41,21 +48,40 @@
     "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "sql.js": "^1.14.1",
-    "@sentry/node": "^8.0.0"
+    "@sentry/node": "^8.0.0",
+    "sql.js": "^1.14.1"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "^4.2.1",
     "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
     "@types/node": "^25.6.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@typescript-eslint/eslint-plugin": "8.59.0",
+    "@typescript-eslint/parser": "8.59.0",
+    "@vitejs/plugin-react": "4.7.0",
+    "@vitest/coverage-v8": "4.1.5",
+    "autoprefixer": "10.4.20",
     "eslint": "^10.2.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "globals": "^17.5.0",
     "husky": "^9.1.7",
+    "jsdom": "29.1.0",
     "lint-staged": "^16.4.0",
     "openapi-typescript": "^7.13.0",
     "pino-pretty": "^13.1.3",
+    "postcss": "8.5.12",
     "prettier": "^3.3.3",
-    "typescript": "^5.9.3"
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.3",
+    "tailwindcss": "3.4.15",
+    "typescript": "^5.9.3",
+    "vite": "6.4.2",
+    "vitest": "4.1.5"
   },
   "lint-staged": {
     "server/**/*.js": [
@@ -76,7 +102,9 @@
       "prettier --write"
     ],
     "public/manifest.json": "prettier --write",
-    "package.json": "prettier --write"
+    "package.json": "prettier --write",
+    "client/**/*.{ts,tsx,css}": "prettier --write",
+    "client/**/*.{json,html}": "prettier --write"
   },
   "keywords": [
     "familieassistenten",

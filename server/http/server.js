@@ -72,6 +72,57 @@ function tryServeSpaFallback(pathname, res) {
 }
 
 // ============================================================
+// v2 (redesign) sub-app static + SPA serving
+// ============================================================
+//
+// Intentionally separate from tryServeSpaFallback so the two concerns
+// evolve independently. The legacy app on / must keep working byte-
+// identically while the new app on /v2/* is under active development.
+//
+// Matches ONLY /v2 and /v2/* — no generic sub-app prefix-matching.
+// Explicit > implicit: when we add /v3 later it gets its own handler.
+//
+// Returns false (i.e. lets the caller fall through to
+// tryServeSpaFallback) when:
+//   - path doesn't start with /v2
+//   - public/v2/ doesn't exist yet (pre-build state)
+//   - path-traversal attempt (../ etc.)
+const V2_PREFIX = '/v2';
+
+function tryServeV2App(pathname, res) {
+  if (pathname !== V2_PREFIX && !pathname.startsWith(V2_PREFIX + '/')) {
+    return false;
+  }
+  const V2_DIR = path.join(PUBLIC_DIR, 'v2');
+  if (!fs.existsSync(V2_DIR) || !fs.statSync(V2_DIR).isDirectory()) {
+    return false;
+  }
+
+  // Strip /v2 or /v2/ prefix to get the asset path relative to public/v2/.
+  const rel =
+    pathname === V2_PREFIX || pathname === V2_PREFIX + '/'
+      ? 'index.html'
+      : pathname.slice(V2_PREFIX.length + 1);
+
+  // 1. Direct file hit (assets, images, etc.)
+  if (rel && rel !== 'index.html') {
+    const filePath = path.join(V2_DIR, rel);
+    const resolved = path.resolve(filePath);
+    if (path.relative(V2_DIR, resolved).startsWith('..')) return false;
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      return serveStatic(res, filePath);
+    }
+  }
+
+  // 2. SPA fallback to public/v2/index.html for client-side routing.
+  const indexPath = path.join(V2_DIR, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return serveStatic(res, indexPath);
+  }
+  return false;
+}
+
+// ============================================================
 // Main server
 // ============================================================
 
@@ -109,11 +160,16 @@ function createServer(router, { authenticate } = {}) {
         if (!dispatched) {
           // /api/* and /metrics are never served as SPA fallback — return 404.
           const isApi = pathname.startsWith('/api/') || pathname === '/metrics';
-          if (!isApi && req.method === 'GET' && tryServeSpaFallback(pathname, res)) {
-            const dur = Date.now() - started;
-            metrics.record(req.method, 'static', 200, dur);
-            logRequest(ctx, 200, dur, 'static');
-            return;
+          if (!isApi && req.method === 'GET') {
+            // Try v2 sub-app first (explicit /v2/* match), then legacy
+            // root SPA-fallback. Keeping them sequential preserves the
+            // byte-identical serving of the legacy app on /.
+            if (tryServeV2App(pathname, res) || tryServeSpaFallback(pathname, res)) {
+              const dur = Date.now() - started;
+              metrics.record(req.method, 'static', 200, dur);
+              logRequest(ctx, 200, dur, 'static');
+              return;
+            }
           }
           ctx.problem(errors.notFound(`Route ${req.method} ${pathname} not found`));
           const dur = Date.now() - started;
