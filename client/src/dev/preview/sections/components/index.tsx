@@ -3,12 +3,15 @@
 // turning into a 600-line dump. The hash anchor `#components` matches
 // the entry in PreviewPage.tsx's nav.
 
+import AvatarPreview from './Avatar';
+import BadgePreview from './Badge';
 import ButtonPreview from './Button';
 import CardPreview from './Card';
 import FieldPreview from './Field';
 import InputPreview from './Input';
 import RowPreview from './Row';
 import StackPreview from './Stack';
+import TagPreview from './Tag';
 
 export default function Components(): JSX.Element {
   return (
@@ -20,6 +23,9 @@ export default function Components(): JSX.Element {
       <CardPreview />
       <StackPreview />
       <RowPreview />
+      <AvatarPreview />
+      <BadgePreview />
+      <TagPreview />
     </section>
   );
 }
