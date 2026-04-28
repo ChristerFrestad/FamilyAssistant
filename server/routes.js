@@ -559,7 +559,9 @@ function registerRoutes(router, { repos, serverState }) {
     const res = recipeFilter.filterRecipeForFamily(recipe, familyContext, options);
     // Legacy fields derived from the new per-member result.
     // safeForProfile is true iff no allergy was triggered (same as legacy).
-    const legacyBlocked = res.allergy.blockedIngredients.map(({ blockedFor, ...rest }) => rest);
+    const legacyBlocked = res.allergy.blockedIngredients.map(
+      ({ blockedFor: _blockedFor, ...rest }) => rest
+    );
     return Object.assign({}, recipe || {}, {
       // Legacy (uke 9 SAF-2 shape) — UI code that pre-dates B7 keeps working.
       safeForProfile: res.allergy.safeForFamily,
@@ -651,7 +653,9 @@ function registerRoutes(router, { repos, serverState }) {
     const ignoreDietTags = parseIgnoreDietTags(ctx.query) || body.ignoreDietTags === true;
     const res = recipeFilter.filterRecipeForFamily(recipe, familyContext, { ignoreDietTags });
     // Legacy shape + per-member bundle.
-    const legacyBlocked = res.allergy.blockedIngredients.map(({ blockedFor, ...rest }) => rest);
+    const legacyBlocked = res.allergy.blockedIngredients.map(
+      ({ blockedFor: _blockedFor, ...rest }) => rest
+    );
     ctx.json({
       // Legacy
       safeForProfile: res.allergy.safeForFamily,
@@ -706,7 +710,7 @@ function registerRoutes(router, { repos, serverState }) {
         const filterRes = recipeFilter.filterRecipeForFamily(result.recipe, familyContext);
         // Legacy shape (uke 9 SAF-2) preserved for callers that pre-date B7
         const legacyBlocked = filterRes.allergy.blockedIngredients.map(
-          ({ blockedFor, ...rest }) => rest
+          ({ blockedFor: _blockedFor, ...rest }) => rest
         );
         result.safeForProfile = filterRes.allergy.safeForFamily;
         result.blockedIngredients = legacyBlocked;
