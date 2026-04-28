@@ -5,12 +5,14 @@
 
 import ButtonPreview from './Button';
 import FieldPreview from './Field';
+import InputPreview from './Input';
 
 export default function Components(): JSX.Element {
   return (
     <section id="components" className="space-y-8">
       <h2 className="font-display text-display-md text-text-1">Components</h2>
       <ButtonPreview />
+      <InputPreview />
       <FieldPreview />
     </section>
   );
