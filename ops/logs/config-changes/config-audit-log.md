@@ -67,4 +67,30 @@ detail. It is NOT a real audit entry. Real entries start in the
      a protected file is first modified during Fase 1. As of file
      creation (2026-04-23) no entries exist yet. -->
 
-_(no entries yet)_
+### 2026-04-28 11:15 (CEST) — eslint.config.mjs
+
+- **Commit SHA:** see `git log --grep="enable ESLint on client/src/"`
+  on `feat/fase-1b-design-system`. SHA is intentionally not hard-coded
+  in this entry: an audit log that lives inside the commit it
+  describes cannot record the commit's own final SHA without an
+  amend-cycle that shifts the SHA again. The grep above resolves
+  unambiguously to one commit on this branch.
+- **File edited:** `eslint.config.mjs`
+- **Authorizing prompt (verbatim short quote):**
+  > "Postcss-bump godkjent. Klar for Fase 1b.1.5 commit 2."
+- **Why this change was needed:** Phase 1b.1 surfaced that
+  `client/src/**/*.{ts,tsx}` files are not lint-covered at all because
+  no `files`-pattern in `eslint.config.mjs` matched them. New
+  client-side code in the upcoming design-system phases must be
+  lint-clean from the first commit per `CLAUDE.md` DEL 7.7, which
+  requires TypeScript-aware linting that this config block enables.
+- **What changed (one-line summary):** Added flat-config block
+  registering `@typescript-eslint/parser` + recommended rules and
+  `eslint-plugin-react-hooks` for `client/src/**/*.{ts,tsx}`, with
+  `no-undef` disabled for that block (TS handles symbol resolution
+  better than ESLint's core rule).
+- **Reverse-change risk:** Low. The block is purely additive —
+  removing it drops new client-side lint coverage but does not
+  affect the server, scripts, tests, or sw.js blocks already in the
+  config. The three existing `routes.js` warnings remain unchanged
+  before and after.
