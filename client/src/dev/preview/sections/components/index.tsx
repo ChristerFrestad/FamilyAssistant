@@ -4,8 +4,11 @@
 // the entry in PreviewPage.tsx's nav.
 
 import ButtonPreview from './Button';
+import CardPreview from './Card';
 import FieldPreview from './Field';
 import InputPreview from './Input';
+import RowPreview from './Row';
+import StackPreview from './Stack';
 
 export default function Components(): JSX.Element {
   return (
@@ -14,6 +17,9 @@ export default function Components(): JSX.Element {
       <ButtonPreview />
       <InputPreview />
       <FieldPreview />
+      <CardPreview />
+      <StackPreview />
+      <RowPreview />
     </section>
   );
 }
