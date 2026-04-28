@@ -24,6 +24,7 @@ Fasen ble strukturert i fire del-faser som ble utført sekvensielt:
 | 1b.2 — design-system | OKLCH-tokens, fonts, theme-system, Tailwind-integrasjon, preview-side | ~7 |
 | 1b.3 part 1 | Test-infra (Vitest), Button + Field + governance-dokumenter | ~5 |
 | 1b.3 part 2 (A–G) | 14 ekstra komponenter på 6 batches | ~13 |
+| Slutt-rapport (denne filen) | Fase 1b sluttrapport + PR-prep | 1+ |
 
 ---
 
@@ -105,7 +106,7 @@ Prosess-fundament som er ferdigskrevet i denne fasen:
 
 | Metrikk | Verdi |
 |---------|-------|
-| Total commits på branch | **36** |
+| Total commits på branch | **37** (36 før denne rapporten + selve summary-commiten) |
 | Total filer endret/nye | **114** (105 nye + 9 modifiserte) |
 | Total linjer endret | **+24 423 / −1 022** |
 | Klient-spesifikke filer | 80 (+7 055 linjer) |
