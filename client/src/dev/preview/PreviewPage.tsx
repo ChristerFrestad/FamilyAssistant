@@ -1,5 +1,6 @@
 import Animations from './sections/Animations';
 import Colors from './sections/Colors';
+import Components from './sections/components';
 import Radius from './sections/Radius';
 import Shadows from './sections/Shadows';
 import Spacing from './sections/Spacing';
@@ -18,6 +19,7 @@ const NAV_ITEMS: Array<{ href: string; label: string }> = [
   { href: '#radius', label: 'Radius' },
   { href: '#shadows', label: 'Shadows' },
   { href: '#animations', label: 'Animations' },
+  { href: '#components', label: 'Components' },
 ];
 
 export default function PreviewPage(): JSX.Element {
@@ -53,6 +55,7 @@ export default function PreviewPage(): JSX.Element {
         <Radius />
         <Shadows />
         <Animations />
+        <Components />
       </main>
 
       <footer className="max-w-5xl mx-auto px-4 py-12">
