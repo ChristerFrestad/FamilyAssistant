@@ -144,4 +144,33 @@ export default [
       'no-undef': 'off',
     },
   },
+
+  // Architectural rule: app/ may NOT import from dev/. The Vite plugin
+  // in client/vite-plugins/enforce-isolation.ts enforces the same
+  // boundary at build time; this lint block fires earlier — in the
+  // editor, on save, and in `npm run lint` — so violations surface
+  // before the developer ever runs `vite build`. Scoped to
+  // client/src/app/** only so files under client/src/dev/ remain
+  // free to import FROM app/ (a preview page for `Button` should
+  // obviously import the real Button).
+  //
+  // See client/src/dev/README.md and CLAUDE.md DEL 7.7 for the
+  // boundary's rationale.
+  {
+    files: ['client/src/app/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/dev/**', '../dev/*', './dev/*', '*/dev/*'],
+              message:
+                'app/ kan ikke importere fra dev/. Se client/src/dev/README.md for begrunnelse.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

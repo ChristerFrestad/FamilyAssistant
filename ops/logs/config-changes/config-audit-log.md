@@ -94,3 +94,38 @@ detail. It is NOT a real audit entry. Real entries start in the
   affect the server, scripts, tests, or sw.js blocks already in the
   config. The three existing `routes.js` warnings remain unchanged
   before and after.
+
+### 2026-04-28 13:25 (CEST) — eslint.config.mjs
+
+- **Commit SHA:** see `git log --grep="forbid app -> dev imports"`
+  on `feat/fase-1b-design-system`. Same SHA-independent pattern as
+  the previous entry — the audit log lives in the commit it
+  describes, so any embedded SHA would shift on each amend.
+- **File edited:** `eslint.config.mjs`
+- **Authorizing prompt (verbatim short quote):**
+  > "Commit 2 godkjent. Klar for Fase 1b.1.5 commit 3."
+- **Why this change was needed:** Phase 1b.1 established the
+  app/dev architectural boundary at build time via the
+  `enforce-isolation` Vite plugin. Lint-level enforcement is the
+  faster, in-editor counterpart — violations surface on save
+  rather than on `npm run build:client`. With the design-system
+  work in 1b.2 and component work in 1b.3 about to land, both
+  layers should fire consistently so a developer sees the
+  `app/ → dev/` mistake at the earliest possible point.
+- **What changed (one-line summary):** Added a second flat-config
+  block scoped to `client/src/app/**/*.{ts,tsx}` that registers
+  `no-restricted-imports` with patterns `**/dev/**`, `../dev/*`,
+  `./dev/*`, `*/dev/*` and a Norwegian message pointing readers
+  at `client/src/dev/README.md`. Files under `client/src/dev/`
+  are deliberately not in the block's scope so they remain free
+  to import from `app/`.
+- **Reverse-change risk:** Low. The block is additive and only
+  layers a stricter rule on a narrower file scope. Removing it
+  loses the lint-time check; the Vite plugin still catches the
+  same violation at build time. Verified via probe-file test:
+  ESLint flagged `'../dev/whatever'` import from
+  `client/src/app/__isolation_probe.ts` with the configured
+  message; a control probe in `client/src/dev/` importing from
+  `../app/App` produced zero ESLint output. Probes were deleted
+  immediately after verification (the `__isolation_probe.ts`
+  filename is gitignored from Phase 1b.1 as a safety net).
