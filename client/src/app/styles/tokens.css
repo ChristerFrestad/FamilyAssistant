@@ -1,0 +1,421 @@
+/* =====================================================================
+   Familieassistenten v2 — design tokens
+
+   Source-of-truth for the design system. Values come from the mockup
+   at design/2026-04-redesign/source/Familieassistenten.html and the
+   later onboarding mockup at design/2026-04-redesign/source/Onboarding
+   og Auth.html, distilled in design/2026-04-redesign/extracted/
+   design-system.md.
+
+   Architecture choice:
+     - LIGHT values are the :root defaults.
+     - @media (prefers-color-scheme: dark) overrides them for users
+       who want system-dark.
+     - [data-theme="light"] and [data-theme="dark"] override either
+       direction explicitly when the user picks a theme manually.
+
+   Default behavior on first paint, no JS yet:
+     - <html> has no data-theme attribute -> CSS picks light or dark
+       from the OS preference via the @media query. No flash.
+     - When ThemeProvider lands (Phase 1b.3 or later), it sets
+       data-theme="light" or data-theme="dark" if the user picked one,
+       or removes the attribute when the user picks "system".
+
+   Transition: 200 ms fade on color properties only, never on
+   transform or opacity (per locked-decisions.md section 4.5).
+   prefers-reduced-motion disables the transition.
+
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Font faces (self-hosted, see ./fonts/README.md)
+   --------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('./fonts/InstrumentSerif-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('./fonts/InstrumentSerif-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist';
+  /* Variable weight: covers 100-900 in a single file. */
+  src: url('./fonts/Geist[wght].woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('./fonts/Geist-Italic[wght].woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('./fonts/GeistMono[wght].woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------------------------------------------------------------------
+   2. Color tokens — LIGHT (default for :root, system-light)
+   --------------------------------------------------------------------- */
+
+:root {
+  /* Background scale — neutral cream / off-white. */
+  --bg-0: oklch(0.97 0.008 85);
+  --bg-1: oklch(0.99 0.005 85);
+  --bg-2: oklch(0.94 0.01 85);
+
+  /* Surface tokens for glass-morphism overlays. The alpha channel
+     drives the see-through effect; lighting comes from blur + saturate
+     in component CSS, not here. */
+  --surface: oklch(1 0 0 / 0.72);
+  --surface-strong: oklch(1 0 0 / 0.88);
+
+  /* Stroke / border tokens — derived from black at low alpha. */
+  --stroke: oklch(0 0 0 / 0.06);
+  --stroke-strong: oklch(0 0 0 / 0.12);
+
+  /* Text scale — primary, secondary, tertiary. */
+  --text-1: oklch(0.22 0.02 85);
+  --text-2: oklch(0.42 0.02 85);
+  --text-3: oklch(0.58 0.015 85);
+
+  /* Brand accents — see locked-decisions section 4.5 for the
+     mint / cyan / amber / coral / rose roles. Each has a deeper
+     companion for gradient bottoms or pressed states. */
+  --mint: oklch(0.58 0.14 155);
+  --mint-deep: oklch(0.45 0.13 155);
+  --cyan: oklch(0.6 0.11 215);
+  --cyan-deep: oklch(0.48 0.1 215);
+  --amber: oklch(0.68 0.14 75);
+  --coral: oklch(0.62 0.16 25);
+  --rose: oklch(0.58 0.17 0);
+
+  /* Ink + ink-contrast pair: primary-button-style invert. ink is
+     "nearly black on light, nearly white on dark". ink-contrast is
+     "the readable text color when ink is the background". */
+  --ink: oklch(0.22 0.02 85);
+  --ink-contrast: oklch(0.99 0.005 85);
+
+  /* Glow shadow — used on hero meal card and selected accent
+     surfaces. Light variant is muted (no neon glow on a pale page). */
+  --shadow-glow: 0 20px 50px -20px oklch(0.55 0.14 155 / 0.25);
+}
+
+/* ---------------------------------------------------------------------
+   3. Color tokens — DARK (system-dark fallback)
+   --------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-0: oklch(0.16 0.015 95);
+    --bg-1: oklch(0.2 0.018 95);
+    --bg-2: oklch(0.24 0.02 95);
+
+    --surface: oklch(0.24 0.018 95 / 0.55);
+    --surface-strong: oklch(0.28 0.02 95 / 0.72);
+
+    --stroke: oklch(1 0 0 / 0.08);
+    --stroke-strong: oklch(1 0 0 / 0.14);
+
+    --text-1: oklch(0.97 0.01 85);
+    --text-2: oklch(0.78 0.015 85);
+    --text-3: oklch(0.58 0.015 85);
+
+    --mint: oklch(0.82 0.15 155);
+    --mint-deep: oklch(0.55 0.14 155);
+    --cyan: oklch(0.82 0.12 215);
+    --cyan-deep: oklch(0.55 0.11 215);
+    --amber: oklch(0.82 0.13 75);
+    --coral: oklch(0.78 0.14 25);
+    --rose: oklch(0.72 0.16 0);
+
+    --ink: oklch(0.97 0.01 85);
+    --ink-contrast: oklch(0.15 0.02 95);
+
+    --shadow-glow: 0 0 60px -12px oklch(0.82 0.15 155 / 0.35);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   4. Color tokens — explicit override (data-theme attribute)
+   --------------------------------------------------------------------- */
+
+/* User explicitly chose light. Repeats the :root defaults so the
+   override wins over the @media-dark rule. */
+[data-theme='light'] {
+  --bg-0: oklch(0.97 0.008 85);
+  --bg-1: oklch(0.99 0.005 85);
+  --bg-2: oklch(0.94 0.01 85);
+
+  --surface: oklch(1 0 0 / 0.72);
+  --surface-strong: oklch(1 0 0 / 0.88);
+
+  --stroke: oklch(0 0 0 / 0.06);
+  --stroke-strong: oklch(0 0 0 / 0.12);
+
+  --text-1: oklch(0.22 0.02 85);
+  --text-2: oklch(0.42 0.02 85);
+  --text-3: oklch(0.58 0.015 85);
+
+  --mint: oklch(0.58 0.14 155);
+  --mint-deep: oklch(0.45 0.13 155);
+  --cyan: oklch(0.6 0.11 215);
+  --cyan-deep: oklch(0.48 0.1 215);
+  --amber: oklch(0.68 0.14 75);
+  --coral: oklch(0.62 0.16 25);
+  --rose: oklch(0.58 0.17 0);
+
+  --ink: oklch(0.22 0.02 85);
+  --ink-contrast: oklch(0.99 0.005 85);
+
+  --shadow-glow: 0 20px 50px -20px oklch(0.55 0.14 155 / 0.25);
+}
+
+/* User explicitly chose dark. Mirror of the @media-dark block. */
+[data-theme='dark'] {
+  --bg-0: oklch(0.16 0.015 95);
+  --bg-1: oklch(0.2 0.018 95);
+  --bg-2: oklch(0.24 0.02 95);
+
+  --surface: oklch(0.24 0.018 95 / 0.55);
+  --surface-strong: oklch(0.28 0.02 95 / 0.72);
+
+  --stroke: oklch(1 0 0 / 0.08);
+  --stroke-strong: oklch(1 0 0 / 0.14);
+
+  --text-1: oklch(0.97 0.01 85);
+  --text-2: oklch(0.78 0.015 85);
+  --text-3: oklch(0.58 0.015 85);
+
+  --mint: oklch(0.82 0.15 155);
+  --mint-deep: oklch(0.55 0.14 155);
+  --cyan: oklch(0.82 0.12 215);
+  --cyan-deep: oklch(0.55 0.11 215);
+  --amber: oklch(0.82 0.13 75);
+  --coral: oklch(0.78 0.14 25);
+  --rose: oklch(0.72 0.16 0);
+
+  --ink: oklch(0.97 0.01 85);
+  --ink-contrast: oklch(0.15 0.02 95);
+
+  --shadow-glow: 0 0 60px -12px oklch(0.82 0.15 155 / 0.35);
+}
+
+/* ---------------------------------------------------------------------
+   5. Typography tokens
+   --------------------------------------------------------------------- */
+
+:root {
+  /* Font stacks. Variables resolve at use-site so the body can pick
+     --font-body and a hero can pick --font-display without picking
+     up each other's fallbacks. */
+  --font-display: 'Instrument Serif', ui-serif, Georgia, serif;
+  --font-body: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* Type scale extracted from the mockup's `font-display text-[NN]px`
+     usages. Names map intent to size; sizes are absolute px so a
+     designer can plug them into a card without reasoning about the
+     surrounding text scale. */
+  --text-hero: 2.5rem; /* 40px — dashboard greeting */
+  --text-screen: 2.125rem; /* 34px — screen title */
+  --text-display-md: 1.75rem; /* 28px — hero meal card */
+  --text-card: 1.625rem; /* 26px — card titles */
+  --text-day: 1.375rem; /* 22px — day numbers */
+  --text-body: 0.875rem; /* 14px — default body */
+  --text-meta: 0.6875rem; /* 11px — metadata */
+  --text-label: 0.625rem; /* 10px — uppercase micro-labels */
+
+  --leading-tight: 1.05;
+  --leading-snug: 1.2;
+  --leading-normal: 1.4;
+  --leading-relaxed: 1.5;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.18em; /* uppercase micro-labels */
+  --tracking-wider: 0.22em; /* hero section labels */
+}
+
+/* ---------------------------------------------------------------------
+   6. Spacing scale (Tailwind's 4 px base unit)
+   --------------------------------------------------------------------- */
+
+:root {
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+}
+
+/* ---------------------------------------------------------------------
+   7. Border radius
+   --------------------------------------------------------------------- */
+
+:root {
+  --radius-sm: 6px; /* tag chips, mono labels */
+  --radius-md: 12px; /* small cards, buttons */
+  --radius-lg: 16px; /* standard cards (rounded-2xl) */
+  --radius-xl: 22px; /* mid cards */
+  --radius-2xl: 28px; /* hero cards */
+  --radius-3xl: 44px; /* device-frame outer (preview / dev only) */
+  --radius-pill: 999px; /* full-rounded chips, avatars */
+}
+
+/* ---------------------------------------------------------------------
+   8. Shadows / elevation
+   --------------------------------------------------------------------- */
+
+:root {
+  /* Elevation scale, low to high. Values pulled from the mockup's
+     hero-card and dropdown shadows. Glass-morphism shadows
+     (--shadow-glow) live in the color block above because they
+     swap between dark and light themes; structural elevations
+     do not. */
+  --shadow-low: 0 12px 30px -8px oklch(0 0 0 / 0.5);
+  --shadow-mid: 0 20px 50px -10px oklch(0 0 0 / 0.5);
+  --shadow-high: 0 40px 80px -20px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.06);
+}
+
+/* ---------------------------------------------------------------------
+   9. Animations / keyframes
+   --------------------------------------------------------------------- */
+
+/* Used by the magic-link confirmation circle. */
+@keyframes softPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 oklch(0.82 0.15 155 / 0.4);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 20px oklch(0.82 0.15 155 / 0);
+  }
+}
+
+/* Entry animation for screens. */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Validation-error shake for invalid inputs. */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-3px);
+  }
+  40%,
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+/* Mild bobbing motion for the error-state icon. */
+@keyframes wobble {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.soft-pulse {
+  animation: softPulse 2.6s ease-out infinite;
+}
+.slide-up {
+  animation: slideUp 0.35s ease-out both;
+}
+.shake {
+  animation: shake 0.35s ease-in-out;
+}
+.wobble {
+  animation: wobble 2.4s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------
+   10. Theme-transition: 200 ms fade on color properties only
+   --------------------------------------------------------------------- */
+
+/* Per locked-decisions section 4.5: when the theme changes, fade
+   the palette swap on color-related properties only. Layout
+   properties (transform, opacity) stay un-animated so the page does
+   not sway during the swap. */
+
+*,
+*::before,
+*::after {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+
+/* Honor system motion preference — disable both the keyframe-based
+   animations above and the theme-transition on demand. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   11. Body baseline — only the minimum needed before component CSS
+   takes over. The rest belongs in component-specific styles in
+   later phases, not here.
+   --------------------------------------------------------------------- */
+
+html,
+body {
+  background-color: var(--bg-0);
+  color: var(--text-1);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-relaxed);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'cv11';
+}
