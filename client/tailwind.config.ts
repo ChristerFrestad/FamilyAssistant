@@ -48,10 +48,12 @@ const config: Config = {
       // tokens.css for one-to-one mental mapping.
       // -------------------------------------------------------------
       colors: {
-        // Background scale
-        'bg-0': 'var(--bg-0)',
-        'bg-1': 'var(--bg-1)',
-        'bg-2': 'var(--bg-2)',
+        // Canvas (page-background) scale. Named "canvas" rather than
+        // "bg" so utility classes read as `bg-canvas-0` instead of the
+        // stuttering `bg-bg-0`.
+        'canvas-0': 'var(--canvas-0)',
+        'canvas-1': 'var(--canvas-1)',
+        'canvas-2': 'var(--canvas-2)',
         // Glass surface tokens
         surface: 'var(--surface)',
         'surface-strong': 'var(--surface-strong)',

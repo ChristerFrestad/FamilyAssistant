@@ -22,7 +22,7 @@ const NAV_ITEMS: Array<{ href: string; label: string }> = [
 
 export default function PreviewPage(): JSX.Element {
   return (
-    <div className="min-h-screen bg-bg-0 text-text-1 font-body">
+    <div className="min-h-screen bg-canvas-0 text-text-1 font-body">
       <header className="sticky top-0 z-10 bg-surface-strong border-b border-stroke backdrop-blur">
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div>

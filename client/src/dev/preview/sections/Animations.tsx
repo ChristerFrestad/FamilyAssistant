@@ -48,7 +48,7 @@ const ANIMATIONS: Anim[] = [
 function AnimationCard(props: { anim: Anim }): JSX.Element {
   const [tick, setTick] = useState(0);
   return (
-    <div className="bg-bg-1 rounded-md border border-stroke p-4 space-y-3">
+    <div className="bg-canvas-1 rounded-md border border-stroke p-4 space-y-3">
       <div>
         <code className="font-mono text-meta text-text-1 block">{props.anim.cls}</code>
         <code className="font-mono text-label text-text-3 block">

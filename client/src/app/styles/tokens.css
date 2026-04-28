@@ -78,9 +78,9 @@
 
 :root {
   /* Background scale — neutral cream / off-white. */
-  --bg-0: oklch(0.97 0.008 85);
-  --bg-1: oklch(0.99 0.005 85);
-  --bg-2: oklch(0.94 0.01 85);
+  --canvas-0: oklch(0.97 0.008 85);
+  --canvas-1: oklch(0.99 0.005 85);
+  --canvas-2: oklch(0.94 0.01 85);
 
   /* Surface tokens for glass-morphism overlays. The alpha channel
      drives the see-through effect; lighting comes from blur + saturate
@@ -125,9 +125,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-0: oklch(0.16 0.015 95);
-    --bg-1: oklch(0.2 0.018 95);
-    --bg-2: oklch(0.24 0.02 95);
+    --canvas-0: oklch(0.16 0.015 95);
+    --canvas-1: oklch(0.2 0.018 95);
+    --canvas-2: oklch(0.24 0.02 95);
 
     --surface: oklch(0.24 0.018 95 / 0.55);
     --surface-strong: oklch(0.28 0.02 95 / 0.72);
@@ -161,9 +161,9 @@
 /* User explicitly chose light. Repeats the :root defaults so the
    override wins over the @media-dark rule. */
 [data-theme='light'] {
-  --bg-0: oklch(0.97 0.008 85);
-  --bg-1: oklch(0.99 0.005 85);
-  --bg-2: oklch(0.94 0.01 85);
+  --canvas-0: oklch(0.97 0.008 85);
+  --canvas-1: oklch(0.99 0.005 85);
+  --canvas-2: oklch(0.94 0.01 85);
 
   --surface: oklch(1 0 0 / 0.72);
   --surface-strong: oklch(1 0 0 / 0.88);
@@ -191,9 +191,9 @@
 
 /* User explicitly chose dark. Mirror of the @media-dark block. */
 [data-theme='dark'] {
-  --bg-0: oklch(0.16 0.015 95);
-  --bg-1: oklch(0.2 0.018 95);
-  --bg-2: oklch(0.24 0.02 95);
+  --canvas-0: oklch(0.16 0.015 95);
+  --canvas-1: oklch(0.2 0.018 95);
+  --canvas-2: oklch(0.24 0.02 95);
 
   --surface: oklch(0.24 0.018 95 / 0.55);
   --surface-strong: oklch(0.28 0.02 95 / 0.72);
@@ -406,7 +406,7 @@
 
 html,
 body {
-  background-color: var(--bg-0);
+  background-color: var(--canvas-0);
   color: var(--text-1);
 }
 

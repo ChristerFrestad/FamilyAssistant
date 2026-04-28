@@ -51,7 +51,7 @@ export default function Typography(): JSX.Element {
           Font families
         </h3>
         <div className="space-y-4">
-          <div className="bg-bg-1 rounded-md border border-stroke p-4">
+          <div className="bg-canvas-1 rounded-md border border-stroke p-4">
             <div className="font-mono text-label text-text-3 mb-1">font-display</div>
             <div className="font-display text-card text-text-1">{SAMPLE}</div>
             <div className="font-display text-card text-text-1">{SAMPLE_NO}</div>
@@ -60,7 +60,7 @@ export default function Typography(): JSX.Element {
             </div>
           </div>
 
-          <div className="bg-bg-1 rounded-md border border-stroke p-4">
+          <div className="bg-canvas-1 rounded-md border border-stroke p-4">
             <div className="font-mono text-label text-text-3 mb-1">font-body</div>
             <div className="font-body text-body text-text-1">{SAMPLE}</div>
             <div className="font-body text-body text-text-1">{SAMPLE_NO}</div>
@@ -69,7 +69,7 @@ export default function Typography(): JSX.Element {
             </div>
           </div>
 
-          <div className="bg-bg-1 rounded-md border border-stroke p-4">
+          <div className="bg-canvas-1 rounded-md border border-stroke p-4">
             <div className="font-mono text-label text-text-3 mb-1">font-mono</div>
             <div className="font-mono text-body text-text-1">{SAMPLE}</div>
             <div className="font-mono text-body text-text-1">{SAMPLE_NO}</div>
@@ -81,7 +81,7 @@ export default function Typography(): JSX.Element {
         <h3 className="font-body text-meta tracking-wide text-text-2 uppercase mb-3">
           Type scale (font-display)
         </h3>
-        <div className="bg-bg-1 rounded-md border border-stroke p-4 space-y-3">
+        <div className="bg-canvas-1 rounded-md border border-stroke p-4 space-y-3">
           {SIZES.map((row) => (
             <div key={row.token} className="flex items-baseline gap-4">
               <code className="font-mono text-label text-text-3 min-w-[8rem]">{row.token}</code>
@@ -97,7 +97,7 @@ export default function Typography(): JSX.Element {
         <h3 className="font-body text-meta tracking-wide text-text-2 uppercase mb-3">
           Letter-spacing (tracking)
         </h3>
-        <div className="bg-bg-1 rounded-md border border-stroke p-4 space-y-3">
+        <div className="bg-canvas-1 rounded-md border border-stroke p-4 space-y-3">
           {TRACKING_ROWS.map((row) => (
             <div key={row.className}>
               <code className="font-mono text-label text-text-3 block mb-1">{row.label}</code>
@@ -115,7 +115,7 @@ export default function Typography(): JSX.Element {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {LEADING_ROWS.map((row) => (
-            <div key={row.className} className="bg-bg-1 rounded-md border border-stroke p-4">
+            <div key={row.className} className="bg-canvas-1 rounded-md border border-stroke p-4">
               <code className="font-mono text-label text-text-3 block mb-2">{row.label}</code>
               <p className={`font-body text-body text-text-1 ${row.className}`}>{PARAGRAPH}</p>
             </div>

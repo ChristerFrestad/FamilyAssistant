@@ -30,7 +30,7 @@ export default function Spacing(): JSX.Element {
         Tailwind&apos;s default scale (1 = 0.25 rem = 4 px) is in lockstep with the --space-* tokens
         in tokens.css. Use the Tailwind class for components and the token for arbitrary CSS.
       </p>
-      <div className="bg-bg-1 rounded-md border border-stroke p-4 space-y-2">
+      <div className="bg-canvas-1 rounded-md border border-stroke p-4 space-y-2">
         {STEPS.map((s) => (
           <div key={s.cls} className="flex items-center gap-4">
             <code className="font-mono text-meta text-text-1 min-w-[3rem]">{s.cls}</code>

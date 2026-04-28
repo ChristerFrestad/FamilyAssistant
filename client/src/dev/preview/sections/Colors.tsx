@@ -11,9 +11,9 @@ type Swatch = {
 };
 
 const BG_SWATCHES: Swatch[] = [
-  { className: 'bg-bg-0', token: '--bg-0' },
-  { className: 'bg-bg-1', token: '--bg-1' },
-  { className: 'bg-bg-2', token: '--bg-2' },
+  { className: 'bg-canvas-0', token: '--canvas-0' },
+  { className: 'bg-canvas-1', token: '--canvas-1' },
+  { className: 'bg-canvas-2', token: '--canvas-2' },
   { className: 'bg-surface', token: '--surface' },
   { className: 'bg-surface-strong', token: '--surface-strong' },
   { className: 'bg-mint', token: '--mint' },
@@ -51,7 +51,7 @@ export default function Colors(): JSX.Element {
           {BG_SWATCHES.map((s) => (
             <div key={s.token} className="rounded-md overflow-hidden border border-stroke">
               <div className={`${s.className} h-20`} aria-label={`${s.token} swatch`} />
-              <div className="bg-bg-1 px-3 py-2">
+              <div className="bg-canvas-1 px-3 py-2">
                 <code className="font-mono text-meta text-text-1">{s.token}</code>
                 <div className="font-mono text-label text-text-3">{s.className}</div>
               </div>
@@ -64,7 +64,7 @@ export default function Colors(): JSX.Element {
         <h3 className="font-body text-meta tracking-wide text-text-2 uppercase mb-3">
           Text tokens
         </h3>
-        <div className="bg-bg-1 rounded-md border border-stroke p-4 space-y-2">
+        <div className="bg-canvas-1 rounded-md border border-stroke p-4 space-y-2">
           {TEXT_SWATCHES.map((s) => (
             <div key={s.token} className="flex items-baseline gap-3">
               <span className={`${s.className} font-body text-body`}>Sample text in {s.token}</span>
@@ -88,7 +88,7 @@ export default function Colors(): JSX.Element {
         </h3>
         <div className="grid grid-cols-2 gap-3">
           {STROKE_SWATCHES.map((s) => (
-            <div key={s.token} className={`rounded-md border-2 ${s.className} bg-bg-1 p-4`}>
+            <div key={s.token} className={`rounded-md border-2 ${s.className} bg-canvas-1 p-4`}>
               <code className="font-mono text-meta text-text-1">{s.token}</code>
               <div className="font-mono text-label text-text-3">{s.className}</div>
             </div>

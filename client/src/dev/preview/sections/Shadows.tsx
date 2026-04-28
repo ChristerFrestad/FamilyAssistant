@@ -36,7 +36,7 @@ export default function Shadows(): JSX.Element {
   return (
     <section id="shadows" className="space-y-4">
       <h2 className="font-display text-display-md text-text-1">Shadows</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 p-4 bg-bg-2 rounded-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 p-4 bg-canvas-2 rounded-lg">
         {SHADOWS.map((s) => (
           <div
             key={s.token}
