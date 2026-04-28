@@ -1,6 +1,6 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-28 (kalender-arkitektur lagt til som Fase 2-beslutning; batch-2 fortsatt konsolidert lokalt og venter push-klarsignal "nå pusher vi batch 2")
+**Sist oppdatert:** 2026-04-28 (PR #56-temaer reformulert som pending-decisions etter PR-lukking — user-scoping, settings-arkitektur, AI-tier; kalender-arkitektur lagt til tidligere; batch-2 fortsatt konsolidert lokalt og venter push-klarsignal "nå pusher vi batch 2")
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon er **GitHub Issue #62** (uke 2-beslutninger —
@@ -495,3 +495,143 @@ locked-decisions.md` slik at den ikke mistes mellom faser.
   sletting av `family_events` ved familie-deaktivering.
 - `design/2026-04-redesign/extracted/locked-decisions.md` (når formelt
   bekreftet): plassering av hybrid-modellen som fase-låst beslutning.
+
+---
+
+## User-scoping innenfor Family (Fase 1e / Fase 2)
+
+Notert 2026-04-28 etter lukking av PR #56 ("feat(users): per-user
+scoping within Family (planning stage)") som bare inneholdt CRLF-
+line-ending-normalisering. PR-bodyen skisserte 5 fremtidige tema —
+kalender-arkitektur og gamification (`chore_completions`) er
+allerede dekket andre steder; user-scoping, settings-arkitektur og
+AI-tier-modell formaliseres her som egne pending-decisions.
+
+**Spørsmål:** Hvordan skiller vi data som er felles for hele
+familien (handleliste, ukemeny, husholdnings-events) fra data som
+er knyttet til ett enkelt familiemedlem (personlige preferanser,
+diett-tagger, gamification-progresjon, AI-historikk)?
+
+### Foreløpige observasjoner
+
+- **Per-medlem-diett er allerede implementert** (B7-arbeidet,
+  `migration 020`, `family_profile_members`-tabell). Det er
+  presedens for at "familien har medlemmer hver med sine egne
+  attributter".
+- **Ingen `users`-tabell ennå.** Dagens auth-modell bruker en
+  `family_id` per innloggings-sesjon, ikke en `user_id`. Multi-
+  tenant-arkitekturen (B1) skiller på `family_id`-nivå.
+- **`chore_completions`-tabellen** (B5/gamification-fundament)
+  trenger en `member_id` eller `user_id` for å spore hvem som
+  faktisk gjorde hva. Dette tvinger fram beslutningen i nær
+  fremtid.
+- **Auth-frys i `CLAUDE.md` DEL 6** krever eksplisitt unntak for
+  ny user-scoping — beslutningen må tas før implementasjon.
+
+### Tre alternativer
+
+- **A: Hold `family_id` som eneste enhet** — tilføy `member_id`
+  som lett FK-referanse i tabeller som trenger det
+  (`chore_completions.completed_by_member_id`, etc.). Ingen
+  `users`-tabell. Enkleste vei, men begrenser hva en "personlig
+  innstilling" kan være.
+- **B: Innfør `users`-tabell med login-credentials per medlem** —
+  hver person har egen e-post/magic-link, egne preferanser, egen
+  gamification-progresjon. Krever auth-flyt-utvidelse i Fase 1e
+  og tett samspill med RLS-arkitekturen.
+- **C: Hybrid** — beholde delte family-credentials (én magic-link
+  per familie), men la hver familie velge egen "stemme/avatar"
+  ved login (medlem-velger). Personlig data sporer mot
+  `member_id`, ikke `user_id`. Lavere onboarding-friksjon, men
+  introduserer "rolle-bytting"-konsept som er uvanlig for
+  husholdnings-apper.
+
+**Status:** Ikke besluttet. Krever beslutning før Fase 1e (auth)
+ferdigstilles, og senest når gamification-features skal vise
+"hvem fullførte oppgaven".
+
+**Timing:** Anbefalt diskusjon under planleggings-fasen for Fase
+1e (~2-3 uker fra nå).
+
+---
+
+## Settings-arkitektur: system / family / user (Fase 2)
+
+Notert 2026-04-28 (samme bakgrunn som user-scoping ovenfor).
+
+**Spørsmål:** På hvilket nivå lagres en gitt innstilling, og
+hvordan presenteres innstillinger i UI-et slik at brukeren forstår
+hva de endrer?
+
+### Tre nivåer
+
+- **System-nivå** — administrert av Christer/host, gjelder hele
+  installasjonen (f.eks. LLM-endepunkt, default backup-policy,
+  feature-flagg).
+- **Family-nivå** — gjelder hele husholdningen (f.eks. valgt
+  meal-plan-strategi, Kassal.app-API-nøkkel,
+  `chores_allowed_days` per migration 017, dietary preferences
+  som er familiens "default").
+- **User-nivå** — kun gyldig for den innloggede brukeren
+  (personlige notifikasjons-preferanser, individuelle
+  diett-tagger, theme-preferanse, språk-preferanse for i18n).
+
+### Beslutninger som må tas
+
+1. **Hvor flytter Kassal.app-nøkkelen?** Den er i dag
+   family-konfig per `family_profile.kassalapp_token`. Bør den
+   forbli der, eller flyttes til system-nivå (Christer setter for
+   alle) eller user-nivå (hver person har egen)?
+2. **Hvilke innstillinger MÅ være user-nivå** for å unngå at en
+   person overskriver en annen sin preferanse? (Kandidater:
+   theme, varslings-modus, språk, individuell diett.)
+3. **UI-modell:** Én Settings-side med tre tabs (System / Family
+   / Min profil)? Eller tre helt separate inngangsporter? Påvirker
+   informasjonsarkitektur i AppShell (Fase 1d).
+
+**Status:** Ikke besluttet. Avhengig av user-scoping-beslutningen
+ovenfor.
+
+**Timing:** Settings-UI er Fase 2-arbeid, men datamodellen må
+låses før Fase 1e (auth) for å unngå migrasjons-rebuild.
+
+---
+
+## AI-tilgang og tier-modell (post-pilot)
+
+Notert 2026-04-28 (samme bakgrunn).
+
+**Spørsmål:** Hvordan håndterer vi LLM-tilgang når vi går fra
+single-pilot-deploy til flere familier, særlig hvis Christers
+private Ollama ikke kan bære last fra alle?
+
+### Tre nivåer av tilgang
+
+- **A: Hver familie eier sin egen LLM-konfig** — krever at
+  brukeren har Ollama lokalt eller egen API-nøkkel. Høyest
+  tekniske kostnad for brukeren, men lavest drift-kostnad for
+  Christer. Per-family-LLM-config eksisterer allerede i
+  `migration 014`.
+- **B: Felles Ollama hostet av Christer** — som per **B2**-
+  beslutningen i uke 2 (Issue #62 — `LLM-strategi → (a) min Ollama
+  som felles ressurs`). Vurdert som passende for 5 pilot-familier
+  med moderat bruk. Skalering ukjent.
+- **C: Tier-modell** — gratis (Ollama, lavere kvalitet, kvota)
+  vs betalt (ekstern API som GPT-4/Claude, høyere kvalitet, ingen
+  kvota). Krever betalings-integrasjon (Stripe?) og kvota-
+  håndtering.
+
+**Status:** B er valgt for pilot (uke 2-beslutninger). C er en
+post-pilot-vurdering hvis pilot-data viser at:
+1. Kvaliteten på Ollama er utilstrekkelig for noen brukere, eller
+2. Lasten på Christers RPI/server blir uholdbar med vekst.
+
+**Timing:** Vurderes etter pilot-fase (uke ~12+ per
+`pre-deploy-cleanup-plan.md`). Krever betalings-leverandør-
+beslutning og kvota-tall.
+
+**Krysslenker:**
+- **B2** (uke 2-beslutninger ovenfor): nåværende valg av Ollama
+  som felles ressurs.
+- `migration 014` (per-family LLM-config): datamodell-fundament
+  hvis tier-modellen velger å tillate familie-spesifikk override.
