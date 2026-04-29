@@ -1,6 +1,6 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-29 (backup-arkitektur-utvidbarhet for fremtidig ekstern backup notert til Sprint 8 ved oppstart av Sprint 3 / Fase 1e; ESLint config-gap for `public/v2/`-build-artefakter notert etter domain-rename-oppdagelse; audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
+**Sist oppdatert:** 2026-04-29 (legacy `LOCAL_USER`-fallback i `server/auth/middleware.js` notert som backend cleanup-arbeid for Sprint 6 / pre-Sprint 8 deploy etter rot-årsak-funn under PR #77 hotfix; backup-arkitektur-utvidbarhet for fremtidig ekstern backup notert til Sprint 8 ved oppstart av Sprint 3 / Fase 1e; ESLint config-gap for `public/v2/`-build-artefakter notert etter domain-rename-oppdagelse; audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon for Master-plan-beslutninger er
@@ -849,3 +849,132 @@ for Sprint 3-7.
 - `server/config.js` — `BACKUP_HOUR`, `BACKUP_KEEP_DAYS`,
   `BACKUP_DIR` env-vars (utvides med target-spesifikke vars)
 - Master-plan Del B Prompt 17 (Sprint 8)
+
+---
+
+## Legacy `LOCAL_USER` fallback i auth-middleware må fjernes før prod-deploy
+
+**Notert:** 2026-04-29 etter rot-årsak-analyse av Sprint 3 routing-bug
+(PR #77 hotfix B).
+**Sprint:** Notert i Sprint 3 — adresseres i Sprint 6 (pre-deploy
+cleanup, Prompt 14) eller senest før Sprint 8 prod-deploy
+(Prompt 17).
+**Besluttet av:** Christer.
+
+### Kontekst
+
+`server/auth/middleware.js:144-147` har en legacy-fallback fra
+single-tenant-arkitekturen:
+
+```js
+// Legacy dev fallback: no AUTH_TOKEN configured and no session →
+// allow as local user. This preserves the existing
+// unauthenticated local dev flow.
+if (!config.AUTH_TOKEN) {
+  attachLocalUser(ctx);
+  return;
+}
+```
+
+Når serveren kjører uten `AUTH_TOKEN` (lokal dev, eller hvis et
+prod-deploy ved en feil mangler env-var-en), attaches en syntetisk
+`LOCAL_USER` med `family_id=1`, `role=owner`, `_synthetic=true` på
+`ctx`. `/api/auth/me` returnerer dette som `authenticated: true`,
+`synthetic: true`, `onboardingCompleted: false`.
+
+I Sprint 3 / Fase 1e oppdaget Christer under manuell test at v2-SPA-en
+behandlet syntetisk bruker som ekte autentisert → OnboardingGuard
+sendte til `/onboarding/family` → `POST /api/onboarding/create-family`
+returnerte 401 → bruker satt fast i loop. PR #77 hotfix B la inn
+frontend-filter (`AuthContext.refreshUser` ignorerer
+`synthetic: true`-respons), som løser brukeropplevelsen — men selve
+fallback-en finnes fremdeles på backend.
+
+### Hvorfor fallback-en må bort før pilot/prod
+
+1. **Defense-in-depth:** Frontend-filteret er én linje med kode som
+   en fremtidig refaktor kan fjerne uten at noen ser regresjonen
+   før neste manuelle test. Backend skal aldri returnere `synthetic`-
+   bruker som autentisert i et auth-aware deploy.
+2. **Multi-tenant-isolasjon:** `LOCAL_USER` har hardkodet `family_id=1`.
+   Hvis fallback-en aktiveres ved en feil i prod (mistet env-var,
+   regresjon i config-validation), får én anonym bruker tilgang til
+   pilot-familiens data.
+3. **Audit-trail-renhet:** Eventuelle handlinger gjort av syntetisk
+   bruker logges med id=0 og familiy_id=1, som forurenser audit-
+   trail (se egen entry "Audit-trail-utvidelse").
+4. **Forutsigbar dev-prod-paritet:** I dag oppfører `npm start` seg
+   forskjellig avhengig av om `AUTH_TOKEN` er satt — det gjør at
+   bugs som denne kan slippe forbi lokal manuell test fordi dev-
+   modus dekker over symptomet.
+
+### Tre alternativer
+
+- **A: Fjern fallback-en helt.** Hvis `AUTH_TOKEN` ikke er satt OG
+  ingen session-cookie OG endpoint krever auth → 401. Mest
+  konservativt, kan kreve at dev-flyten bruker `PILOT_BYPASS=true`
+  eller magic-link-flyten istedenfor å treffe API-er anonymt.
+  *Anbefales for prod.*
+- **B: Eksplisitt opt-in via egen env-var.** F.eks.
+  `LEGACY_LOCAL_USER_FALLBACK=true`. Default avslått; må eksplisitt
+  skrus på ved RPi-installasjon som faktisk bruker single-tenant-
+  modus. Ingen prod-deploy aktiverer den. Bevarer bakover-
+  kompatibilitet for legacy single-tenant-installasjoner.
+- **C: Prod-gate.** Behold fallback i `NODE_ENV !== 'production'`,
+  fjern den når `NODE_ENV === 'production'`. Enkleste mulige
+  fix; gjør at lokal dev fortsatt fungerer som før, men prod-
+  deploy aldri har symptomet. *Lavest risiko hvis pilot kjører
+  i prod-modus, hvilket den vil.*
+
+### Sikkerhets-akseptanse-kriterium for løsningen
+
+Uavhengig av valgt alternativ skal `/api/auth/me` returnere
+`{ authenticated: false, user: null }` for en uautentisert request
+i prod-modus — matcher hva frontend AuthContext forventer av en
+auth-aware backend.
+
+### Hva som IKKE er i scope for denne entryen
+
+- Endring av eksisterende Bearer-token-flyt (RPi service mode med
+  `AUTH_TOKEN`-header) — den fortsetter å fungere uavhengig av
+  fallback-fjerning.
+- Endring av `PILOT_BYPASS=true`-flyten — det er en separat
+  eksplisitt opt-in for pilot-test og skal ikke fjernes før etter
+  pilot-launch.
+- Refaktor av `server/auth/middleware.js` for øvrig.
+
+### Implementations-detaljer (når det aktiveres)
+
+- **Tester:** legg til regresjons-test som bekrefter at
+  `/api/auth/me` uten cookie OG uten `AUTH_TOKEN` returnerer
+  `authenticated: false`. Tre miljø-permutasjoner:
+  `NODE_ENV=development`, `NODE_ENV=production`,
+  `PILOT_BYPASS=true`.
+- **Audit:** kjøre fresh manuell smoke-test av v2-SPA i incognito
+  etter fjerningen for å bekrefte at routing-flyten fortsatt
+  fungerer (welcome → login → magic-link → onboarding → dashboard).
+- **Frontend-cleanup:** etter at backend ikke lenger returnerer
+  `synthetic`-bruker, kan vi vurdere om frontend-filteret i
+  `AuthContext.refreshUser` skal beholdes som defense-in-depth
+  eller fjernes som dødkode. Anbefaling: behold som defense-in-
+  depth, kommentar oppdateres til å reflektere ny backend-
+  oppførsel.
+
+### Status
+
+**Notert.** Planlagt for Sprint 6 / Prompt 14 (pre-deploy cleanup),
+eller hvis ikke landet der, før Sprint 8 / Prompt 17 (prod-deploy).
+Ingen blokkering for Sprint 4-5.
+
+### Krysslenker
+
+- `server/auth/middleware.js:99-152` — `createAuthenticate`-
+  middleware, fallback-blokk på linje 144-147
+- `server/auth/middleware.js:52-60` — `LOCAL_USER`-konstanten
+- `client/src/app/auth/AuthContext.tsx:64-79` — frontend-filter
+  (PR #77 hotfix B)
+- `client/src/app/auth/authApi.ts:33-43` — `AuthUser`-type med
+  `synthetic`-felt
+- PR #77 — hotfix som la inn frontend-mitigering
+- Audit-trail-utvidelse-entry (over) — relatert pre-pilot security
+  cleanup
