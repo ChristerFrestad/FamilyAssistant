@@ -7,7 +7,6 @@
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { Dashboard } from './Dashboard';
 import { Family } from './Family';
 import { Meals } from './Meals';
 import { Shopping } from './Shopping';
@@ -17,12 +16,12 @@ import { NotFound } from './NotFound';
 import { Login } from './auth/Login';
 import { AuthProvider } from '../auth/AuthContext';
 
-describe('placeholder screens render with i18n headings', () => {
-  test('Dashboard', () => {
-    render(<Dashboard />);
-    expect(screen.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument();
-  });
+// Dashboard moved out of this file when the real Phase-2A screen
+// landed (PR-#? Fase 2A). Real Dashboard behavior tests live in
+// Dashboard.test.tsx — they cover loading/empty/error per card,
+// retry, and quick-actions navigation.
 
+describe('placeholder screens render with i18n headings', () => {
   test('Family', () => {
     render(<Family />);
     expect(screen.getByRole('heading', { name: 'Familie', level: 1 })).toBeInTheDocument();

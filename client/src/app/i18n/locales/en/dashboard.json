@@ -1,8 +1,10 @@
 {
+  "title": "Home",
   "welcome": {
     "morning": "Good morning, {{name}}",
     "afternoon": "Good afternoon, {{name}}",
-    "evening": "Good evening, {{name}}"
+    "evening": "Good evening, {{name}}",
+    "subtitle": "Here's what's happening with your family today."
   },
   "sections": {
     "todaysMeals": "Today's meals",
@@ -14,9 +16,33 @@
     "noMeals": "No meals planned for today",
     "noChores": "No chores for today",
     "noShoppingItems": "Shopping list is empty",
-    "noEvents": "No upcoming events"
+    "noEvents": "No upcoming events",
+    "addMeal": "Plan a dinner",
+    "addChore": "Add a chore",
+    "addShopping": "Add an item",
+    "addEvent": "Create an event"
   },
-  "placeholder": {
-    "description": "Coming in Phase 2A — the route is in place so navigation can be verified end-to-end in the meantime."
+  "shopping": {
+    "itemsRemaining_one": "{{count}} item left",
+    "itemsRemaining_other": "{{count}} items left"
+  },
+  "more": {
+    "chores_one": "+ {{count}} more",
+    "chores_other": "+ {{count}} more",
+    "events_one": "+ {{count}} more",
+    "events_other": "+ {{count}} more"
+  },
+  "actions": {
+    "viewAll": "View all",
+    "retry": "Try again",
+    "addMeal": "Add meal",
+    "addChore": "New chore",
+    "addShopping": "Add to shopping list"
+  },
+  "errors": {
+    "generic": "Could not fetch data"
+  },
+  "quickActions": {
+    "label": "Quick actions"
   }
 }
