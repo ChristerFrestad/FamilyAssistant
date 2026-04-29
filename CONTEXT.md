@@ -41,7 +41,7 @@ docs, patch-oppdateringer). Direkte på `main`, ingen feature-branch.
 **Kontekst:** Master-plan til pilot startet 2026-04-29 etter Fase 1b
 ble merget (PR #68). Hele 18-prompt-planen ligger som referanse i
 Christer's Del A/B-dokumenter. Pilot-mål: Christer's familie får
-appen til daglig bruk på `app.husholdningsplanleggeren.com`.
+appen til daglig bruk på `app.hverdagsplanleggeren.com`.
 
 **Etter Prompt 1:** Prompt 2 (backend-sikkerhet-fundament) som er
 den største og viktigste sprint-1-fasen — auth/google.js coverage
