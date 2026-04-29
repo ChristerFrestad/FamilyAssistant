@@ -23,5 +23,8 @@
   "delete": {
     "confirmTitle": "Slett medlem?",
     "confirmBody": "Dette kan ikke angres."
+  },
+  "placeholder": {
+    "description": "Kommer i Fase 2B — medlems-CRUD, per-medlem-diett og gamification-progresjon."
   }
 }

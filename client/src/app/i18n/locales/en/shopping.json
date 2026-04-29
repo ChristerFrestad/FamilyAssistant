@@ -10,5 +10,8 @@
     "unmark": "Undo",
     "deleteBought": "Delete bought items"
   },
-  "empty": "Shopping list is empty"
+  "empty": "Shopping list is empty",
+  "placeholder": {
+    "description": "Coming in Phase 2C — shopping list with categories, pantry integration, and undo flow."
+  }
 }

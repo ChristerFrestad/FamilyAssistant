@@ -47,5 +47,8 @@
   "appShell": {
     "skipToContent": "Hopp til hovedinnhold",
     "logoLabel": "Familieassistenten — til startsiden"
+  },
+  "notFound": {
+    "description": "Siden finnes ikke. Den endelige feilskjermen kommer i Fase 2 — inntil videre er dette en enkel fallback som lar ruten matche slik at navigasjonen er fullstendig."
   }
 }

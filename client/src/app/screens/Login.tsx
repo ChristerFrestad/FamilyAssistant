@@ -6,12 +6,16 @@
 // We render this OUTSIDE the AppShell on purpose: an unauthenticated
 // user should not see the header, nav, or any of the in-app chrome.
 // PageShell gives the auth-flow density we use elsewhere.
+//
+// "Familieassistenten" is the brand name and stays as a literal —
+// it does not translate. The descriptive paragraph and the loading
+// hint flow through i18n.
 
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/layout/PageShell';
 
 export function Login(): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'auth']);
   return (
     <PageShell maxWidth="sm" compact>
       <section
@@ -22,10 +26,9 @@ export function Login(): JSX.Element {
           Familieassistenten
         </h1>
         <p className="font-body text-body text-text-2 max-w-md">
-          Innlogging-skjermen kommer i Fase 1e (magic-link + Google). Inntil videre er denne
-          plasseringen reservert slik at AuthGuard har en gyldig redirect-rute.
+          {t('auth:login.placeholder.description')}
         </p>
-        <p className="font-body text-meta text-text-3">{t('status.loading')}</p>
+        <p className="font-body text-meta text-text-3">{t('common:status.loading')}</p>
       </section>
     </PageShell>
   );

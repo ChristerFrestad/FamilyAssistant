@@ -16,5 +16,8 @@
     "markEaten": "Mark eaten",
     "swap": "Swap"
   },
-  "empty": "No meal planned"
+  "empty": "No meal planned",
+  "placeholder": {
+    "description": "Coming in Phase 2C — week menu, recipes, and swap flow."
+  }
 }

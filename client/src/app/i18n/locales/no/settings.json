@@ -27,5 +27,8 @@
     "warning": "Dette sletter all familie-data permanent. Dette kan ikke angres.",
     "confirmPlaceholder": "Skriv familienavn for å bekrefte",
     "confirmAction": "Slett permanent"
+  },
+  "placeholder": {
+    "description": "Kommer i Fase 2E — system / familie / personlige innstillinger."
   }
 }

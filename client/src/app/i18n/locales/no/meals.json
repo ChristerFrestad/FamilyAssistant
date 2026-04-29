@@ -16,5 +16,8 @@
     "markEaten": "Marker spist",
     "swap": "Bytt"
   },
-  "empty": "Ingen måltid planlagt"
+  "empty": "Ingen måltid planlagt",
+  "placeholder": {
+    "description": "Kommer i Fase 2C — ukemeny, oppskrifter og swap-flyt."
+  }
 }

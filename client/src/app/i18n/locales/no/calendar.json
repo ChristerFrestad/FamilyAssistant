@@ -16,5 +16,8 @@
     "weekly": "Ukentlig",
     "monthly": "Månedlig"
   },
-  "empty": "Ingen hendelser denne perioden"
+  "empty": "Ingen hendelser denne perioden",
+  "placeholder": {
+    "description": "Kommer i Fase 2D — Google-kalender pass-through + familie-events."
+  }
 }
