@@ -65,9 +65,20 @@ const envSchema = z.object({
   BACKUP_HOUR: z.coerce.number().int().min(0).max(23).default(3),
   BACKUP_KEEP_DAYS: z.coerce.number().int().positive().default(14),
 
-  // Rate limiting (Fase 4)
+  // Rate limiting (Fase 4) — global limit, applied to every request.
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  // Stricter per-IP limit on /api/auth/* (Sprint 1, Prompt 2). Defaults
+  // to 5 attempts per 15 minutes — tight enough to slow brute-force on
+  // magic-link / future OAuth callbacks, loose enough to never trip
+  // legitimate users. Tuned for the pilot; revisit before scaling beyond
+  // a handful of families.
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60 * 1000),
 
   // Uke 5 PERF-4: Memory budget. Default 512 MB = halvparten av RPi5 4GB
   // (Pi 5 med 4 GB totalt, 2 GB reservert for andre prosesser). /ready

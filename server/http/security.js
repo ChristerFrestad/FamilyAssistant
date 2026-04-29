@@ -57,7 +57,12 @@ function bearerAuth(ctx) {
 //
 // Egnet for single-node. Nullstilles ved restart (OK for RPi5).
 
+// Two independent buckets — see Sprint 1 / Prompt 2:
+//   - hits:     global limit, applied to every request
+//   - authHits: stricter limit on /api/auth/* prefix (slows brute-force
+//               on magic-link and OAuth callbacks). Default 5 per 15 min.
 const hits = new Map();
+const authHits = new Map();
 const RATE_LIMIT_MAX_IPS = 10000; // Maks antall IP-er i map før eviction
 
 function getClientIp(req) {
@@ -73,6 +78,14 @@ function getClientIp(req) {
 }
 
 function rateLimit(ctx) {
+  // Strict auth-prefix bucket runs first so brute-force attempts
+  // tripping the 5/15min ceiling get rejected with a clearer
+  // "auth rate limit" error message before they consume budget
+  // from the global bucket.
+  if (ctx.pathname && ctx.pathname.startsWith('/api/auth/')) {
+    applyAuthRateLimit(ctx);
+  }
+
   const max = config.RATE_LIMIT_MAX;
   const windowMs = config.RATE_LIMIT_WINDOW_MS;
   const ip = getClientIp(ctx.req);
@@ -106,17 +119,75 @@ function rateLimit(ctx) {
   ctx.res.setHeader('X-RateLimit-Remaining', String(Math.max(0, max - list.length)));
 }
 
-// Periodisk opprydding av gamle entries (unng\u00e5 memory leak)
+// Strict per-IP rate limit on /api/auth/*. Tighter threshold and
+// longer window than the global bucket — protects against brute-
+// forcing the magic-link start endpoint, the magic-link verify
+// endpoint, the Google OAuth callback (when enabled), and any
+// other future auth-related routes that an attacker might try to
+// drown in requests.
+//
+// On a trip the response includes Retry-After so clients can back off
+// gracefully, and the throw is dedicated (not the generic "Rate limit:
+// max ..." message) so logs and dashboards can split brute-force from
+// background traffic noise.
+function applyAuthRateLimit(ctx) {
+  const max = config.AUTH_RATE_LIMIT_MAX;
+  const windowMs = config.AUTH_RATE_LIMIT_WINDOW_MS;
+  const ip = getClientIp(ctx.req);
+  const now = Date.now();
+  const cutoff = now - windowMs;
+
+  let list = authHits.get(ip);
+  if (!list) {
+    if (authHits.size >= RATE_LIMIT_MAX_IPS) {
+      const oldest = authHits.keys().next().value;
+      if (oldest !== undefined) authHits.delete(oldest);
+    }
+    list = [];
+    authHits.set(ip, list);
+  }
+
+  while (list.length > 0 && list[0] < cutoff) list.shift();
+
+  if (list.length >= max) {
+    const retryAfter = Math.ceil((list[0] + windowMs - now) / 1000);
+    ctx.res.setHeader('Retry-After', String(retryAfter));
+    ctx.res.setHeader('X-Auth-RateLimit-Limit', String(max));
+    ctx.res.setHeader('X-Auth-RateLimit-Remaining', '0');
+    throw errors.tooManyRequests(
+      `Auth rate limit: max ${max} attempts per ${windowMs / 60000} minutes`
+    );
+  }
+
+  list.push(now);
+  ctx.res.setHeader('X-Auth-RateLimit-Limit', String(max));
+  ctx.res.setHeader('X-Auth-RateLimit-Remaining', String(Math.max(0, max - list.length)));
+}
+
+// Periodisk opprydding av gamle entries (unng\u00e5 memory leak). Both
+// buckets get the same cleanup pass on every tick.
 function startRateLimitCleanup() {
   const interval = setInterval(() => {
-    const cutoff = Date.now() - config.RATE_LIMIT_WINDOW_MS;
+    const now = Date.now();
+    const globalCutoff = now - config.RATE_LIMIT_WINDOW_MS;
     for (const [ip, list] of hits.entries()) {
-      while (list.length > 0 && list[0] < cutoff) list.shift();
+      while (list.length > 0 && list[0] < globalCutoff) list.shift();
       if (list.length === 0) hits.delete(ip);
+    }
+    const authCutoff = now - config.AUTH_RATE_LIMIT_WINDOW_MS;
+    for (const [ip, list] of authHits.entries()) {
+      while (list.length > 0 && list[0] < authCutoff) list.shift();
+      if (list.length === 0) authHits.delete(ip);
     }
   }, config.RATE_LIMIT_WINDOW_MS);
   interval.unref();
   return () => clearInterval(interval);
+}
+
+// Test-only helpers to reset bucket state between tests.
+function _resetRateLimitBuckets() {
+  hits.clear();
+  authHits.clear();
 }
 
 // ============================================================
@@ -206,4 +277,6 @@ module.exports = {
   applySecurityHeaders,
   sanitizeForPrompt,
   getClientIp,
+  // Test-only — exported for the security suite to reset between cases.
+  _resetRateLimitBuckets,
 };
