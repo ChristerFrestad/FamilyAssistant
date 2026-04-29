@@ -15,5 +15,8 @@
     "noChores": "No chores for today",
     "noShoppingItems": "Shopping list is empty",
     "noEvents": "No upcoming events"
+  },
+  "placeholder": {
+    "description": "Coming in Phase 2A — the route is in place so navigation can be verified end-to-end in the meantime."
   }
 }

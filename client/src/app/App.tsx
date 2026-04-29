@@ -1,31 +1,65 @@
-// Placeholder root component for v2. Phase 1a proved the toolchain
-// (Vite + React + TS + Tailwind) end-to-end with a landing page that
-// exercised React Router and the Express /v2/* fallback. Phase 1b.1
-// strips that back to a single "Kommer snart" view so design-tokens
-// (1b.2) and base components (1b.3) can land against a clean slate.
+// Root of the v2 frontend. Wires four concerns together:
 //
-// React Router is still mounted from main.tsx, so /v2/anything still
-// resolves via the SPA fallback. This component does not declare any
-// Routes — it simply renders regardless of the pathname.
+//   1. AuthGuard wraps every authenticated route. The /login route is
+//      rendered OUTSIDE the guard so an unauthenticated user actually
+//      reaches it instead of bouncing.
+//   2. AppShell provides the chrome (header + side/bottom-nav) for
+//      all in-app screens. Login does NOT live inside AppShell — the
+//      auth-flow keeps its own minimal layout.
+//   3. <Routes> declares the URL surface. /  redirects to /dashboard
+//      so the bare base URL lands on something useful; the catch-all
+//      maps to NotFound.
+//   4. Phase-1d screens are placeholders. Each one will be replaced
+//      with its real implementation in Phase 2A-2E without touching
+//      this file beyond an import swap.
+//
+// BrowserRouter + basename="/v2" lives one level up in main.tsx, so
+// every <Route path> is implicitly relative to /v2/*. A Route written
+// as path="/dashboard" therefore matches the URL /v2/dashboard in the
+// browser.
+
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { AuthGuard } from './components/auth/AuthGuard';
+import { AppShell } from './components/layout/AppShell';
+import { Dashboard } from './screens/Dashboard';
+import { Family } from './screens/Family';
+import { Meals } from './screens/Meals';
+import { Shopping } from './screens/Shopping';
+import { Calendar } from './screens/Calendar';
+import { Settings } from './screens/Settings';
+import { NotFound } from './screens/NotFound';
+import { Login } from './screens/Login';
 
 export default function App(): JSX.Element {
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem',
-        textAlign: 'center',
-      }}
-    >
-      <div style={{ maxWidth: '420px' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>
-          Familieassistenten <span style={{ opacity: 0.55 }}>v2</span>
-        </h1>
-        <p style={{ opacity: 0.75, lineHeight: 1.55, margin: 0 }}>Kommer snart.</p>
-      </div>
-    </main>
+    <Routes>
+      {/* Unauthenticated routes — rendered without AppShell. */}
+      <Route path="/login" element={<Login />} />
+
+      {/* Authenticated app surface. AuthGuard gates the entire tree;
+          AppShell provides chrome; the inner <Routes> declares the
+          actual screens. Nesting this way keeps AppShell mounted
+          across navigation between authenticated screens — only the
+          children swap when the URL changes. */}
+      <Route
+        path="*"
+        element={
+          <AuthGuard>
+            <AppShell>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/family" element={<Family />} />
+                <Route path="/meals" element={<Meals />} />
+                <Route path="/shopping" element={<Shopping />} />
+                <Route path="/calendar" element={<Calendar />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AppShell>
+          </AuthGuard>
+        }
+      />
+    </Routes>
   );
 }

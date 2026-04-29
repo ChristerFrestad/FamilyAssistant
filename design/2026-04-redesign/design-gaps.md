@@ -69,6 +69,50 @@ slettet felt.
 
 ## Aktuelle gaps
 
+### Desktop SideNav er ikke designet — kun BottomNav er i mockup
+
+- **Skjerm/Kontekst:** AppShell, `SideNav`-komponent
+  (`client/src/app/components/layout/SideNav.tsx`) — desktop-rail
+  ved `md`-breakpoint (≥768 px)
+- **Oppdaget:** 2026-04-29, Fase 1d (App-shell + responsive nav)
+  under implementering av AppShell
+- **Hva mangler:** Mockupen
+  `design/2026-04-redesign/source/Familieassistenten.html` viser kun
+  mobil-visningen — desktop-vinduet rendres som en sentrert
+  telefon-frame i en `md:py-10 md:max-w-[1400px]`-wrapper. Det
+  finnes ingen tegnet desktop-side-nav, og dermed ingen design-svar
+  på (a) bredde på rail-en, (b) plassering av Settings (som ikke er
+  i BottomNav), (c) hvordan logo/tema-toggle/språk-switch skal
+  forholde seg til side-nav-en, (d) hover-/aktiv-tilstand for radene
+  på desktop.
+- **Blokkerende-nivå:** medium — implementasjonen er konsistent med
+  design-system-tokens og BottomNav-mønster, men er en utvikler-
+  initiert tolkning, ikke et design-svar
+- **Midlertidig løsning:** Vertikal stack `w-56` med `border-r
+  border-stroke` som rail-skille. Hver rad er en `Link` med
+  ikon (20 px lucide) + label, `bg-ink text-ink-contrast` for aktiv
+  rad og `text-text-2 hover:bg-surface hover:text-text-1` for
+  inaktive rader. Settings ligger nederst med en hairline
+  `border-t border-stroke` over og `mt-auto`-push for å klistre seg
+  til bunnen av rail-en. Samme i18n-labels brukes som i BottomNav
+  via felles `nav-items.ts`.
+- **Antatt design-grunnlag:** `--canvas-0`, `--surface`, `--stroke`,
+  `--ink`, `--ink-contrast`, `--text-2`, `text-body` — alle fra
+  `client/src/app/styles/tokens.css`. Bredde `w-56` (224 px) er
+  utvikler-valgt etter "rommer ikon + label uten å ta over
+  hovedinnholdet".
+- **Spørsmål til design-runde:** "Tegn desktop-utgaven av
+  navigasjonen for AppShell ved breakpoint ≥768 px. Mockup har kun
+  mobil-BottomNav. Trenger: (a) rail-bredde og spacing, (b) hvor
+  Settings sitter (tegne som egen seksjon nederst eller flettet
+  med primær-nav?), (c) hvordan header/logo forholder seg til
+  rail-en (full-width header vs rail-aware header med rail-bredde
+  reservert til venstre), (d) eventuell collapse-tilstand (icon-
+  only når rail er smal), (e) hvordan vises hover- og aktiv-
+  tilstand visuelt — samme `bg-ink` som BottomNav, eller egen
+  desktop-stil (f.eks. soft-mint-tint)?"
+- **Status:** Pending
+
 ### Primary Button light-mode-kontrast — formell WCAG-verifikasjon utestår
 
 - **Skjerm/Kontekst:** `Button`-komponent, variant `primary`

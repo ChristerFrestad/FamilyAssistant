@@ -10,5 +10,8 @@
     "unmark": "Angre",
     "deleteBought": "Slett kjøpte"
   },
-  "empty": "Handlelisten er tom"
+  "empty": "Handlelisten er tom",
+  "placeholder": {
+    "description": "Kommer i Fase 2C — handleliste med kategorier, pantry-integrasjon og angre-flyt."
+  }
 }

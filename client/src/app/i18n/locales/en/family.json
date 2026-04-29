@@ -23,5 +23,8 @@
   "delete": {
     "confirmTitle": "Delete member?",
     "confirmBody": "This cannot be undone."
+  },
+  "placeholder": {
+    "description": "Coming in Phase 2B — member CRUD, per-member diet, and gamification progress."
   }
 }

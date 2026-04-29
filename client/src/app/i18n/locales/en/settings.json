@@ -27,5 +27,8 @@
     "warning": "This permanently deletes all family data. This cannot be undone.",
     "confirmPlaceholder": "Type the family name to confirm",
     "confirmAction": "Delete permanently"
+  },
+  "placeholder": {
+    "description": "Coming in Phase 2E — system / family / personal settings tiers."
   }
 }

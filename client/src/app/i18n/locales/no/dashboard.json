@@ -15,5 +15,8 @@
     "noChores": "Ingen gjøremål for i dag",
     "noShoppingItems": "Handlelisten er tom",
     "noEvents": "Ingen kommende hendelser"
+  },
+  "placeholder": {
+    "description": "Kommer i Fase 2A — i mellomtiden er ruten på plass slik at navigasjonen kan verifiseres ende til ende."
   }
 }

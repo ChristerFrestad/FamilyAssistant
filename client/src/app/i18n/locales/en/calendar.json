@@ -16,5 +16,8 @@
     "weekly": "Weekly",
     "monthly": "Monthly"
   },
-  "empty": "No events in this period"
+  "empty": "No events in this period",
+  "placeholder": {
+    "description": "Coming in Phase 2D — Google Calendar pass-through and shared family events."
+  }
 }
