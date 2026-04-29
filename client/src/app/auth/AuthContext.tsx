@@ -64,7 +64,21 @@ export function AuthProvider({ children, initialState }: AuthProviderProps): JSX
   const refreshUser = useCallback(async (): Promise<void> => {
     try {
       const result = await fetchMe();
-      setUser(result.authenticated ? result.user : null);
+      // Filter out synthetic / pilot-bypass users. The backend's
+      // legacy single-tenant fallback (server/auth/middleware.js:
+      // attachLocalUser) returns `authenticated: true, synthetic:
+      // true` for any unauthenticated request when AUTH_TOKEN is
+      // not configured. That keeps the legacy SPA at "/" working
+      // unchanged, but the v2 SPA at "/v2" must NOT treat the
+      // synthetic user as a real session: it has no session
+      // cookie, no real `family_id` mapping for the multi-tenant
+      // pilot, and any authenticated mutation (create-family,
+      // onboarding/complete, ...) will hit a 401. Treating it as
+      // unauthenticated here sends the visitor through the proper
+      // welcome → login → magic-link flow instead of stranding
+      // them in an onboarding loop they can never finish.
+      const isReal = result.authenticated && result.user !== null && !result.user.synthetic;
+      setUser(isReal ? result.user : null);
     } catch {
       // Treat any network/auth error as "not authenticated" — the
       // UI can recover by sending the user back through the magic-
