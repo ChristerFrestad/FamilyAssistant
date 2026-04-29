@@ -1,0 +1,14 @@
+{
+  "title": "Shopping list",
+  "addItem": "Add item",
+  "sections": {
+    "active": "To buy",
+    "bought": "Bought"
+  },
+  "actions": {
+    "markBought": "Mark bought",
+    "unmark": "Undo",
+    "deleteBought": "Delete bought items"
+  },
+  "empty": "Shopping list is empty"
+}

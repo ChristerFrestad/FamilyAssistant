@@ -1,0 +1,27 @@
+{
+  "title": "Familie-medlemmer",
+  "addMember": "Legg til medlem",
+  "fields": {
+    "name": "Navn",
+    "category": "Rolle",
+    "portionFactor": "Porsjonsstørrelse"
+  },
+  "category": {
+    "adult": "Voksen",
+    "teen": "Ungdom",
+    "child": "Barn"
+  },
+  "portion": {
+    "description": "1.0 = voksenporsjon (ca 500 g ferdig mat). Kan justeres basert på faktisk appetitt.",
+    "label": "{{role}}porsjon",
+    "scale": {
+      "child": "barn",
+      "teen": "ungdom",
+      "adult": "voksen"
+    }
+  },
+  "delete": {
+    "confirmTitle": "Slett medlem?",
+    "confirmBody": "Dette kan ikke angres."
+  }
+}

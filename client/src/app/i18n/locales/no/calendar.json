@@ -1,0 +1,20 @@
+{
+  "title": "Kalender",
+  "addEvent": "Legg til hendelse",
+  "fields": {
+    "eventTitle": "Tittel",
+    "description": "Beskrivelse",
+    "startTime": "Starttid",
+    "endTime": "Slutttid",
+    "allDay": "Hele dagen",
+    "attendees": "Deltakere",
+    "recurrence": "Gjentakelse"
+  },
+  "recurrence": {
+    "none": "Ingen",
+    "daily": "Daglig",
+    "weekly": "Ukentlig",
+    "monthly": "Månedlig"
+  },
+  "empty": "Ingen hendelser denne perioden"
+}

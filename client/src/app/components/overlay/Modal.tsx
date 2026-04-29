@@ -55,6 +55,7 @@
 
 import { type MouseEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 export type ModalPosition = 'center' | 'bottom';
 export type ModalSize = 'sm' | 'md' | 'lg' | 'full';
@@ -156,6 +157,7 @@ export function Modal({
 }: ModalProps): JSX.Element | null {
   // shouldRender: keeps the portal alive through the exit animation.
   // Flips false `ANIMATION_DURATION_MS` after `open` goes false.
+  const { t } = useTranslation('common');
   const [shouldRender, setShouldRender] = useState(open);
   // isOpen: drives the animation classes. Lags `open` by one rAF on
   // entrance so the browser sees the "from" frame.
@@ -316,7 +318,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Lukk"
+            aria-label={t('actions.close')}
             className="absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-text-2 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-1"
           >
             <span aria-hidden="true">✕</span>

@@ -1,0 +1,26 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
+  "status": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "saved": "Saved",
+    "tryAgain": "Try again"
+  },
+  "language": {
+    "label": "Language",
+    "norwegian": "Norwegian",
+    "english": "English"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "title": "Settings",
+  "sections": {
+    "family": "Family",
+    "mealTimes": "Meal times",
+    "gamification": "Gamification",
+    "data": "My data",
+    "dangerZone": "Danger zone"
+  },
+  "fields": {
+    "familyName": "Family name",
+    "timezone": "Timezone",
+    "breakfastTime": "Breakfast",
+    "lunchTime": "Lunch",
+    "dinnerTime": "Dinner"
+  },
+  "gamification": {
+    "label": "Enable gamification",
+    "description": "Points, levels and badges for completed chores"
+  },
+  "data": {
+    "exportButton": "Export my data"
+  },
+  "deleteAccount": {
+    "button": "Delete account",
+    "title": "Delete account?",
+    "warning": "This permanently deletes all family data. This cannot be undone.",
+    "confirmPlaceholder": "Type the family name to confirm",
+    "confirmAction": "Delete permanently"
+  }
+}

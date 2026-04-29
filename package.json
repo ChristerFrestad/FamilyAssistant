@@ -44,7 +44,10 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
+    "i18next": "26.0.8",
+    "i18next-browser-languagedetector": "8.2.1",
     "pino": "^10.3.1",
+    "react-i18next": "17.0.6",
     "zod": "^4.3.6"
   },
   "optionalDependencies": {

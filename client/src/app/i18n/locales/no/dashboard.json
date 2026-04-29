@@ -1,0 +1,19 @@
+{
+  "welcome": {
+    "morning": "God morgen, {{name}}",
+    "afternoon": "God ettermiddag, {{name}}",
+    "evening": "God kveld, {{name}}"
+  },
+  "sections": {
+    "todaysMeals": "Dagens måltider",
+    "todaysChores": "Dagens gjøremål",
+    "shoppingList": "Handleliste",
+    "upcomingEvents": "Kommende hendelser"
+  },
+  "empty": {
+    "noMeals": "Ingen måltider planlagt for i dag",
+    "noChores": "Ingen gjøremål for i dag",
+    "noShoppingItems": "Handlelisten er tom",
+    "noEvents": "Ingen kommende hendelser"
+  }
+}

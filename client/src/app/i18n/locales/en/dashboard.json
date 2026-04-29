@@ -1,0 +1,19 @@
+{
+  "welcome": {
+    "morning": "Good morning, {{name}}",
+    "afternoon": "Good afternoon, {{name}}",
+    "evening": "Good evening, {{name}}"
+  },
+  "sections": {
+    "todaysMeals": "Today's meals",
+    "todaysChores": "Today's chores",
+    "shoppingList": "Shopping list",
+    "upcomingEvents": "Upcoming events"
+  },
+  "empty": {
+    "noMeals": "No meals planned for today",
+    "noChores": "No chores for today",
+    "noShoppingItems": "Shopping list is empty",
+    "noEvents": "No upcoming events"
+  }
+}

@@ -929,6 +929,82 @@ design-mangel. En implementeringsdetalj som er åpenbar uten design
 (spacing-justering på 2 px, typo i en label) er en finpuss, ikke en
 mangel. Bruk dømmekraft.
 
+### 7.11 i18n-policy (2026-04-29)
+
+All ny brukervendt tekst — knappe-labels, headings, hint-tekst, error-
+meldinger, aria-labels som leses av screen-readers, status-meldinger —
+skal gå gjennom `react-i18next` fra `client/src/app/i18n/config.ts`,
+ikke hardkodes i JSX/TSX.
+
+**Konkret arbeidsflyt for nye tekster:**
+
+1. **Velg riktig namespace.** Filer ligger i
+   `client/src/app/i18n/locales/{no,en}/{namespace}.json`. Åtte
+   namespaces er etablert:
+   - `common` — kryss-skjerm-ord (Lagre, Avbryt, Slett, Lukk, ...)
+   - `auth` — login-flyt og session-state
+   - `dashboard`, `family`, `meals`, `shopping`, `calendar`,
+     `settings` — én per hovedskjerm i Fase 2
+
+   Hvis tekst hører hjemme i en ny seksjon, vurder eksisterende
+   før du oppretter en ny — fragmenterte namespaces gir dårlig
+   gjenbruk.
+
+2. **Legg keyen i begge språk samtidig.** `no/{namespace}.json` får
+   den norske teksten (pilot-default), `en/{namespace}.json` får den
+   engelske ekvivalenten. Bundle-parity-testen i
+   `client/src/app/i18n/bundles.test.ts` feiler hvis en key mangler
+   i ett av språkene — ikke prøv å omgå den.
+
+   Hvis engelsk-versjon er uklar (f.eks. domeneterm uten naturlig
+   oversettelse), bruk norsk verdi som plassholder OG legg til
+   pending-decision-entry slik at fremmedspråklig review ikke faller
+   under teppet.
+
+3. **Refer keyen via `useTranslation()` i komponenten.**
+   ```tsx
+   import { useTranslation } from 'react-i18next';
+
+   function LoginForm() {
+     const { t } = useTranslation('auth');
+     return <Button>{t('magicLink.submit')}</Button>;
+   }
+   ```
+   Ikke hardkod tekst i JSX selv om det er midlertidig.
+
+**Spesielle hensyn:**
+
+- **Pluralisering:** bruk i18next plural-pattern
+  (`{{count}} item / {{count}} items`), ikke if-grener i kode.
+- **Datoer og tall:** bruk `Intl.DateTimeFormat`/`Intl.NumberFormat`
+  med `i18n.language` som locale, eller i18next-formatter. Aldri
+  hardkod måned-navn eller desimal-skilletegn i JSX.
+- **Interpolation:** bruk `{{name}}`-syntax. React eskaperer allerede
+  output, så `escapeValue: false` er satt i config — ikke skru på
+  igjen uten å skjønne implikasjoner for XSS.
+
+**Hva er IKKE i scope for i18n:**
+
+- Database-data (oppskrift-titler, produktnavn, kategorier i seed.js,
+  familienavn). Disse forblir på språket brukeren skrev dem inn.
+- Logger og feilmeldinger på server-siden. Disse er på engelsk per
+  DEL 7.7 og leses av Christer/operatør, ikke sluttbruker.
+- Tekst i tester eller preview-filer. Det er testfixtures, ikke
+  bruker-vendt prod-kode.
+
+**Default-språk og deteksjon:**
+
+- Pilot-default er `no`. `LanguageDetector` leser fra
+  `localStorage['fa:language']` først, deretter `navigator.language`.
+- I tester forces språk til `no` i `client/src/test-setup.ts` slik at
+  jsdom's default `en-US` ikke smitter komponent-assertions.
+
+**Estimert arbeid for å migrere eksisterende tekst:** trivielt så
+lenge teksten er kort. For lengre paragrafer (f.eks. personvern-
+erklæringen i Sprint 7), avvei mellom å hardkode i en JSX-component
+vs. legge i i18n-bundle. Hvis teksten skal kunne oversettes for
+fremtidige markeder, hører den i bundle.
+
 ---
 
 ## DEL 8: AGENT_LOG.md-FORMAT

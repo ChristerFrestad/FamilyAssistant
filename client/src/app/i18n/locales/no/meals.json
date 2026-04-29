@@ -1,0 +1,20 @@
+{
+  "title": "Måltider",
+  "weekNav": {
+    "previous": "Forrige uke",
+    "current": "Denne uken",
+    "next": "Neste uke"
+  },
+  "slots": {
+    "breakfast": "Frokost",
+    "lunch": "Lunsj",
+    "dinner": "Middag",
+    "snack": "Mellommåltid"
+  },
+  "addMeal": "Legg til måltid",
+  "actions": {
+    "markEaten": "Marker spist",
+    "swap": "Bytt"
+  },
+  "empty": "Ingen måltid planlagt"
+}

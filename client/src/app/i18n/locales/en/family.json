@@ -1,0 +1,27 @@
+{
+  "title": "Family members",
+  "addMember": "Add member",
+  "fields": {
+    "name": "Name",
+    "category": "Role",
+    "portionFactor": "Portion size"
+  },
+  "category": {
+    "adult": "Adult",
+    "teen": "Teen",
+    "child": "Child"
+  },
+  "portion": {
+    "description": "1.0 = adult portion (about 500 g of cooked food). Adjust based on actual appetite.",
+    "label": "{{role}} portion",
+    "scale": {
+      "child": "child",
+      "teen": "teen",
+      "adult": "adult"
+    }
+  },
+  "delete": {
+    "confirmTitle": "Delete member?",
+    "confirmBody": "This cannot be undone."
+  }
+}

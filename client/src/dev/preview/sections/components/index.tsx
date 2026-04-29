@@ -10,6 +10,7 @@ import CardPreview from './Card';
 import CopyButtonPreview from './CopyButton';
 import FieldPreview from './Field';
 import InputPreview from './Input';
+import LanguageSwitcherPreview from './LanguageSwitcher';
 import ModalPreview from './Modal';
 import PageShellPreview from './PageShell';
 import PortionFactorSliderPreview from './PortionFactorSlider';
@@ -32,6 +33,7 @@ export default function Components(): JSX.Element {
       <FieldPreview />
       <TogglePreview />
       <PortionFactorSliderPreview />
+      <LanguageSwitcherPreview />
       {/* Layout */}
       <CardPreview />
       <StackPreview />

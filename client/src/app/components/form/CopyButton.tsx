@@ -21,6 +21,7 @@
 //   leaks the timer reference until it fires).
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, type ButtonSize, type ButtonVariant } from '../base/Button';
 
 export interface CopyButtonProps {
@@ -46,8 +47,8 @@ export interface CopyButtonProps {
 
 export function CopyButton({
   value,
-  label = 'Kopier',
-  copiedLabel = 'Kopiert!',
+  label,
+  copiedLabel,
   size = 'md',
   variant = 'secondary',
   onCopySuccess,
@@ -55,6 +56,13 @@ export function CopyButton({
   duration = 2000,
   className,
 }: CopyButtonProps): JSX.Element {
+  const { t } = useTranslation('common');
+  // Defaults flow through i18n so the button label respects the
+  // active language. Callers can still override with an explicit
+  // `label` / `copiedLabel` prop when the surrounding context wants
+  // something more specific (e.g. "Hent token" for a one-time secret).
+  const resolvedLabel = label ?? t('actions.copy');
+  const resolvedCopiedLabel = copiedLabel ?? t('actions.copied');
   const [copied, setCopied] = useState(false);
   // useRef holds the active timer id across renders without
   // triggering re-renders when it changes — perfect for an
@@ -97,7 +105,7 @@ export function CopyButton({
 
   return (
     <Button variant={variant} size={size} onClick={handleClick} className={className}>
-      {copied ? copiedLabel : label}
+      {copied ? resolvedCopiedLabel : resolvedLabel}
     </Button>
   );
 }
