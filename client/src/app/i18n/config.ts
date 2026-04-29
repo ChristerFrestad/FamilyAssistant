@@ -95,6 +95,31 @@ i18n
       // React already escapes interpolated values, so disabling
       // i18next's escaper avoids double-encoding.
       escapeValue: false,
+      // Make `{{appName}}` resolve automatically in every string
+      // across the bundle without forcing call sites to pass
+      // `{ appName }` explicitly. The getter reads directly from
+      // the resource store (NOT via `t()`) to avoid infinite
+      // recursion — interpolation runs as part of every t() call,
+      // so calling t() inside a defaultVariables getter would
+      // recurse on every translation. `getResource` returns the
+      // raw stored value bypassing the interpolation pipeline.
+      //
+      // Reading dynamically each time means an `addResource(...)`
+      // override (the VITE_APP_NAME white-label path) takes effect
+      // immediately even on strings cached before the override
+      // was applied. See CLAUDE.md DEL 7.12.
+      defaultVariables: Object.defineProperties(
+        {},
+        {
+          appName: {
+            enumerable: true,
+            get: () => {
+              const value = i18n.getResource(i18n.language, 'common', 'appName');
+              return typeof value === 'string' ? value : 'FamilyAssistant';
+            },
+          },
+        }
+      ),
     },
     detection: {
       // Try the persisted choice first, then fall back to navigator
@@ -110,5 +135,37 @@ i18n
     // nothing here anyway.
     react: { useSuspense: false },
   });
+
+// White-label override.
+//
+// The default `appName` resource is the open-source product name
+// "FamilyAssistant". A deploy can override it by setting the build-time
+// env var `VITE_APP_NAME` (Vite exposes any `VITE_*` var via
+// `import.meta.env`). When set, we replace the appName resource on
+// both supported languages so every `t('common:appName')` call and
+// every `{{appName}}` interpolation across the bundle picks up the
+// brand name without further code changes.
+//
+// We intentionally do this AFTER `i18n.init()` so the override sits
+// on top of the loaded resource bundles. Doing it before init would
+// require re-asserting the value into the `resources` object, which
+// duplicates the override logic.
+//
+// Backend has its own equivalent flag `APP_NAME` (no VITE_ prefix —
+// VITE_* is a frontend-only build-time concept) consumed by
+// server/services/email.service.js. Keeping the two flags symmetric
+// in name keeps Christer's deploy-config short. See CLAUDE.md DEL
+// 7.12 for the full white-label policy.
+applyAppNameOverride(i18n);
+
+function applyAppNameOverride(instance: typeof i18n): void {
+  const raw = import.meta.env.VITE_APP_NAME;
+  if (typeof raw !== 'string') return;
+  const trimmed = raw.trim();
+  if (!trimmed) return;
+  for (const lng of SUPPORTED_LANGUAGES) {
+    instance.addResource(lng, 'common', 'appName', trimmed);
+  }
+}
 
 export default i18n;

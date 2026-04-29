@@ -45,9 +45,12 @@ describe('AppShell structure', () => {
     expect(screen.getByRole('link', { name: 'Hopp til hovedinnhold' })).toBeInTheDocument();
   });
 
-  test('renders the brand-link to /dashboard', () => {
+  test('renders the brand-link to /dashboard with the resolved appName', () => {
     renderShell();
-    const link = screen.getByRole('link', { name: 'Familieassistenten — til startsiden' });
+    // The aria-label uses the {{appName}} interpolation, which
+    // resolves to the default "FamilyAssistant" in test runs (no
+    // VITE_APP_NAME override is set in the test environment).
+    const link = screen.getByRole('link', { name: 'FamilyAssistant — til startsiden' });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', '/dashboard');
   });

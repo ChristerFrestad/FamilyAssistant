@@ -10,6 +10,14 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65535).default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
 
+  // White-label override. Default 'FamilyAssistant'. Operators that
+  // run their own brand (e.g. Christer's Hverdagsplanleggeren pilot)
+  // set this in env so the magic-link email subject/body uses the
+  // local brand name instead of the open-source product name. The
+  // frontend has its own equivalent build-time flag VITE_APP_NAME —
+  // keep them in sync. See CLAUDE.md DEL 7.12.
+  APP_NAME: z.string().default('FamilyAssistant'),
+
   // HTTP
   MAX_BODY_BYTES: z.coerce.number().int().positive().default(1_048_576), // 1 MB
   ALLOWED_ORIGINS: z.string().default('*'),

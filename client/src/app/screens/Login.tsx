@@ -7,9 +7,10 @@
 // user should not see the header, nav, or any of the in-app chrome.
 // PageShell gives the auth-flow density we use elsewhere.
 //
-// "Familieassistenten" is the brand name and stays as a literal —
-// it does not translate. The descriptive paragraph and the loading
-// hint flow through i18n.
+// The brand name flows through `t('common:appName')` so a
+// white-label deploy (VITE_APP_NAME=...) shows its own brand on
+// the login screen too. The descriptive paragraph and the loading
+// hint flow through i18n the same way.
 
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/layout/PageShell';
@@ -23,7 +24,7 @@ export function Login(): JSX.Element {
         className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-center"
       >
         <h1 id="login-heading" className="font-display text-display-md text-text-1">
-          Familieassistenten
+          {t('common:appName')}
         </h1>
         <p className="font-body text-body text-text-2 max-w-md">
           {t('auth:login.placeholder.description')}

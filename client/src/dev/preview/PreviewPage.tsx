@@ -29,7 +29,7 @@ export default function PreviewPage(): JSX.Element {
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-card text-text-1 leading-tight">
-              Familieassistenten v2 — design preview
+              FamilyAssistant v2 — design preview
             </h1>
             <p className="font-mono text-label text-text-3">dev-only · /v2/dev.html</p>
           </div>

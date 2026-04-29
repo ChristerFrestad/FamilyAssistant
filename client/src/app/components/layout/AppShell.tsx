@@ -81,7 +81,7 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
               'px-1',
             ].join(' ')}
           >
-            Familieassistenten
+            {t('appName')}
           </Link>
 
           {/* Spacer pushes the header utilities to the right. */}

@@ -110,6 +110,32 @@ npm start                    # serve via Express
 # Open http://localhost:7777/v2/
 ```
 
+## Branding (white-label)
+
+FamilyAssistant supports custom branding via env vars so a fork
+can ship with its own product name without touching code.
+
+- **Default:** the app calls itself `FamilyAssistant` in both
+  Norwegian and English — across the header, login screen,
+  magic-link emails, and the page title.
+- **Override:** set the same brand value on both sides of the
+  stack:
+
+  ```
+  VITE_APP_NAME=YourBrandName   # frontend, build-time
+  APP_NAME=YourBrandName        # backend, runtime
+  ```
+
+  Both flags read the same brand string. Frontend uses Vite's
+  `import.meta.env.VITE_*` exposure (so the value lands in the
+  built bundle); backend reads `process.env.APP_NAME` at startup
+  via `server/config.js`. Keep them in sync — divergence shows
+  up as the email saying one name and the website another.
+
+See `CLAUDE.md` § 7.12 for the full pattern (which files are
+white-labeled, which always read `FamilyAssistant`, and the test
+contract that protects the override).
+
 ## Production requirements
 
 `NODE_ENV=production` requires at minimum:

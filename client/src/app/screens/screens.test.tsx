@@ -59,8 +59,8 @@ describe('placeholder screens render with i18n headings', () => {
 
   test('Login renders heading and a loading status', () => {
     render(<Login />);
-    expect(
-      screen.getByRole('heading', { name: 'Familieassistenten', level: 1 })
-    ).toBeInTheDocument();
+    // The heading renders the resolved appName — defaults to
+    // "FamilyAssistant" in tests (no white-label override).
+    expect(screen.getByRole('heading', { name: 'FamilyAssistant', level: 1 })).toBeInTheDocument();
   });
 });

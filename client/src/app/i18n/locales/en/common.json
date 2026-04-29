@@ -1,4 +1,5 @@
 {
+  "appName": "FamilyAssistant",
   "actions": {
     "save": "Save",
     "cancel": "Cancel",
@@ -46,7 +47,7 @@
   },
   "appShell": {
     "skipToContent": "Skip to main content",
-    "logoLabel": "Familieassistenten — back to home"
+    "logoLabel": "{{appName}} — back to home"
   },
   "notFound": {
     "description": "Page not found. The final error screen lands in Phase 2 — until then this simple fallback keeps the route table complete."
