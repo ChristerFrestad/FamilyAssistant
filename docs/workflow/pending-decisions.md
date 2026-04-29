@@ -1,6 +1,6 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-29 (Sprint 1 / Prompt 1 status-refresh — batch-2 markert merget, PR #59/#61 markert lukket, Master-plan til pilot er aktivt rammeverk; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
+**Sist oppdatert:** 2026-04-29 (audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon for Master-plan-beslutninger er
@@ -636,3 +636,76 @@ beslutning og kvota-tall.
   som felles ressurs.
 - `migration 014` (per-family LLM-config): datamodell-fundament
   hvis tier-modellen velger å tillate familie-spesifikk override.
+
+---
+
+## Audit-trail-utvidelse — kreves før pilot-launch
+
+Notert 2026-04-29 etter Christers tilbakemelding på PR #71
+("Backend security foundation"). Audit-rapporten i
+`docs/workflow/backend-security-audit-2026-04.md` flagget at fem
+kritiske handlinger pino-logges men ikke er wrapped i `withAudit()`
+mot `audit_log`-tabellen. Originalt forslag var å adressere dette
+i pre-deploy-cleanup uke 10-11. Christer har overstyrt: dette skal
+være på plass **før pilot-launch**, uavhengig av at pilot kun har
+én familie. Sikkerhets-disiplin gjelder uansett pilot-størrelse.
+
+### Konkret arbeid før pilot-launch (Sprint 8 / Prompt 18)
+
+Wrap eller introducer-equivalent for fem auth/family/GDPR-routes
+slik at de skriver til `audit_log`-tabellen (migration 012):
+
+| Handling | Endpoint | Entity-type |
+|----------|----------|-------------|
+| Login (success) | `GET /api/auth/magic-link/verify`, `GET /api/auth/google/callback` (post-pilot) | `session` (id = nye sessionId) |
+| Login (fail) | Samme to endepunkter ved 401-respons | `session_attempt` (id = email-hash) |
+| Logout | `POST /api/auth/logout`, `POST /api/auth/logout-all`, `DELETE /api/auth/sessions/:id` | `session` (id = invalidert sessionId) |
+| Magic-link generert | `POST /api/auth/magic-link/start` ved 200-respons | `magic_link` (id = token-hash) |
+| Family-data eksportert | `GET /api/me/export` | `gdpr_export` (id = user-id) |
+
+For hver av disse: `withAudit({ entityType, getEntityId, ...})`-
+wrapping eller direkte `repos.auditLog.record(...)`-kall i handler-
+laget. Mønsteret eksisterer allerede via 5 wrappet routes i
+`server/routes.js`, så det er reproduksjon av etablert struktur,
+ikke ny arkitektur.
+
+### Hvorfor strengere timing enn pre-deploy
+
+- **GDPR Art. 30 record-of-processing** krever strukturert logg av
+  personverns-relaterte handlinger (login, sletting, eksport). Pino-
+  logger med ad-hoc-format dekker incident-response-formål, men
+  `audit_log` er filteret som inspektør får når de ber om revisjons-
+  underlag.
+- **Pre-pilot security-disiplin** (Christers prinsipp): én familie er
+  fortsatt en familie med personvern-rettigheter. Senere familier
+  arver feilen hvis vi venter.
+- **Design-konsistens med eksisterende pattern**: 5 routes wrappes
+  allerede i `routes.js`. Å la auth/GDPR-routes gå unna pattern er
+  inkonsistent.
+
+### Estimert arbeid
+
+Halvdag per route × 5 = ~3 dager. Kan splittes opp eller landes som
+del av selve pilot-launch-PR-en (Sprint 8 / Prompt 18).
+
+### Akseptansekriterier
+
+- [ ] `audit_log`-tabellen har rader for hver av de fem hendelses-
+      typene etter en pilot-test-runde
+- [ ] Tester verifiserer at hver wrapped route legger inn en
+      audit-row på success (og failure for login-fail-tilfellet)
+- [ ] Pino-logger fjernes ikke — de fortsetter som operativ
+      observability; `audit_log` er for compliance og forensics
+
+### Status
+
+**Aktiv beslutning.** Skjerpet timing kommunisert mot original
+audit-rapport. Inn i Sprint 8 (Prompt 18, pilot-launch).
+
+**Krysslenker:**
+- `docs/workflow/backend-security-audit-2026-04.md` §3 — audit-trail-
+  seksjonen som spesifiserer dagens dekning og gap.
+- `server/migrations/012_audit_log.sql` — `audit_log`-tabell.
+- `server/routes.js:87` — `withAudit()`-pattern.
+- `server/repositories/system.repo.js:464` — `auditLog.record(...)`-
+  implementasjon.
