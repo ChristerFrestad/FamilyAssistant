@@ -91,21 +91,28 @@ test('cleanupExpired removes only expired rows', () => {
   assert.strictEqual(server.repos.auth.getValidSession(deadId), null);
 });
 
+// Sprint 3 / Fase 1e — repo callers always pass the SHA-256 hash of
+// the plain token to createMagicLink/findMagicLinkByHash/
+// markMagicLinkUsed (migration 022). The plain token is never stored.
 test('magic link tokens expire and can be marked used', () => {
+  const { hashToken } = require('../server/auth/magic-link');
   const token = require('node:crypto').randomBytes(16).toString('hex');
-  server.repos.auth.createMagicLink({ token, email: 'magic@example.com', ttlMinutes: 15 });
-  const row = server.repos.auth.findMagicLink(token);
+  const tokenHash = hashToken(token);
+  server.repos.auth.createMagicLink({ tokenHash, email: 'magic@example.com', ttlMinutes: 15 });
+  const row = server.repos.auth.findMagicLinkByHash(tokenHash);
   assert.strictEqual(row.email, 'magic@example.com');
   assert.strictEqual(row.used_at, null);
-  server.repos.auth.markMagicLinkUsed(token);
-  const after = server.repos.auth.findMagicLink(token);
+  server.repos.auth.markMagicLinkUsed(tokenHash);
+  const after = server.repos.auth.findMagicLinkByHash(tokenHash);
   assert.ok(after.used_at);
 });
 
 test('cleanupExpiredMagicLinks removes expired tokens', () => {
+  const { hashToken } = require('../server/auth/magic-link');
   const token = require('node:crypto').randomBytes(16).toString('hex');
-  server.repos.auth.createMagicLink({ token, email: 'old@example.com', ttlMinutes: -1 });
+  const tokenHash = hashToken(token);
+  server.repos.auth.createMagicLink({ tokenHash, email: 'old@example.com', ttlMinutes: -1 });
   const removed = server.repos.auth.cleanupExpiredMagicLinks();
   assert.ok(removed >= 1);
-  assert.strictEqual(server.repos.auth.findMagicLink(token), null);
+  assert.strictEqual(server.repos.auth.findMagicLinkByHash(tokenHash), null);
 });

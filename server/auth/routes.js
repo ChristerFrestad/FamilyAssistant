@@ -17,7 +17,11 @@ const {
 } = require('./google');
 const { createSessionForUser, setSessionCookie, clearSessionCookie } = require('./sessions');
 const { parseCookies, serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
-const { handleMagicLinkStart, handleMagicLinkVerify } = require('./magic-link');
+const {
+  handleMagicLinkStart,
+  handleMagicLinkVerify,
+  redirectTargetForUser,
+} = require('./magic-link');
 const { isEmailConfigured } = require('../services/email.service');
 
 const OAUTH_STATE_COOKIE = 'fa_oauth_state';
@@ -165,9 +169,12 @@ async function handleGoogleCallback(ctx, repos) {
   setSessionCookie(ctx.res, ctx.req, sessionId);
   repos.auth.touchLastSeen(user.id);
 
-  // Redirect to app root. If user has no family yet, the frontend will route
-  // them to onboarding (or to the invitation-pending peek page).
-  ctx.res.writeHead(302, { Location: '/' });
+  // Onboarding-aware redirect. Same logic as magic-link verify so the
+  // post-login behaviour matches across providers — Google OAuth users
+  // also have to complete the onboarding flow (family setup + profile)
+  // before they reach the main app surface.
+  const target = redirectTargetForUser(user);
+  ctx.res.writeHead(302, { Location: target });
   ctx.res.end();
 }
 
@@ -189,7 +196,39 @@ function handleMe(ctx) {
       avatarUrl: ctx.user.avatar_url || null,
       familyId: ctx.user.family_id || null,
       profileMemberId: ctx.user.profile_member_id || null,
+      // Coerce to boolean — SQLite stores INTEGER 0/1 (migration 021).
+      // Frontend AuthContext checks this flag to decide whether the
+      // user belongs in the onboarding flow or in the main app.
+      onboardingCompleted: !!ctx.user.onboarding_completed,
       synthetic: !!ctx.user._synthetic,
+    },
+  };
+}
+
+// POST /api/auth/onboarding/complete
+//
+// Marks the current user as having finished the onboarding flow.
+// Called by the frontend's UserProfile screen after the user has
+// saved their personal-profile values. Idempotent — calling it on
+// an already-completed account is a no-op (the SET turns 1 into 1).
+//
+// Authentication: required. Synthetic / pilot-bypass users are
+// rejected to avoid mutating LOCAL_USER (which is recreated each
+// request anyway, so the call would silently fail).
+function handleOnboardingComplete(ctx, repos) {
+  if (!ctx.user || ctx.user._synthetic) {
+    throw errors.unauthorized('Login required.');
+  }
+  const updated = repos.auth.setOnboardingCompleted(ctx.user.id, true);
+  return {
+    ok: true,
+    user: {
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      role: updated.role,
+      familyId: updated.family_id || null,
+      onboardingCompleted: !!updated.onboarding_completed,
     },
   };
 }
@@ -293,6 +332,7 @@ function registerAuthRoutes(router, { repos }) {
   router.get('/api/auth/magic-link/verify', async (ctx) => handleMagicLinkVerify(ctx, repos));
   router.get('/api/auth/pilot-login', async (ctx) => handlePilotLogin(ctx, repos));
   router.get('/api/auth/me', (ctx) => handleMe(ctx));
+  router.post('/api/auth/onboarding/complete', (ctx) => handleOnboardingComplete(ctx, repos));
   router.post('/api/auth/logout', (ctx) => handleLogout(ctx, repos));
   router.post('/api/auth/logout-all', (ctx) => handleLogoutAll(ctx, repos));
   router.get('/api/auth/sessions', (ctx) => handleListSessions(ctx, repos));

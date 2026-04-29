@@ -12,16 +12,18 @@
 // Hitting "back" after login then returns to wherever the user came
 // from instead of the synthetic /login URL.
 //
-// In Phase 1d the underlying useAuth() hook is mocked to always
-// return authenticated. The redirect path is still rendered, tested,
-// and verified — that way Phase 1e (real auth) only flips the hook
-// body and the consumer surface keeps working.
+// In Phase 1d the underlying useAuth() hook was mocked to always
+// return authenticated. Sprint 3 / Fase 1e replaced that mock
+// with the real implementation in client/src/app/auth/, but the
+// consumer surface here did not change — AuthGuard sees the same
+// { isAuthenticated, isLoading } shape regardless of which
+// implementation is mounted.
 
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../layout/PageShell';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../auth/useAuth';
 
 export interface AuthGuardProps {
   children: ReactNode;

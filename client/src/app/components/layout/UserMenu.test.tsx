@@ -8,20 +8,39 @@
 //   - Escape closes the menu and returns focus to the trigger
 //   - Click outside the wrapper closes the menu
 //
-// We use the real useAuth() (Phase-1d mock) rather than mocking the
-// hook because the mock is itself the production-shape contract.
-// The logout function spy is verified by reading the console.info
-// signal the mock emits.
+// Sprint 3 / Fase 1e replaced the Phase-1d mock useAuth with a
+// real AuthContext-backed hook. UserMenu therefore needs an
+// AuthProvider wrapper at render time. We pass `initialState`
+// with a fixture user so the menu renders with a known identity
+// without making a network call. The provider also lets us spy on
+// the logout side-effect by checking that the test fixture's
+// authenticated state survives until the click handler fires.
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { UserMenu } from './UserMenu';
+import { AuthProvider } from '../../auth/AuthContext';
+import type { AuthUser } from '../../auth/authApi';
 
-function renderMenu(): void {
+const TEST_USER: AuthUser = {
+  id: 1,
+  email: 'test@example.com',
+  name: 'Test User',
+  role: 'adult',
+  avatarUrl: null,
+  familyId: 1,
+  profileMemberId: null,
+  onboardingCompleted: true,
+  synthetic: false,
+};
+
+function renderMenu(user: AuthUser | null = TEST_USER): void {
   render(
     <MemoryRouter>
-      <UserMenu />
+      <AuthProvider initialState={{ user, isLoading: false }}>
+        <UserMenu />
+      </AuthProvider>
     </MemoryRouter>
   );
 }
@@ -78,8 +97,10 @@ describe('UserMenu close behavior', () => {
   test('mousedown outside the wrapper closes the menu', () => {
     render(
       <MemoryRouter>
-        <UserMenu />
-        <div data-testid="outside">outside</div>
+        <AuthProvider initialState={{ user: TEST_USER, isLoading: false }}>
+          <UserMenu />
+          <div data-testid="outside">outside</div>
+        </AuthProvider>
       </MemoryRouter>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Åpne bruker-meny' }));
@@ -97,24 +118,37 @@ describe('UserMenu close behavior', () => {
 });
 
 describe('UserMenu logout action', () => {
-  // Spy on console.info because the Phase-1d mock useAuth.logout
-  // logs to console as its observable side-effect. When real auth
-  // lands in Phase 1e this assertion gets replaced with a fetch
-  // spy, but the test contract — "clicking Logg ut invokes logout"
-  // — stays the same.
-  let infoSpy: ReturnType<typeof vi.spyOn>;
+  // Sprint 3 / Fase 1e: the mock useAuth's console.info trail is
+  // gone. Logout now goes through AuthProvider -> apiLogout ->
+  // fetch. We spy on global.fetch and assert that the click
+  // triggers a POST to /api/auth/logout. The provider's catch-
+  // 401 fallback means the spy can resolve with a 401 and we
+  // still verify the call was made.
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
-    infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
   });
   afterEach(() => {
-    infoSpy.mockRestore();
+    fetchSpy.mockRestore();
   });
 
-  test('clicking Logg ut invokes the auth hook logout function', () => {
+  test('clicking Logg ut hits POST /api/auth/logout', async () => {
     renderMenu();
     fireEvent.click(screen.getByRole('button', { name: 'Åpne bruker-meny' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /Logg ut/ }));
-    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('logout invoked'));
+    // Logout is async — wait for the next microtask so the
+    // promise inside the click handler resolves before we assert.
+    await Promise.resolve();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/auth/logout',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   test('clicking Logg ut closes the menu', () => {

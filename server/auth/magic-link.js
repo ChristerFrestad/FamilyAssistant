@@ -2,20 +2,41 @@
 //
 // User journey:
 //   1. POST /api/auth/magic-link/start { email }
-//        -> server creates a one-time token (15 min TTL), stores it in
-//           magic_link_tokens, sends an email via Resend.
+//        -> server generates a 256-bit random token, stores SHA-256(token)
+//           in magic_link_tokens.token_hash with a 15 min TTL, and emails
+//           the plain token in the URL via Resend (or the console fallback
+//           when MAGIC_LINK_CONSOLE=true).
 //   2. User clicks the link in the email: GET /api/auth/magic-link/verify?token=...
-//        -> server validates the token, marks it used, upserts the user,
-//           creates a session cookie, redirects to '/'.
+//        -> server hashes the incoming token, looks up the hash, validates
+//           expiry/used-state, marks the row used, upserts the user,
+//           creates a session cookie, redirects to /v2/dashboard or
+//           /v2/onboarding/family depending on users.onboarding_completed.
+//
+// Token-at-rest hardening (Sprint 3 / Fase 1e): tokens are NEVER stored as
+// plain text. The SHA-256 hash is stored instead so a database-only
+// disclosure cannot replay live magic links. The plain token only exists
+// in the email body the user receives; once verified, the row is marked
+// used (idempotent) and cannot be replayed even with the original plain
+// token. See migration 022 for the column rename.
 //
 // Rate limit: max 5 start calls per hour per email address. The counter is
 // in-memory per process; it resets on restart (acceptable for MVP scale).
+// A separate per-IP rate limit at 5/15min is enforced upstream by
+// server/http/security.js applyAuthRateLimit().
 
 const { config } = require('../config');
 const { errors, HttpError } = require('../http/errors');
-const { randomToken } = require('./crypto');
+const { randomToken, sha256 } = require('./crypto');
 const { isEmailConfigured, sendMagicLinkEmail } = require('../services/email.service');
 const { createSessionForUser, setSessionCookie } = require('./sessions');
+
+// Hash the plain token using SHA-256. Centralised here so the
+// generate-side and the verify-side derive the same digest from the
+// same input, and so tests can import the helper to assert end-to-end
+// hash behaviour.
+function hashToken(plain) {
+  return sha256(plain);
+}
 
 function gone(detail) {
   return new HttpError({ status: 410, title: 'Gone', detail });
@@ -84,8 +105,13 @@ async function handleMagicLinkStart(ctx, repos) {
     );
   }
 
+  // Generate a 256-bit random plain token. Only the SHA-256 hash is
+  // persisted (migration 022). The plain value is only embedded in
+  // the URL we send to the user — once the email is delivered, no
+  // copy of the plain token exists server-side.
   const token = randomToken(32);
-  repos.auth.createMagicLink({ token, email, ttlMinutes: TOKEN_TTL_MINUTES });
+  const tokenHash = hashToken(token);
+  repos.auth.createMagicLink({ tokenHash, email, ttlMinutes: TOKEN_TTL_MINUTES });
   const url = magicLinkUrlFor(token);
 
   if (emailConfigured) {
@@ -130,12 +156,16 @@ async function handleMagicLinkVerify(ctx, repos) {
     throw errors.badRequest('Missing token.');
   }
 
-  const row = repos.auth.findMagicLink(token);
+  // Hash the incoming token and look up the hash. The DB never sees
+  // the plain token; an attacker with read-only DB access cannot
+  // reverse the hash to forge a verify-request.
+  const tokenHash = hashToken(token);
+  const row = repos.auth.findMagicLinkByHash(tokenHash);
   if (!row) throw errors.badRequest('Invalid token.');
   if (row.used_at) throw gone('This magic link has already been used.');
   if (isMagicLinkExpired(row)) throw gone('This magic link has expired. Request a new one.');
 
-  repos.auth.markMagicLinkUsed(token);
+  repos.auth.markMagicLinkUsed(tokenHash);
 
   // Upsert user: reuse existing account if email matches, otherwise create.
   let user = repos.auth.findByEmail(row.email);
@@ -147,8 +177,22 @@ async function handleMagicLinkVerify(ctx, repos) {
   setSessionCookie(ctx.res, ctx.req, sessionId);
   repos.auth.touchLastSeen(user.id);
 
-  ctx.res.writeHead(302, { Location: '/' });
+  // Onboarding-aware redirect. Migration 021 added
+  // users.onboarding_completed; brand-new users come back as 0 and
+  // are routed through the family-setup wizard before they reach
+  // the main app surface. Returning pilot-users with the flag set
+  // skip straight to the dashboard.
+  const target = redirectTargetForUser(user);
+  ctx.res.writeHead(302, { Location: target });
   ctx.res.end();
+}
+
+// Compute the post-login destination. Exported as a named function
+// so tests can assert it returns the right URL for both states
+// without having to re-mount the full HTTP layer.
+function redirectTargetForUser(user) {
+  if (user && user.onboarding_completed) return '/v2/dashboard';
+  return '/v2/onboarding/family';
 }
 
 function isMagicLinkExpired(row) {
@@ -164,6 +208,8 @@ module.exports = {
   handleMagicLinkVerify,
   resetRateLimitForTests,
   normaliseEmail,
+  hashToken,
+  redirectTargetForUser,
   RATE_LIMIT_MAX,
   TOKEN_TTL_MINUTES,
 };

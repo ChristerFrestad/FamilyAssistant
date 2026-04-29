@@ -40,6 +40,15 @@ function resetRateLimit() {
   resetRateLimitForTests();
 }
 
+// Sprint 3 / Fase 1e — magic-link tokens are stored as SHA-256
+// hashes (migration 022). Tests need the same hash function the
+// server uses so they can look up persisted rows from a plain
+// token captured out of an email body or log line.
+function hashTokenForTest(plain) {
+  const { hashToken } = require('../server/auth/magic-link');
+  return hashToken(plain);
+}
+
 // ============================================================
 // Service not configured
 // ============================================================
@@ -85,7 +94,7 @@ test('MAGIC_LINK_CONSOLE=true without Resend logs URL to stdout and returns 200'
     assert.ok(match, 'logged output should contain a token URL');
 
     const token = match[1];
-    const row = server.repos.auth.findMagicLink(token);
+    const row = server.repos.auth.findMagicLinkByHash(hashTokenForTest(token));
     assert.ok(row, 'token should have been persisted to DB');
     assert.strictEqual(row.email, 'pilot@example.com');
     assert.strictEqual(row.used_at, null);
@@ -196,8 +205,10 @@ test('start writes a token and sends an email; verify creates a session and redi
     assert.ok(match, 'token should appear in email body');
     const token = match[1];
 
-    // The token row should exist in magic_link_tokens
-    const row = server.repos.auth.findMagicLink(token);
+    // The token row should exist in magic_link_tokens, looked up by
+    // its SHA-256 hash (migration 022 — plain tokens are never stored).
+    const tokenHash = hashTokenForTest(token);
+    const row = server.repos.auth.findMagicLinkByHash(tokenHash);
     assert.ok(row);
     assert.strictEqual(row.email, 'alice@example.com');
     assert.strictEqual(row.used_at, null);
@@ -208,7 +219,11 @@ test('start writes a token and sends an email; verify creates a session and redi
       `/api/auth/magic-link/verify?token=${token}`
     );
     assert.strictEqual(verifyR.status, 302);
-    assert.strictEqual(verifyR.headers.location, '/');
+    // New users default to onboarding_completed=0 (migration 021), so
+    // verify redirects to the family-setup wizard rather than the
+    // dashboard. The dashboard target is exercised in a separate
+    // test below ("redirects to /v2/dashboard for completed users").
+    assert.strictEqual(verifyR.headers.location, '/v2/onboarding/family');
     const setCookie = verifyR.headers['set-cookie'];
     const header = Array.isArray(setCookie) ? setCookie.join(',') : setCookie;
     assert.match(header, /fa_session=/);
@@ -218,7 +233,7 @@ test('start writes a token and sends an email; verify creates a session and redi
     assert.ok(user);
 
     // Token must be marked used
-    const after = server.repos.auth.findMagicLink(token);
+    const after = server.repos.auth.findMagicLinkByHash(tokenHash);
     assert.ok(after.used_at);
   } finally {
     resetFakeSender();
@@ -273,9 +288,16 @@ test('verifying an expired token returns 410 Gone', async () => {
     installFakeSender();
     resetRateLimit();
 
-    // Insert an expired token directly via the repo.
+    // Insert an expired token directly via the repo. The repo expects
+    // the SHA-256 hash; the URL must contain the matching plain
+    // token so verify-handler hashes it and finds the row.
     const token = require('node:crypto').randomBytes(16).toString('hex');
-    server.repos.auth.createMagicLink({ token, email: 'carol@example.com', ttlMinutes: -1 });
+    const tokenHash = hashTokenForTest(token);
+    server.repos.auth.createMagicLink({
+      tokenHash,
+      email: 'carol@example.com',
+      ttlMinutes: -1,
+    });
 
     const r = await request(server.baseUrl, 'GET', `/api/auth/magic-link/verify?token=${token}`);
     assert.strictEqual(r.status, 410);
@@ -358,6 +380,73 @@ test('rate limit returns 429 on the 6th start call for the same email within an 
 // ============================================================
 // Does not reveal account existence
 // ============================================================
+
+// ============================================================
+// Onboarding-aware redirect (Sprint 3 / Fase 1e)
+// ============================================================
+
+test('verify redirects to /v2/dashboard when the user has onboarding_completed=1', async () => {
+  setupResend();
+  const server = await startTestServer();
+  try {
+    installFakeSender();
+    resetRateLimit();
+
+    // Pre-create a user that has finished onboarding. The default
+    // for migration 021 is 0, so we explicitly flip it before the
+    // verify hits.
+    const created = server.repos.auth.createUser({
+      email: 'returning@example.com',
+      name: 'Returning',
+    });
+    server.repos.auth.setOnboardingCompleted(created.id, true);
+
+    // Insert a fresh magic-link row for this email.
+    const token = require('node:crypto').randomBytes(16).toString('hex');
+    server.repos.auth.createMagicLink({
+      tokenHash: hashTokenForTest(token),
+      email: 'returning@example.com',
+      ttlMinutes: 15,
+    });
+
+    const r = await request(server.baseUrl, 'GET', `/api/auth/magic-link/verify?token=${token}`);
+    assert.strictEqual(r.status, 302);
+    assert.strictEqual(r.headers.location, '/v2/dashboard');
+  } finally {
+    resetFakeSender();
+    await server.close();
+    clearResend();
+  }
+});
+
+test('plain tokens are never persisted — only the SHA-256 hash is stored', async () => {
+  setupResend();
+  const server = await startTestServer();
+  try {
+    const sent = installFakeSender();
+    resetRateLimit();
+
+    await request(server.baseUrl, 'POST', '/api/auth/magic-link/start', {
+      body: { email: 'hash-check@example.com' },
+    });
+    const token = /token=([a-f0-9]+)/.exec(sent[0].text + sent[0].html)[1];
+
+    // The plain token used in the email must NOT exist as a row in
+    // the table (the row is keyed on the hash). Looking the plain
+    // value up directly returns null.
+    const plainLookup = server.repos.auth.findMagicLinkByHash(token);
+    assert.strictEqual(plainLookup, null, 'plain token must not match any row');
+
+    // The hashed value DOES match.
+    const hashLookup = server.repos.auth.findMagicLinkByHash(hashTokenForTest(token));
+    assert.ok(hashLookup, 'hashed token should match the persisted row');
+    assert.strictEqual(hashLookup.email, 'hash-check@example.com');
+  } finally {
+    resetFakeSender();
+    await server.close();
+    clearResend();
+  }
+});
 
 test('start returns the same response whether or not the email exists', async () => {
   setupResend();

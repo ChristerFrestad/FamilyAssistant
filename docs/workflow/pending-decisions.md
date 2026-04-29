@@ -1,6 +1,6 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-29 (ESLint config-gap for `public/v2/`-build-artefakter notert etter domain-rename-oppdagelse; audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
+**Sist oppdatert:** 2026-04-29 (backup-arkitektur-utvidbarhet for fremtidig ekstern backup notert til Sprint 8 ved oppstart av Sprint 3 / Fase 1e; ESLint config-gap for `public/v2/`-build-artefakter notert etter domain-rename-oppdagelse; audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon for Master-plan-beslutninger er
@@ -763,3 +763,89 @@ eller tidligere hvis det blir irriterende under løpende utvikling.
 - `eslint.config.mjs` linje 13-21 (ignores-blokken)
 - `.gitignore` (har allerede `public/v2/`)
 - Domain-rename-commit `bc5df48` (avdekket gapet)
+
+---
+
+## Backup-arkitektur skal være utvidbar for fremtidig ekstern backup
+
+**Notert:** 2026-04-29 ved oppstart av Sprint 3 / Fase 1e (Auth-flyt).
+**Sprint:** 3 (notert) — implementeres i Sprint 8 (Prompt 17).
+**Besluttet av:** Christer.
+
+### Kontekst
+
+For pilot kjøres backup lokalt på RPi5 (tirsdager 03:00, 14-dagers
+retensjon — `BACKUP_HOUR` + `BACKUP_KEEP_DAYS` i `server/config.js`,
+implementert via `server/backup.js`). Post-pilot vil vi sannsynligvis
+legge til ekstern backup — cloud-tjeneste (Backblaze B2, S3, Hetzner
+Object Storage), off-site RPi5 hos venner/familie, eller annen
+geografi-spredt lokasjon.
+
+### Beslutning
+
+Backup-systemet (Sprint 8 / Prompt 17) implementeres med
+**`BackupTarget`-pattern** (eller tilsvarende abstraksjon) slik at
+nye targets kan legges til som config-endring, ikke
+arkitektur-omskriving senere.
+
+Konkret pattern:
+
+```js
+// Interface som hver target må implementere:
+interface BackupTarget {
+  upload(filePath: string, name: string): Promise<{ ok: boolean }>
+  list(): Promise<Array<{ name: string; size: number; uploadedAt: string }>>
+  delete(name: string): Promise<{ ok: boolean }>
+}
+```
+
+Sprint 8 implementerer kun `LocalBackupTarget` (skriver til
+`/app/data/backups/`). Pattern + interface gjør at fremtidige
+targets — `S3BackupTarget`, `B2BackupTarget`, `RPiBackupTarget`,
+`SshBackupTarget` — kan introduseres som drop-in-replacements via
+env-vars (f.eks. `BACKUP_TARGETS=local,s3` med `S3_BUCKET=...`,
+`S3_ACCESS_KEY=...`, etc).
+
+### Hva som IKKE er i scope for Sprint 8
+
+- Ingen S3-credentials, B2-credentials eller cloud-konfig i pilot-
+  branch eller pilot-deploy.
+- Ingen GCP-/AWS-/Backblaze-SDK-er i `dependencies` — kun pattern.
+- Ingen secrets-management-flyt (Vault, AWS Secrets Manager, etc.).
+- Ingen target-specific encryption beyond what already runs locally
+  (SQLite-fil + 0600 permissions).
+
+### Implementation når Sprint 8 aktiveres
+
+- Sprint 8 implementerer `LocalBackupTarget` med pattern intakt.
+- Eksisterende `server/backup.js`-kode refaktoreres til å gå
+  gjennom interface-en (ikke direkte fil-skriving).
+- Tester verifiserer at interface-kontrakten holder for
+  `LocalBackupTarget` (insert, list, delete, prune).
+- Post-pilot beslutning (separat entry når den tid kommer):
+  hvilken ekstern target velges først og hvilke credentials.
+
+### Hvorfor pattern + ikke direkte implementasjon nå
+
+- Open-source-distinksjon: andre forks vil ha andre backup-behov
+  (cloud, off-site, NAS, etc.). Pattern lar dem legge til uten
+  å re-arkitektonere.
+- `server/backup.js` er allerede en del av kjerne-arkitekturen;
+  retro-fitting interface senere er mer arbeid enn å designe det
+  rett fra start.
+- Christer's pilot-RPi5 er fysisk sikret (privat bolig), men
+  pattern-en sikrer at andre deploys med svakere fysisk sikkerhet
+  enkelt kan legge til off-site backup.
+
+### Status
+
+**Notert.** Implementeres i Sprint 8 (Prompt 17). Ingen blokkering
+for Sprint 3-7.
+
+### Krysslenker
+
+- `server/backup.js` — eksisterende implementasjon (vil
+  refaktoreres i Sprint 8)
+- `server/config.js` — `BACKUP_HOUR`, `BACKUP_KEEP_DAYS`,
+  `BACKUP_DIR` env-vars (utvides med target-spesifikke vars)
+- Master-plan Del B Prompt 17 (Sprint 8)
