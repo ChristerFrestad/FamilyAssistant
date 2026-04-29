@@ -39,6 +39,9 @@ function createAuthRepo(db) {
     'UPDATE users SET family_id = ?, role = ?, profile_member_id = ? WHERE id = ?'
   );
   const setRoleStmt = db.prepare('UPDATE users SET role = ? WHERE id = ?');
+  const setOnboardingCompletedStmt = db.prepare(
+    'UPDATE users SET onboarding_completed = ? WHERE id = ?'
+  );
   const softDeleteStmt = db.prepare("UPDATE users SET deleted_at = datetime('now') WHERE id = ?");
 
   function findByEmail(email) {
@@ -73,6 +76,14 @@ function createAuthRepo(db) {
 
   function setFamily(userId, familyId, role, profileMemberId = null) {
     setFamilyStmt.run(familyId, role, profileMemberId, userId);
+    return findById(userId);
+  }
+
+  function setOnboardingCompleted(userId, value = true) {
+    // Migration 021 added onboarding_completed as INTEGER NOT NULL
+    // DEFAULT 0. SQLite stores booleans as 0/1, so coerce here so
+    // callers can pass either a boolean or 0/1 transparently.
+    setOnboardingCompletedStmt.run(value ? 1 : 0, userId);
     return findById(userId);
   }
 
@@ -169,32 +180,39 @@ function createAuthRepo(db) {
 
   // ============================================================
   // Magic link tokens
+  //
+  // Migration 022 (Sprint 3) renamed the storage column from `token`
+  // to `token_hash`. Repo callers pass an *already-hashed* token to
+  // every method below — the hashing happens in the magic-link
+  // handler (server/auth/magic-link.js) so the plain token never
+  // reaches the database. See `hashToken` in that module.
   // ============================================================
 
   const insertMagicLinkStmt = db.prepare(
-    `INSERT INTO magic_link_tokens (token, email, expires_at) VALUES (?, ?, ?)`
+    `INSERT INTO magic_link_tokens (token_hash, email, expires_at) VALUES (?, ?, ?)`
   );
-  const findMagicLinkStmt = db.prepare('SELECT * FROM magic_link_tokens WHERE token = ?');
+  const findMagicLinkStmt = db.prepare('SELECT * FROM magic_link_tokens WHERE token_hash = ?');
   const markMagicLinkUsedStmt = db.prepare(
-    "UPDATE magic_link_tokens SET used_at = datetime('now') WHERE token = ?"
+    "UPDATE magic_link_tokens SET used_at = datetime('now') WHERE token_hash = ?"
   );
   const deleteExpiredMagicLinksStmt = db.prepare(
     "DELETE FROM magic_link_tokens WHERE expires_at < datetime('now')"
   );
 
-  function createMagicLink({ token, email, ttlMinutes = 15 }) {
+  function createMagicLink({ tokenHash, email, ttlMinutes = 15 }) {
+    if (!tokenHash) throw new Error('createMagicLink: tokenHash is required');
     const expiresAt = toSqliteDatetime(Date.now() + ttlMinutes * 60000);
-    insertMagicLinkStmt.run(token, email, expiresAt);
-    return findMagicLinkStmt.get(token);
+    insertMagicLinkStmt.run(tokenHash, email, expiresAt);
+    return findMagicLinkStmt.get(tokenHash);
   }
 
-  function findMagicLink(token) {
-    if (!token) return null;
-    return findMagicLinkStmt.get(token) || null;
+  function findMagicLinkByHash(tokenHash) {
+    if (!tokenHash) return null;
+    return findMagicLinkStmt.get(tokenHash) || null;
   }
 
-  function markMagicLinkUsed(token) {
-    markMagicLinkUsedStmt.run(token);
+  function markMagicLinkUsed(tokenHash) {
+    markMagicLinkUsedStmt.run(tokenHash);
   }
 
   function cleanupExpiredMagicLinks() {
@@ -212,6 +230,7 @@ function createAuthRepo(db) {
     updateProfile,
     setFamily,
     setRole,
+    setOnboardingCompleted,
     softDelete,
     listByFamily,
     // sessions
@@ -225,7 +244,7 @@ function createAuthRepo(db) {
     cleanupExpired,
     // magic links
     createMagicLink,
-    findMagicLink,
+    findMagicLinkByHash,
     markMagicLinkUsed,
     cleanupExpiredMagicLinks,
   };
