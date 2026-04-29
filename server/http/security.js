@@ -59,11 +59,35 @@ function bearerAuth(ctx) {
 
 // Two independent buckets — see Sprint 1 / Prompt 2:
 //   - hits:     global limit, applied to every request
-//   - authHits: stricter limit on /api/auth/* prefix (slows brute-force
-//               on magic-link and OAuth callbacks). Default 5 per 15 min.
+//   - authHits: stricter limit on a small allow-list of destructive
+//               auth-trigger endpoints (slows brute-force on magic-
+//               link generation and OAuth start). Default 5 per 15 min.
+//
+// The strict bucket is intentionally narrow. The Sprint 1 implementation
+// matched the entire /api/auth/* prefix, which incorrectly counted
+// /api/auth/me (whoami, called on every route change by the frontend
+// AuthContext) and /api/auth/logout against the same brute-force budget.
+// After 5 navigations a real user would be locked out of the app — and,
+// because the bucket is shared, also blocked from requesting a new
+// magic-link to recover. Only the two endpoints below can actually
+// trigger an auth side-effect (sending a magic-link email, redirecting
+// to Google's consent screen) so only they need the tighter bucket.
 const hits = new Map();
 const authHits = new Map();
 const RATE_LIMIT_MAX_IPS = 10000; // Maks antall IP-er i map før eviction
+
+// Method+path tuples that go through the strict auth-bucket. Anything
+// not in this set falls back to the global limit (300/min default),
+// which is appropriate for read-only or session-bearing endpoints.
+const STRICT_AUTH_ENDPOINTS = new Set([
+  'POST /api/auth/magic-link/start',
+  'GET /api/auth/google/start',
+]);
+
+function isStrictAuthEndpoint(ctx) {
+  if (!ctx.pathname || !ctx.req || !ctx.req.method) return false;
+  return STRICT_AUTH_ENDPOINTS.has(`${ctx.req.method} ${ctx.pathname}`);
+}
 
 function getClientIp(req) {
   // Kun stol på X-Forwarded-For hvis TRUST_PROXY er eksplisitt satt (reverse proxy)
@@ -78,11 +102,12 @@ function getClientIp(req) {
 }
 
 function rateLimit(ctx) {
-  // Strict auth-prefix bucket runs first so brute-force attempts
-  // tripping the 5/15min ceiling get rejected with a clearer
-  // "auth rate limit" error message before they consume budget
-  // from the global bucket.
-  if (ctx.pathname && ctx.pathname.startsWith('/api/auth/')) {
+  // Strict auth-bucket runs first so brute-force attempts tripping
+  // the 5/15min ceiling get rejected with a clearer "auth rate limit"
+  // error message before they consume budget from the global bucket.
+  // The set of strict endpoints is intentionally narrow — see comment
+  // on STRICT_AUTH_ENDPOINTS above.
+  if (isStrictAuthEndpoint(ctx)) {
     applyAuthRateLimit(ctx);
   }
 
@@ -119,12 +144,12 @@ function rateLimit(ctx) {
   ctx.res.setHeader('X-RateLimit-Remaining', String(Math.max(0, max - list.length)));
 }
 
-// Strict per-IP rate limit on /api/auth/*. Tighter threshold and
-// longer window than the global bucket — protects against brute-
-// forcing the magic-link start endpoint, the magic-link verify
-// endpoint, the Google OAuth callback (when enabled), and any
-// other future auth-related routes that an attacker might try to
-// drown in requests.
+// Strict per-IP rate limit on the destructive auth-trigger endpoints
+// listed in STRICT_AUTH_ENDPOINTS above. Tighter threshold and longer
+// window than the global bucket — protects against brute-forcing the
+// magic-link start endpoint and the Google OAuth start endpoint,
+// where an attacker can otherwise burn email-quota or generate
+// thousands of state-cookies cheaply.
 //
 // On a trip the response includes Retry-After so clients can back off
 // gracefully, and the throw is dedicated (not the generic "Rate limit:
