@@ -1,8 +1,10 @@
 {
+  "title": "Hjem",
   "welcome": {
     "morning": "God morgen, {{name}}",
     "afternoon": "God ettermiddag, {{name}}",
-    "evening": "God kveld, {{name}}"
+    "evening": "God kveld, {{name}}",
+    "subtitle": "Her er hva som skjer hos dere i dag."
   },
   "sections": {
     "todaysMeals": "Dagens måltider",
@@ -14,9 +16,33 @@
     "noMeals": "Ingen måltider planlagt for i dag",
     "noChores": "Ingen gjøremål for i dag",
     "noShoppingItems": "Handlelisten er tom",
-    "noEvents": "Ingen kommende hendelser"
+    "noEvents": "Ingen kommende hendelser",
+    "addMeal": "Planlegg en middag",
+    "addChore": "Legg til et gjøremål",
+    "addShopping": "Legg til en vare",
+    "addEvent": "Opprett en hendelse"
   },
-  "placeholder": {
-    "description": "Kommer i Fase 2A — i mellomtiden er ruten på plass slik at navigasjonen kan verifiseres ende til ende."
+  "shopping": {
+    "itemsRemaining_one": "{{count}} vare igjen",
+    "itemsRemaining_other": "{{count}} varer igjen"
+  },
+  "more": {
+    "chores_one": "+ {{count}} til",
+    "chores_other": "+ {{count}} flere",
+    "events_one": "+ {{count}} til",
+    "events_other": "+ {{count}} flere"
+  },
+  "actions": {
+    "viewAll": "Se alt",
+    "retry": "Prøv igjen",
+    "addMeal": "Legg til måltid",
+    "addChore": "Nytt gjøremål",
+    "addShopping": "Legg til på handleliste"
+  },
+  "errors": {
+    "generic": "Kunne ikke hente data"
+  },
+  "quickActions": {
+    "label": "Hurtighandlinger"
   }
 }

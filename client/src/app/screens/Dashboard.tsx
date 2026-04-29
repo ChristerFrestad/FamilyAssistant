@@ -1,24 +1,193 @@
-// Phase-1d placeholder for the Dashboard screen. The real Dashboard
-// (today's overview, agenda, family activity feed) lands in Phase 2A.
-// Until then this stub anchors the /dashboard route so AppShell +
-// AuthGuard + BottomNav/SideNav can be exercised end-to-end against
-// real navigation.
+// Fase 2A Dashboard — first real "home" screen for the v2 SPA.
 //
-// Heading and body both flow through i18n: the heading reuses the
-// nav label from `common:nav.dashboard` (so the screen title and
-// the nav-rail name stay in lockstep), and the placeholder copy
-// lives under `dashboard:placeholder.description`.
+// Layout:
+//   1. WelcomeHeader (time-of-day greeting + subtitle)
+//   2. Grid of four DashboardCards (mobile: stacked; >= sm: 2x2)
+//   3. QuickActions row (three CTAs)
+//
+// Data flow: useDashboardData fans out three parallel fetches to
+// existing backend endpoints (Strategy A from analysis §3). Each
+// card consumes one slice of the result and shows its own loading/
+// empty/error state, with per-card retry granularity.
+//
+// Shopping is a count-summary card, not a per-item list, so we
+// synthesize a single-element array containing `{ count }` and
+// render that one line. The other three cards (meals, chores,
+// events) render their actual list entries.
 
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { WelcomeHeader } from '../components/dashboard/WelcomeHeader';
+import { DashboardCard } from '../components/dashboard/DashboardCard';
+import { QuickActions } from '../components/dashboard/QuickActions';
+import { useDashboardData } from '../dashboard/useDashboardData';
+import type { CalendarEvent, TodayChore, TodayResponse } from '../dashboard/dashboardApi';
+
+const CHORES_LIMIT = 3;
+const EVENTS_LIMIT = 3;
+
+// We render at most one meal card item (today's dinner) for now —
+// data model is one-meal-per-day. The card title is plural so
+// adding breakfast/lunch later doesn't require a new card.
+const MEALS_LIMIT = 1;
+
+interface ShoppingSummaryRow {
+  count: number;
+  totalEstPrice: number;
+}
 
 export function Dashboard(): JSX.Element {
-  const { t } = useTranslation(['common', 'dashboard']);
+  const { t } = useTranslation(['dashboard', 'common']);
+  const navigate = useNavigate();
+  const { today, shopping, upcoming, retryToday, retryShopping, retryUpcoming } =
+    useDashboardData();
+
+  // Derived per-card data. Keep these as plain locals — the
+  // mappings are O(N) over <=10 items and re-computing on each
+  // render is cheaper than a useMemo cache.
+  const mealItems: NonNullable<TodayResponse['meal']>[] = today.data?.meal ? [today.data.meal] : [];
+  const choreItems: TodayChore[] = today.data?.chores ?? [];
+
+  // Shopping is a summary card. Convert the items[] into a single
+  // synthesized "summary row" so DashboardCard's per-item renderer
+  // can show the "X varer igjen" line. Empty → empty state with
+  // CTA. Loading → null so the card shows the skeleton.
+  let shoppingSummary: ShoppingSummaryRow[] | null;
+  if (shopping.data) {
+    shoppingSummary =
+      shopping.data.items.length > 0
+        ? [{ count: shopping.data.items.length, totalEstPrice: shopping.data.totalEstPrice }]
+        : [];
+  } else {
+    shoppingSummary = null;
+  }
+
   return (
-    <section aria-labelledby="screen-heading" className="space-y-3">
-      <h1 id="screen-heading" className="font-display text-display-md text-text-1">
-        {t('common:nav.dashboard')}
+    <section aria-labelledby="dashboard-heading" className="flex flex-col gap-6">
+      <h1 id="dashboard-heading" className="sr-only">
+        {t('dashboard:title')}
       </h1>
-      <p className="font-body text-body text-text-2">{t('dashboard:placeholder.description')}</p>
+
+      <WelcomeHeader />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <DashboardCard
+          title={t('dashboard:sections.todaysMeals')}
+          data={today.data ? mealItems : null}
+          isLoading={today.isLoading}
+          error={today.error}
+          renderItem={renderMeal}
+          itemKey={(_, index) => `meal-${index}`}
+          emptyMessage={t('dashboard:empty.noMeals')}
+          emptyCta={{
+            label: t('dashboard:empty.addMeal'),
+            onClick: () => navigate('/meals'),
+          }}
+          limit={MEALS_LIMIT}
+          onRetry={retryToday}
+        />
+
+        <DashboardCard
+          title={t('dashboard:sections.todaysChores')}
+          data={today.data ? choreItems : null}
+          isLoading={today.isLoading}
+          error={today.error}
+          renderItem={renderChore}
+          itemKey={(item) => `chore-${item.choreId}`}
+          emptyMessage={t('dashboard:empty.noChores')}
+          emptyCta={{
+            label: t('dashboard:empty.addChore'),
+            onClick: () => navigate('/family'),
+          }}
+          limit={CHORES_LIMIT}
+          formatMore={(n) => t('dashboard:more.chores', { count: n })}
+          onRetry={retryToday}
+        />
+
+        <DashboardCard<ShoppingSummaryRow>
+          title={t('dashboard:sections.shoppingList')}
+          data={shoppingSummary}
+          isLoading={shopping.isLoading}
+          error={shopping.error}
+          renderItem={(row) => (
+            <span className="font-body text-body text-text-1">
+              {t('dashboard:shopping.itemsRemaining', { count: row.count })}
+            </span>
+          )}
+          itemKey={() => 'shopping-summary'}
+          emptyMessage={t('dashboard:empty.noShoppingItems')}
+          emptyCta={{
+            label: t('dashboard:empty.addShopping'),
+            onClick: () => navigate('/shopping'),
+          }}
+          limit={1}
+          onRetry={retryShopping}
+        />
+
+        <DashboardCard
+          title={t('dashboard:sections.upcomingEvents')}
+          data={upcoming.data}
+          isLoading={upcoming.isLoading}
+          error={upcoming.error}
+          renderItem={renderEvent}
+          itemKey={(item) => `event-${item.id}`}
+          emptyMessage={t('dashboard:empty.noEvents')}
+          emptyCta={{
+            label: t('dashboard:empty.addEvent'),
+            onClick: () => navigate('/calendar'),
+          }}
+          limit={EVENTS_LIMIT}
+          formatMore={(n) => t('dashboard:more.events', { count: n })}
+          onRetry={retryUpcoming}
+        />
+      </div>
+
+      <QuickActions />
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Per-card item renderers. Pulled out as plain functions so the JSX
+// inside Dashboard stays scannable.
+// ---------------------------------------------------------------------
+
+function renderMeal(meal: NonNullable<TodayResponse['meal']>): JSX.Element {
+  if (!meal.recipe) {
+    return <span className="font-body text-body text-text-2">—</span>;
+  }
+  return (
+    <div className="flex flex-col">
+      <span className="font-body text-body text-text-1 line-clamp-2">{meal.recipe.title}</span>
+      {typeof meal.recipe.cookTime === 'number' ? (
+        <span className="font-body text-meta text-text-3">{meal.recipe.cookTime} min</span>
+      ) : null}
+    </div>
+  );
+}
+
+function renderChore(chore: TodayChore): JSX.Element {
+  return (
+    <span className="font-body text-body text-text-1 line-clamp-1">
+      {chore.icon ? <span aria-hidden="true">{chore.icon} </span> : null}
+      {chore.task}
+    </span>
+  );
+}
+
+function renderEvent(event: CalendarEvent): JSX.Element {
+  // ISO date-time -> short locale-formatted label. Browser uses the
+  // active document locale; for jsdom tests this falls back to the
+  // host locale, which is why integration tests assert on substrings
+  // rather than exact strings.
+  const date = new Date(event.startsAt);
+  const dateLabel = isNaN(date.getTime())
+    ? event.startsAt
+    : date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  return (
+    <div className="flex flex-col">
+      <span className="font-body text-body text-text-1 line-clamp-1">{event.title}</span>
+      <span className="font-body text-meta text-text-3">{dateLabel}</span>
+    </div>
   );
 }
