@@ -1,0 +1,26 @@
+{
+  "actions": {
+    "save": "Lagre",
+    "cancel": "Avbryt",
+    "delete": "Slett",
+    "edit": "Rediger",
+    "add": "Legg til",
+    "close": "Lukk",
+    "confirm": "Bekreft",
+    "back": "Tilbake",
+    "next": "Neste",
+    "copy": "Kopier",
+    "copied": "Kopiert!"
+  },
+  "status": {
+    "loading": "Laster...",
+    "error": "Noe gikk galt",
+    "saved": "Lagret",
+    "tryAgain": "Prøv igjen"
+  },
+  "language": {
+    "label": "Språk",
+    "norwegian": "Norsk",
+    "english": "Engelsk"
+  }
+}

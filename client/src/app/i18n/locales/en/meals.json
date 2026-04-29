@@ -1,0 +1,20 @@
+{
+  "title": "Meals",
+  "weekNav": {
+    "previous": "Previous week",
+    "current": "This week",
+    "next": "Next week"
+  },
+  "slots": {
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "snack": "Snack"
+  },
+  "addMeal": "Add meal",
+  "actions": {
+    "markEaten": "Mark eaten",
+    "swap": "Swap"
+  },
+  "empty": "No meal planned"
+}

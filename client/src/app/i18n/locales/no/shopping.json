@@ -1,0 +1,14 @@
+{
+  "title": "Handleliste",
+  "addItem": "Legg til vare",
+  "sections": {
+    "active": "Skal kjøpes",
+    "bought": "Kjøpt"
+  },
+  "actions": {
+    "markBought": "Marker kjøpt",
+    "unmark": "Angre",
+    "deleteBought": "Slett kjøpte"
+  },
+  "empty": "Handlelisten er tom"
+}

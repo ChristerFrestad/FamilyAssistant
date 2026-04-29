@@ -1,0 +1,31 @@
+{
+  "title": "Innstillinger",
+  "sections": {
+    "family": "Familie",
+    "mealTimes": "Måltids-tider",
+    "gamification": "Gamification",
+    "data": "Mine data",
+    "dangerZone": "Farlig sone"
+  },
+  "fields": {
+    "familyName": "Familienavn",
+    "timezone": "Tidssone",
+    "breakfastTime": "Frokost",
+    "lunchTime": "Lunsj",
+    "dinnerTime": "Middag"
+  },
+  "gamification": {
+    "label": "Aktiver gamification",
+    "description": "Poeng, nivåer og badges for fullførte gjøremål"
+  },
+  "data": {
+    "exportButton": "Last ned mine data"
+  },
+  "deleteAccount": {
+    "button": "Slett konto",
+    "title": "Slett konto?",
+    "warning": "Dette sletter all familie-data permanent. Dette kan ikke angres.",
+    "confirmPlaceholder": "Skriv familienavn for å bekrefte",
+    "confirmAction": "Slett permanent"
+  }
+}

@@ -43,6 +43,7 @@
 // scale markers" rather than "exact value coordinates".
 
 import { type InputHTMLAttributes, type CSSProperties, forwardRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export const MIN_PORTION = 0.2;
 export const MAX_PORTION = 1.5;
@@ -53,13 +54,22 @@ export const STEP_PORTION = 0.1;
 // truth exists for the 14 stops we promise to honor.
 const TICK_VALUES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5] as const;
 
-const DEFAULT_DESCRIPTION =
-  '1.0 = voksenporsjon (ca 500 g ferdig mat). Kan justeres basert på faktisk appetitt.';
-
 export type PortionFactorSliderSize = 'sm' | 'md' | 'lg';
 
 export type PortionRole = 'adult' | 'teen' | 'child';
 export type PortionLabel = 'barn' | 'ungdom' | 'voksen';
+
+// Maps the legacy Norwegian PortionLabel identifier to the technical
+// English role key used in i18n bundles. Kept internal because the
+// public API for getPortionLabel still returns the Norwegian
+// identifier (test contract, locked-decisions Beslutning 2). i18n
+// resolution happens at render time via this mapping plus
+// t('family:portion.scale.{role}').
+const PORTION_LABEL_TO_ROLE: Record<PortionLabel, PortionRole> = {
+  barn: 'child',
+  ungdom: 'teen',
+  voksen: 'adult',
+};
 
 // Default value per family-role bucket. Locked in
 // design/2026-04-redesign/extracted/locked-decisions.md (Beslutning 2)
@@ -169,9 +179,17 @@ export const PortionFactorSlider = forwardRef<HTMLInputElement, PortionFactorSli
     { value, onChange, description, size = 'md', disabled, className, ...rest },
     ref
   ): JSX.Element {
+    const { t } = useTranslation('family');
     const label = getPortionLabel(value);
+    const role = PORTION_LABEL_TO_ROLE[label];
+    // Translated short label (barn / ungdom / voksen in NO; child /
+    // teen / adult in EN). Used both in the live aria-valuetext for
+    // screen readers and in the visible secondary label next to the
+    // numeric value.
+    const roleText = t(`portion.scale.${role}`);
+    const portionLabel = t('portion.label', { role: roleText });
     const fillPct = ((value - MIN_PORTION) / (MAX_PORTION - MIN_PORTION)) * 100;
-    const valuetext = `${value.toFixed(1)} — ${label}porsjon`;
+    const valuetext = `${value.toFixed(1)} — ${portionLabel}`;
 
     // The track-fill gradient stops at the current value-percentage
     // so the active portion (left of the thumb) reads as mint and
@@ -199,7 +217,7 @@ export const PortionFactorSlider = forwardRef<HTMLInputElement, PortionFactorSli
           <span className={`font-display ${NUMERIC_TEXT_SIZE[size]} text-text-1`}>
             {value.toFixed(1)}
           </span>
-          <span className="font-body text-meta text-text-2">{label}porsjon</span>
+          <span className="font-body text-meta text-text-2">{portionLabel}</span>
         </div>
 
         {/* Slider input — the visible track with thumb. */}
@@ -248,8 +266,8 @@ export const PortionFactorSlider = forwardRef<HTMLInputElement, PortionFactorSli
           <span className="absolute right-0">1.5</span>
         </div>
 
-        {/* Description — locked-in default, override via prop. */}
-        <p className="font-body text-meta text-text-2">{description ?? DEFAULT_DESCRIPTION}</p>
+        {/* Description — i18n default, override via prop. */}
+        <p className="font-body text-meta text-text-2">{description ?? t('portion.description')}</p>
       </div>
     );
   }

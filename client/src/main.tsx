@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './app/App';
+// i18n config side-effect: registers resource bundles and the
+// language detector with i18next. Imported here (and not lazily)
+// so the very first render already has translations available.
+import './app/i18n/config';
 // Order matters: globals.css ships the Tailwind reset; tokens.css
 // then defines the design system + body baseline that sits on top
 // of that reset. tokens.css also pulls in the @font-face faces, so

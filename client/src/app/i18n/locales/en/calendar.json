@@ -1,0 +1,20 @@
+{
+  "title": "Calendar",
+  "addEvent": "Add event",
+  "fields": {
+    "eventTitle": "Title",
+    "description": "Description",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "allDay": "All day",
+    "attendees": "Attendees",
+    "recurrence": "Recurrence"
+  },
+  "recurrence": {
+    "none": "None",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly"
+  },
+  "empty": "No events in this period"
+}
