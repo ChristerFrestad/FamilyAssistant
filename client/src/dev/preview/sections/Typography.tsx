@@ -39,7 +39,7 @@ const LEADING_ROWS = [
 
 const PARAGRAPH =
   'Aktiv ukesplan, handletur og gjøremål — alt på ett sted. ' +
-  'Familieassistenten samler middag, kalender og pantry til én delt opplevelse for hele familien.';
+  'FamilyAssistant samler middag, kalender og pantry til én delt opplevelse for hele familien.';
 
 export default function Typography(): JSX.Element {
   return (
@@ -85,9 +85,7 @@ export default function Typography(): JSX.Element {
           {SIZES.map((row) => (
             <div key={row.token} className="flex items-baseline gap-4">
               <code className="font-mono text-label text-text-3 min-w-[8rem]">{row.token}</code>
-              <span className={`font-display ${row.className} text-text-1`}>
-                Familieassistenten
-              </span>
+              <span className={`font-display ${row.className} text-text-1`}>FamilyAssistant</span>
             </div>
           ))}
         </div>

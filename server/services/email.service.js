@@ -9,6 +9,10 @@
 //     of trying to send.
 //   - __setSenderForTests(fn) swaps out the network call; helpers.js uses it
 //     to capture the outgoing payload without hitting the network.
+//
+// White-label note: subject and body strings interpolate config.APP_NAME
+// (defaults to 'FamilyAssistant') so a deploy that sets APP_NAME picks up
+// its own brand without code changes. See CLAUDE.md DEL 7.12.
 
 const { config } = require('../config');
 
@@ -49,11 +53,16 @@ function __setSenderForTests(fn) {
 }
 
 async function sendMagicLinkEmail({ to, url }) {
-  const subject = 'Logg inn på Familieassistenten';
+  // White-label: interpolate APP_NAME so a custom-brand deploy
+  // (e.g. APP_NAME=Hverdagsplanleggeren) emits the right brand
+  // in the magic-link email. config.APP_NAME defaults to
+  // 'FamilyAssistant' when the env var is unset.
+  const appName = config.APP_NAME;
+  const subject = `Logg inn på ${appName}`;
   const text = [
     `Hei!`,
     ``,
-    `Klikk lenken under for å logge inn på Familieassistenten.`,
+    `Klikk lenken under for å logge inn på ${appName}.`,
     `Lenken er gyldig i 15 minutter og kan bare brukes én gang.`,
     ``,
     url,
@@ -64,7 +73,7 @@ async function sendMagicLinkEmail({ to, url }) {
     <!DOCTYPE html>
     <html lang="no">
       <body style="font-family: system-ui, -apple-system, Segoe UI, sans-serif; line-height:1.5;">
-        <h2>Logg inn på Familieassistenten</h2>
+        <h2>Logg inn på ${escapeHtml(appName)}</h2>
         <p>Klikk lenken under for å logge inn. Lenken er gyldig i 15 minutter og kan bare brukes én gang.</p>
         <p><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Logg inn</a></p>
         <p style="color:#6b7280;font-size:13px;">Hvis knappen ikke virker, lim denne adressen inn i nettleseren:<br>${escapeHtml(url)}</p>
