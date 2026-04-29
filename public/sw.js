@@ -13,25 +13,28 @@
 //
 // Cache-versjon bumpes ved hver deploy så gamle caches ryddes automatisk.
 
-// v1.8-phase23: bumped 2026-04-22 to force cache invalidation of cached
-// shopping.js from before PR #44/#46 (shopping UX fixes). Stale cached
-// shopping.js is the strongest working hypothesis for why the handleliste
-// tab shows empty without any /api/shopping/list/current fetch in DevTools
-// (see docs/analyses/2026-04-22-frontend-empty-shopping-resolved.md).
+// v1.9-phase24: bumped 2026-04-29 (PR #77 atomic onboarding) to force
+// cache invalidation after the legacy SPA onboarding wizard was deleted.
+// Browsers running an older sw.js still in cache would otherwise keep
+// trying to pre-cache /onboarding.html and /js/family-onboarding.js and
+// fail noisily on the install step. Bumping VERSION trips the activate
+// handler's old-cache cleanup so the precache list is rebuilt fresh.
+// Previous: v1.8-phase23 (2026-04-22, PR #44/#46 — shopping UX fixes).
 // Naming-convention vN.M-phaseN asserted by phase14-sw-multitenant.test.js.
 // Bump this VERSION for any PR that changes public/js/*.js or public/css/*.
-const VERSION = 'v1.8-phase23';
+const VERSION = 'v1.9-phase24';
 const STATIC_CACHE = `fam-static-${VERSION}`;
 const API_CACHE = `fam-api-${VERSION}`;
 
 // Phase 14: auth/family-skjermene og tilhørende moduler pre-caches så offline-
-// brukere kan nå login/onboarding-flyten (selv om selve auth-kallet trenger
-// nettverk — skjermen skal likevel være synlig).
+// brukere kan nå login-flyten (selv om selve auth-kallet trenger nettverk —
+// skjermen skal likevel være synlig). Onboarding-flyten lever nå i v2-SPA-en
+// (PR #77), så onboarding.html og family-onboarding.js er ikke lenger del av
+// legacy precachen.
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/login.html',
-  '/onboarding.html',
   '/invite.html',
   '/privacy.html',
   '/terms.html',
@@ -58,7 +61,6 @@ const STATIC_ASSETS = [
   '/js/notifications.js',
   '/js/settings.js',
   '/js/family-ui.js',
-  '/js/family-onboarding.js',
   '/js/feedback.js',
   '/js/init.js',
 ];

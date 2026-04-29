@@ -109,16 +109,25 @@ async function me(cookies) {
 }
 
 async function createFamily(cookies, name) {
+  // The legacy /api/onboarding/create-family endpoint was retired in
+  // PR #77 (atomic onboarding). The replacement endpoint also creates
+  // the user's first profile-member row and flips
+  // onboarding_completed=1 in one transaction, so this script's setup
+  // step matches what the v2 SPA does for a real user.
   const r = await req({
     method: 'POST',
-    path: '/api/onboarding/create-family',
+    path: '/api/auth/onboarding/complete',
     cookies,
-    body: { name },
+    body: {
+      family: { name },
+      user: { name: 'E2E user', category: 'adult', portionFactor: 1.0 },
+    },
   });
   if (r.status !== 200) {
-    throw new Error(`create-family failed: ${r.status} ${JSON.stringify(r.body)}`);
+    throw new Error(`onboarding complete failed: ${r.status} ${JSON.stringify(r.body)}`);
   }
-  return r.body;
+  // Preserve the legacy return shape callers expect: { ok, family: {...} }.
+  return { ok: r.body.ok, family: r.body.family };
 }
 
 async function addPantryItem(cookies, productKey, qty) {

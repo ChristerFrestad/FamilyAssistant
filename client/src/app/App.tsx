@@ -25,9 +25,10 @@
 // written as path="/dashboard" therefore matches the URL
 // /v2/dashboard in the browser.
 
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { OnboardingGuard } from './components/auth/OnboardingGuard';
+import { OnboardingProvider } from './auth/OnboardingContext';
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './screens/Dashboard';
 import { Family } from './screens/Family';
@@ -55,23 +56,28 @@ export default function App(): JSX.Element {
       {/* ONBOARDING routes — auth required, but no OnboardingGuard
           (these screens ARE the onboarding flow). Rendered without
           AppShell so the page reads as a focused single-purpose
-          wizard. */}
+          wizard. The shared OnboardingProvider wraps both steps via
+          a parent route + <Outlet />, so Step 1 (FamilySetup) can
+          stash the family name in shared state and Step 2
+          (UserProfile) can read it back when submitting the atomic
+          POST /api/auth/onboarding/complete (PR #77). Navigating
+          between /onboarding/family and /onboarding/profile keeps
+          the same provider instance alive; navigating away from
+          /onboarding/* drops the partial state, which is exactly
+          the cancellation behaviour the bug fix aims for. */}
       <Route
-        path="/onboarding/family"
+        path="/onboarding"
         element={
           <AuthGuard>
-            <FamilySetup />
+            <OnboardingProvider>
+              <Outlet />
+            </OnboardingProvider>
           </AuthGuard>
         }
-      />
-      <Route
-        path="/onboarding/profile"
-        element={
-          <AuthGuard>
-            <UserProfile />
-          </AuthGuard>
-        }
-      />
+      >
+        <Route path="family" element={<FamilySetup />} />
+        <Route path="profile" element={<UserProfile />} />
+      </Route>
 
       {/* PROTECTED app surface. AuthGuard + OnboardingGuard +
           AppShell wrap the inner Routes. Nesting AppShell here

@@ -117,6 +117,20 @@ export async function startMagicLink(email: string): Promise<MagicLinkStartRespo
   return readJsonOrThrow<MagicLinkStartResponse>(res);
 }
 
+// PR #77 atomic onboarding: the endpoint now creates the family,
+// the first profile-member row, and flips onboarding_completed in a
+// single transaction. The legacy "flag-flip only" version of this
+// endpoint and the now-deleted POST /api/onboarding/create-family
+// are both gone.
+export interface OnboardingCompleteRequest {
+  family: { name: string };
+  user: {
+    name: string;
+    category: 'adult' | 'teen' | 'child';
+    portionFactor: number;
+  };
+}
+
 export interface OnboardingCompleteResponse {
   ok: boolean;
   user: {
@@ -125,34 +139,31 @@ export interface OnboardingCompleteResponse {
     name: string | null;
     role: 'owner' | 'adult' | 'child';
     familyId: number | null;
+    profileMemberId: number | null;
     onboardingCompleted: boolean;
   };
-}
-
-export async function completeOnboarding(): Promise<OnboardingCompleteResponse> {
-  const res = await callApi('/api/auth/onboarding/complete', {
-    method: 'POST',
-    body: {},
-  });
-  return readJsonOrThrow<OnboardingCompleteResponse>(res);
-}
-
-export interface CreateFamilyResponse {
-  ok: boolean;
   family: {
     id: number;
     name: string;
     ownerUserId: number;
     createdAt: string;
   };
+  member: {
+    id: number;
+    name: string;
+    category: 'adult' | 'teen' | 'child';
+    portionFactor: number;
+  };
 }
 
-export async function createFamily(name: string): Promise<CreateFamilyResponse> {
-  const res = await callApi('/api/onboarding/create-family', {
+export async function completeOnboarding(
+  payload: OnboardingCompleteRequest
+): Promise<OnboardingCompleteResponse> {
+  const res = await callApi('/api/auth/onboarding/complete', {
     method: 'POST',
-    body: { name },
+    body: payload,
   });
-  return readJsonOrThrow<CreateFamilyResponse>(res);
+  return readJsonOrThrow<OnboardingCompleteResponse>(res);
 }
 
 export async function logout(): Promise<{ ok: boolean }> {

@@ -349,6 +349,43 @@ const profileUpdateBody = z.object({
 });
 
 // ============================================================
+// Auth / onboarding
+// ============================================================
+
+// POST /api/auth/onboarding/complete
+//
+// Atomic onboarding payload. The frontend collects family-name (Step 1)
+// and personal profile (Step 2) into local state and submits both in a
+// single request once the user clicks "Fullfør". The handler then runs
+// one transaction that creates the family, the matching profile-member
+// row, sets the user's role to 'owner', stores the slider value on
+// users.portion_factor, flips onboarding_completed=1, and writes an
+// audit-log entry. Either everything commits or nothing does — closing
+// the tab between steps no longer leaves a zombie family behind.
+//
+// portion_factor range follows the tightened CHECK constraint from
+// migration 023 (0.1-2.0). category is the display category for portion
+// scaling and is independent from users.role; the role is always set to
+// 'owner' inside the handler because the user is creating their own
+// family.
+const onboardingCompleteBody = z
+  .object({
+    family: z
+      .object({
+        name: z.string().trim().min(1).max(100),
+      })
+      .strict(),
+    user: z
+      .object({
+        name: z.string().trim().min(1).max(100),
+        category: z.enum(['adult', 'teen', 'child']),
+        portionFactor: z.number().min(0.1).max(2.0),
+      })
+      .strict(),
+  })
+  .strict();
+
+// ============================================================
 // Sunday push
 // ============================================================
 
@@ -401,6 +438,7 @@ module.exports = {
   priceLookupQuery,
   priceSearchQuery,
   profileUpdateBody,
+  onboardingCompleteBody,
   receiptConfirmBody,
   receiptListQuery,
   recipeImportTextBody,

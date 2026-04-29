@@ -105,6 +105,46 @@ describe('AuthProvider initial /me round-trip', () => {
     });
     expect(screen.getByTestId('status').textContent).toBe('anon');
   });
+
+  test('treats synthetic LOCAL_USER (legacy single-tenant fallback) as anonymous', async () => {
+    // PR #77 hotfix: when the backend has no AUTH_TOKEN configured
+    // (legacy single-tenant deploy / local dev), the auth middleware
+    // attaches a synthetic LOCAL_USER and /api/auth/me responds with
+    // `authenticated: true, synthetic: true`. The v2 SPA must treat
+    // that as unauthenticated — the user has no session cookie, and
+    // any authenticated mutation (create-family, onboarding/complete)
+    // would 401. Routing the synthetic user as authenticated stranded
+    // visitors in an onboarding loop they could never finish.
+    // Mirror what the backend's middleware.attachLocalUser puts on
+    // ctx.user. The real synthetic user has email=null on the
+    // backend; the AuthUser type currently models email as string,
+    // so use an empty placeholder here. The behaviour under test
+    // (synthetic flag → unauthenticated) is unaffected by what
+    // ends up in the email slot.
+    const SYNTHETIC: AuthUser = {
+      ...TEST_USER,
+      id: 0,
+      email: '',
+      name: 'Local',
+      role: 'owner',
+      familyId: 1,
+      profileMemberId: null,
+      onboardingCompleted: false,
+      synthetic: true,
+    };
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, { authenticated: true, user: SYNTHETIC } satisfies MeResponse)
+    );
+    await act(async () => {
+      render(
+        <AuthProvider>
+          <Consumer />
+        </AuthProvider>
+      );
+    });
+    expect(screen.getByTestId('status').textContent).toBe('anon');
+    expect(screen.getByTestId('user-name').textContent).toBe('—');
+  });
 });
 
 describe('initialState skips the auto-fetch', () => {

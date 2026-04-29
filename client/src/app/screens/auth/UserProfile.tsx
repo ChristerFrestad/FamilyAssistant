@@ -1,25 +1,21 @@
 // UserProfile — final onboarding screen.
 //
-// User sets their personal display-name, role, and portion-factor.
-// On submit we POST /api/auth/onboarding/complete which flips
-// users.onboarding_completed to 1 server-side, then refresh the
-// auth user so the AuthContext sees the flag flip too. The
-// OnboardingGuard then lets the user through to /v2/dashboard.
+// PR #77 atomic-onboarding refactor:
+//   Reads the family name out of OnboardingContext (set by Step 1)
+//   and the personal profile fields out of local state. On submit
+//   the combined payload goes to POST /api/auth/onboarding/complete
+//   exactly once. The backend creates the family, the first profile-
+//   member row, sets users.role='owner' + portion_factor +
+//   onboarding_completed=true, and writes an audit-log entry — all
+//   in a single transaction. Closing the tab before this submit
+//   leaves nothing on the server.
 //
 // Pilot scope (per "kun voksne logger inn"-decision): every user
-// who reaches this screen is an adult. We still surface the role
-// selector with the three options (adult / teen / child) for two
-// reasons:
-//   1. The shared backend schema accepts all three; defaulting to
-//      'adult' keeps that contract intact.
-//   2. A future pilot iteration may let teens log in with their
-//      own account; the field is then already wired up.
-//
-// Personal name + portion-factor are NOT yet sent to a dedicated
-// "save profile" endpoint — that endpoint comes in Sprint 4 with
-// the full Family screen. For Sprint 3 we accept the values, mark
-// onboarding complete, and rely on Sprint 4 to surface the same
-// fields again for the user to confirm/edit.
+// who reaches this screen logs in themselves. The category radio
+// reflects the portion-scaling category (adult / teen / child) that
+// the matching family_profile_members row stores. users.role is
+// always set to 'owner' by the backend regardless of the category
+// chosen here, because the user is creating the family.
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -35,13 +31,14 @@ import {
   type PortionRole,
 } from '../../components/form/PortionFactorSlider';
 import { useAuthContext } from '../../auth/AuthContext';
-import { completeOnboarding } from '../../auth/authApi';
+import { useOnboardingContext } from '../../auth/OnboardingContext';
 
 const ROLES: PortionRole[] = ['adult', 'teen', 'child'];
 
 export function UserProfile(): JSX.Element {
   const { t } = useTranslation(['auth', 'common', 'family']);
   const { user, refreshUser } = useAuthContext();
+  const { family, completeOnboarding, resetOnboarding } = useOnboardingContext();
   const navigate = useNavigate();
 
   // Initial values: pre-fill the name from /api/auth/me when we
@@ -76,13 +73,22 @@ export function UserProfile(): JSX.Element {
       setError(t('auth:onboarding.profile.errorRequired'));
       return;
     }
+    // If the user landed here without a family name in context (e.g.
+    // direct navigation to /onboarding/profile), bounce back to step 1
+    // rather than firing a request the backend will reject.
+    if (!family.name || !family.name.trim()) {
+      navigate('/onboarding/family');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      // Sprint 3 only flips the onboarding flag. Name/role/portion
-      // are accepted UI-side and re-applied from the Family screen
-      // in Sprint 4 (which adds the dedicated profile-save endpoint).
-      await completeOnboarding();
+      await completeOnboarding({
+        name: trimmed,
+        category: role,
+        portionFactor: portion,
+      });
+      resetOnboarding();
       await refreshUser();
       navigate('/dashboard');
     } catch {

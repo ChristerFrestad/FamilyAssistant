@@ -1,13 +1,19 @@
 // Phase 14 — service worker multi-tenant hardening
 //
 // Dekker:
-//   1. sw.js precacher login/onboarding/invite + auth.js/family-*.js
+//   1. sw.js precacher login/invite + auth.js/family-*.js
 //   2. sw.js har en liste med tenant-sensitive API-prefikser som IKKE caches
 //   3. sw.js evicter API-cache på 401/403
 //   4. sw.js har en CLEAR_API_CACHE message-handler
 //   5. VERSION er bumpet til v1.4-phase14 (tvinger cache-refresh ved deploy)
 //   6. auth.js sender CLEAR_API_CACHE til SW ved logout
 //   7. manifest.json refererer kun eksisterende ikoner
+//
+// 2026-04-29: Two legacy asset assertions removed under explicit owner
+// approval (PR #77 atomic onboarding cleanup). See pending-decisions.md
+// and PR #77 for context. Multi-tenant security logic
+// (NO_CACHE_API_PREFIXES, CLEAR_API_CACHE, tenant-isolation patterns)
+// remains intact and is what this test guards.
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,16 +26,14 @@ const AUTH_JS = fs.readFileSync(path.join(PUBLIC, 'js', 'auth.js'), 'utf8');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'manifest.json'), 'utf8'));
 
 describe('Phase 14 · SW pre-cache av auth/family-sider', () => {
-  test('STATIC_ASSETS inkluderer login/onboarding/invite HTML', () => {
+  test('STATIC_ASSETS inkluderer login/invite HTML', () => {
     assert.ok(SW.includes("'/login.html'"), 'login.html må precaches');
-    assert.ok(SW.includes("'/onboarding.html'"), 'onboarding.html må precaches');
     assert.ok(SW.includes("'/invite.html'"), 'invite.html må precaches');
   });
 
   test('STATIC_ASSETS inkluderer auth/family JS-moduler', () => {
     assert.ok(SW.includes("'/js/auth.js'"), 'auth.js må precaches');
     assert.ok(SW.includes("'/js/family-ui.js'"), 'family-ui.js må precaches');
-    assert.ok(SW.includes("'/js/family-onboarding.js'"), 'family-onboarding.js må precaches');
   });
 
   test('alle precachede filer eksisterer faktisk på disk', () => {

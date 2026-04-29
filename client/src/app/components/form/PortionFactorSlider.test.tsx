@@ -23,7 +23,7 @@ test('renders a range slider with the controlled value', () => {
   expect(slider).toBeInTheDocument();
   expect(slider).toHaveAttribute('type', 'range');
   expect(slider).toHaveAttribute('min', '0.2');
-  expect(slider).toHaveAttribute('max', '1.5');
+  expect(slider).toHaveAttribute('max', '2');
   expect(slider).toHaveAttribute('step', '0.1');
   expect(slider).toHaveValue('1');
 });
@@ -183,7 +183,14 @@ test('getPortionLabel: lower-of-voksen-band 0.9 maps to "voksen"', () => {
   expect(getPortionLabel(0.9)).toBe('voksen');
 });
 
-test('getPortionLabel: upper bound 1.5 maps to "voksen"', () => {
+test('getPortionLabel: upper bound 2.0 maps to "voksen"', () => {
+  expect(getPortionLabel(2.0)).toBe('voksen');
+});
+
+test('getPortionLabel: previous-band upper 1.5 still maps to "voksen"', () => {
+  // Regression guard for the migration-023 widening from 0.2-1.5 to
+  // 0.2-2.0: a value at the old ceiling must keep the same label so
+  // existing data does not visually re-categorise.
   expect(getPortionLabel(1.5)).toBe('voksen');
 });
 
@@ -195,5 +202,5 @@ test('getPortionLabel: out-of-range below min still snaps to "barn"', () => {
 });
 
 test('getPortionLabel: out-of-range above max still snaps to "voksen"', () => {
-  expect(getPortionLabel(2.0)).toBe('voksen');
+  expect(getPortionLabel(2.5)).toBe('voksen');
 });

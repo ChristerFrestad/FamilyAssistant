@@ -11,10 +11,18 @@
 //     </OnboardingGuard>
 //   </AuthGuard>
 //
-// Three states:
-//   1. isLoading           -> defer to AuthGuard (won't reach here)
-//   2. !onboardingCompleted -> redirect to /onboarding/family
-//   3. onboardingCompleted  -> render children
+// Four states (priority order):
+//   1. isLoading            -> render the loading shell, do NOT
+//                              redirect (avoids a one-frame flash
+//                              if the guard is ever used outside
+//                              AuthGuard, e.g. a test renders it
+//                              standalone with isLoading=true).
+//   2. !user (unauthenticated) -> redirect to /login. AuthGuard
+//                                 upstream normally handles this,
+//                                 but the defensive branch keeps
+//                                 the guard correct standalone.
+//   3. !user.onboardingCompleted -> redirect to /onboarding/family.
+//   4. user.onboardingCompleted  -> render children.
 //
 // Why a separate guard instead of inline logic in AuthGuard: the
 // onboarding-routes (/onboarding/family, /onboarding/profile) are
@@ -25,6 +33,8 @@
 
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { PageShell } from '../layout/PageShell';
 import { useAuth } from '../../auth/useAuth';
 
 export interface OnboardingGuardProps {
@@ -35,19 +45,55 @@ export interface OnboardingGuardProps {
    * Sprint-3 two-step pilot wizard. Tests can override.
    */
   redirectTo?: string;
+  /**
+   * Where to send users that are not authenticated at all.
+   * Defaults to `/login`. AuthGuard upstream normally handles
+   * the unauthenticated case before OnboardingGuard mounts, so
+   * this only fires when the guard is used standalone.
+   */
+  unauthenticatedRedirectTo?: string;
 }
 
 export function OnboardingGuard({
   children,
   redirectTo = '/onboarding/family',
+  unauthenticatedRedirectTo = '/login',
 }: OnboardingGuardProps): JSX.Element {
+  const { t } = useTranslation('common');
   const { user, isLoading } = useAuth();
 
-  // AuthGuard upstream already handled the loading + unauthenticated
-  // cases. If we get here without a user, treat as not-yet-onboarded
-  // and redirect (defensive — should not happen in practice).
-  if (isLoading) return <>{children}</>;
-  if (!user) return <Navigate to={redirectTo} replace />;
-  if (!user.onboardingCompleted) return <Navigate to={redirectTo} replace />;
+  if (isLoading) {
+    // Match AuthGuard's loading view. Reaching here while loading
+    // is unlikely in production (AuthGuard upstream renders its
+    // own loading state and OnboardingGuard never mounts), but
+    // standalone use in tests / future routing tweaks should NOT
+    // briefly flash the protected children before the redirect
+    // decision is made.
+    return (
+      <PageShell maxWidth="sm" compact>
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex min-h-[40vh] items-center justify-center font-body text-text-2"
+        >
+          {t('status.loading')}
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (!user) {
+    // Defensive: AuthGuard upstream catches this case, but if the
+    // guard is mounted directly we redirect to login instead of
+    // bouncing the user through onboarding (which would just
+    // redirect them to login anyway via FamilySetup's own
+    // AuthGuard wrapper).
+    return <Navigate to={unauthenticatedRedirectTo} replace />;
+  }
+
+  if (!user.onboardingCompleted) {
+    return <Navigate to={redirectTo} replace />;
+  }
+
   return <>{children}</>;
 }

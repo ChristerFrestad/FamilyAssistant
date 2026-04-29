@@ -12,6 +12,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../../auth/AuthContext';
+import { OnboardingProvider } from '../../auth/OnboardingContext';
 import type { AuthUser } from '../../auth/authApi';
 
 import { Welcome } from './Welcome';
@@ -40,11 +41,20 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
-function renderScreen(
-  ui: JSX.Element,
-  options: { user?: AuthUser | null; path?: string; state?: unknown } = {}
-): void {
-  const { user = null, path = '/', state } = options;
+interface RenderScreenOptions {
+  user?: AuthUser | null;
+  path?: string;
+  state?: unknown;
+  /**
+   * When provided, wraps the rendered tree in an OnboardingProvider
+   * seeded with this state. Used by FamilySetup / UserProfile tests
+   * that read or write the shared onboarding state.
+   */
+  onboarding?: { family?: { name?: string }; user?: Record<string, unknown> };
+}
+
+function renderScreen(ui: JSX.Element, options: RenderScreenOptions = {}): void {
+  const { user = null, path = '/', state, onboarding } = options;
   // MemoryRouter accepts entries either as plain path-strings ("/foo
   // ?bar=1") or as {pathname, search, state} objects. Plain strings
   // get parsed by react-router so ?-search and #-hash propagate to
@@ -55,9 +65,24 @@ function renderScreen(
   const entry = state
     ? { pathname: pathname ?? '/', search: search ? `?${search}` : '', state }
     : { pathname: pathname ?? '/', search: search ? `?${search}` : '' };
+
+  // Onboarding provider only wraps the tree when a test opts in. The
+  // public/login/magic-link/auth-callback screens never read the
+  // onboarding state, so omitting the wrapper there keeps the tests
+  // honest about which dependencies each screen actually has.
+  const tree = onboarding ? (
+    <OnboardingProvider
+      initialState={{ family: onboarding.family ?? {}, user: (onboarding.user ?? {}) as never }}
+    >
+      {ui}
+    </OnboardingProvider>
+  ) : (
+    ui
+  );
+
   render(
     <MemoryRouter initialEntries={[entry]}>
-      <AuthProvider initialState={{ user, isLoading: false }}>{ui}</AuthProvider>
+      <AuthProvider initialState={{ user, isLoading: false }}>{tree}</AuthProvider>
     </MemoryRouter>
   );
 }
@@ -208,24 +233,17 @@ describe('AuthCallback', () => {
 
 describe('FamilySetup', () => {
   test('renders heading + family-name input', () => {
-    renderScreen(<FamilySetup />, { user: TEST_USER });
+    renderScreen(<FamilySetup />, { user: TEST_USER, onboarding: {} });
     expect(screen.getByRole('heading', { name: 'Lag familien din', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Familienavn/ })).toBeInTheDocument();
   });
 
-  test('submit POSTs to /api/onboarding/create-family then refreshes', async () => {
-    fetchSpy
-      .mockResolvedValueOnce(
-        jsonResponse(200, {
-          ok: true,
-          family: { id: 5, name: 'Frestad', ownerUserId: 1, createdAt: 'now' },
-        })
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(200, { authenticated: true, user: { ...TEST_USER, familyId: 5 } })
-      );
-
-    renderScreen(<FamilySetup />, { user: TEST_USER });
+  test('submit DOES NOT call any API (PR #77 atomic onboarding)', async () => {
+    // Step 1 only stashes the family name in OnboardingContext and
+    // navigates to /onboarding/profile. The DB write happens once at
+    // Step 2 submit. Here we just confirm that submitting Step 1
+    // never fires fetch.
+    renderScreen(<FamilySetup />, { user: TEST_USER, onboarding: {} });
     fireEvent.change(screen.getByRole('textbox', { name: /Familienavn/ }), {
       target: { value: 'Frestad' },
     });
@@ -233,14 +251,11 @@ describe('FamilySetup', () => {
       fireEvent.submit(screen.getByRole('textbox', { name: /Familienavn/ }).closest('form')!);
     });
 
-    expect(fetchSpy).toHaveBeenCalledWith(
-      '/api/onboarding/create-family',
-      expect.objectContaining({ method: 'POST' })
-    );
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   test('blocks empty submission with a client-side error', async () => {
-    renderScreen(<FamilySetup />, { user: TEST_USER });
+    renderScreen(<FamilySetup />, { user: TEST_USER, onboarding: {} });
     const submit = screen.getByRole('button', { name: /Opprett familien/ });
     expect(submit).toBeDisabled();
   });
@@ -252,29 +267,36 @@ describe('FamilySetup', () => {
 
 describe('UserProfile', () => {
   test('renders heading + role radiogroup', () => {
-    renderScreen(<UserProfile />, { user: TEST_USER });
+    renderScreen(<UserProfile />, { user: TEST_USER, onboarding: { family: { name: 'F' } } });
     expect(screen.getByRole('heading', { name: 'Profilen din', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Rolle' })).toBeInTheDocument();
     // Three role options.
     expect(screen.getAllByRole('radio')).toHaveLength(3);
   });
 
-  test('submit POSTs to /api/auth/onboarding/complete', async () => {
+  test('submit POSTs the atomic payload (family + user) to /api/auth/onboarding/complete', async () => {
+    // Mock the onboarding-complete response, then the /api/auth/me
+    // refresh that fires after success.
     fetchSpy
       .mockResolvedValueOnce(
         jsonResponse(200, {
           ok: true,
-          user: { ...TEST_USER, onboardingCompleted: true },
+          user: { ...TEST_USER, onboardingCompleted: true, familyId: 5, profileMemberId: 9 },
+          family: { id: 5, name: 'Frestad', ownerUserId: 1, createdAt: 'now' },
+          member: { id: 9, name: 'Christer', category: 'adult', portionFactor: 1.0 },
         })
       )
       .mockResolvedValueOnce(
         jsonResponse(200, {
           authenticated: true,
-          user: { ...TEST_USER, onboardingCompleted: true },
+          user: { ...TEST_USER, onboardingCompleted: true, familyId: 5 },
         })
       );
 
-    renderScreen(<UserProfile />, { user: TEST_USER });
+    renderScreen(<UserProfile />, {
+      user: TEST_USER,
+      onboarding: { family: { name: 'Frestad' } },
+    });
     fireEvent.change(screen.getByRole('textbox', { name: 'Navnet ditt' }), {
       target: { value: 'Christer' },
     });
@@ -286,5 +308,18 @@ describe('UserProfile', () => {
       '/api/auth/onboarding/complete',
       expect.objectContaining({ method: 'POST' })
     );
+    // Body must include both family.name (from context) and the
+    // personal profile fields. Asserting the shape catches the
+    // regression where Step 1 wrote to the DB on its own.
+    const onboardingCall = fetchSpy.mock.calls.find(
+      (call: unknown[]) => call[0] === '/api/auth/onboarding/complete'
+    );
+    expect(onboardingCall).toBeDefined();
+    const init = onboardingCall?.[1] as RequestInit;
+    const body = JSON.parse(String(init.body));
+    expect(body.family).toEqual({ name: 'Frestad' });
+    expect(body.user.name).toBe('Christer');
+    expect(body.user.category).toBe('adult');
+    expect(typeof body.user.portionFactor).toBe('number');
   });
 });

@@ -82,10 +82,9 @@ describe('Uke4 · A11y utvidet — dialogs og modaler', () => {
     assert.ok(/ev\.key\s*===\s*['"]Escape['"]/.test(js), 'showConfirm håndterer ikke Escape-key');
   });
 
-  test('Family onboarding wizard page exists (replacement for old tour)', () => {
-    const p = path.join(ROOT, 'public', 'onboarding.html');
-    assert.ok(fs.existsSync(p), 'onboarding.html missing');
-  });
+  // The legacy /public/onboarding.html assertion that previously lived
+  // here was retired in PR #77 (atomic onboarding) when the wizard moved
+  // to the v2 SPA at /v2/onboarding/*.
 
   test('Global Esc-handler lukker modalBg', () => {
     const js = readAllJs();

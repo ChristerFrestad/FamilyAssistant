@@ -155,8 +155,8 @@ function createFamilyRepo(db) {
     if (!['adult', 'teen', 'child'].includes(category)) {
       throw new Error(`addMember: invalid category ${category}`);
     }
-    if (portionFactor < 0.1 || portionFactor > 3.0) {
-      throw new Error('addMember: portionFactor must be between 0.1 and 3.0');
+    if (portionFactor < 0.1 || portionFactor > 2.0) {
+      throw new Error('addMember: portionFactor must be between 0.1 and 2.0');
     }
     const sort = sortOrder != null ? sortOrder : maxSortStmt.get(familyId).m + 1;
     const res = insertMemberStmt.run(familyId, name, category, portionFactor, sort);
@@ -177,8 +177,8 @@ function createFamilyRepo(db) {
     if (!['adult', 'teen', 'child'].includes(category)) {
       throw new Error(`updateMember: invalid category ${category}`);
     }
-    if (portionFactor < 0.1 || portionFactor > 3.0) {
-      throw new Error('updateMember: portionFactor must be between 0.1 and 3.0');
+    if (portionFactor < 0.1 || portionFactor > 2.0) {
+      throw new Error('updateMember: portionFactor must be between 0.1 and 2.0');
     }
     updateMemberStmt.run(name, category, portionFactor, sortOrder, familyId, memberId);
     return parseMemberRow(findMemberStmt.get(familyId, memberId));

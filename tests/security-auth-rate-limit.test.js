@@ -123,3 +123,74 @@ test('window expiry releases the bucket and lets new requests through', async ()
   // After window expiry, the request should pass the rate-limiter.
   assert.notEqual(recovered.status, 429, `Bucket did not recover: ${recovered.status}`);
 });
+
+// ----------------------------------------------------------------
+// Scope tests — ensure non-trigger auth endpoints stay reachable
+// even when the strict bucket is saturated.
+//
+// PR #76 hotfix: the Sprint 1 implementation applied the strict
+// bucket to every /api/auth/* request, which meant /api/auth/me
+// (called on every frontend route change) and /api/auth/logout
+// got rate-limited along with the actual brute-force-targets.
+// After 5 navigations a real user got locked out of the app and
+// could no longer request a fresh magic-link either.
+//
+// These tests pin down the new scope: only POST /api/auth/magic-link/start
+// and GET /api/auth/google/start hit the strict bucket. Everything
+// else falls back to the global limit (300/min default).
+// ----------------------------------------------------------------
+
+test('GET /api/auth/me is NOT in the strict auth bucket', async () => {
+  // Hit /me more than AUTH_RATE_LIMIT_MAX times. None of the
+  // responses should be 429 — the user must be able to keep
+  // navigating around the app without tripping the brute-force
+  // limiter.
+  for (let i = 0; i < 6; i++) {
+    const r = await request(server.baseUrl, 'GET', '/api/auth/me');
+    assert.notEqual(r.status, 429, `Request ${i + 1} to /me incorrectly rate-limited`);
+    // /me returns 200 with authenticated:false when there is no
+    // session cookie; we only care that the rate-limiter let it
+    // through.
+    assert.ok(r.status === 200 || r.status === 401, `/me returned unexpected status ${r.status}`);
+  }
+});
+
+test('POST /api/auth/logout is NOT in the strict auth bucket', async () => {
+  for (let i = 0; i < 6; i++) {
+    const r = await request(server.baseUrl, 'POST', '/api/auth/logout', { body: {} });
+    assert.notEqual(r.status, 429, `Request ${i + 1} to /logout incorrectly rate-limited`);
+  }
+});
+
+test('GET /api/auth/magic-link/verify is NOT in the strict auth bucket', async () => {
+  // Without a token the handler returns 400 — but the rate-limiter
+  // runs first, so what we are pinning down is "the limiter never
+  // returned 429 even after >MAX requests".
+  for (let i = 0; i < 6; i++) {
+    const r = await request(server.baseUrl, 'GET', '/api/auth/magic-link/verify');
+    assert.notEqual(r.status, 429, `Request ${i + 1} to /verify incorrectly rate-limited`);
+  }
+});
+
+test('saturating magic-link/start does NOT lock the user out of /api/auth/me', async () => {
+  // Reproduces the exact bug Christer hit during manual end-to-end
+  // testing of PR #76: after a few magic-link attempts the same IP
+  // could no longer reach /me, so the frontend's AuthContext kept
+  // throwing on mount. Buckets are now independent.
+  for (let i = 0; i < 4; i++) {
+    await request(server.baseUrl, 'POST', '/api/auth/magic-link/start', {
+      body: { email: `victim${i}@example.com` },
+    });
+  }
+  // The auth bucket is now saturated; the next magic-link/start MUST
+  // return 429 — the strict scope is still in effect for the
+  // legitimate target.
+  const tripped = await request(server.baseUrl, 'POST', '/api/auth/magic-link/start', {
+    body: { email: 'last@example.com' },
+  });
+  assert.equal(tripped.status, 429);
+
+  // But /me should still respond normally.
+  const me = await request(server.baseUrl, 'GET', '/api/auth/me');
+  assert.notEqual(me.status, 429, `/me was incorrectly blocked: ${me.status}`);
+});

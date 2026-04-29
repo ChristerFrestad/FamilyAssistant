@@ -71,16 +71,14 @@ async function bootAuth() {
   const me = await fetchAuthMe();
   if (me && me.authenticated) {
     currentUser = me.user || null;
-    // Authenticated but no family yet → onboarding wizard.
+    // Authenticated but no family yet → v2 SPA onboarding wizard.
     // Synthetic local/bearer users are hard-coded to family_id=1 so they
-    // skip this redirect automatically.
-    if (
-      currentUser &&
-      !currentUser.synthetic &&
-      !currentUser.familyId &&
-      !/\/onboarding\.html/.test(window.location.pathname)
-    ) {
-      window.location.replace('/onboarding.html');
+    // skip this redirect automatically. The legacy /onboarding.html
+    // wizard was removed in PR #77 (atomic onboarding); the v2 SPA at
+    // /v2 hosts the modern two-step flow that calls
+    // POST /api/auth/onboarding/complete in a single transaction.
+    if (currentUser && !currentUser.synthetic && !currentUser.familyId) {
+      window.location.replace('/v2/onboarding/family');
       return false;
     }
     renderUserBadge();

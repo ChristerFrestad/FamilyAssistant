@@ -1,10 +1,13 @@
 // Portion-factor slider for the meal-planning surfaces. The user
 // scales a recipe's per-person quantities by a factor between 0.2
-// and 1.5 in 0.1 steps (14 discrete values). Values cluster around
+// and 2.0 in 0.1 steps (19 discrete values). Values cluster around
 // the three role defaults — barn 0.4, ungdom 0.7, voksen 1.0 —
 // from `getPortionFactorDefault()`, but the user can land anywhere
 // in the band so a small eater on a big day is just two arrow
-// presses away.
+// presses away. The 2.0 ceiling matches the tightened CHECK
+// constraint on users.portion_factor + family_profile_members
+// .portion_factor introduced in migration 023 (PR #77 atomic
+// onboarding).
 //
 // Interaction model:
 //   - The component is built on a real <input type="range">. The
@@ -46,13 +49,15 @@ import { type InputHTMLAttributes, type CSSProperties, forwardRef } from 'react'
 import { useTranslation } from 'react-i18next';
 
 export const MIN_PORTION = 0.2;
-export const MAX_PORTION = 1.5;
+export const MAX_PORTION = 2.0;
 export const STEP_PORTION = 0.1;
 
 // Discrete values — used for the tick-mark visual under the track.
 // Listed explicitly (rather than computed) so a single source of
-// truth exists for the 14 stops we promise to honor.
-const TICK_VALUES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5] as const;
+// truth exists for the 19 stops we promise to honor.
+const TICK_VALUES = [
+  0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
+] as const;
 
 export type PortionFactorSliderSize = 'sm' | 'md' | 'lg';
 
@@ -89,16 +94,16 @@ export function getPortionFactorDefault(role: PortionRole): number {
 
 // Threshold mapping — see locked-decisions Beslutning 2 plus
 // Christer's clarification (Batch E spec): the bands span the full
-// 0.2-1.5 scale so small adjustments around a default do not flip
+// 0.2-2.0 scale so small adjustments around a default do not flip
 // the visible label.
 //
 //   0.2 - 0.5 -> barn
 //   0.6 - 0.8 -> ungdom
-//   0.9 - 1.5 -> voksen
+//   0.9 - 2.0 -> voksen
 //
 // Out-of-range values (defensive only — the slider clamps via
 // min/max in normal use) snap to the nearest band: < 0.2 -> barn,
-// > 1.5 -> voksen.
+// > 2.0 -> voksen.
 export function getPortionLabel(value: number): PortionLabel {
   if (value <= 0.5) return 'barn';
   if (value <= 0.8) return 'ungdom';
@@ -109,7 +114,7 @@ export interface PortionFactorSliderProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
   'type' | 'onChange' | 'value' | 'min' | 'max' | 'step' | 'size'
 > {
-  /** Current portion factor. Controlled. Should be in [0.2, 1.5]. */
+  /** Current portion factor. Controlled. Should be in [0.2, 2.0]. */
   value: number;
   /** Fires with the new factor (already snapped to the 0.1 step by the native input). */
   onChange: (value: number) => void;
@@ -168,11 +173,11 @@ const INPUT_BASE_CLASSES = [
   'disabled:opacity-50 disabled:cursor-not-allowed',
 ].join(' ');
 
-// 1.0 sits at (1.0 - 0.2) / (1.5 - 0.2) = 0.6154 of the scale, so
-// the centered scale label needs an absolute position at 61.54%.
+// 1.0 sits at (1.0 - 0.2) / (2.0 - 0.2) = 0.4444 of the scale, so
+// the centered scale label needs an absolute position at 44.44%.
 // Hard-coded as a constant to avoid runtime arithmetic that would
 // produce the same number every render.
-const MIDPOINT_LABEL_LEFT_PCT = 61.54;
+const MIDPOINT_LABEL_LEFT_PCT = 44.44;
 
 export const PortionFactorSlider = forwardRef<HTMLInputElement, PortionFactorSliderProps>(
   function PortionFactorSlider(
@@ -253,7 +258,7 @@ export const PortionFactorSlider = forwardRef<HTMLInputElement, PortionFactorSli
           })}
         </div>
 
-        {/* Scale labels (0.2 / 1.0 / 1.5). 1.0 emphasised because it is
+        {/* Scale labels (0.2 / 1.0 / 2.0). 1.0 emphasised because it is
             the voksen default and the visual anchor of the scale. */}
         <div className="relative h-4 font-body text-meta text-text-3" aria-hidden="true">
           <span className="absolute left-0">0.2</span>
@@ -263,7 +268,7 @@ export const PortionFactorSlider = forwardRef<HTMLInputElement, PortionFactorSli
           >
             1.0
           </span>
-          <span className="absolute right-0">1.5</span>
+          <span className="absolute right-0">2.0</span>
         </div>
 
         {/* Description — i18n default, override via prop. */}

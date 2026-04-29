@@ -108,9 +108,11 @@ describe('Uke4 · showConfirm utility', () => {
 
 // ============================================================
 // Phase 13: old 4-step welcome tour removed in favour of the family
-// onboarding wizard at /onboarding.html. The tests below used to assert
-// the tour's existence; they are kept as a regression guard for the
-// removal itself.
+// onboarding wizard. The wizard later moved from legacy /onboarding.html
+// to the v2 SPA at /v2/onboarding/* (PR #77, atomic onboarding refactor).
+// The tour-removal tests below remain as a regression guard for the
+// original removal; the legacy-wizard-exists assertion was retired
+// when /public/onboarding.html itself was deleted.
 // ============================================================
 describe('Phase 13 · Welcome-tour removed in favour of family onboarding', () => {
   test('public/js/onboarding.js is removed', () => {
@@ -126,14 +128,6 @@ describe('Phase 13 · Welcome-tour removed in favour of family onboarding', () =
   test('index.html does not load onboarding.js', () => {
     const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
     assert.ok(!html.includes('onboarding.js'), 'onboarding.js script tag must be gone');
-  });
-
-  test('family onboarding wizard is present at public/onboarding.html', () => {
-    const p = path.join(ROOT, 'public', 'onboarding.html');
-    assert.ok(fs.existsSync(p), 'onboarding.html missing');
-    const html = fs.readFileSync(p, 'utf8');
-    assert.match(html, /Familie/);
-    assert.match(html, /family-onboarding\.js/);
   });
 });
 
