@@ -1,6 +1,6 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-29 (audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
+**Sist oppdatert:** 2026-04-29 (ESLint config-gap for `public/v2/`-build-artefakter notert etter domain-rename-oppdagelse; audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon for Master-plan-beslutninger er
@@ -709,3 +709,57 @@ audit-rapport. Inn i Sprint 8 (Prompt 18, pilot-launch).
 - `server/routes.js:87` — `withAudit()`-pattern.
 - `server/repositories/system.repo.js:464` — `auditLog.record(...)`-
   implementasjon.
+
+---
+
+## ESLint config-gap for `public/v2/` build-artefakter
+
+Notert 2026-04-29 etter domain-rename-fix (commit `bc5df48`). Ble
+oppdaget da lokalt `npm run lint` returnerte 223 errors mot
+`public/v2/assets/main-*.js` mens CI samtidig var grønn — fordi
+build-artefaktene ikke finnes i CI før lint kjøres.
+
+**Problem:** `public/v2/assets/main-*.js` er minified produksjons-
+bundle generert av `npm run build:client`. Filen er gitignored (se
+`.gitignore`-blokken `# Kilde er client/; bygget er midlertidig og
+skal ikke i git.` + `public/v2/`), men ESLint leser ikke `.gitignore`
+og har ikke `public/v2/**` i sin egen `ignores`-liste i
+`eslint.config.mjs`.
+
+**Konsekvens:** Falske lint-feil forurenser `npm run lint`-output
+lokalt etter hver `build:client`-kjøring (som skjer både ved
+manuelle smoke-tester og som CI-verifisering før commit). Utvikleren
+må enten (a) slette `public/v2/`-bygget før hver lint-kjøring, eller
+(b) lære å ignorere de spesifikke artefakt-feilene visuelt — begge
+deler er friksjon som ikke burde eksistere.
+
+### Fix
+
+Legg `public/v2/**` til `ignores`-listen i `eslint.config.mjs` (linje
+13-21):
+
+```js
+ignores: [
+  'node_modules/**',
+  'data/**',
+  'backups/**',
+  'coverage/**',
+  'public/index.html',
+  'public/dist/**',
+  'public/v2/**',  // ← LEGG TIL
+  '.claude/**',
+],
+```
+
+Trivialt to-linjers diff. Ingen test-impact.
+
+### Status
+
+**Notert.** Fixes som del av Sprint 6 pre-deploy cleanup (Prompt 14),
+eller tidligere hvis det blir irriterende under løpende utvikling.
+
+### Krysslenker
+
+- `eslint.config.mjs` linje 13-21 (ignores-blokken)
+- `.gitignore` (har allerede `public/v2/`)
+- Domain-rename-commit `bc5df48` (avdekket gapet)
