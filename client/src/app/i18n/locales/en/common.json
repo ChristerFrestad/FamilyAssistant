@@ -22,5 +22,30 @@
     "label": "Language",
     "norwegian": "Norwegian",
     "english": "English"
+  },
+  "nav": {
+    "primary": "Primary navigation",
+    "dashboard": "Dashboard",
+    "family": "Family",
+    "meals": "Meals",
+    "shopping": "Shopping",
+    "calendar": "Calendar",
+    "settings": "Settings"
+  },
+  "userMenu": {
+    "label": "User menu",
+    "open": "Open user menu",
+    "account": "My account",
+    "logout": "Log out"
+  },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "appShell": {
+    "skipToContent": "Skip to main content",
+    "logoLabel": "Familieassistenten — back to home"
   }
 }
