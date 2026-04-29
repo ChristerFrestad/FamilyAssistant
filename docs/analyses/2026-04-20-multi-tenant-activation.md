@@ -1,5 +1,14 @@
 # Analyse: Multi-tenant aktivering (uke 2, B1)
 
+> **Note (2026-04-29):** This document references Railway as the
+> deploy target. The architecture decision was later changed to
+> Docker → Portainer → RPi5 → Cloudflare Tunnel (Sprint 2.6). See
+> the master plan in `docs/master-plan/` for the current deploy
+> architecture. Document preserved as historical record of the
+> multi-tenant activation reasoning; the multi-tenant auth code
+> in `server/auth/` continues to be relevant under DEL 6 of
+> CLAUDE.md, only the deploy target has changed.
+
 **Dato:** 2026-04-20 (uke 2-start)
 **Forfatter:** Claude Code
 **Baseline:** `main` commit `8372852` + lokal-først-arbeidsflyt (ikke pushet)

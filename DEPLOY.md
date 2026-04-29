@@ -428,150 +428,22 @@ Ikke slett data-mappen — Docker-varianten bruker samme SQLite-fil.
 
 ---
 
-## 15. Deploy på Railway (sky, multi-tenant)
+## 15. Cloud / multi-tenant deploy
 
-Railway-deploy er for sky-instansen som støtter flere familier med Google OAuth og magic-link-innlogging. RPi-deployen fra §1–13 er helt separat — samme kodebase, annen config.
+The cloud / multi-tenant deploy path (Google OAuth + magic-link
+across families) is **not currently shipped**. The repo previously
+held a Railway-targeted recipe in this section; that path was
+retired on 2026-04-29 in favour of a single deploy story:
 
-### 15.1 Forutsetninger
+> Docker → Portainer → RPi5 → Cloudflare Tunnel
 
-- Railway-konto med et nytt prosjekt.
-- Eget domene (f.eks. `appdomene.no`). DNS-administrator tilgjengelig.
-- Google Cloud Console-prosjekt for OAuth-credentials.
-- Resend-konto for magic-link-e-post (gratis tier dekker ~100 e-post/døgn).
-- Valgfritt: Sentry-prosjekt for observability, Backblaze B2 for off-site backup.
+See the master plan in `docs/master-plan/` (or whichever revision
+is in flight) for the deploy architecture currently being built
+toward, and §16 below for the Portainer recipe that lands first.
 
-### 15.2 railway.json
-
-Repoet har allerede `railway.json` i rot:
-
-```json
-{
-  "$schema": "https://railway.app/railway.schema.json",
-  "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
-  "deploy": {
-    "startCommand": "node server/index.js",
-    "healthcheckPath": "/health",
-    "healthcheckTimeout": 10,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10,
-    "numReplicas": 1
-  }
-}
-```
-
-Railway bygger fra `Dockerfile`, sjekker `/health` hvert 30. sekund og restarter opp til 10 ganger ved feil.
-
-### 15.3 Volume
-
-1. Railway → `Settings` → `Volumes` → `+ Create Volume`.
-2. Mount path: `/app/data` (matcher `DB_PATH` og `BACKUP_DIR` i Dockerfile-env).
-3. Størrelse: 1 GB holder lenge for ~50 familier.
-
-### 15.4 Env-variabler
-
-Sett alle disse i Railway → `Variables`. Bruk `openssl rand -hex 32` for hemmeligheter.
-
-| Variabel | Verdi | Kommentar |
-|----------|-------|-----------|
-| `NODE_ENV` | `production` | |
-| `APP_URL` | `https://appdomene.no` | Uten trailing slash |
-| `ALLOWED_ORIGINS` | Samme som `APP_URL` | |
-| `SESSION_SECRET` | 32 bytes hex | |
-| `ENCRYPTION_KEY` | 32 bytes hex | Må ikke være lik `SESSION_SECRET` |
-| `GOOGLE_CLIENT_ID` | Fra Google Console | |
-| `GOOGLE_CLIENT_SECRET` | Fra Google Console | |
-| `RESEND_API_KEY` | Fra Resend dashboard | |
-| `RESEND_FROM` | `noreply@appdomene.no` | Krever verifisert domene |
-| `HTTPS_TERMINATED` | `true` | Railway terminerer TLS |
-| `TRUST_PROXY` | `true` | Les X-Forwarded-For for riktig klient-IP |
-| `SENTRY_DSN` | (valgfri) | Trigger install av `@sentry/node` |
-| `SENTRY_ENVIRONMENT` | `production` | |
-
-**Ikke sett** `AUTH_TOKEN` i sky — server bruker sessions i stedet. Hvis den er satt aksepteres den for lokal-verktøy (curl/health-probes), men det er ikke nødvendig.
-
-### 15.5 Google OAuth redirect
-
-1. Google Cloud Console → `APIs & Services` → `Credentials` → din OAuth-client.
-2. `Authorized redirect URIs` → legg til `${APP_URL}/api/auth/google/callback` (eksakt match, uten trailing slash).
-3. `Authorized JavaScript origins` → `${APP_URL}`.
-4. Scope: `openid email profile`. Ingen andre.
-
-### 15.6 Resend DNS
-
-Resend krever SPF + DKIM før din FROM-adresse kan sende. I domene-registraren (Cloudflare, Domeneshop, GoDaddy):
-
-| Type | Name | Value |
-|------|------|-------|
-| TXT | `@` | `v=spf1 include:amazonses.com ~all` |
-| TXT | `resend._domainkey` | (Resend genererer dette — kopier fra dashbordet) |
-| MX | `send` | `feedback-smtp.eu-west-1.amazonses.com` prio 10 |
-
-Propagering tar 5–60 min. Verifiser i Resend dashbordet før deploy.
-
-### 15.7 Backup til Backblaze B2 (valgfritt)
-
-Daglig off-site backup lagrer database-snapshots eksternt.
-
-1. Lag Backblaze-konto og bucket `familieassistenten-backup`.
-2. Lag en Application Key med `listFiles`, `readFiles`, `writeFiles`.
-3. Railway scheduled job (Cron plugin eller Railway-Scheduler-service):
-   ```bash
-   sqlite3 /app/data/familieassistenten.db ".backup /tmp/backup.db" \
-     && rclone copy /tmp/backup.db b2:familieassistenten-backup/$(date +%F).db
-   ```
-4. Sett bucket lifecycle policy: slett objekter eldre enn 7 dager.
-
-Alternativt: la app-intern backup kjøre som i RPi-versjonen, og sett `BACKUP_REMOTE_PATH=user@jump-host:/backups/familieassistenten` hvis du har en jumpbox.
-
-### 15.8 Sentry (valgfri, phase 17)
-
-Hvis du vil ha observability:
-
-1. Opprett Sentry-prosjekt (Node.js).
-2. Legg til `SENTRY_DSN` i Railway env.
-3. Sørg for at `@sentry/node` er installert i build — Dockerfile sitter på `npm ci --omit=dev`, og pakken er allerede i `optionalDependencies`. Railway installerer den automatisk.
-4. Sentry initialiseres ved oppstart (`server/observability/sentry.js`). Unntak scrubbes aggressivt — ingen e-post, ingen request-body. Se `server/observability/sentry.js` for scrub-reglene.
-
-### 15.9 Første deploy
-
-**Alternativ A — Railway GitHub App (raskest):**
-```bash
-git push origin main
-```
-Railway bygger automatisk hvis du har koblet GitHub-repoet i Railway-dashbordet. Følg loggen.
-
-**Alternativ B — GitHub Actions workflow (phase 19):**
-
-`.github/workflows/deploy.yml` deployer automatisk etter at `CI` passerer på `main`. Oppsett:
-
-1. Railway → `Account Settings` → `Tokens` → generer en Project Token.
-2. GitHub repo → `Settings` → `Secrets and variables` → `Actions`:
-   - Secret: `RAILWAY_TOKEN` = tokenet fra steg 1.
-   - Variable (valgfri): `APP_URL` = `https://appdomene.no`. Deploy-jobben pinger `/health` etter deploy hvis denne er satt.
-3. Push til main. CI kjører; ved grønn trigger `Deploy to Railway`-workflow via `workflow_run`-event. Konkurrerende deploys cancelleres automatisk.
-
-Manuell deploy: GitHub → `Actions` → `Deploy to Railway` → `Run workflow`.
-
-Ved feil — sjekk Variables og Volume først. Workflow feiler fast hvis `RAILWAY_TOKEN` mangler.
-
-### 15.10 Verifisering
-
-- Åpne `${APP_URL}` → login-siden skal laste.
-- Åpne `${APP_URL}/health` → `{"status":"ok"}`.
-- Åpne `${APP_URL}/privacy.html` → statisk side uten auth.
-- Logg inn med Google → ny bruker skal redirectes til `/onboarding.html` (3-stegs wizard).
-- Sjekk Railway-loggen: `Sentry initialized` om DSN er satt, og daglig backup-linje neste natt.
-
-### 15.11 Custom domene
-
-1. Kjøp domene hos registrar.
-2. Railway → `Settings` → `Domains` → `+ Custom Domain` → følg CNAME-instruksjonene.
-3. Oppdater `APP_URL`, `ALLOWED_ORIGINS`, Google redirect URI, og Resend FROM-adressen.
-4. Redeploy.
-
-### 15.12 Rollback
-
-Railway → `Deployments` → velg forrige vellykkede deploy → `Redeploy`. Databasen i volumet blir ikke rørt — kun appen rulles tilbake.
+A future cloud option may return when the pilot has stabilised on
+the Portainer story; if so, this section will be re-written
+against that target rather than reinstated as Railway-specific.
 
 
 ---

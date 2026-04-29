@@ -29,7 +29,7 @@ function ensureWritableDir(dir, label) {
         `Kan ikke opprette ${label} (${dir}): ${err.code}. ` +
           `Prosessen mangler skrivetilgang. Sjekk at:\n` +
           `  1. Et persistent volum er mountet på ${DATA_DIR} ` +
-          `(Railway: legg til Volume; Docker: 'volumes: - ./data:/app/data').\n` +
+          `(Docker: 'volumes: - ./data:/app/data'; Portainer: legg til volume i stack-config).\n` +
           `  2. Volumet eies av container-brukeren (distroless 'nonroot' = UID 65532). ` +
           `Fix: 'chown -R 65532:65532 <host-path>' på host, eller bygg imaget ` +
           `slik at ${DATA_DIR} pre-eksisterer med riktig ownership.\n` +

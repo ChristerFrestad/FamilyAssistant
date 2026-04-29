@@ -1,5 +1,14 @@
 # Batch 1 — lokal-først arbeidsflyt + uke 2-arbeid (B1 + B5)
 
+> **Note (2026-04-29):** This PR description references CLAUDE.md
+> DEL 6.1 / 6.1b in their Railway-frozen form. The Railway deploy
+> architecture was retired in Sprint 2.6 (2026-04-29); DEL 6 was
+> reframed to cover only the multi-tenant auth + observability
+> code that remains sensitive. The PR itself was merged at the
+> time and shipped the work it describes — only the framing of
+> DEL 6 in the wider repo has since changed. Document preserved
+> as historical record.
+
 **Status (før push):** 14 lokale commits, 0 pushet. Venter på Christers
 push-klarsignal.
 

@@ -18,7 +18,7 @@
 
 ### Optional
 - `sql.js` – fallback når better-sqlite3 ikke kan kompileres
-- `@sentry/node` – observability (Railway-modus, frosset)
+- `@sentry/node` – observability (frosset, se CLAUDE.md DEL 6)
 
 ### Frontend
 - Plain HTML/CSS/JS
@@ -100,7 +100,7 @@ Konvensjoner (matcher nærmeste eksisterende):
 - `<feature>.test.js` – domene-tester
 - `fase-f<N>-<navn>.test.js` – historiske fase-tester (ikke bruk for ny)
 - `m-week<N>-<tema>.test.js` – ISO-plan uke-arbeid
-- `phase<N>-<navn>.test.js` – multi-tenant/Railway-faser
+- `phase<N>-<navn>.test.js` – multi-tenant + historiske faser
 - `iteration<N>.test.js` – tidlige iterasjoner (ikke bruk for ny)
 
 Helpers: `tests/helpers.js` eksporterer `startTestServer()` og `request()`.
@@ -219,7 +219,9 @@ med `// @ts-check` i topp og JSDoc på public exports.
 - Backup via `server/backup.js` (SQLite online)
 - Dokumentert i `DEPLOY.md §14` og `§16`
 
-**Railway-deploy (`DEPLOY.md §15`) er frosset – se CLAUDE.md DEL 6.**
+Sky-/SaaS-deploy (Railway-stien som tidligere lå i `DEPLOY.md §15`)
+er retired pr. Sprint 2.6 (2026-04-29). Multi-tenant auth-koden i
+`server/auth/` består og er fortsatt under DEL 6-frys (se CLAUDE.md).
 
 ---
 
