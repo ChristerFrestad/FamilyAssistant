@@ -867,7 +867,7 @@ curl -X POST http://<rpi>:7777/api/family/invitations \
 ```
 
 **Edge-case:** Hvis brukeren allerede er i en annen familie,
-returnerer `POST /api/onboarding/create-family` 409 Conflict.
+returnerer `POST /api/auth/onboarding/complete` 409 Conflict.
 Brukeren må forlate sin gamle familie først (eller eieren
 sletter den).
 

@@ -8,6 +8,8 @@
 const crypto = require('crypto');
 const { config } = require('../config');
 const { errors } = require('../http/errors');
+const { validateBody } = require('../http/validate');
+const schemas = require('../schemas');
 const {
   generatePkcePair,
   buildAuthorizationUrl,
@@ -207,28 +209,138 @@ function handleMe(ctx) {
 
 // POST /api/auth/onboarding/complete
 //
-// Marks the current user as having finished the onboarding flow.
-// Called by the frontend's UserProfile screen after the user has
-// saved their personal-profile values. Idempotent — calling it on
-// an already-completed account is a no-op (the SET turns 1 into 1).
+// Atomic completion of the two-step onboarding wizard. The frontend
+// collects family-name (Step 1) and personal profile (Step 2) into
+// local OnboardingContext state and calls this endpoint exactly once
+// when the user clicks "Fullfør". Everything happens in a single
+// transaction so a tab-close between Step 1 and Step 2 leaves no
+// trace in the database. Replaces the old "flag-flip only" version
+// of this endpoint and the now-deleted POST /api/onboarding/create-
+// family from Sprint 3.
+//
+// Body shape (validated by validateBody(schemas.onboardingCompleteBody)):
+//   {
+//     family: { name: string },
+//     user:   { name: string, category: 'adult'|'teen'|'child',
+//               portionFactor: number 0.1..2.0 }
+//   }
 //
 // Authentication: required. Synthetic / pilot-bypass users are
-// rejected to avoid mutating LOCAL_USER (which is recreated each
-// request anyway, so the call would silently fail).
+// rejected — they have no real session and any state mutation would
+// be lost on the next request. Returns 409 if the caller is already
+// in a family (e.g. they accepted an invitation, or a previous
+// onboarding succeeded and they navigated back to the wizard URL).
 function handleOnboardingComplete(ctx, repos) {
   if (!ctx.user || ctx.user._synthetic) {
     throw errors.unauthorized('Login required.');
   }
-  const updated = repos.auth.setOnboardingCompleted(ctx.user.id, true);
+  if (ctx.user.family_id) {
+    throw errors.conflict('User is already in a family.');
+  }
+
+  const userId = ctx.user.id;
+  const { family, user } = ctx.body;
+  // Trim happened in Zod; the schema enforces min(1) post-trim, so
+  // these are guaranteed non-empty here.
+  const familyName = family.name;
+  const userName = user.name;
+  const category = user.category;
+  const portionFactor = user.portionFactor;
+
+  let result;
+  try {
+    const tx = repos._db.transaction(() => {
+      // 1. Create family. createFamily() seeds owner_user_id in a
+      //    second statement; both run inside this outer transaction.
+      const newFamily = repos.family.createFamily(familyName, userId);
+
+      // 2. Add the owner-user as the first profile-member row so
+      //    portion_factor + category have a permanent home and
+      //    Sprint 4's per-member edit screen has a row to edit.
+      const member = repos.family.addMember(newFamily.id, {
+        name: userName,
+        category,
+        portionFactor,
+      });
+
+      // 3. Update users: link to family as owner, store profile
+      //    fields, flip onboarding_completed=1. setFamily() handles
+      //    family_id + role + profile_member_id; the remaining
+      //    fields go through a single inline UPDATE so the user
+      //    state is consistent in one statement instead of three.
+      repos.auth.setFamily(userId, newFamily.id, 'owner', member.id);
+      repos._db
+        .prepare(
+          `UPDATE users
+              SET name = ?, portion_factor = ?, onboarding_completed = 1
+            WHERE id = ?`
+        )
+        .run(userName, portionFactor, userId);
+
+      // 4. Audit-log entry inside the same transaction. We bypass
+      //    repos.auditLog.record() because that helper reads
+      //    family_id from AsyncLocalStorage (which is still null at
+      //    this point — the request is mid-onboarding and has no
+      //    family-context middleware applied). Direct INSERT lets us
+      //    pin the audit-row to the just-created family explicitly.
+      //    The audit_log.action CHECK constraint allows only HTTP
+      //    methods (DELETE/PUT/PATCH/POST), so we record 'POST' and
+      //    keep the semantic event-type ('onboarding_completed') in
+      //    the metadata blob so analytics can still group on it.
+      repos._db
+        .prepare(
+          `INSERT INTO audit_log
+             (family_id, request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          newFamily.id,
+          ctx.requestId || 'unknown',
+          `user:${userId}`,
+          'POST',
+          'onboarding',
+          String(newFamily.id),
+          '/api/auth/onboarding/complete',
+          null,
+          null,
+          JSON.stringify({ event: 'onboarding_completed', memberId: member.id }).slice(0, 2000)
+        );
+
+      const updatedUser = repos.auth.findById(userId);
+      result = { newFamily, member, updatedUser };
+    });
+    tx();
+  } catch (err) {
+    // SQLite rolls back automatically on throw inside db.transaction().
+    // Re-raise as a generic 500 so the client sees a clean RFC-7807
+    // payload rather than a leaked SQL constraint message.
+    if (err && err.status) throw err;
+    throw errors.internal('Onboarding could not be completed. Please try again.');
+  }
+
+  const { newFamily, member, updatedUser } = result;
   return {
     ok: true,
     user: {
-      id: updated.id,
-      email: updated.email,
-      name: updated.name,
-      role: updated.role,
-      familyId: updated.family_id || null,
-      onboardingCompleted: !!updated.onboarding_completed,
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      role: updatedUser.role,
+      familyId: updatedUser.family_id,
+      profileMemberId: updatedUser.profile_member_id,
+      onboardingCompleted: !!updatedUser.onboarding_completed,
+    },
+    family: {
+      id: newFamily.id,
+      name: newFamily.name,
+      ownerUserId: userId,
+      createdAt: newFamily.created_at,
+    },
+    member: {
+      id: member.id,
+      name: member.name,
+      category: member.category,
+      portionFactor: member.portionFactor,
     },
   };
 }
@@ -332,7 +444,11 @@ function registerAuthRoutes(router, { repos }) {
   router.get('/api/auth/magic-link/verify', async (ctx) => handleMagicLinkVerify(ctx, repos));
   router.get('/api/auth/pilot-login', async (ctx) => handlePilotLogin(ctx, repos));
   router.get('/api/auth/me', (ctx) => handleMe(ctx));
-  router.post('/api/auth/onboarding/complete', (ctx) => handleOnboardingComplete(ctx, repos));
+  router.post(
+    '/api/auth/onboarding/complete',
+    validateBody(schemas.onboardingCompleteBody),
+    (ctx) => handleOnboardingComplete(ctx, repos)
+  );
   router.post('/api/auth/logout', (ctx) => handleLogout(ctx, repos));
   router.post('/api/auth/logout-all', (ctx) => handleLogoutAll(ctx, repos));
   router.get('/api/auth/sessions', (ctx) => handleListSessions(ctx, repos));
