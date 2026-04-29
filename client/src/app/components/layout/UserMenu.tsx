@@ -27,7 +27,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LogOut } from 'lucide-react';
 import { Avatar } from '../display/Avatar';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../auth/useAuth';
 
 export interface UserMenuProps {
   /** Optional class on the wrapper. */
@@ -70,6 +70,13 @@ export function UserMenu({ className }: UserMenuProps): JSX.Element | null {
 
   if (!user) return null;
 
+  // The auth-context user shape uses `string | null` for name and
+  // email (cf. AuthUser in app/auth/authApi.ts), but Avatar/aria
+  // labels need a guaranteed string. Fall back to the email or a
+  // dash so a half-populated user (just-created via magic-link
+  // before they finish onboarding) still renders.
+  const displayName = user.name?.trim() || user.email || '—';
+
   return (
     <div ref={wrapperRef} className={['relative', className].filter(Boolean).join(' ')}>
       <button
@@ -85,10 +92,10 @@ export function UserMenu({ className }: UserMenuProps): JSX.Element | null {
           'focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-0',
         ].join(' ')}
       >
-        <Avatar alt={user.name} {...(user.avatarUrl ? { src: user.avatarUrl } : {})} size="sm" />
+        <Avatar alt={displayName} {...(user.avatarUrl ? { src: user.avatarUrl } : {})} size="sm" />
         {/* Name hidden on narrow screens — avatar carries the
             identity and the dropdown reveals the full label. */}
-        <span className="hidden sm:inline font-body text-meta text-text-1">{user.name}</span>
+        <span className="hidden sm:inline font-body text-meta text-text-1">{displayName}</span>
       </button>
 
       {open && (
@@ -102,8 +109,8 @@ export function UserMenu({ className }: UserMenuProps): JSX.Element | null {
           ].join(' ')}
         >
           <div className="px-3 py-2 border-b border-stroke">
-            <div className="font-body text-body text-text-1 truncate">{user.name}</div>
-            {user.email && (
+            <div className="font-body text-body text-text-1 truncate">{displayName}</div>
+            {user.email && user.email !== displayName && (
               <div className="font-body text-meta text-text-3 truncate">{user.email}</div>
             )}
           </div>

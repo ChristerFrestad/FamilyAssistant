@@ -1,25 +1,33 @@
-// Root of the v2 frontend. Wires four concerns together:
+// Root of the v2 frontend.
 //
-//   1. AuthGuard wraps every authenticated route. The /login route is
-//      rendered OUTSIDE the guard so an unauthenticated user actually
-//      reaches it instead of bouncing.
-//   2. AppShell provides the chrome (header + side/bottom-nav) for
-//      all in-app screens. Login does NOT live inside AppShell — the
-//      auth-flow keeps its own minimal layout.
-//   3. <Routes> declares the URL surface. /  redirects to /dashboard
-//      so the bare base URL lands on something useful; the catch-all
-//      maps to NotFound.
-//   4. Phase-1d screens are placeholders. Each one will be replaced
-//      with its real implementation in Phase 2A-2E without touching
-//      this file beyond an import swap.
+// Sprint 3 / Fase 1e routing tiers:
+//
+//   1. PUBLIC — no auth required. Welcome, Login, MagicLinkSent,
+//      AuthCallback. Renders without AppShell so unauthenticated
+//      users never see the in-app chrome.
+//
+//   2. ONBOARDING — auth required AND onboarding_completed=false.
+//      The two-screen pilot wizard: FamilySetup, UserProfile.
+//      Renders without AppShell so the user is not distracted by
+//      empty nav-rails before their family exists. AuthGuard
+//      enforces the auth requirement; the onboarding-routes
+//      themselves do NOT use OnboardingGuard (they ARE the path
+//      a user takes when onboarding is incomplete).
+//
+//   3. PROTECTED — auth required AND onboarding_completed=true.
+//      Everything else: Dashboard, Family, Meals, Shopping,
+//      Calendar, Settings. AuthGuard + OnboardingGuard wrap
+//      AppShell, which renders the placeholder screens from
+//      Sprint 2 (replaced with real screens in Phase 2A-2E).
 //
 // BrowserRouter + basename="/v2" lives one level up in main.tsx, so
-// every <Route path> is implicitly relative to /v2/*. A Route written
-// as path="/dashboard" therefore matches the URL /v2/dashboard in the
-// browser.
+// every <Route path> is implicitly relative to /v2/*. A Route
+// written as path="/dashboard" therefore matches the URL
+// /v2/dashboard in the browser.
 
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthGuard } from './components/auth/AuthGuard';
+import { OnboardingGuard } from './components/auth/OnboardingGuard';
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './screens/Dashboard';
 import { Family } from './screens/Family';
@@ -28,35 +36,66 @@ import { Shopping } from './screens/Shopping';
 import { Calendar } from './screens/Calendar';
 import { Settings } from './screens/Settings';
 import { NotFound } from './screens/NotFound';
-import { Login } from './screens/Login';
+import { Welcome } from './screens/auth/Welcome';
+import { Login } from './screens/auth/Login';
+import { MagicLinkSent } from './screens/auth/MagicLinkSent';
+import { AuthCallback } from './screens/auth/AuthCallback';
+import { FamilySetup } from './screens/auth/FamilySetup';
+import { UserProfile } from './screens/auth/UserProfile';
 
 export default function App(): JSX.Element {
   return (
     <Routes>
-      {/* Unauthenticated routes — rendered without AppShell. */}
+      {/* PUBLIC routes — no AuthGuard. */}
+      <Route path="/welcome" element={<Welcome />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/login/sent" element={<MagicLinkSent />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
 
-      {/* Authenticated app surface. AuthGuard gates the entire tree;
-          AppShell provides chrome; the inner <Routes> declares the
-          actual screens. Nesting this way keeps AppShell mounted
-          across navigation between authenticated screens — only the
-          children swap when the URL changes. */}
+      {/* ONBOARDING routes — auth required, but no OnboardingGuard
+          (these screens ARE the onboarding flow). Rendered without
+          AppShell so the page reads as a focused single-purpose
+          wizard. */}
+      <Route
+        path="/onboarding/family"
+        element={
+          <AuthGuard>
+            <FamilySetup />
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/onboarding/profile"
+        element={
+          <AuthGuard>
+            <UserProfile />
+          </AuthGuard>
+        }
+      />
+
+      {/* PROTECTED app surface. AuthGuard + OnboardingGuard +
+          AppShell wrap the inner Routes. Nesting AppShell here
+          keeps it mounted across navigation between authenticated
+          screens — only the inner children swap when the URL
+          changes. */}
       <Route
         path="*"
         element={
           <AuthGuard>
-            <AppShell>
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/family" element={<Family />} />
-                <Route path="/meals" element={<Meals />} />
-                <Route path="/shopping" element={<Shopping />} />
-                <Route path="/calendar" element={<Calendar />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AppShell>
+            <OnboardingGuard>
+              <AppShell>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/family" element={<Family />} />
+                  <Route path="/meals" element={<Meals />} />
+                  <Route path="/shopping" element={<Shopping />} />
+                  <Route path="/calendar" element={<Calendar />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </AppShell>
+            </OnboardingGuard>
           </AuthGuard>
         }
       />

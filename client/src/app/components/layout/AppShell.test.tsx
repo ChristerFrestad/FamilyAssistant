@@ -10,13 +10,32 @@ import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from './AppShell';
+import { AuthProvider } from '../../auth/AuthContext';
+import type { AuthUser } from '../../auth/authApi';
+
+// AppShell's UserMenu reads useAuthContext, so we need an
+// AuthProvider wrapper. We pass initialState with a known user so
+// the trigger renders deterministically — no live /me call.
+const TEST_USER: AuthUser = {
+  id: 1,
+  email: 'test@example.com',
+  name: 'Test User',
+  role: 'adult',
+  avatarUrl: null,
+  familyId: 1,
+  profileMemberId: null,
+  onboardingCompleted: true,
+  synthetic: false,
+};
 
 function renderShell(pathname = '/dashboard'): void {
   render(
     <MemoryRouter initialEntries={[pathname]}>
-      <AppShell>
-        <div data-testid="page-content">Page body</div>
-      </AppShell>
+      <AuthProvider initialState={{ user: TEST_USER, isLoading: false }}>
+        <AppShell>
+          <div data-testid="page-content">Page body</div>
+        </AppShell>
+      </AuthProvider>
     </MemoryRouter>
   );
 }

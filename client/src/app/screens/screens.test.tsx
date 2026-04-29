@@ -14,7 +14,8 @@ import { Shopping } from './Shopping';
 import { Calendar } from './Calendar';
 import { Settings } from './Settings';
 import { NotFound } from './NotFound';
-import { Login } from './Login';
+import { Login } from './auth/Login';
+import { AuthProvider } from '../auth/AuthContext';
 
 describe('placeholder screens render with i18n headings', () => {
   test('Dashboard', () => {
@@ -58,9 +59,21 @@ describe('placeholder screens render with i18n headings', () => {
   });
 
   test('Login renders heading and a loading status', () => {
-    render(<Login />);
-    // The heading renders the resolved appName — defaults to
-    // "FamilyAssistant" in tests (no white-label override).
-    expect(screen.getByRole('heading', { name: 'FamilyAssistant', level: 1 })).toBeInTheDocument();
+    // Sprint 3 / Fase 1e: Login moved to screens/auth/ and now uses
+    // AuthContext (requestMagicLink) + react-router. Wrap in
+    // MemoryRouter + AuthProvider so the form mounts; the heading
+    // reads the resolved appName ("FamilyAssistant" by default)
+    // wrapped in t('auth:login.title')="Sign in to {{appName}}" /
+    // "Logg inn på {{appName}}".
+    render(
+      <MemoryRouter>
+        <AuthProvider initialState={{ user: null, isLoading: false }}>
+          <Login />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+    expect(
+      screen.getByRole('heading', { name: /Logg inn på FamilyAssistant/, level: 1 })
+    ).toBeInTheDocument();
   });
 });

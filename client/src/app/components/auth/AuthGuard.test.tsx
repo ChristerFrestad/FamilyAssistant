@@ -18,7 +18,7 @@ import { AuthGuard } from './AuthGuard';
 
 const useAuthMock = vi.fn();
 
-vi.mock('../../hooks/useAuth', () => ({
+vi.mock('../../auth/useAuth', () => ({
   useAuth: () => useAuthMock(),
 }));
 
