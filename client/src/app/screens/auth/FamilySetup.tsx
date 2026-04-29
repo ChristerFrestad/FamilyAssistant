@@ -1,19 +1,21 @@
 // FamilySetup — first onboarding screen.
 //
-// User picks a family name. Submitting POSTs /api/onboarding/create-family
-// which creates the family row, attaches the caller as owner, and
-// returns the new family id. We then refresh the auth user so
-// /api/auth/me reflects the new family_id, and navigate forward to
-// /onboarding/profile.
+// PR #77 atomic-onboarding refactor:
+//   The user picks a family name, but no API call happens here. The
+//   value is stashed in OnboardingContext (lifecycle = the visit to
+//   the /onboarding/* route group) and the user is sent on to the
+//   profile screen. The actual database writes — family + profile-
+//   member + user.onboarding_completed=1 — happen exactly once when
+//   UserProfile submits, in a single backend transaction. Closing
+//   the tab on this screen leaves nothing on the server.
 //
 // Validation:
-//   - empty name      -> client-side block before POST
-//   - >100 chars      -> client-side block (matches backend cap)
-//   - other failures  -> backend errorGeneric
+//   - empty name      -> client-side block before navigate
+//   - >100 chars      -> client-side block (matches backend Zod cap)
 //
 // We use ProgressDots at the top so the user knows they are at
-// step 1 of 2 (drop FamilyMembers from initial pilot per Sprint 3
-// scope — the second/last step is UserProfile).
+// step 1 of 2 (FamilyMembers is dropped from the initial pilot per
+// Sprint 3 scope — the second/last step is UserProfile).
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -23,23 +25,23 @@ import { Field } from '../../components/form/Field';
 import { Input } from '../../components/form/Input';
 import { Button } from '../../components/base/Button';
 import { ProgressDots } from '../../components/display/ProgressDots';
-import { useAuthContext } from '../../auth/AuthContext';
-import { createFamily } from '../../auth/authApi';
+import { useOnboardingContext } from '../../auth/OnboardingContext';
 
 const MAX_NAME = 100;
 
 export function FamilySetup(): JSX.Element {
   const { t } = useTranslation(['auth', 'common']);
-  const { refreshUser } = useAuthContext();
+  const { family, setFamily } = useOnboardingContext();
   const navigate = useNavigate();
 
-  const [name, setName] = useState('');
+  // Pre-fill from context so navigating Step 2 -> Back -> Step 1 keeps
+  // the typed name visible. The provider's lifecycle covers the whole
+  // /onboarding/* route group.
+  const [name, setName] = useState(family.name ?? '');
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+  function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (submitting) return;
     setError(null);
 
     const trimmed = name.trim();
@@ -52,20 +54,8 @@ export function FamilySetup(): JSX.Element {
       return;
     }
 
-    setSubmitting(true);
-    try {
-      await createFamily(trimmed);
-      // Re-pull /api/auth/me so the AuthContext picks up the new
-      // family_id. Without this, downstream guards (which check
-      // user.familyId) would still see null until the next page
-      // load.
-      await refreshUser();
-      navigate('/onboarding/profile');
-    } catch {
-      setError(t('auth:onboarding.family.errorGeneric'));
-    } finally {
-      setSubmitting(false);
-    }
+    setFamily({ name: trimmed });
+    navigate('/onboarding/profile');
   }
 
   return (
@@ -103,10 +93,8 @@ export function FamilySetup(): JSX.Element {
               placeholder={t('auth:onboarding.family.namePlaceholder')}
             />
           </Field>
-          <Button type="submit" loading={submitting} disabled={submitting || !name.trim()}>
-            {submitting
-              ? t('auth:onboarding.family.submitting')
-              : t('auth:onboarding.family.submit')}
+          <Button type="submit" disabled={!name.trim()}>
+            {t('auth:onboarding.family.submit')}
           </Button>
         </form>
       </section>
