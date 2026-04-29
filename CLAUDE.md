@@ -1005,6 +1005,102 @@ erklæringen i Sprint 7), avvei mellom å hardkode i en JSX-component
 vs. legge i i18n-bundle. Hvis teksten skal kunne oversettes for
 fremtidige markeder, hører den i bundle.
 
+### 7.12 White-labeling (2026-04-29)
+
+FamilyAssistant er open-source. Default app-navn er
+**"FamilyAssistant"** på begge språk — produktnavn er identitet,
+ikke beskrivelse (jf. Spotify, Microsoft, Notion). Andre deploys
+kan overstyre via ENV-vars uten å endre kode.
+
+**Frontend (build-time, eksponert via Vite):**
+```
+VITE_APP_NAME=YourBrandName
+```
+Lest av `client/src/app/i18n/config.ts` etter `i18n.init()`. Når
+satt, kalles `i18n.addResource('no'|'en', 'common', 'appName',
+trimmed)` for begge språk slik at hver `t('common:appName')` og
+hver `{{appName}}`-interpolering plukker opp brand-navnet.
+
+**Backend (runtime):**
+```
+APP_NAME=YourBrandName
+```
+Lest av `server/config.js` (Zod-validert, default
+`'FamilyAssistant'`) og brukt i `server/services/email.service.js`
+for magic-link-e-postens subject/body.
+
+**Christer's pilot-deploy (Hverdagsplanleggeren):**
+```
+VITE_APP_NAME=Hverdagsplanleggeren
+APP_NAME=Hverdagsplanleggeren
+```
+Begge SKAL være identiske. Frontend leser sin egen, backend leser
+sin egen — de kan i prinsippet være forskjellige men det vil bryte
+brukerens mentale modell ("hvorfor heter e-posten en ting og
+nettsiden noe annet?").
+
+**i18n-pattern:**
+
+- All tekst som inkluderer app-navn bruker `{{appName}}`-
+  interpolering i JSON-bundle, ikke hardkodet streng.
+  ```json
+  // common.json
+  "appShell": {
+    "logoLabel": "{{appName}} — til startsiden"
+  }
+  ```
+- TSX-komponenter bruker `t('common:appName')` direkte for
+  visning av brand-navnet.
+  ```tsx
+  <h1>{t('common:appName')}</h1>
+  ```
+- Backend-strenger bygges med template literal eller `replace`-
+  pattern: `` `Logg inn på ${appName}` ``.
+
+**Hvilke filer som ALLTID heter "FamilyAssistant" (ikke
+white-labelable):**
+
+- `README.md`, `CLAUDE.md`, andre docs — produktdokumentasjon
+- `package.json` (`"name"`-felt)
+- Repo-navn på GitHub
+- Database-skjema (tabellnavn, kolonnenavn, migrations)
+- Test-filer (filnavn, describe-blokker, fixture-data)
+- Kode-kommentarer som referer til moduler / arkitektur
+- JavaScript-modul-navn
+
+**Hvilke filer som er bruker-vendt og MÅ bruke override:**
+
+- All tekst i `client/src/app/i18n/locales/{no,en}/*.json` som
+  inkluderer brand-navn → bruk `{{appName}}`-interpolering
+- Komponenter i `client/src/app/components/` og `screens/` som
+  rendrer brand-navn → bruk `t('common:appName')`
+- E-post-subjects og bodies fra `server/services/email.service.js`
+  → bruk `config.APP_NAME`
+- Eventuell PWA-manifest-konfigurasjon (foreløpig kun i legacy
+  `public/manifest.json` som er frosset; v2 PWA-manifest blir
+  bygget i Sprint 6)
+
+**Ikke i scope for white-labeling Sprint 2.5:**
+
+- Legacy `public/*.html`-sider (login.html, setup.html, etc.) —
+  frosset per DEL 6, blir erstattet av v2 før pilot
+- Design-artefakter under `design/2026-04-redesign/source/*.html`
+  — ferdig-eksporterte mockups, immutable
+- Backend pino-logger og console-meldinger — operatør-vendt
+  engelsk, ikke bruker-vendt
+- Grafana-dashboard-titler — operatør-vendt observability
+
+**Test-pattern:**
+
+- `client/src/app/i18n/app-name.test.ts` — verifiserer default
+  + override-mekanismen
+- `tests/email-service-app-name.test.js` — verifiserer at
+  e-post-subject/body bruker `APP_NAME` og defaulter til
+  `"FamilyAssistant"`
+
+Ny tekst som inkluderer app-navn skal følge dette pattern fra
+første commit. Ikke hardkod brand i ny kode.
+
 ---
 
 ## DEL 8: AGENT_LOG.md-FORMAT
