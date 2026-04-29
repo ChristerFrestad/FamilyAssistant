@@ -1,8 +1,9 @@
 # FamilyAssistant
 
 Self-hosted household assistant for Norwegian families — plans the weekly
-menu, shopping list, pantry inventory, and chore rotation. Runs either
-locally on a Raspberry Pi 5 or as a multi-tenant SaaS on Railway.
+menu, shopping list, pantry inventory, and chore rotation. Designed to run
+on a Raspberry Pi 5 (or any Docker host) behind Cloudflare Tunnel; the
+deploy story is `Docker → Portainer → RPi5 → Cloudflare Tunnel`.
 
 The UI is Norwegian; the codebase is English.
 
@@ -27,7 +28,8 @@ The UI is Norwegian; the codebase is English.
 
 ## Quickstart
 
-Two deployment modes — same codebase.
+Two flavours of the same codebase, both targeting the RPi5/Docker
+deploy story.
 
 ### 1) Raspberry Pi 5 (bare-metal, single-family)
 
@@ -44,25 +46,31 @@ npm ci --omit=dev
 npm start
 ```
 
-### 2) Railway (cloud, multi-tenant)
+### 2) Docker via Portainer (zero-config, recommended)
 
-Google OAuth + magic-link, per-family LLM config, optional Sentry.
-See [`DEPLOY.md` §15](DEPLOY.md) for the full walkthrough including
-DNS, Resend, volume mount, and backup.
+Same RPi5 (or any Docker host), but Portainer pulls the multi-arch
+image from `ghcr.io/christerfrestad/familyassistant:main` and a
+first-boot wizard at `/setup.html` generates the `AUTH_TOKEN` for
+you. No SSH, no manual `npm install`. See [`DEPLOY.md` §16](DEPLOY.md)
+for the click-by-click recipe.
 
 ```bash
-# In the Railway dashboard:
-#   1. New project from this repo
-#   2. Mount a volume at /app/data
-#   3. Set environment variables (see .env.example)
-#   4. Push to main → CI → auto-deploy
+# In Portainer → Stacks → + Add stack:
+#   1. Paste docker-compose.yml from this repo
+#   2. Deploy the stack
+#   3. Open http://<host>:7777/setup.html and finish setup
 ```
+
+A multi-tenant cloud deploy (Google OAuth + magic-link across
+families) is on the roadmap but not currently shipped. The auth
+code lives in `server/auth/` and is exercised in tests; the deploy
+recipe will return when the pilot has stabilised.
 
 ## Documentation
 
 | File | Purpose |
 |---|---|
-| [`DEPLOY.md`](DEPLOY.md) | Deploy on RPi5 or Railway |
+| [`DEPLOY.md`](DEPLOY.md) | Deploy on RPi5 (bare-metal or Docker/Portainer) |
 | [`RUNBOOK.md`](RUNBOOK.md) | Operations, on-call, backup/restore |
 | [`SECURITY.md`](SECURITY.md) | Threat model, vulnerability reporting |
 | [`CI.md`](CI.md) | CI gates, test/lint/coverage commands |
@@ -143,8 +151,8 @@ contract that protects the override).
 1. `AUTH_TOKEN` (≥ 16, ideally 32+ characters) — generate with
    `openssl rand -hex 32`
 2. `ALLOWED_ORIGINS` — comma-separated allowlist, `*` is rejected
-3. HTTPS (Caddy on RPi5, automatic on Railway) and
-   `HTTPS_TERMINATED=true`
+3. HTTPS (Caddy on RPi5 — or terminated upstream by a reverse proxy
+   such as Cloudflare Tunnel) and `HTTPS_TERMINATED=true`
 4. For the multi-tenant path: `SESSION_SECRET`, `ENCRYPTION_KEY`,
    `APP_URL`
 

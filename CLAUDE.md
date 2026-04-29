@@ -68,7 +68,7 @@ løser helheten, ikke bare overflaten. Mellom disse to punktene gjelder:
    branches.
 8. Du logger alt du gjør i `AGENT_LOG.md` (se DEL 8).
 9. Du oppdaterer `docs/DOMAIN_MODEL.md` når domenet utvides eller endres.
-10. Du respekterer Railway/multi-tenant-frysen (se DEL 6).
+10. Du respekterer multi-tenant-auth-frysen (se DEL 6).
 
 Bryter du én: stopp, skriv i AGENT_LOG.md, vent på Christer.
 
@@ -122,11 +122,12 @@ dette oppstår.
 - Oppgaven vil aktivere betalt tier på en tjeneste
 - Oppgaven legger til ekstern API-bruk som kan koste penger
 
-### 2.7 Frysen – Railway/multi-tenant
+### 2.7 Frysen – multi-tenant auth + observability
 
-Se DEL 6 for full liste. Kortversjon: enhver endring i `server/auth/`,
-`server/observability/sentry.js`, eller `railway.json` krever eksplisitt
-godkjenning. Tester på denne koden skal fortsatt passere.
+Se DEL 6 for full liste. Kortversjon: enhver endring i `server/auth/`
+eller `server/observability/sentry.js` krever eksplisitt godkjenning.
+Tester på denne koden skal fortsatt passere. Railway-deploy-stien er
+fjernet (se PR som lukket Sprint 2.6 — `chore/remove-railway-legacy`).
 
 ### Når du stopper
 
@@ -566,19 +567,24 @@ ikke inn med mindre Christer ber om det.
 
 ---
 
-## DEL 6: RAILWAY / MULTI-TENANT FRYS
+## DEL 6: MULTI-TENANT AUTH FRYS
+
+> **Historisk note (2026-04-29):** Denne delen het tidligere
+> "Railway / multi-tenant frys" og dekket deploy-konfigurasjonen
+> for et planlagt sky-løp på Railway. Sky-løpet ble retired i
+> Sprint 2.6 — appen deployes nå utelukkende via
+> `Docker → Portainer → RPi5 → Cloudflare Tunnel`. Multi-tenant-
+> auth-koden (`server/auth/`) og observability (`sentry.js`)
+> forblir følsom og er fortsatt under DEL 6-frys per under.
 
 ### 6.1 Hva som er frosset
 
-**Railway-deploy-stien er fortsatt fullt frosset.** Multi-tenant
-auth-koden (`server/auth/`) er delvis tinet fra og med uke 2
-(2026-04-20) per Issue #62 beslutning B1 — se 6.1b under.
+Multi-tenant auth-koden (`server/auth/`) er soft-thawed fra og
+med uke 2 (2026-04-20) per Issue #62 beslutning B1 — se 6.1b
+under. `sentry.js` er fortsatt fullt frosset.
 
 **Fullt frosset (endring krever eksplisitt godkjenning):**
 
-- `railway.json`
-- `.github/workflows/deploy.yml` (Railway-deploy)
-- DEPLOY.md §15 (Railway-seksjonen)
 - `server/observability/sentry.js` *(fortsatt følsom for oppstart)*
 - Disse testene skal fortsette å passere uten endring:
   - `tests/tenant-isolation.test.js`
@@ -587,12 +593,10 @@ auth-koden (`server/auth/`) er delvis tinet fra og med uke 2
   - `tests/gdpr-endpoints.test.js`
   - `tests/frontend-auth.test.js`
   - `tests/phase14-sw-multitenant.test.js`
-  - `tests/phase18-railway-config.test.js`
-  - `tests/phase19-deploy-workflow.test.js`
   - `tests/phase20-coverage-gaps.test.js`
   - `tests/phase21-repo-hygiene.test.js`
 
-### 6.1b Delvis tinet: `server/auth/` (soft-thaw, 2026-04-20)
+### 6.1b Soft-thaw: `server/auth/` (2026-04-20)
 
 Multi-tenant er aktivert på RPi-stien fra og med uke 2. For at
 aktiveringen skal kunne iterere må `server/auth/` (12 filer) kunne
@@ -614,7 +618,10 @@ opprettholder sikkerhetsnettet.
   Ingen andre filer må røres for å reversere.
 
 Overgangen til soft-thaw er dokumentert i
-`docs/analyses/2026-04-20-multi-tenant-activation.md`.
+`docs/analyses/2026-04-20-multi-tenant-activation.md`. Det
+dokumentet ble skrevet før Sprint 2.6 retired Railway-deployen,
+så det refererer fortsatt Railway-spesifikke filer som ikke
+lenger eksisterer — historisk kontekst er bevart der.
 
 ### 6.2 Hva som er tillatt uten godkjenning (også på 6.1b-kode)
 
@@ -626,18 +633,18 @@ Overgangen til soft-thaw er dokumentert i
 
 ### 6.3 Hva som IKKE er tillatt
 
-- Endring i oppførsel eller API for Railway-spesifikk multi-tenant-
-  kode (6.1-rammeverk)
+- Endring i oppførsel eller API for multi-tenant auth-koden
+  (6.1-rammeverk) uten Christer-godkjenning
 - Endring i datamodell for auth/families/sessions uten full DEL 3-
   analyse
-- Nye features i Railway-stien
+- Nye features i auth-stien uten DEL 3 + DEL 5.3-flyt
 - Refactoring "mens man er der uansett" i 6.1- eller 6.1b-filer
 - Sletting av frosne filer eller tester
 
 ### 6.4 Hvis delt kode må endres
 
-Enkelte filer brukes av både Portainer-sti og Railway-sti, f.eks.
-`server/repositories.js`. Endringer her er OK hvis:
+Enkelte filer brukes av både den vanlige App-stien og auth-stien,
+f.eks. `server/repositories.js`. Endringer her er OK hvis:
 
 - Eksisterende tester fortsetter å passere (inkludert multi-tenant-
   testene i 6.1)
@@ -668,8 +675,6 @@ Eksempler på kode-tester som forblir strikt fryst:
 - `tests/role-enforcement.test.js`
 - `tests/auth-*.test.js`
 - `tests/phase14-sw-multitenant.test.js`
-- `tests/phase18-railway-config.test.js`
-- `tests/phase19-deploy-workflow.test.js`
 - `tests/phase20-coverage-gaps.test.js`
 - `tests/gdpr-endpoints.test.js`
 

@@ -5,9 +5,13 @@
 
 Familieassistenten kjører i to modus:
 
-1. **Lokal selvhost** (RPi5 bak router) — én familie, `AUTH_TOKEN`.
-2. **Sky, multi-tenant** (Railway + TLS) — flere familier, Google OAuth
-   eller magic-link-innlogging, per-familie LLM-konfig.
+1. **Lokal selvhost** (RPi5 bak router, valgfritt eksponert via
+   Cloudflare Tunnel) — én familie, `AUTH_TOKEN`.
+2. **Multi-tenant via Docker/Portainer** (samme codebase) — flere
+   familier på samme host med Google OAuth eller magic-link-
+   innlogging, per-familie LLM-konfig. Sky-/SaaS-varianten av
+   denne modusen er retired pr. Sprint 2.6 (2026-04-29); auth-
+   koden lever videre og dekkes av tester.
 
 Sikkerhetsmodellen dekker begge. Vi forsvarer mot tilfeldig ondsinnet
 trafikk, prompt-injeksjoner og tenant-krysning, ikke mot statsaktører.

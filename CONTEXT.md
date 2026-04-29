@@ -14,9 +14,11 @@
 
 ### Deployment-modus
 
-- **Aktiv:** Portainer på RPi5, + andre familier via HAOS/egen Portainer
-- **Frosset:** Railway/multi-tenant (se CLAUDE.md DEL 6)
-- **Fremtidig:** Eget domene, internett-produksjon (ikke klar ennå)
+- **Aktiv:** Docker → Portainer → RPi5, + andre familier via HAOS/egen Portainer
+- **Følsom kode under utvikling:** multi-tenant auth (`server/auth/`)
+  + observability (`sentry.js`) — se CLAUDE.md DEL 6
+- **Fremtidig:** Cloudflare Tunnel + eget domene
+  (`hverdagsplanleggeren.com`), internett-produksjon mot pilot
 
 ### Produksjon
 
@@ -171,8 +173,9 @@ beslutninger som kommer inn i fremtidige sprint-er er listet i
 
 Ting som er utenfor scope for nåværende fase (Portainer-fokus):
 
-- Aktivering av Railway-deploy (frosset, se CLAUDE.md DEL 6)
-- Nye features i multi-tenant-auth
-- Custom domene-oppsett
+- Sky-/multi-tenant-deploy (Railway-stien er retired i Sprint 2.6;
+  fremtidig sky-løp er på roadmap, men ikke i pilot-scope)
+- Nye features i multi-tenant-auth uten DEL 5.3-flyt
+- Custom domene-oppsett (kommer i Sprint 7 / Cloudflare Tunnel)
 - Betalte SaaS-integrasjoner
 - Mobile app (PWA er nok)
