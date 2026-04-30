@@ -6,6 +6,254 @@
 
 ---
 
+2026-04-30 – Bugfix: manuelle shopping-items når kjøpt → pantry-update
+
+Oppgave: Christer manuelt-testet feat/fase-2e-pantry og rapporterte at
+items toggled "kjøpt" på shopping aldri dukket opp i pantry-sub-view.
+Backend logger viste 200 på PUT /bought; ingen GET /api/pantry observert
+ved view-bytte (kanskje frontend-issue, kanskje backend-issue, kanskje
+begge).
+
+Analyse: ingen ny analyse-fil — denne PR-en er bug-fix-fortsettelse av
+docs/analyses/2026-04-30-fase-2e-pantry.md som dokumenterte den antatte
+auto-add-flyten. Diagnose gjort live via:
+
+1. Lest server/routes.js:933-991 (PUT /bought-handler)
+2. Lest server/routes.js:1037-1059 (POST /api/shopping/items-handler)
+3. Lest server/repositories/shopping.repo.js:366 (addItem-INSERT)
+4. Skrevet `scripts/db-check-pantry-bug.js` for å lese live DB-state
+5. Funn: id=16 "butter", id=17 "melk" — bought_at satt, product_key=NULL,
+   bought_qty=0, inventory tom, inventory_log tom
+
+ROT-ÅRSAK (BACKEND, ikke frontend):
+
+a. POST /api/shopping/items lagde rader UTEN productKey
+   (addItem-INSERT inkluderte ikke kolonnen).
+b. PUT /bought-handler hoppet over inventory.addPurchase fordi
+   `if (item.productKey && qtyPurchased > 0)` evaluerer false uten
+   key.
+c. qtyPurchased-default kollapset til 0 når både body.qty og item.qty
+   var null, så selv items med productKey hoppet over pantry-update.
+
+Frontend var IKKE bug-en. usePantryData fyrer fetch ved hver mount;
+view-bytte mellom list og pantry remountes komponenten, så fetch SKAL
+trigges. Christer's "ingen GET /api/pantry observert"-observasjon kan
+være et logging-issue (loggene logger antagelig bare PUT/POST/DELETE,
+ikke GET-er), men det krevde ingen frontend-endring siden Shopping.test
+allerede dekker view-bytte → /api/pantry-fetch.
+
+Plan: 3 koblede backend-fix + 4 regresjons-tester + diagnose-script.
+
+Gjort:
+
+- Branch: feat/fase-2e-pantry (samme som Christer ba om).
+- Commits: 1.
+  - `4e22671` fix(shopping): resolve productKey for manual items
+- Filer endret: 4 (2 modifiserte, 2 nye).
+  - server/repositories/shopping.repo.js (addItem accept productKey,
+    ny setProductKey for backfill)
+  - server/routes.js (POST resolver productKey, PUT /bought lazy-
+    resolve + persist + qtyPurchased default 1)
+  - tests/shopping-manual-item-bought-pantry-bug.test.js (4 tester
+    som låser fast riktig oppførsel)
+  - scripts/db-check-pantry-bug.js (diagnose-tooling)
+- Tester lagt til: 4 backend-regresjons-tester. Server total: 1293
+  pass, 2 skip, 0 fail (var 1289+2+0 før denne fixen — +4 nye).
+- DOMAIN_MODEL.md oppdatert: nei. Forretningsregel BR-002 (auto-add
+  fra shopping-toggle) impliseres allerede i analysen for Fase 2E.
+- Avvik fra plan: forste fix-iterasjon arvet unit/category fra
+  pantryResolver. Det brøt eksisterende test (POST /api/shopping/items
+  accepts name only — forventet unit=null), så fixen trakk seg
+  tilbake til kun productKey-arving. unit/category følger nå brukerens
+  input (null = ikke spesifisert) som før.
+
+Sikkerhet: ingen nye endepunkter, ingen ny auth-logikk. Eksisterende
+`requireRole('adult')` på POST og PUT beholdes. resolveOrCreate er
+samme funksjon som POST /api/pantry/add allerede bruker — ingen ny
+attack-flate. Diagnose-script i scripts/ er readonly.
+
+ISO 25010: funksjonell egnethet 8.8 → 8.8 (uendret, fixer en regresjon
+introdusert i samme PR, så netto-effekt er null). Pålitelighet 8.5 →
+8.5 (uendret — backward-compat for legacy-rader er lagt inn).
+
+Lokal CI-verifikasjon: alle grønne.
+
+- `npm run typecheck` server: 0 feil
+- `npm run typecheck:client`: 0 feil
+- `npm test` server: 1293 pass, 2 skip, 0 fail
+- `npx vitest run client/src/app/screens/Shopping.test`: 16/16 pass
+- `npx vitest run client/src/app/components/pantry/PantryView`: 10/10 pass
+- `npm run audit:prod`: 0 vulnerabilities
+- `npm run test:coverage:gate`: lines 84.14/80, branches 74.7/68,
+  functions 82.22/72 — alle over.
+
+Browser-verifikasjon: ikke gjennomført (auth-blokkert preview, samme
+begrensning som forrige sesjon). Christer må gjøre manuell verifisering
+etter merge — instruksjoner under.
+
+Status: åpen — venter på Christer manuell verifisering + push.
+
+Manuell test-flyt for Christer (etter merge):
+
+VIKTIG om eksisterende DB-state: rad-id 16 "butter" og 17 "melk" i
+Christer's lokale DB har bought_at != NULL men ingen productKey og
+qty=0. PUT /bought-handler returnerer alreadyBought-shortcut for disse
+og kjører IKKE backfill-stien. Ren test krever at de enten slettes
+manuelt eller toggles unbought + bought igjen. Anbefaler: bare slett
+dem og test med nye items.
+
+Test-sekvens:
+
+1. Restart backend (stopp + start på nytt).
+2. Logg inn som christer@frestad.com på /v2/login.
+3. Naviger til /v2/shopping (default = list-view).
+4. Slett "butter" og "melk" hvis de fortsatt er på listen
+   (de er i bought-state og blokkerer test ellers).
+5. Skriv "TestVare" i QuickAdd → Legg til.
+6. Toggle "TestVare" som kjøpt (klikk på sirkelen).
+7. Tap "Hva har vi hjemme?" i toggle-en øverst.
+8. Verifiser: TestVare er i pantry-listen med antall=1 og enhet=stk
+   (eller "1 igjen" hvis enhet ikke ble resolvet).
+9. Tap Marker brukt → registrer bruk → verifiser at antall reduseres.
+10. (Bonus) Bytt tilbake til list-view, slett TestVare via X-knappen,
+    bytt tilbake til pantry — TestVare skal fortsatt være i pantry
+    (den er decoupled fra shopping-rad etter kjøp).
+
+Beslutninger Christer må ta: ingen blokkerende. Etter manuell test:
+bekreft at fixen virker, og gi push-instruksjon.
+
+Neste: ved push-instruksjon → squash-commits til 1-3 logiske enheter
+(analyse + Pantry sub-view + bug-fix), kjør én siste lokal CI, push
+til feat/fase-2e-pantry, åpne PR med oppdatert tittel som inkluderer
+bug-fix. Vent på CI grønn → vent på Christers godkjenning → merge per
+DEL 5.3 (feat krever Christer).
+
+---
+
+2026-04-30 – Fase 2E Pantry sub-view (Sprint 5 fortsetter)
+
+Oppgave: Bygge fjerde og siste skjerm i Sprint 5 / Fase 2 — Pantry.
+Master-planen hadde Kalender her, men Christer byttet rekkefølge:
+Pantry inn nå, Kalender utsettes til post-pilot. Verdikjede: Måltid →
+Handleliste → Pantry → Bruk → Handleliste igjen.
+
+Analyse: docs/analyses/2026-04-30-fase-2e-pantry.md (389 linjer)
+
+- Reisen: 4 hovedflyter (åpne pantry, marker brukt, quick-add,
+  slett), 3-nivå dyp på flere grener.
+- Edge-cases: 20 dokumentert (over 8-minimum) — total=null,
+  unit=null, amount > remaining, comma-decimal-input, samtidige
+  saves, expiresEst i fortid/dag/morgen/null, viewport-edge-case,
+  ukjent ?view=-param, etc.
+- Beslutninger: 7 (Christer-bekreftet 4 hoved + 3 implikasjoner).
+  Pantry som sub-view i Shopping (B1), category-felt (ikke
+  location, B2), bygg Marker brukt-dialog (B3 Christer-overstyr
+  min anbefaling), verifiser eksisterende auto-add og lav-stock-
+  trigger (B4), ekstra holdbarhet-badge (B5 tillegg). URL-state
+  via useSearchParams. Modal-komponent fra Fase 1b gjenbrukes.
+- Portainer-risiko: nei (ren frontend + én backend-test).
+- ISO 25010: funksjonell egnethet 8.7 → 8.8, vedlikeholdbarhet
+  8.5 → 8.6, snitt 8.50 → 8.51 (+0.01).
+
+Plan: 10 commits — analyse, API+hook+tester, komponenter+i18n,
+container+integrasjon, backend-test+design-gaps. Endte opp som
+5 logiske commits siden komponenter + i18n hørte sammen.
+
+Gjort:
+
+- Branch: feat/fase-2e-pantry (fra ren main, etter PR #82-merge).
+- Commits: 5.
+  - `30980c7` docs(analysis): analyse-dokument
+  - `edcb566` feat(client/pantry): pantryApi.ts + usePantryData
+  - `e3c0fcf` feat(client/pantry): komponenter + i18n bundle
+  - `6493351` feat(client/shopping): integrer Pantry sub-view via toggle
+  - `e2f7573` test(server): pantry frontend-flow integration + design-gaps
+- Filer endret: 21 nye + 4 modifiserte.
+- Tester lagt til: ~80 nye tester på frontend, 6 på backend.
+  Total client-tester: 608 pass (var 533 før Fase 2E). Server:
+  1289 pass, 2 skip, 0 fail (var 1271+2+0 før — +18 nye fra
+  recent meals/family-arbeid + 6 fra denne PR-en).
+- DOMAIN_MODEL.md oppdatert: nei. Tre impliserte forretnings-
+  regler (BR-001 lav-stock-trigger, BR-002 auto-add fra shopping,
+  BR-003 qty=0-filter på GET) er notert i analysen — formell
+  backfill kommer i egen docs-PR.
+- Backend: ingen endringer i kode. Én ny test-fil
+  `tests/fase-2e-pantry-frontend-flow.test.js` verifiserer at
+  hele kjeden frontend Phase 2E utfører fungerer ende-til-ende
+  mot eksisterende endepunkter (GET /api/pantry shape, PUT
+  /api/pantry/correct dekrement + lav-stock-trigger, DELETE
+  pantry-rad, POST /api/pantry/add slugify-resolve). Alle 6
+  tester grønne.
+- Avvik fra plan: usePantryData-hook brukte først hardkodet 0.20
+  som lav-terskel for optimistisk isLow-flagg, men backend's
+  units.LOW_THRESHOLD = 0.15. Justert tidlig i implementering.
+  ErrorBoundary.test.tsx er flaky under parallel-kjøring (worker
+  exit fra jsdom event-listener) — passerer 6/6 isolert; ikke
+  introdusert av denne PR-en.
+
+Sikkerhet: ingen nye endepunkter, ingen ny auth-logikk. Backend
+beholder eksisterende `requireRole('adult')` på add/correct/delete
+og auth-cookie-validering på GET. Ingen secrets eller PII-felter
+introdusert. URL-search-param `?view=` er tillatlist `'list' |
+'pantry'`; ukjente verdier defaulter til list-view (ikke crash).
+Sikkerhetssjekkliste utfylt i analyse-dokumentet §3.
+
+ISO 25010: funksjonell egnethet +0.1 (kjernemangel i verdikjede
+fylt; kvantitativ tracking via Marker brukt-dialog), vedlikehold-
+barhet +0.1 (pantry-mappa speiler shopping-mappa = konsistent
+kodebase, ny kode > 85% test-dekning). Ingen karakteristikk
+under 8.0.
+
+Lokal CI-verifikasjon: alle grønne.
+
+- `npm run typecheck` (server): 0 feil
+- `npm run typecheck:client`: 0 feil
+- `npm run test:client`: 608/608 pass (1 worker-exit-flake i
+  ErrorBoundary, ikke regresjon — passerer isolert)
+- `npm test` (server): 1289 pass, 2 skip, 0 fail
+- `npm run audit:prod`: 0 vulnerabilities
+- `npm run build:client`: 361.64 KB raw / 109.84 KB gzipped main
+  (+6.30 KB gzipped fra forrige main 103.36 KB — Pantry-komponentene
+  er rimelig kompakte gitt Modal/dialog/quick-add/grouping-container).
+- `npm run test:coverage:gate`: lines 84.11/80, branches 74.55/68,
+  functions 82.20/72 — over alle terskler.
+- Lint: ingen feil i ny kode. Eksisterende
+  `public/v2/assets/main-*.js`-build-artifact-feil er dokumentert
+  i `pending-decisions.md` (ESLint config-gap — egen Sprint 6-fix).
+
+Browser-verifikasjon: kjørte `npm run preview:client` på 7779
+(7778 var Christers parallelle dev-server). React app mounter,
+AuthGuard redirecter `/v2/shopping?view=pantry` → `/v2/login`
+fordi preview ikke har session-cookie. Bundle-hash matcher
+`build:client`-output. Ingen console-errors. Full e2e-test av
+Pantry-flyten med data krever Christers manuelle test
+(instruksjoner i analyse-dokumentet §4).
+
+Status: åpen — venter på Christer manuell test + push-godkjenning.
+
+Beslutninger Christer må ta: ingen blokkerende. Bekreft etter
+manuell test om:
+- Segmented toggle "Handleliste" / "Hva har vi hjemme?" føles
+  riktig som primær-navigasjon mellom sub-views, eller om vi bør
+  legge til mer visuell skille (f.eks. tab-underline i tillegg).
+- Marker brukt-dialog UX: er 1/4-1/2-Alt riktig sett quick-buttons,
+  eller mangler 3/4? Skal Bekreft-knappen være primary-mint som
+  i andre dialog, eller mer pulset/anstrent fordi det er en
+  "destruktiv" handling (decrement)?
+- Holdbarhet-badge: gul/rød-fargesetting godt nok, eller bør den
+  være mer påtrengende (border, ikon, animasjon) når < 1 dag?
+- Quick-add: ingen autocomplete i pilot — er det greit, eller
+  bør vi ta inn `GET /api/pantry/suggest` som har vært klart
+  siden Fase F1?
+
+Neste: ved push-instruksjon → squash-commits til 1-3 logiske
+enheter, kjør én siste lokal CI, push til `feat/fase-2e-pantry`,
+åpne PR med tittel "feat: Fase 2E — Pantry sub-view (Sprint 5
+continues)". Vent på CI grønn → vent på Christers godkjenning →
+merge per DEL 5.3 (feat krever Christer).
+
+---
+
 2026-04-30 – Hotfix: Meals mobile layout — BottomNav sticky regresjon
 
 Oppgave: Christer rapporterte at /v2/meals på mobil-bredde

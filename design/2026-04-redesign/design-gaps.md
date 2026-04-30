@@ -352,3 +352,79 @@ slettet felt.
   Hvilke begrensninger gjelder for items med `productKey` (Kassal-priset
   pakke kontra fri-tekst)?
 - **Status:** Pending
+
+### "Marker brukt"-dialog er ikke i mockup — pilot-tilleggs-funksjon
+
+- **Skjerm/Kontekst:** Pantry-sub-view i Shopping-skjermen
+  (`?view=pantry`) — `UseDialog`-komponent
+  (`client/src/app/components/pantry/UseDialog.tsx`)
+- **Oppdaget:** 2026-04-30, Fase 2E (Pantry sub-view) under
+  scope-bekreftelse med Christer
+- **Hva mangler:** Mockupen `Familieassistenten.html` linje 804-895
+  (`Pantry`-sub-view) viser pantry-rader med navn, holdbarhet-
+  badge, progress-bar, og "Handle"-knapp når level < 40%. Det er
+  INGEN "Marker brukt"-knapp eller dialog i designet. Christer har
+  prioritert kvantitativ tracking som kjerne-verdi for pilot
+  (B3-overstyring 2026-04-30) og bedt oss bygge dialogen som
+  tilleggs-funksjon utenfor mockup.
+- **Blokkerende-nivå:** medium — funksjon er nødvendig for kjerne-
+  verdi-løftet, men design er utvikler-initiert og bør verifiseres
+  i neste design-runde
+- **Midlertidig løsning:** `UseDialog` bygd som modal med tre quick-
+  buttons ("1/4", "1/2", "Alt") + manuelt nummer-input. Validering
+  blokkerer amount > remaining og amount ≤ 0. Dialog åpner via
+  "Marker brukt"-knapp på hver `PantryItem`, lukker på bekreft eller
+  avbryt. Sender PUT /api/pantry/correct med `newQty = remaining -
+  amountUsed`. Optimistisk UI-update + rollback ved feil.
+- **Antatt design-grunnlag:** Modal-komponent (size="sm",
+  position="center") fra Fase 1b.3 Batch G; Button (primary +
+  secondary); inline-validering med `text-coral`; quick-button-stil
+  matcher chips i Shopping-skjermen (`rounded-pill` + `bg-surface`).
+- **Spørsmål til design-runde:** "Tegn 'Marker brukt'-flyten på
+  Pantry. Skal det være: (a) modal som vi har bygd, (b) inline-
+  popover ved siden av item-raden, (c) bottom-sheet på mobil
+  (slide-up med thumb-friendly knapper)? Quick-buttons: er 1/4-
+  1/2-Alt riktig sett, eller skal vi ha 25-50-75-100 % tabs i
+  stedet? Decimal-input: la brukeren skrive direkte (kr/g/dl),
+  eller bruk +/- stepper? Når amount = remaining, skal vi vise en
+  ekstra bekreftelse ('Tom for vare — fjerne den?') eller bare
+  silent fjerne raden? Hvilken aksent-fargesetting hører hjemme
+  her — primary mint, eller ikke-fremtredende secondary?"
+- **Status:** Pending
+
+### Plassering (location) for pantry-items er ikke i datamodell
+
+- **Skjerm/Kontekst:** Pantry-sub-view, gruppering av items
+- **Oppdaget:** 2026-04-30, Fase 2E (Pantry sub-view) under
+  backend-inventering
+- **Hva mangler:** Mockupen
+  `Familieassistenten.html:434-451` (`pantryData`) grupperer items
+  per `loc: "Køleskap" | "Kjøkkenskap" | "Fryser"`. Backend
+  `inventory`-tabellen (migration 004 + 008) har ikke et
+  `location`-felt — bare `category` (Meieri, Tørrvarer & annet,
+  etc.). Å legge til `location`-kolonne krever ny migrasjon med
+  Portainer-oppstartsrisiko, backfill-strategi, og UI for å sette
+  location ved add. Christer har valgt å bruke `category` for pilot
+  (B2-bekreftelse 2026-04-30) og loggføre dette som design-gap.
+- **Blokkerende-nivå:** lavt — pilot-flyt fungerer med category-
+  gruppering. v1.1-vurdering når pilot-feedback har vist hvor mye
+  brukerne savner location-felt.
+- **Midlertidig løsning:** `usePantryData.itemsByCategory` grupperer
+  per `category`-felt (samme bucketing som Shopping-skjermen). Items
+  uten kategori faller under `'other'` enum-key og rendrer som
+  "Annet" via `shopping:categories.other`. Header-card viser kun
+  total-tall + "går tomt snart"-stats, ikke location-aggregater.
+- **Antatt design-grunnlag:** Card padding `--p-4`, divider
+  `border-stroke`, samme group-header-pattern som Shopping
+  CategoryGroup. Ingen accent-farge per kategori i pilot.
+- **Spørsmål til design-runde:** "Skal pantry gruppere per
+  plassering (Kjøleskap/Kjøkkenskap/Fryser/Spisskammers) som
+  mockupen viser, eller per kategori (Meieri/Tørrvarer/Frukt &
+  grønt) som backend støtter? Hvis plassering: trenger vi
+  database-migrasjon for `location`-kolonne. Hvis kategori: er
+  pantry og handleliste konsistent gruppert? Hvilke locations
+  støttes — fast enum (3-5), bruker-definert fri-tekst, eller
+  bruker-valg fra forslagsliste? Skal hver location ha accent-farge
+  som mockup viste (cyan/amber/mint), og hva er semantikken
+  (kjølighet, posisjon, eller bruksfrekvens)?"
+- **Status:** Pending

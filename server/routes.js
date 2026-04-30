@@ -950,26 +950,52 @@ function registerRoutes(router, { repos, serverState }) {
         return;
       }
 
-      const qtyPurchased = ctx.body.qty ?? item.packSize ?? item.qty ?? 0;
+      // Resolve a productKey for legacy manual items that pre-date the
+      // POST /api/shopping/items productKey-resolve step. Without this
+      // backfill, every row inserted before that fix lands here with
+      // productKey=null and silently bypasses the pantry update — the
+      // bug Christer reported on the Phase 2E pantry sub-view. Persist
+      // the resolved key so subsequent reads carry the same identity.
+      let productKey = item.productKey;
+      if (!productKey && item.ingredientName) {
+        try {
+          const resolved = pantryResolver.resolveOrCreate(repos, item.ingredientName);
+          if (resolved && resolved.productKey) {
+            productKey = resolved.productKey;
+            if (typeof repos.shoppingLists.setProductKey === 'function') {
+              repos.shoppingLists.setProductKey(itemId, productKey);
+            }
+          }
+        } catch {
+          /* fall through with productKey still null */
+        }
+      }
+
+      // Default to 1 unit when neither the request body nor the row
+      // carries a quantity. Manual QuickAdd items routinely arrive
+      // with qty=null because the user only typed a name; without a
+      // sane default the qtyPurchased>0 gate below would still skip
+      // the pantry update even after productKey is resolved.
+      const qtyPurchased = ctx.body.qty ?? item.packSize ?? item.qty ?? 1;
 
       const tx = repos.transaction(() => {
         repos.shoppingLists.markItemBought(itemId, qtyPurchased);
 
         // Pantry + inventory_log (kun hvis vi vet product_key og qty > 0)
-        if (item.productKey && qtyPurchased > 0) {
-          const prev = repos.inventory.getByKey(item.productKey);
+        if (productKey && qtyPurchased > 0) {
+          const prev = repos.inventory.getByKey(productKey);
           const prevQty = prev?.qtyRemaining || 0;
-          const product = repos.products.getByKey(item.productKey);
-          repos.inventory.addPurchase(item.productKey, {
+          const product = repos.products.getByKey(productKey);
+          repos.inventory.addPurchase(productKey, {
             packSize: qtyPurchased,
             unit: item.unit || product?.unit || '',
             // Prefer learned shelf-life once enough samples accumulate;
             // seeded products.shelf_days is the fallback.
             shelfDays: shelfLifeLearner.effectiveShelfDays(product),
           });
-          const next = repos.inventory.getByKey(item.productKey);
+          const next = repos.inventory.getByKey(productKey);
           repos.inventoryLog.insert({
-            productKey: item.productKey,
+            productKey,
             qtyDelta: (next?.qtyRemaining || 0) - prevQty,
             newQty: next?.qtyRemaining || 0,
             unit: item.unit || product?.unit || null,
@@ -1046,12 +1072,30 @@ function registerRoutes(router, { repos, serverState }) {
           code: 'NO_ACTIVE_LIST',
         });
       }
+      // Resolve a productKey from the manual name so PUT /bought has
+      // an inventory-link to write against. resolveOrCreate prefers
+      // catalog matches (Kassal/seed) and falls back to slugify; the
+      // returned key is stable across repeated adds with the same
+      // name. We deliberately do NOT inherit unit/category from the
+      // resolver — user-supplied values stay null when omitted, which
+      // matches the existing API contract (see tests/shopping-items-
+      // add.test.js). The pantry write itself reads unit from the
+      // products catalog when item.unit is null.
+      let productKey = null;
+      try {
+        const resolved = pantryResolver.resolveOrCreate(repos, ctx.body.name);
+        productKey = resolved?.productKey || null;
+      } catch {
+        /* if resolver fails, we still insert the row without productKey;
+           the lazy-resolve in PUT /bought picks it up later. */
+      }
       const item = repos.shoppingLists.addItem(list.id, {
         name: ctx.body.name,
         qty: ctx.body.qty ?? null,
         unit: ctx.body.unit ?? null,
         category: ctx.body.category ?? null,
         notes: ctx.body.notes ?? null,
+        productKey,
       });
       invalidate('shopping');
       ctx.json({ ok: true, item }, 201);

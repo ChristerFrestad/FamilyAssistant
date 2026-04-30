@@ -1,6 +1,10 @@
-// Phase 2D Shopping screen — replaces the Phase-1d placeholder.
+// Phase 2D + 2E Shopping screen.
 //
-// Surfaces:
+// Hosts two sub-views via segmented toggle (URL state ?view=):
+//   - list   (default) — the shopping list itself (Phase 2D)
+//   - pantry          — pantry sub-view rendering inventory (Phase 2E)
+//
+// The list-view surfaces (unchanged from Phase 2D):
 //   - Header: title + compact statistics strip (bought/total +
 //     remaining + remaining-price-sum when ≥1 item is Kassal-priced).
 //   - Empty state: when no active list exists for the current week,
@@ -17,12 +21,17 @@
 //     this code, swap the empty-state copy for a hint pointing at
 //     /v2/meals.
 //
+// The pantry-view is the PantryView container — see its file for the
+// full surface (loading/empty/error/grouped items, marker-brukt
+// dialog, quick-add).
+//
 // Routing: /v2/shopping is wired in App.tsx — this component just
 // renders. Auth is handled by AuthGuard at the route level.
+// ErrorBoundary at the route wraps both sub-views.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { ShoppingHeader } from '../components/shopping/ShoppingHeader';
@@ -30,10 +39,28 @@ import { CategoryGroup } from '../components/shopping/CategoryGroup';
 import { QuickAddInput } from '../components/shopping/QuickAddInput';
 import { EmptyState } from '../components/shopping/EmptyState';
 import { useShoppingData } from '../shopping/useShoppingData';
+import { PantryView } from '../components/pantry/PantryView';
+import { ShoppingViewToggle, readShoppingView } from '../components/pantry/ShoppingViewToggle';
 
 const TOAST_DISMISS_MS = 4000;
 
 export function Shopping(): JSX.Element {
+  const [searchParams] = useSearchParams();
+  const view = readShoppingView(searchParams);
+
+  if (view === 'pantry') {
+    return (
+      <div className="flex flex-col gap-4 pb-2" data-testid="shopping-screen">
+        <ShoppingViewToggle />
+        <PantryView />
+      </div>
+    );
+  }
+
+  return <ShoppingListView />;
+}
+
+function ShoppingListView(): JSX.Element {
   const { t, i18n } = useTranslation(['shopping', 'common']);
   const navigate = useNavigate();
   const {
@@ -94,6 +121,7 @@ export function Shopping(): JSX.Element {
       className="flex flex-col gap-4 pb-2"
       data-testid="shopping-screen"
     >
+      <ShoppingViewToggle />
       <ShoppingHeader
         stats={stats}
         formatPrice={formatPrice}

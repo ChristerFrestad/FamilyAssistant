@@ -363,7 +363,10 @@ function createShoppingRepos(db, tryParseJson) {
      * new item appears at the end of its (default) category section.
      * Returns the inserted row in the same shape as _getItems().
      */
-    addItem(listId, { name, qty = null, unit = null, category = null, notes = null }) {
+    addItem(
+      listId,
+      { name, qty = null, unit = null, category = null, notes = null, productKey = null }
+    ) {
       const familyId = getFamilyId();
       const maxSortRow = db
         .prepare(
@@ -379,18 +382,39 @@ function createShoppingRepos(db, tryParseJson) {
       // strings (Frukt & grønt, Meieri, ...) — that broader inconsistency
       // is logged as a design-gap and addressed in a later sprint.
       const resolvedCategory = category ?? 'other';
+      // productKey is the link to inventory/pantry. When the caller
+      // resolves a key via pantryResolver before adding (POST
+      // /api/shopping/items) we persist it so the auto-add-to-pantry
+      // flow on PUT /bought has something to write against. Falls
+      // back to NULL for legacy callers — the bought-route does a
+      // lazy-resolve to keep that path working.
       const result = db
         .prepare(
           `INSERT INTO shopping_list_items (
              family_id, list_id, source_type, source_ref, ingredient_name,
-             qty, unit, category, needs_buy, sort_order, notes
-           ) VALUES (?, ?, 'manual', NULL, ?, ?, ?, ?, 1, ?, ?)`
+             product_key, qty, unit, category, needs_buy, sort_order, notes
+           ) VALUES (?, ?, 'manual', NULL, ?, ?, ?, ?, ?, 1, ?, ?)`
         )
-        .run(familyId, listId, name, qty, unit, resolvedCategory, nextSort, notes);
+        .run(familyId, listId, name, productKey, qty, unit, resolvedCategory, nextSort, notes);
       const newId = Number(result.lastInsertRowid);
       const items = shoppingLists._getItems(listId);
       const raw = items.find((it) => it.id === newId) || null;
       return enrichItemForFrontend(raw);
+    },
+
+    /**
+     * Backfill product_key on an existing row. Used by PUT /bought
+     * to give legacy manual items (added before addItem learned to
+     * accept productKey) a pantry-link the moment they get checked
+     * off, so the auto-add-to-pantry flow works retroactively.
+     */
+    setProductKey(itemId, productKey) {
+      const familyId = getFamilyId();
+      db.prepare(
+        `UPDATE shopping_list_items
+            SET product_key = ?
+          WHERE family_id = ? AND id = ?`
+      ).run(productKey, familyId, itemId);
     },
 
     /**
