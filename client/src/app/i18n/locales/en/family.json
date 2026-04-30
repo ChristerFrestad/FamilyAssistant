@@ -1,5 +1,10 @@
 {
-  "title": "Family members",
+  "title": "Family",
+  "familyHeader": {
+    "label": "Family",
+    "editAction": "Edit",
+    "editPlaceholder": "Editing the family name is coming in Sprint 5+"
+  },
   "addMember": "Add member",
   "fields": {
     "name": "Name",
@@ -11,6 +16,11 @@
     "teen": "Teen",
     "child": "Child"
   },
+  "roles": {
+    "owner": "Owner",
+    "adult": "Adult",
+    "child": "Child"
+  },
   "portion": {
     "description": "1.0 = adult portion (about 500 g of cooked food). Adjust based on actual appetite.",
     "label": "{{role}} portion",
@@ -19,6 +29,28 @@
       "teen": "teen",
       "adult": "adult"
     }
+  },
+  "portionFactor": {
+    "label": "Portion factor",
+    "help": "How much this person eats compared to a standard adult portion",
+    "saving": "Saving …",
+    "updateSuccess": "Saved",
+    "updateError": "Could not save — try again"
+  },
+  "members": {
+    "heading": "Family members",
+    "empty": "No family members yet",
+    "singleMemberHint": "You are the only person in the family right now. Invite others once the feature is ready."
+  },
+  "actions": {
+    "invite": "Invite member",
+    "invitePlaceholder": "Invitations are coming in Sprint 5+",
+    "edit": "Edit",
+    "retry": "Try again"
+  },
+  "youBadge": "You",
+  "errors": {
+    "loadFailed": "Could not load family information"
   },
   "delete": {
     "confirmTitle": "Delete member?",

@@ -7,7 +7,6 @@
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { Family } from './Family';
 import { Meals } from './Meals';
 import { Shopping } from './Shopping';
 import { Calendar } from './Calendar';
@@ -20,13 +19,15 @@ import { AuthProvider } from '../auth/AuthContext';
 // landed (PR-#? Fase 2A). Real Dashboard behavior tests live in
 // Dashboard.test.tsx — they cover loading/empty/error per card,
 // retry, and quick-actions navigation.
+//
+// Family moved out when the real Phase-2B screen landed
+// (Fase 2B Family). Real Family behavior tests live in
+// Family.test.tsx — they cover skeleton/error/data states,
+// (Du)-badge, placeholder buttons, optimistic portion update,
+// rollback on PUT failure, single-member hint, and child-viewer
+// disabled state.
 
 describe('placeholder screens render with i18n headings', () => {
-  test('Family', () => {
-    render(<Family />);
-    expect(screen.getByRole('heading', { name: 'Familie', level: 1 })).toBeInTheDocument();
-  });
-
   test('Meals', () => {
     render(<Meals />);
     expect(screen.getByRole('heading', { name: 'Måltider', level: 1 })).toBeInTheDocument();

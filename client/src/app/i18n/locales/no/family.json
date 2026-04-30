@@ -1,5 +1,10 @@
 {
-  "title": "Familie-medlemmer",
+  "title": "Familie",
+  "familyHeader": {
+    "label": "Familie",
+    "editAction": "Rediger",
+    "editPlaceholder": "Endring av familienavn kommer i Sprint 5+"
+  },
   "addMember": "Legg til medlem",
   "fields": {
     "name": "Navn",
@@ -11,6 +16,11 @@
     "teen": "Ungdom",
     "child": "Barn"
   },
+  "roles": {
+    "owner": "Eier",
+    "adult": "Voksen",
+    "child": "Barn"
+  },
   "portion": {
     "description": "1.0 = voksenporsjon (ca 500 g ferdig mat). Kan justeres basert på faktisk appetitt.",
     "label": "{{role}}porsjon",
@@ -19,6 +29,28 @@
       "teen": "ungdom",
       "adult": "voksen"
     }
+  },
+  "portionFactor": {
+    "label": "Porsjonsfaktor",
+    "help": "Hvor mye spiser denne personen sammenlignet med en standard voksen-porsjon",
+    "saving": "Lagrer …",
+    "updateSuccess": "Lagret",
+    "updateError": "Kunne ikke lagre — prøv igjen"
+  },
+  "members": {
+    "heading": "Familiemedlemmer",
+    "empty": "Ingen familiemedlemmer ennå",
+    "singleMemberHint": "Du er den eneste i familien akkurat nå. Inviter andre når funksjonen er klar."
+  },
+  "actions": {
+    "invite": "Inviter medlem",
+    "invitePlaceholder": "Invitering kommer i Sprint 5+",
+    "edit": "Rediger",
+    "retry": "Prøv igjen"
+  },
+  "youBadge": "Du",
+  "errors": {
+    "loadFailed": "Kunne ikke hente familieinformasjon"
   },
   "delete": {
     "confirmTitle": "Slett medlem?",
