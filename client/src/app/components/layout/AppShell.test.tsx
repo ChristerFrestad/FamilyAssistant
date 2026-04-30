@@ -93,4 +93,15 @@ describe('AppShell structure', () => {
     renderShell();
     expect(screen.getByRole('button', { name: 'Åpne bruker-meny' })).toBeInTheDocument();
   });
+
+  test('main has min-w-0 to prevent flex-item overflow on mobile', () => {
+    // Regression guard for hotfix/meals-mobile-layout. Without min-w-0,
+    // a flex-item's default min-width: auto resolves to its children's
+    // min-content, which lets fixed-width descendants (e.g. a 7-pill
+    // DayStrip totalling 552px) push <body> wider than the viewport on
+    // mobile. That broke BottomNav's fixed-bottom anchoring on /v2/meals.
+    renderShell();
+    const main = screen.getByRole('main');
+    expect(main.className).toMatch(/\bmin-w-0\b/);
+  });
 });
