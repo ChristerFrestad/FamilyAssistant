@@ -7,7 +7,6 @@
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { Meals } from './Meals';
 import { Shopping } from './Shopping';
 import { Calendar } from './Calendar';
 import { Settings } from './Settings';
@@ -26,13 +25,15 @@ import { AuthProvider } from '../auth/AuthContext';
 // (Du)-badge, placeholder buttons, optimistic portion update,
 // rollback on PUT failure, single-member hint, and child-viewer
 // disabled state.
+//
+// Meals moved out when the real Phase-2C screen landed
+// (Fase 2C Meals). Real Meals behavior tests live in
+// Meals.test.tsx — they cover skeleton/error/data states,
+// day-strip selection, hero variants (away/skipped/empty/recipe),
+// scaled ingredients, defensive scaling-unavailable handling, and
+// the swap/plan placeholder buttons.
 
 describe('placeholder screens render with i18n headings', () => {
-  test('Meals', () => {
-    render(<Meals />);
-    expect(screen.getByRole('heading', { name: 'Måltider', level: 1 })).toBeInTheDocument();
-  });
-
   test('Shopping', () => {
     render(<Shopping />);
     expect(screen.getByRole('heading', { name: 'Handleliste', level: 1 })).toBeInTheDocument();

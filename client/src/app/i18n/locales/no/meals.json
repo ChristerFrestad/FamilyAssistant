@@ -1,22 +1,82 @@
 {
   "title": "Måltider",
-  "weekNav": {
-    "previous": "Forrige uke",
-    "current": "Denne uken",
-    "next": "Neste uke"
+  "screen": {
+    "description": "Planen for ukens middager."
   },
-  "slots": {
-    "breakfast": "Frokost",
-    "lunch": "Lunsj",
-    "dinner": "Middag",
-    "snack": "Mellommåltid"
+  "weekHeader": {
+    "label": "Ukens meny",
+    "week": "Uke {{weekYear}}"
   },
-  "addMeal": "Legg til måltid",
+  "daysShort": {
+    "0": "Man",
+    "1": "Tir",
+    "2": "Ons",
+    "3": "Tor",
+    "4": "Fre",
+    "5": "Lør",
+    "6": "Søn"
+  },
+  "daysLong": {
+    "0": "Mandag",
+    "1": "Tirsdag",
+    "2": "Onsdag",
+    "3": "Torsdag",
+    "4": "Fredag",
+    "5": "Lørdag",
+    "6": "Søndag"
+  },
+  "category": {
+    "rask": "Rask",
+    "comfort": "Hverdagskos",
+    "helg": "Helg"
+  },
+  "todayLabel": "I dag",
+  "dayStripAria": "Velg dag i ukens meny",
+  "hero": {
+    "todayHeading": "I dag · {{day}}",
+    "dayHeading": "{{day}}"
+  },
   "actions": {
-    "markEaten": "Marker spist",
-    "swap": "Bytt"
+    "swap": "Bytt middag",
+    "plan": "Planlegg middag",
+    "openSource": "Åpne kilde",
+    "retry": "Prøv igjen"
   },
-  "empty": "Ingen måltid planlagt",
+  "empty": {
+    "heroTitle": "Ingen middag planlagt",
+    "heroBody": "Legg inn en oppskrift for denne dagen.",
+    "weekTitle": "Ingen middager planlagt denne uken",
+    "weekBody": "Bruk «Planlegg middag» for å legge til en for hver dag."
+  },
+  "status": {
+    "awayTitle": "Borte denne dagen",
+    "awayBody": "Familien spiser ikke hjemme.",
+    "awayRecipeMeta": "Tidligere planlagt: {{name}}",
+    "skippedTitle": "Hoppet over",
+    "skippedBody": "Denne dagen står i pause."
+  },
+  "weekList": {
+    "heading": "Hele uka",
+    "emptyRow": "+ Legg til middag",
+    "awayLabel": "Borte",
+    "skippedLabel": "Hopp over"
+  },
+  "recipe": {
+    "ingredients": "Ingredienser",
+    "noIngredients": "Ingen ingredienser registrert.",
+    "scaledMeta": "Skalert til {{effective}} porsjoner (av {{original}} i original)",
+    "scalingUnavailable": {
+      "label": "Antall porsjoner ikke oppgitt",
+      "description": "Viser oppskriftens originale mengder uten skalering."
+    }
+  },
+  "errors": {
+    "loadFailed": "Kunne ikke hente måltidsplanen."
+  },
+  "placeholders": {
+    "swapStatus": "Bytt-flyt kommer i Sprint 5.",
+    "planStatus": "Planleggings-flyt kommer i Sprint 5."
+  },
   "placeholder": {
     "description": "Kommer i Fase 2C — ukemeny, oppskrifter og swap-flyt."
   }

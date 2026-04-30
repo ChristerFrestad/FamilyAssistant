@@ -1,22 +1,82 @@
 {
   "title": "Meals",
-  "weekNav": {
-    "previous": "Previous week",
-    "current": "This week",
-    "next": "Next week"
+  "screen": {
+    "description": "This week's dinner plan."
   },
-  "slots": {
-    "breakfast": "Breakfast",
-    "lunch": "Lunch",
-    "dinner": "Dinner",
-    "snack": "Snack"
+  "weekHeader": {
+    "label": "Week menu",
+    "week": "Week {{weekYear}}"
   },
-  "addMeal": "Add meal",
+  "daysShort": {
+    "0": "Mon",
+    "1": "Tue",
+    "2": "Wed",
+    "3": "Thu",
+    "4": "Fri",
+    "5": "Sat",
+    "6": "Sun"
+  },
+  "daysLong": {
+    "0": "Monday",
+    "1": "Tuesday",
+    "2": "Wednesday",
+    "3": "Thursday",
+    "4": "Friday",
+    "5": "Saturday",
+    "6": "Sunday"
+  },
+  "category": {
+    "rask": "Quick",
+    "comfort": "Comfort",
+    "helg": "Weekend"
+  },
+  "todayLabel": "Today",
+  "dayStripAria": "Pick a day in the week menu",
+  "hero": {
+    "todayHeading": "Today · {{day}}",
+    "dayHeading": "{{day}}"
+  },
   "actions": {
-    "markEaten": "Mark eaten",
-    "swap": "Swap"
+    "swap": "Swap meal",
+    "plan": "Plan meal",
+    "openSource": "Open source",
+    "retry": "Try again"
   },
-  "empty": "No meal planned",
+  "empty": {
+    "heroTitle": "No meal planned",
+    "heroBody": "Pick a recipe for this day.",
+    "weekTitle": "No meals planned this week",
+    "weekBody": "Use \"Plan meal\" to add one for each day."
+  },
+  "status": {
+    "awayTitle": "Away this day",
+    "awayBody": "The family is not eating at home.",
+    "awayRecipeMeta": "Was planned: {{name}}",
+    "skippedTitle": "Skipped",
+    "skippedBody": "This day is paused."
+  },
+  "weekList": {
+    "heading": "Whole week",
+    "emptyRow": "+ Add meal",
+    "awayLabel": "Away",
+    "skippedLabel": "Skipped"
+  },
+  "recipe": {
+    "ingredients": "Ingredients",
+    "noIngredients": "No ingredients registered.",
+    "scaledMeta": "Scaled to {{effective}} servings (from {{original}} in original)",
+    "scalingUnavailable": {
+      "label": "Servings not specified",
+      "description": "Showing the recipe's original quantities without scaling."
+    }
+  },
+  "errors": {
+    "loadFailed": "Could not load the meal plan."
+  },
+  "placeholders": {
+    "swapStatus": "Swap flow arrives in Sprint 5.",
+    "planStatus": "Planning flow arrives in Sprint 5."
+  },
   "placeholder": {
     "description": "Coming in Phase 2C — week menu, recipes, and swap flow."
   }
