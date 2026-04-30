@@ -30,6 +30,7 @@ import { AuthGuard } from './components/auth/AuthGuard';
 import { OnboardingGuard } from './components/auth/OnboardingGuard';
 import { OnboardingProvider } from './auth/OnboardingContext';
 import { AppShell } from './components/layout/AppShell';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { Dashboard } from './screens/Dashboard';
 import { Family } from './screens/Family';
 import { Meals } from './screens/Meals';
@@ -95,7 +96,14 @@ export default function App(): JSX.Element {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/family" element={<Family />} />
                   <Route path="/meals" element={<Meals />} />
-                  <Route path="/shopping" element={<Shopping />} />
+                  <Route
+                    path="/shopping"
+                    element={
+                      <ErrorBoundary messageKey="shoppingMessage">
+                        <Shopping />
+                      </ErrorBoundary>
+                    }
+                  />
                   <Route path="/calendar" element={<Calendar />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<NotFound />} />

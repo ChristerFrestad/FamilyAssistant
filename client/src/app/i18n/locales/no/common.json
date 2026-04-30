@@ -51,5 +51,12 @@
   },
   "notFound": {
     "description": "Siden finnes ikke. Den endelige feilskjermen kommer i Fase 2 — inntil videre er dette en enkel fallback som lar ruten matche slik at navigasjonen er fullstendig."
+  },
+  "errorBoundary": {
+    "title": "Noe gikk galt",
+    "shoppingMessage": "Vi kunne ikke vise handlelisten. Last på nytt for å prøve igjen.",
+    "genericMessage": "Vi kunne ikke vise denne siden. Last på nytt for å prøve igjen.",
+    "retry": "Last på nytt",
+    "backToDashboard": "Tilbake til dashboard"
   }
 }
