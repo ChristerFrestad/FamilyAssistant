@@ -1030,6 +1030,37 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   /**
+   * POST /api/shopping/items — manually append a single item to the
+   * active shopping list. Used by the QuickAdd input on the Phase 2D
+   * Shopping screen. Returns 400 NO_ACTIVE_LIST if no active list
+   * exists for the current week — the client is expected to call
+   * /api/shopping/generate first in that case.
+   */
+  router.post(
+    '/api/shopping/items',
+    requireRole('adult'),
+    validateBody(schemas.shoppingItemAddBody),
+    (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const list = repos.shoppingLists.getActive(wk);
+      if (!list) {
+        throw errors.badRequest('Ingen aktiv handleliste — generer fra ukens måltider først', {
+          code: 'NO_ACTIVE_LIST',
+        });
+      }
+      const item = repos.shoppingLists.addItem(list.id, {
+        name: ctx.body.name,
+        qty: ctx.body.qty ?? null,
+        unit: ctx.body.unit ?? null,
+        category: ctx.body.category ?? null,
+        notes: ctx.body.notes ?? null,
+      });
+      invalidate('shopping');
+      ctx.json({ ok: true, item }, 201);
+    }
+  );
+
+  /**
    * PUT /api/shopping/items/:id/has-home — "jeg har denne hjemme allerede".
    *
    * Different from /bought: the row stays on the shopping list (no bought_at,

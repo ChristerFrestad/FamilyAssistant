@@ -325,6 +325,34 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
+     * Append a manual item to an existing list. Used by the QuickAdd
+     * input on the Shopping screen. Sort_order is set to max+1 so the
+     * new item appears at the end of its (default) category section.
+     * Returns the inserted row in the same shape as _getItems().
+     */
+    addItem(listId, { name, qty = null, unit = null, category = null, notes = null }) {
+      const familyId = getFamilyId();
+      const maxSortRow = db
+        .prepare(
+          `SELECT COALESCE(MAX(sort_order), -1) AS maxSort
+           FROM shopping_list_items WHERE family_id = ? AND list_id = ?`
+        )
+        .get(familyId, listId);
+      const nextSort = (maxSortRow?.maxSort ?? -1) + 1;
+      const result = db
+        .prepare(
+          `INSERT INTO shopping_list_items (
+             family_id, list_id, source_type, source_ref, ingredient_name,
+             qty, unit, category, needs_buy, sort_order, notes
+           ) VALUES (?, ?, 'manual', NULL, ?, ?, ?, ?, 1, ?, ?)`
+        )
+        .run(familyId, listId, name, qty, unit, category, nextSort, notes);
+      const newId = Number(result.lastInsertRowid);
+      const items = shoppingLists._getItems(listId);
+      return items.find((it) => it.id === newId) || null;
+    },
+
+    /**
      * Lukk en handleliste manuelt. Setter status='done' + confirmed_at.
      */
     markDone(listId) {

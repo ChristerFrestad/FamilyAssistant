@@ -8,9 +8,54 @@
   "actions": {
     "markBought": "Marker kjøpt",
     "unmark": "Angre",
-    "deleteBought": "Slett kjøpte"
+    "deleteBought": "Slett kjøpte",
+    "generateFromMeals": "Generer fra ukens middager",
+    "openMeals": "Gå til ukens middager",
+    "retry": "Prøv igjen",
+    "dismissError": "Lukk"
   },
-  "empty": "Handlelisten er tom",
+  "empty": {
+    "default": "Handlelisten er tom",
+    "noListTitle": "Ingen handleliste denne uka",
+    "noListBody": "Generer en liste fra ukens middager, eller legg til varer manuelt nederst.",
+    "noItemsTitle": "Handlelisten er tom",
+    "noItemsBody": "Legg til en vare i feltet nederst for å komme i gang.",
+    "weekNotCompleteTitle": "Uken er ikke ferdigplanlagt",
+    "weekNotCompleteBody": "Velg middager for alle dagene i ukens måltider før du genererer handlelista."
+  },
+  "stats": {
+    "boughtOfTotal": "{{bought}} av {{total}} plukket",
+    "remaining_one": "{{count}} igjen",
+    "remaining_other": "{{count}} igjen",
+    "priceCoverageHint": "Inkluderer {{priced}} av {{remaining}} varer med kjente priser"
+  },
+  "category": {
+    "remaining_one": "{{count}} igjen",
+    "remaining_other": "{{count}} igjen"
+  },
+  "item": {
+    "checkAria": "Marker {{name}} som kjøpt",
+    "uncheckAria": "Angre kjøpt for {{name}}",
+    "deleteAria": "Slett {{name}} fra lista",
+    "priceAria": "Estimert pris {{price}}",
+    "recipeOne": "Til {{name}}",
+    "recipeMany_one": "Til {{count}} måltid",
+    "recipeMany_other": "Til {{count}} måltider"
+  },
+  "quickAdd": {
+    "placeholder": "Hva trenger du?",
+    "submit": "Legg til",
+    "disabledHint": "Generer en handleliste først, eller velg middager for hele uken."
+  },
+  "errors": {
+    "generic": "Noe gikk galt — prøv igjen",
+    "loadFailed": "Kunne ikke hente handlelisten",
+    "addFailed": "Kunne ikke legge til varen",
+    "saveFailed": "Kunne ikke lagre",
+    "deleteFailed": "Kunne ikke slette",
+    "noActiveList": "Ingen aktiv handleliste — generer fra ukens middager først",
+    "weekNotComplete": "Velg middager for alle dagene i ukens måltider først"
+  },
   "placeholder": {
     "description": "Kommer i Fase 2C — handleliste med kategorier, pantry-integrasjon og angre-flyt."
   }

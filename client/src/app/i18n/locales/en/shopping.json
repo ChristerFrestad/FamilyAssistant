@@ -8,9 +8,54 @@
   "actions": {
     "markBought": "Mark bought",
     "unmark": "Undo",
-    "deleteBought": "Delete bought items"
+    "deleteBought": "Delete bought items",
+    "generateFromMeals": "Generate from this week's meals",
+    "openMeals": "Open this week's meals",
+    "retry": "Try again",
+    "dismissError": "Dismiss"
   },
-  "empty": "Shopping list is empty",
+  "empty": {
+    "default": "Shopping list is empty",
+    "noListTitle": "No shopping list for this week",
+    "noListBody": "Generate a list from this week's meals, or add items manually below.",
+    "noItemsTitle": "Shopping list is empty",
+    "noItemsBody": "Add an item in the field below to get started.",
+    "weekNotCompleteTitle": "This week's plan is not complete",
+    "weekNotCompleteBody": "Pick a meal for every day before generating the shopping list."
+  },
+  "stats": {
+    "boughtOfTotal": "{{bought}} of {{total}} picked",
+    "remaining_one": "{{count}} remaining",
+    "remaining_other": "{{count}} remaining",
+    "priceCoverageHint": "Includes {{priced}} of {{remaining}} items with known prices"
+  },
+  "category": {
+    "remaining_one": "{{count}} remaining",
+    "remaining_other": "{{count}} remaining"
+  },
+  "item": {
+    "checkAria": "Mark {{name}} as bought",
+    "uncheckAria": "Undo bought on {{name}}",
+    "deleteAria": "Delete {{name}} from the list",
+    "priceAria": "Estimated price {{price}}",
+    "recipeOne": "For {{name}}",
+    "recipeMany_one": "For {{count}} meal",
+    "recipeMany_other": "For {{count}} meals"
+  },
+  "quickAdd": {
+    "placeholder": "What do you need?",
+    "submit": "Add",
+    "disabledHint": "Generate a list first, or pick meals for every day of the week."
+  },
+  "errors": {
+    "generic": "Something went wrong — try again",
+    "loadFailed": "Could not load the shopping list",
+    "addFailed": "Could not add the item",
+    "saveFailed": "Could not save",
+    "deleteFailed": "Could not delete",
+    "noActiveList": "No active list — generate from this week's meals first",
+    "weekNotComplete": "Pick a meal for every day of the week first"
+  },
   "placeholder": {
     "description": "Coming in Phase 2C — shopping list with categories, pantry integration, and undo flow."
   }

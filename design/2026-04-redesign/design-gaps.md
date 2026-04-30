@@ -289,3 +289,25 @@ slettet felt.
   (`refactor(client): rename --bg-* design tokens to --canvas-* for
   clarity`). Utility-klasser leser nå som `bg-canvas-0` —
   konsistent med moderne design-system-konvensjon.
+
+### Inline-edit av qty/unit på et shopping-list-item mangler
+
+- **Skjerm/Kontekst:** `Shopping`-skjermen (rute `/shopping`) — interaksjon
+  per `ShoppingItemRow`
+- **Oppdaget:** 2026-04-30, Fase 2D (handleliste-rendering)
+- **Hva mangler:** Mockupen viser items med fast qty+unit ("600 g",
+  "3 dl") og ingen interaksjon for å redigere disse verdiene. Pilot-
+  bruker som vil endre "2 liter melk" til "3 liter" har ingen
+  inline-edit-flow — eneste vei er slett + legg til på nytt, som mister
+  recipe-link og pris-estimat.
+- **Blokkerende-nivå:** lavt — workaround (slett + ny add) er funksjonell,
+  men sliter på pris-estimat-fidelity og bryter recipe-link
+- **Midlertidig løsning:** Ingen inline-edit i Fase 2D. Bruker må slette
+  raden og legge til på nytt med ny qty via QuickAddInput.
+- **Antatt design-grunnlag:** n/a (ikke implementert i mellomtiden)
+- **Spørsmål til design-runde:** Hvordan ser inline-edit av qty+unit ut
+  per `ShoppingItemRow`? Trykk-på-tall for å åpne en numerisk picker?
+  Long-press for å åpne edit-modal? Edit-knapp ved siden av X-slett?
+  Hvilke begrensninger gjelder for items med `productKey` (Kassal-priset
+  pakke kontra fri-tekst)?
+- **Status:** Pending
