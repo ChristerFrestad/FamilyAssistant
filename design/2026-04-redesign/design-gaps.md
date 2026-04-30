@@ -69,6 +69,59 @@ slettet felt.
 
 ## Aktuelle gaps
 
+### Family-skjerm er en dedikert tab — mockup har medlems-listen i Settings i stedet
+
+- **Skjerm/Kontekst:** Family-skjerm på `/v2/family`
+  (`client/src/app/screens/Family.tsx`) — ny dedikert hovedskjerm i
+  Sprint 4 / Fase 2B
+- **Oppdaget:** 2026-04-30, Fase 2B (Family-skjerm) under
+  implementering
+- **Hva mangler:** Mockupen
+  `design/2026-04-redesign/source/Familieassistenten.html` har
+  ingen designet egen Family-skjerm. Familielisten lever som en
+  rad-liste inne i Settings (linje 2335-2354) med `SettingsRow`
+  per medlem og en "Legg til familiemedlem"-rad nederst. Detaljerte
+  per-medlem-kort har en separat `MemberDetail`-skjerm (linje 2090-
+  2286) inni Settings-flyten med XP/streak/farge/permissions/
+  diet-chips. Vår App.tsx har imidlertid en egen `/v2/family`-rute
+  i nav-strukturen, og Sprint 4-promptet ba oss bygge en dedikert
+  skjerm her. Det betyr at vi har bygd en card-grid-layout uten
+  direkte design-forelegg: spacing mellom kort, header-card-stil,
+  responsive breakpoint (1 col mobile, 2 col >=sm), og placeholder-
+  knappers-plassering er utvikler-initierte tolkninger.
+- **Blokkerende-nivå:** medium — implementasjonen følger design-
+  system-tokens (Card padding="md" shadow="low", grid-gap-4 = 16
+  px) og er konsistent med Dashboard-mønsteret, men er ikke et
+  design-svar på "hvordan ser Family-skjermen som dedikert tab
+  faktisk ut". I praksis kan Family-tab og Settings-listen leve
+  side-om-side og dekke ulike use-cases (overview vs. dyp
+  redigering); men det bør designes eksplisitt, ikke antas.
+- **Midlertidig løsning:** Card-grid med `MemberCard` per medlem.
+  Grid `grid-cols-1 sm:grid-cols-2 gap-4`. Header-card med
+  familienavn + placeholder Edit-knapp øverst (`shadow="low"`).
+  Member-card har Avatar (md) + navn + (Du)-badge på current
+  user + role-badge (Eier/Voksen/Barn fra `users.role`) + kategori-
+  label (Voksen/Ungdom/Barn fra `family_profile_members.category`)
+  + PortionFactorSlider med inline save-status. "Inviter medlem"-
+  primary-knapp nederst som placeholder. Single-member-roster får
+  hint-tekst.
+- **Antatt design-grunnlag:** Card padding `--p-4`, shadow `--shadow-low`,
+  grid `--gap-4`, Avatar `md` (40 x 40 px), Badge `mint`/`cyan`/`amber`-
+  varianter, alle fra `client/src/app/styles/tokens.css`. Same
+  tokens som Dashboard.
+- **Spørsmål til design-runde:** "Tegn dedikert Family-skjerm
+  (`/v2/family`) som hovedtab. Mockup har kun medlemslist i Settings.
+  Vurder: (a) skal Family-tab være en kort-grid-oversikt (overview)
+  mens Settings inneholder detaljert per-medlem-redigering? (b) Hvis
+  ja, hva skiller Family-card fra `MemberDetail`-flyten i Settings —
+  scope, tetthet, hvilke felter som vises? (c) Hva er den primære
+  CTA-en på Family — er det 'Inviter medlem' (vår nåværende valg) eller
+  noe annet (f.eks. fordel oppgaver, planlegg uka, vis XP)? (d) Hvor
+  hører gamification (XP, streak, fargemerking) hjemme — Family-tab,
+  eller bare i Dashboard? (e) Header-card med familienavn + Edit-
+  knapp: er det riktig plassering, eller hører det i Settings?"
+- **Status:** Pending
+
 ### Desktop SideNav er ikke designet — kun BottomNav er i mockup
 
 - **Skjerm/Kontekst:** AppShell, `SideNav`-komponent
