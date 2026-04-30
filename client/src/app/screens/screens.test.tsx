@@ -7,7 +7,6 @@
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { Shopping } from './Shopping';
 import { Calendar } from './Calendar';
 import { Settings } from './Settings';
 import { NotFound } from './NotFound';
@@ -32,13 +31,14 @@ import { AuthProvider } from '../auth/AuthContext';
 // day-strip selection, hero variants (away/skipped/empty/recipe),
 // scaled ingredients, defensive scaling-unavailable handling, and
 // the swap/plan placeholder buttons.
+//
+// Shopping moved out when the real Phase-2D screen landed
+// (Fase 2D Shopping). Real Shopping behavior tests live in
+// Shopping.test.tsx — they cover skeleton/error/empty/data states,
+// optimistic toggle/delete with rollback, QuickAdd flow,
+// generate-from-meals + WEEK_NOT_COMPLETE branch, and toast.
 
 describe('placeholder screens render with i18n headings', () => {
-  test('Shopping', () => {
-    render(<Shopping />);
-    expect(screen.getByRole('heading', { name: 'Handleliste', level: 1 })).toBeInTheDocument();
-  });
-
   test('Calendar', () => {
     render(<Calendar />);
     expect(screen.getByRole('heading', { name: 'Kalender', level: 1 })).toBeInTheDocument();

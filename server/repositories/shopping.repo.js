@@ -2,6 +2,39 @@
 
 const { getFamilyId } = require('../auth/family-context');
 
+/**
+ * Enrich a raw shopping_list_items row for frontend consumption. The
+ * Phase 2D Shopping screen and the legacy /list/current handler share
+ * the same enriched shape; centralising the transform here keeps the
+ * GET and POST contracts in lockstep — when an item comes back from
+ * either endpoint, the frontend sees the same fields with the same
+ * defaults.
+ *
+ * Defaults applied:
+ *   - name: ingredientNameNo || ingredientName (never undefined)
+ *   - checkedOff: !!boughtAt
+ *   - stillNeed: max(0, qty - pantryQty)
+ *   - hasHome: pantryQty || 0
+ *   - isPantry: pantryHas
+ *   - source: 'manual' for sourceType=='manual', else 'recipe'
+ *   - mealsJson: array (defaults to [] when DB column is NULL or
+ *     the row never carried recipe context)
+ */
+function enrichItemForFrontend(it) {
+  if (!it) return it;
+  const stillNeed = Math.max(0, (it.qty || 0) - (it.pantryQty || 0));
+  return {
+    ...it,
+    stillNeed,
+    hasHome: it.pantryQty || 0,
+    checkedOff: !!it.boughtAt,
+    source: it.sourceType === 'manual' ? 'manual' : 'recipe',
+    isPantry: !!it.pantryHas,
+    name: it.ingredientNameNo || it.ingredientName,
+    mealsJson: Array.isArray(it.mealsJson) ? it.mealsJson : [],
+  };
+}
+
 function createShoppingRepos(db, tryParseJson) {
   const shoppingExtras = {
     getWeek(weekYear) {
@@ -325,6 +358,42 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
+     * Append a manual item to an existing list. Used by the QuickAdd
+     * input on the Shopping screen. Sort_order is set to max+1 so the
+     * new item appears at the end of its (default) category section.
+     * Returns the inserted row in the same shape as _getItems().
+     */
+    addItem(listId, { name, qty = null, unit = null, category = null, notes = null }) {
+      const familyId = getFamilyId();
+      const maxSortRow = db
+        .prepare(
+          `SELECT COALESCE(MAX(sort_order), -1) AS maxSort
+           FROM shopping_list_items WHERE family_id = ? AND list_id = ?`
+        )
+        .get(familyId, listId);
+      const nextSort = (maxSortRow?.maxSort ?? -1) + 1;
+      // Manual items default to the 'other' enum-key when no category
+      // is supplied. The frontend maps this through i18n so it renders
+      // as "Annet" (no) / "Other" (en); never store localised display
+      // text here. Seed-data items still carry their norske kategori-
+      // strings (Frukt & grønt, Meieri, ...) — that broader inconsistency
+      // is logged as a design-gap and addressed in a later sprint.
+      const resolvedCategory = category ?? 'other';
+      const result = db
+        .prepare(
+          `INSERT INTO shopping_list_items (
+             family_id, list_id, source_type, source_ref, ingredient_name,
+             qty, unit, category, needs_buy, sort_order, notes
+           ) VALUES (?, ?, 'manual', NULL, ?, ?, ?, ?, 1, ?, ?)`
+        )
+        .run(familyId, listId, name, qty, unit, resolvedCategory, nextSort, notes);
+      const newId = Number(result.lastInsertRowid);
+      const items = shoppingLists._getItems(listId);
+      const raw = items.find((it) => it.id === newId) || null;
+      return enrichItemForFrontend(raw);
+    },
+
+    /**
      * Lukk en handleliste manuelt. Setter status='done' + confirmed_at.
      */
     markDone(listId) {
@@ -418,4 +487,4 @@ function createShoppingRepos(db, tryParseJson) {
   return { shoppingLists, shoppingExtras };
 }
 
-module.exports = { createShoppingRepos };
+module.exports = { createShoppingRepos, enrichItemForFrontend };

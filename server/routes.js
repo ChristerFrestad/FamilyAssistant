@@ -23,6 +23,7 @@ const schemas = require('./schemas');
 
 const { buildShoppingList, generateForWeek } = require('./services/shopping-list.service');
 const { enrichInBackground } = require('./services/shopping-list-enricher.service');
+const { enrichItemForFrontend } = require('./repositories/shopping.repo');
 const {
   getSwapSuggestions,
   checkShelfLife,
@@ -871,20 +872,17 @@ function registerRoutes(router, { repos, serverState }) {
       // Bought items remain on the list (user requested toggle-not-hide in
       // test 0.2). Frontend styles them with .checked-off + exposes an undo
       // action; checkedOff is true when bought_at is set.
-      const cat = it.category || 'Tørrvarer & annet';
+      // Items without a category fall under the 'other' enum-key — the
+      // frontend localises that bucket header through i18n. Pre-existing
+      // seed items carry their norske kategori-strings (Frukt & grønt,
+      // Meieri, ...) and pass through unchanged; that broader migration
+      // is tracked in design-gaps.md.
+      const cat = it.category || 'other';
       if (!categoriesMap.has(cat)) categoriesMap.set(cat, []);
-      // stillNeed er computed (ikke lagret i DB) — restmengde som må kjøpes
-      // etter at pantry er trukket fra. Frontend bruker dette i render-template.
-      const stillNeed = Math.max(0, (it.qty || 0) - (it.pantryQty || 0));
-      categoriesMap.get(cat).push({
-        ...it,
-        stillNeed,
-        hasHome: it.pantryQty || 0,
-        checkedOff: !!it.boughtAt,
-        source: 'recipe',
-        isPantry: it.pantryHas,
-        name: it.ingredientNameNo || it.ingredientName,
-      });
+      // enrichItemForFrontend gives the row a stable shape (name,
+      // checkedOff, stillNeed, mealsJson:[]). The same helper is used
+      // by POST /api/shopping/items so the contract stays in lockstep.
+      categoriesMap.get(cat).push(enrichItemForFrontend(it));
       total += it.estPrice || 0;
     }
 
@@ -1028,6 +1026,37 @@ function registerRoutes(router, { repos, serverState }) {
     invalidate('shopping', 'today');
     ctx.json({ ok: true });
   });
+
+  /**
+   * POST /api/shopping/items — manually append a single item to the
+   * active shopping list. Used by the QuickAdd input on the Phase 2D
+   * Shopping screen. Returns 400 NO_ACTIVE_LIST if no active list
+   * exists for the current week — the client is expected to call
+   * /api/shopping/generate first in that case.
+   */
+  router.post(
+    '/api/shopping/items',
+    requireRole('adult'),
+    validateBody(schemas.shoppingItemAddBody),
+    (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const list = repos.shoppingLists.getActive(wk);
+      if (!list) {
+        throw errors.badRequest('Ingen aktiv handleliste — generer fra ukens måltider først', {
+          code: 'NO_ACTIVE_LIST',
+        });
+      }
+      const item = repos.shoppingLists.addItem(list.id, {
+        name: ctx.body.name,
+        qty: ctx.body.qty ?? null,
+        unit: ctx.body.unit ?? null,
+        category: ctx.body.category ?? null,
+        notes: ctx.body.notes ?? null,
+      });
+      invalidate('shopping');
+      ctx.json({ ok: true, item }, 201);
+    }
+  );
 
   /**
    * PUT /api/shopping/items/:id/has-home — "jeg har denne hjemme allerede".

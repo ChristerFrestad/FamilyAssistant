@@ -99,6 +99,21 @@ const shoppingItemBoughtBody = z
   })
   .strict();
 
+// POST /api/shopping/items — manually add a single item to the active
+// shopping list. The active list must exist (no implicit creation here).
+// Phase 2D Shopping screen uses this for the QuickAdd input. Items
+// inserted this way are stored with source_type='manual' and stay on
+// the list until bought or deleted.
+const shoppingItemAddBody = z
+  .object({
+    name: z.string().min(1).max(200),
+    qty: z.number().positive().optional(),
+    unit: z.string().min(1).max(20).optional(),
+    category: category.optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .strict();
+
 // ============================================================
 // Chores
 // ============================================================
@@ -421,6 +436,7 @@ module.exports = {
   shoppingAddBody,
   shoppingGenerateBody,
   shoppingItemBoughtBody,
+  shoppingItemAddBody,
   chorePostponeBody,
   choreCompleteBody,
   consumableUpdateBody,
