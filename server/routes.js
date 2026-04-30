@@ -872,7 +872,12 @@ function registerRoutes(router, { repos, serverState }) {
       // Bought items remain on the list (user requested toggle-not-hide in
       // test 0.2). Frontend styles them with .checked-off + exposes an undo
       // action; checkedOff is true when bought_at is set.
-      const cat = it.category || 'Tørrvarer & annet';
+      // Items without a category fall under the 'other' enum-key — the
+      // frontend localises that bucket header through i18n. Pre-existing
+      // seed items carry their norske kategori-strings (Frukt & grønt,
+      // Meieri, ...) and pass through unchanged; that broader migration
+      // is tracked in design-gaps.md.
+      const cat = it.category || 'other';
       if (!categoriesMap.has(cat)) categoriesMap.set(cat, []);
       // enrichItemForFrontend gives the row a stable shape (name,
       // checkedOff, stillNeed, mealsJson:[]). The same helper is used

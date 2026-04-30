@@ -372,6 +372,13 @@ function createShoppingRepos(db, tryParseJson) {
         )
         .get(familyId, listId);
       const nextSort = (maxSortRow?.maxSort ?? -1) + 1;
+      // Manual items default to the 'other' enum-key when no category
+      // is supplied. The frontend maps this through i18n so it renders
+      // as "Annet" (no) / "Other" (en); never store localised display
+      // text here. Seed-data items still carry their norske kategori-
+      // strings (Frukt & grønt, Meieri, ...) — that broader inconsistency
+      // is logged as a design-gap and addressed in a later sprint.
+      const resolvedCategory = category ?? 'other';
       const result = db
         .prepare(
           `INSERT INTO shopping_list_items (
@@ -379,7 +386,7 @@ function createShoppingRepos(db, tryParseJson) {
              qty, unit, category, needs_buy, sort_order, notes
            ) VALUES (?, ?, 'manual', NULL, ?, ?, ?, ?, 1, ?, ?)`
         )
-        .run(familyId, listId, name, qty, unit, category, nextSort, notes);
+        .run(familyId, listId, name, qty, unit, resolvedCategory, nextSort, notes);
       const newId = Number(result.lastInsertRowid);
       const items = shoppingLists._getItems(listId);
       const raw = items.find((it) => it.id === newId) || null;

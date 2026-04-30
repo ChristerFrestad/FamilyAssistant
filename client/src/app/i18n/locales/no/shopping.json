@@ -33,6 +33,16 @@
     "remaining_one": "{{count}} igjen",
     "remaining_other": "{{count}} igjen"
   },
+  "categories": {
+    "other": "Annet",
+    "produce": "Frukt og grønt",
+    "meat": "Kjøtt og fisk",
+    "dairy": "Meieri",
+    "pantry": "Tørrvarer",
+    "frozen": "Frossen",
+    "beverage": "Drikke",
+    "household": "Husholdning"
+  },
   "item": {
     "checkAria": "Marker {{name}} som kjøpt",
     "uncheckAria": "Angre kjøpt for {{name}}",

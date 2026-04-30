@@ -30,6 +30,27 @@ function categoryAccent(name: string): BadgeVariant {
   return ACCENTS[sum % ACCENTS.length] as BadgeVariant;
 }
 
+// Known enum-keys that get localised display text. Manual items default
+// to 'other' on the backend; future migration of seed-data categories
+// (currently norske strings like 'Frukt & grønt') is tracked in
+// design-gaps.md and would expand this set. Anything not in the set
+// passes through unchanged so existing seed-data renders without
+// regression while we migrate gradually.
+const KNOWN_CATEGORY_KEYS = new Set([
+  'other',
+  'produce',
+  'meat',
+  'dairy',
+  'pantry',
+  'frozen',
+  'beverage',
+  'household',
+]);
+
+function isKnownCategoryKey(key: string): boolean {
+  return KNOWN_CATEGORY_KEYS.has(key);
+}
+
 export function CategoryGroup({
   category,
   items,
@@ -39,6 +60,9 @@ export function CategoryGroup({
 }: CategoryGroupProps): JSX.Element {
   const { t } = useTranslation(['shopping']);
   const accent = useMemo(() => categoryAccent(category), [category]);
+  const displayCategory = isKnownCategoryKey(category)
+    ? t(`shopping:categories.${category}`)
+    : category;
 
   let remaining = 0;
   let remainingPriceSum = 0;
@@ -62,7 +86,9 @@ export function CategoryGroup({
       <header className="flex items-center justify-between gap-3 border-b border-stroke bg-canvas-1 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <Badge variant={accent} dot />
-          <h3 className="truncate font-body text-meta font-medium text-text-1">{category}</h3>
+          <h3 className="truncate font-body text-meta font-medium text-text-1">
+            {displayCategory}
+          </h3>
           <span className="font-body text-meta text-text-3">
             {t('shopping:category.remaining', { count: remaining })}
           </span>

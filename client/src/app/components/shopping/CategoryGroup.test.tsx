@@ -1,9 +1,16 @@
 // Tests for CategoryGroup.
 
 import { render, screen } from '@testing-library/react';
-import { test, expect, describe } from 'vitest';
+import { test, expect, describe, afterEach } from 'vitest';
 import { CategoryGroup } from './CategoryGroup';
 import type { ShoppingItem } from '../../shopping/shoppingApi';
+import i18n from '../../i18n/config';
+
+afterEach(() => {
+  // Reset language back to the test-suite default so language-bytte
+  // tests below don't leak into other suites.
+  i18n.changeLanguage('no');
+});
 
 function makeItem(over: Partial<ShoppingItem>): ShoppingItem {
   return {
@@ -108,6 +115,74 @@ describe('CategoryGroup', () => {
       />
     );
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  test('language switch updates the localised category heading', async () => {
+    const { rerender } = render(
+      <CategoryGroup
+        category="other"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Annet', level: 3 })).toBeInTheDocument();
+
+    await i18n.changeLanguage('en');
+    rerender(
+      <CategoryGroup
+        category="other"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Other', level: 3 })).toBeInTheDocument();
+
+    await i18n.changeLanguage('no');
+    rerender(
+      <CategoryGroup
+        category="other"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Annet', level: 3 })).toBeInTheDocument();
+  });
+
+  test('localises known enum-key categories through i18n', () => {
+    const { rerender } = render(
+      <CategoryGroup
+        category="other"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Annet', level: 3 })).toBeInTheDocument();
+
+    rerender(
+      <CategoryGroup
+        category="dairy"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Meieri', level: 3 })).toBeInTheDocument();
+  });
+
+  test('passes through unknown category strings unchanged (seed-data compat)', () => {
+    render(
+      <CategoryGroup
+        category="Frukt & grønt"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Frukt & grønt', level: 3 })).toBeInTheDocument();
   });
 
   test('skips bought items in remaining-price total', () => {

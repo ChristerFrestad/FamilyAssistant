@@ -111,7 +111,25 @@ test('POST /api/shopping/items accepts name only (qty/unit/category optional)', 
     assert.strictEqual(r.body.item.ingredientName, 'Sitron');
     assert.strictEqual(r.body.item.qty, null);
     assert.strictEqual(r.body.item.unit, null);
-    assert.strictEqual(r.body.item.category, null);
+    // Manual items without an explicit category default to the 'other'
+    // enum-key (lowercase, never localised display text). Frontend
+    // resolves this through i18n so the bucket header reads "Annet" /
+    // "Other" depending on language.
+    assert.strictEqual(r.body.item.category, 'other');
+  } finally {
+    await server.close();
+  }
+});
+
+test('POST /api/shopping/items preserves explicit category when provided', async () => {
+  const server = await startTestServer();
+  try {
+    ensureActiveList(server);
+    const r = await request(server.baseUrl, 'POST', '/api/shopping/items', {
+      body: { name: 'Brunost', category: 'dairy' },
+    });
+    assert.strictEqual(r.status, 201);
+    assert.strictEqual(r.body.item.category, 'dairy');
   } finally {
     await server.close();
   }

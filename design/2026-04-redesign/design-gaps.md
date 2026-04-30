@@ -290,6 +290,47 @@ slettet felt.
   clarity`). Utility-klasser leser nå som `bg-canvas-0` —
   konsistent med moderne design-system-konvensjon.
 
+### Seed-data og recipe-ingredient-kategorier er hardkodede norske strenger
+
+- **Skjerm/Kontekst:** `Shopping`-skjermen, kategori-headers i `CategoryGroup`
+- **Oppdaget:** 2026-04-30, Fase 2D (kategori-i18n-bug)
+- **Hva mangler:** Backend bruker norske kategori-strenger som
+  `'Frukt & grønt'`, `'Kjøtt & fisk'`, `'Meieri'`, `'Tørrvarer & annet'`
+  konsistent i `server/seed.js` (84 produkter), `server/llm.js` LLM-
+  prompt, og `shopping_extras.add()`-default. Frontend rendrer disse
+  as-is uten i18n-mapping, så engelsk-språk-brukere ser norske
+  kategori-headers på alle items som kommer fra recipe-generering
+  eller seed-data.
+
+  Manuelle items er adressert i Fase 2D (category=`'other'` enum-key,
+  i18n-mappet til "Annet"/"Other"). Kjente keys er `produce`, `meat`,
+  `dairy`, `pantry`, `frozen`, `beverage`, `household`, `other`.
+- **Blokkerende-nivå:** medium — pilot-bruker er Christer (norsk-
+  preferanse), men engelsk-språk-piloter i fremtid vil oppleve mixed-
+  language UI hvis ikke fikset
+- **Midlertidig løsning:** `KNOWN_CATEGORY_KEYS`-set i
+  `CategoryGroup.tsx` mapper kjente enum-keys gjennom i18n; ukjente
+  strenger passerer uendret. Tilstand: bare `'other'` brukes for nye
+  manuelle items; eksisterende seed-data og recipe-genererte items
+  har fortsatt norske strenger.
+- **Antatt design-grunnlag:** Tailwind-design-system, eksisterende
+  Card + Badge-komponenter, `--mint`/`--coral`/`--cyan`/`--amber`/
+  `--rose`-accent-palett
+- **Spørsmål til design-runde:** Hvilke kategori-keys og display-
+  navn skal vi standardisere på tvers av norsk og engelsk?
+  Sannsynlige kandidater: produce, meat, dairy, pantry, frozen,
+  beverage, household, snacks, frozen-meals, baby, pet, other. Skal
+  vi tillate fri-tekst-kategorier (UI-bruker-input) eller låse til
+  enum? Om enum: trenger vi 8, 12, eller 16 kategorier? Skal hver
+  kategori ha en accent-farge fra design-tokens, eller er hash-
+  basert mapping nok?
+- **Oppfølging:** seed.js (84 produkter), llm.js (LLM-prompt-mapping),
+  shopping_extras.add()-default må migreres samtidig. Database-
+  migrering kreves for eksisterende rader: oppdater
+  `shopping_list_items.category` fra norske strenger til enum-keys
+  via UPDATE-mappingstabell.
+- **Status:** Pending
+
 ### Inline-edit av qty/unit på et shopping-list-item mangler
 
 - **Skjerm/Kontekst:** `Shopping`-skjermen (rute `/shopping`) — interaksjon

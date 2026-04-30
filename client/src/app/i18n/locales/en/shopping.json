@@ -33,6 +33,16 @@
     "remaining_one": "{{count}} remaining",
     "remaining_other": "{{count}} remaining"
   },
+  "categories": {
+    "other": "Other",
+    "produce": "Produce",
+    "meat": "Meat & fish",
+    "dairy": "Dairy",
+    "pantry": "Pantry",
+    "frozen": "Frozen",
+    "beverage": "Beverages",
+    "household": "Household"
+  },
   "item": {
     "checkAria": "Mark {{name}} as bought",
     "uncheckAria": "Undo bought on {{name}}",

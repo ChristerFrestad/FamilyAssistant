@@ -97,13 +97,14 @@ function reAssembleCategories(
   nextItems: ShoppingItem[]
 ): ShoppingListCurrentResponse {
   // Preserve category order and re-bucket items by category. Items with
-  // unknown/null category fall under their own bucket "Annet" so the
-  // user always sees them.
+  // unknown/null category fall under the 'other' enum-key, matching the
+  // backend bucketing default. CategoryGroup maps that key through i18n
+  // for display.
   const categoryOrder = (prev.categories || []).map((c) => c.category);
   const byCat = new Map<string, ShoppingItem[]>();
   for (const cat of categoryOrder) byCat.set(cat, []);
   for (const it of nextItems) {
-    const cat = it.category || 'Annet';
+    const cat = it.category || 'other';
     if (!byCat.has(cat)) {
       byCat.set(cat, []);
     }
