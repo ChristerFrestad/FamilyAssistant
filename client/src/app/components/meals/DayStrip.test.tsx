@@ -125,4 +125,25 @@ describe('DayStrip', () => {
     fireEvent.click(screen.getByTestId('day-pill-4'));
     expect(handler).toHaveBeenCalledWith(4);
   });
+
+  test('nav contains horizontal overflow with overflow-x-auto', () => {
+    // Regression guard for hotfix/meals-mobile-layout. The 7 pills are
+    // each min-w-[72px] flex-shrink-0, totalling 552px (with gaps) —
+    // wider than mobile viewport. The nav wrapper MUST keep overflow-x
+    // scroll containment so the strip itself scrolls horizontally
+    // without pushing <body> wider than the viewport.
+    render(
+      <DayStrip
+        slots={makeSlots()}
+        selectedIndex={0}
+        todayIndex={0}
+        shortDayLabels={NO_DAYS}
+        todayLabel="I dag"
+        ariaLabel="Velg dag"
+        onSelect={() => undefined}
+      />
+    );
+    const nav = screen.getByTestId('day-strip');
+    expect(nav.className).toMatch(/\boverflow-x-auto\b/);
+  });
 });

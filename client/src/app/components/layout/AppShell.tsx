@@ -108,7 +108,15 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
           // mobile so content does not get clipped behind it. md:pb-8
           // unwinds the reservation on desktop where SideNav replaces
           // the bottom rail.
-          className="flex-1 px-4 py-6 pb-24 md:pb-8 md:px-6"
+          //
+          // min-w-0 prevents <main> from growing beyond its allocated
+          // flex-share when a child has fixed-width content wider than
+          // the viewport (e.g. Meals' DayStrip with 7 pinned 72px-wide
+          // pills). Without it, flex-item min-width: auto resolves to
+          // min-content, which can force <body> wider than viewport
+          // and trigger horizontal scroll → BottomNav anchored to the
+          // wrong layout-viewport on mobile.
+          className="min-w-0 flex-1 px-4 py-6 pb-24 md:pb-8 md:px-6"
         >
           {children}
         </main>
