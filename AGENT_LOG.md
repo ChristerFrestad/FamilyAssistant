@@ -6,6 +6,95 @@
 
 ---
 
+2026-04-30 – Hotfix: Meals mobile layout — BottomNav sticky regresjon
+
+Oppgave: Christer rapporterte at /v2/meals på mobil-bredde
+(390 × 844) hadde feil — BottomNav var ikke sticky nederst, hele
+siden virket "zoomet inn". Andre skjermer (Dashboard, Familie,
+Shopping) fungerte korrekt. Bug-en ble oppdaget under manuell
+QA av Sprint 5 / Fase 2D-arbeidet.
+
+Analyse: docs/analyses/2026-04-30-meals-mobile-layout-hotfix.md
+
+- Reisen: 3 hovedfaser, 5-nivå dyp på CSS-layout-resolution.
+- Edge-cases: 9 (320/390/414/768 breakpoints, skeleton-state,
+  resize-roterende, < 7 slots, fremtidige skjermer).
+- Beslutninger: 3 (fix-plassering, min-w-full-cleanup,
+  skeleton-håndtering). Anbefaling for hver: AppShell-defensiv
+  fix kombinert med DayStrip-verifikasjon.
+- Portainer-risiko: nei (rent klient-CSS).
+- ISO 25010: brukbarhet 8.6 → 8.7, vedlikeholdbarhet 8.4 → 8.5.
+
+Plan: 3 commits — analyse, fix, regresjons-tester.
+
+Gjort:
+- Branch: hotfix/meals-mobile-layout
+- Commits: 3
+- Filer endret: 3 (AppShell.tsx, AppShell.test.tsx,
+  DayStrip.test.tsx) + 1 ny (analysefil)
+- Tester lagt til: 2 regresjons-tester (AppShell + DayStrip)
+- DOMAIN_MODEL.md oppdatert: nei (rent presentasjon)
+- Avvik fra plan: ingen visuell repro (port 7778 holdt av
+  Christers kjørende dev-server, kan ikke drepe per CLAUDE.md
+  DEL 7.8). Diagnose gjort via kode-analyse av flexbox-semantikk.
+  Christer må verifisere visuelt etter merge.
+
+Rot-årsak: `<main>` i AppShell er flex-item med `flex-1` men uten
+`min-w-0`. Default `min-width: auto` resolver til `min-content` av
+barn. DayStrip har 7 day-pills med `min-w-[72px] flex-shrink-0`
+(552px totalt) — bredere enn mobile-viewport (390px). Dette
+tvinger main til 552px, body får horisontal scroll, og
+position:fixed BottomNav ankrer til layout-viewport (552px) i
+stedet for visual-viewport (390px). Mobile browser auto-zoomer
+ut for å vise hele 552px = "siden ser zoomet inn ut".
+
+Fix: `min-w-0` på `<main>` — defensiv flexbox-pattern som lar
+flex-item krympe til allokert flex-share uavhengig av barns
+min-content. Påvirker ikke andre skjermer (de hadde ikke
+overflow-trigger), men beskytter mot fremtidig regresjon.
+
+Sikkerhet: ikke relevant — rent presentasjons-fix uten input,
+auth, eller data-håndtering.
+
+ISO 25010: brukbarhet +0.1 (fikser konkret bunnnav-bug),
+vedlikeholdbarhet +0.1 (defensiv beskyttelse mot fremtidig
+regresjon).
+
+Status: venter-på-Christer (DEL 5.3 — `fix/`-prefiks krever
+godkjenning). PR åpnes etter at lokal CI bekreftes grønn.
+
+Beslutninger Christer må ta (med anbefaling):
+
+BESLUTNING: Skal vi merge denne hotfix-en før visuell verifikasjon
+er gjort?
+
+ANBEFALING: Verifiser visuelt FØRST. Hot-reload på Christers
+kjørende 7778-server reflekterer endringen umiddelbart — gå til
+/v2/meals i DevTools mobile mode (390×844) og bekreft at
+BottomNav er sticky nederst. Hvis bekreftet, merge.
+
+HVORFOR: Visuell repro var blokkert under fix-arbeidet (port-
+konflikt, ingen prosess-killing per DEL 7.8). Hypotesen er solid
+fra kode-analyse, men feiltolkning av rot-årsak er mulig. 30-
+sekunders manuell verifikasjon eliminerer den risikoen.
+
+ALTERNATIVER:
+- Merge før verifikasjon, fikse igjen hvis det ikke virker:
+  raskere men eksponerer brukere for bug på main hvis hypotesen
+  er feil.
+- Vente på at Christer frigjør port 7778 så jeg kan starte min
+  egen preview: tar 1-2 minutter ekstra, men gir ekte
+  Playwright-verifikasjon.
+
+KONSEKVENS HVIS ANNERLEDES: Hvis vi merger blindt og fix-en ikke
+virker: Christer ser fortsatt bug-en på /v2/meals etter merge,
+må åpne ny hotfix-PR.
+
+Neste: Christer åpner /v2/meals i DevTools mobile mode (390×844),
+verifiserer BottomNav sticky, og gir grønt lys til merge.
+
+---
+
 2026-04-30 – Fase 2B Family-skjerm (Sprint 4 fortsetter)
 
 Oppgave: Erstatte placeholder-Family.tsx med dedikert Familie-
