@@ -383,3 +383,55 @@ describe('Shopping screen — Generate from meals', () => {
     await waitFor(() => expect(screen.getByTestId('meals-route')).toBeInTheDocument());
   });
 });
+
+describe('Shopping screen — Pantry sub-view (Phase 2E)', () => {
+  function mountAt(initialPath: string) {
+    return render(
+      <MemoryRouter initialEntries={[initialPath]}>
+        <Routes>
+          <Route path="/shopping" element={<Shopping />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  test('renders pantry view when ?view=pantry', async () => {
+    mockFetchByPath({
+      '/api/pantry': () => jsonResponse(200, { items: [] }),
+    });
+    mountAt('/shopping?view=pantry');
+    await waitFor(() => expect(screen.getByTestId('pantry-view')).toBeInTheDocument());
+    expect(screen.queryByTestId('shopping-skeleton')).toBeNull();
+  });
+
+  test('renders shopping list view by default', async () => {
+    mockFetchByPath({
+      '/api/shopping/list/current': () => jsonResponse(200, EMPTY_SHELL),
+    });
+    mountAt('/shopping');
+    await waitFor(() => expect(screen.getByTestId('shopping-screen')).toBeInTheDocument());
+    expect(screen.queryByTestId('pantry-view')).toBeNull();
+  });
+
+  test('toggle is visible on both sub-views', async () => {
+    mockFetchByPath({
+      '/api/shopping/list/current': () => jsonResponse(200, EMPTY_SHELL),
+    });
+    mountAt('/shopping');
+    await waitFor(() => expect(screen.getByTestId('shopping-view-toggle')).toBeInTheDocument());
+  });
+
+  test('clicking pantry tab swaps the view', async () => {
+    fetchSpy.mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url === '/api/shopping/list/current')
+        return Promise.resolve(jsonResponse(200, EMPTY_SHELL));
+      if (url === '/api/pantry') return Promise.resolve(jsonResponse(200, { items: [] }));
+      return Promise.reject(new Error(`Unmocked: ${url}`));
+    });
+    mountAt('/shopping');
+    await waitFor(() => expect(screen.getByTestId('shopping-screen')).toBeInTheDocument());
+    await userEvent.click(screen.getByTestId('shopping-view-toggle-pantry'));
+    await waitFor(() => expect(screen.getByTestId('pantry-view')).toBeInTheDocument());
+  });
+});

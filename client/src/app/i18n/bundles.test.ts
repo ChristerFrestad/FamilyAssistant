@@ -15,6 +15,7 @@ import noMeals from './locales/no/meals.json';
 import noShopping from './locales/no/shopping.json';
 import noCalendar from './locales/no/calendar.json';
 import noSettings from './locales/no/settings.json';
+import noPantry from './locales/no/pantry.json';
 
 import enCommon from './locales/en/common.json';
 import enAuth from './locales/en/auth.json';
@@ -24,6 +25,7 @@ import enMeals from './locales/en/meals.json';
 import enShopping from './locales/en/shopping.json';
 import enCalendar from './locales/en/calendar.json';
 import enSettings from './locales/en/settings.json';
+import enPantry from './locales/en/pantry.json';
 
 const NO_BUNDLES: Record<string, unknown> = {
   common: noCommon,
@@ -34,6 +36,7 @@ const NO_BUNDLES: Record<string, unknown> = {
   shopping: noShopping,
   calendar: noCalendar,
   settings: noSettings,
+  pantry: noPantry,
 };
 
 const EN_BUNDLES: Record<string, unknown> = {
@@ -45,6 +48,7 @@ const EN_BUNDLES: Record<string, unknown> = {
   shopping: enShopping,
   calendar: enCalendar,
   settings: enSettings,
+  pantry: enPantry,
 };
 
 // Recursively flatten a nested translation object to dot-paths so
@@ -66,9 +70,9 @@ function flattenKeys(obj: unknown, prefix = ''): string[] {
 }
 
 describe('i18n setup', () => {
-  test('config exports both supported languages and all eight namespaces', () => {
+  test('config exports both supported languages and all nine namespaces', () => {
     expect(SUPPORTED_LANGUAGES).toEqual(['no', 'en']);
-    expect(NAMESPACES.length).toBe(8);
+    expect(NAMESPACES.length).toBe(9);
     expect(new Set(NAMESPACES)).toEqual(
       new Set([
         'common',
@@ -79,6 +83,7 @@ describe('i18n setup', () => {
         'shopping',
         'calendar',
         'settings',
+        'pantry',
       ])
     );
   });

@@ -31,6 +31,7 @@ import noMeals from './locales/no/meals.json';
 import noShopping from './locales/no/shopping.json';
 import noCalendar from './locales/no/calendar.json';
 import noSettings from './locales/no/settings.json';
+import noPantry from './locales/no/pantry.json';
 
 import enCommon from './locales/en/common.json';
 import enAuth from './locales/en/auth.json';
@@ -40,6 +41,7 @@ import enMeals from './locales/en/meals.json';
 import enShopping from './locales/en/shopping.json';
 import enCalendar from './locales/en/calendar.json';
 import enSettings from './locales/en/settings.json';
+import enPantry from './locales/en/pantry.json';
 
 export const SUPPORTED_LANGUAGES = ['no', 'en'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -53,6 +55,7 @@ export const NAMESPACES = [
   'shopping',
   'calendar',
   'settings',
+  'pantry',
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
@@ -66,6 +69,7 @@ const resources = {
     shopping: noShopping,
     calendar: noCalendar,
     settings: noSettings,
+    pantry: noPantry,
   },
   en: {
     common: enCommon,
@@ -76,6 +80,7 @@ const resources = {
     shopping: enShopping,
     calendar: enCalendar,
     settings: enSettings,
+    pantry: enPantry,
   },
 } as const;
 

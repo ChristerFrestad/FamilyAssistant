@@ -1,0 +1,77 @@
+{
+  "title": "What do we have at home?",
+  "subtitle": "Inventory · updated today",
+  "stats": {
+    "total_one": "{{count}} item at home",
+    "total_other": "{{count}} items at home",
+    "lowAndExpiring": "{{lowCount}} running low · {{expiringCount}} with date"
+  },
+  "empty": {
+    "title": "Pantry is empty",
+    "body": "Items appear automatically when you check off the shopping list. You can also add items manually below."
+  },
+  "loading": "Loading pantry …",
+  "error": {
+    "title": "Could not load pantry",
+    "retry": "Try again"
+  },
+  "actions": {
+    "markUsed": "Mark used",
+    "markUsedAria": "Mark used amount of {{name}}",
+    "delete": "Remove",
+    "deleteAria": "Remove {{name}} from the pantry",
+    "addManually": "Add item to pantry …"
+  },
+  "item": {
+    "remainingOf": "{{remaining}} of {{total}} {{unit}}",
+    "remainingNoTotal": "{{remaining}} {{unit}}",
+    "remainingNoUnit_one": "{{remaining}} left",
+    "remainingNoUnit_other": "{{remaining}} left"
+  },
+  "badge": {
+    "low": "Low"
+  },
+  "expiry": {
+    "expired": "Expired",
+    "expiresToday": "Expires today",
+    "expiresInOne": "Expires tomorrow",
+    "expiresInDays": "Expires in {{days}} days"
+  },
+  "useDialog": {
+    "title": "How much did you use?",
+    "subtitle": "{{name}} — {{remaining}} {{unit}} left",
+    "subtitleNoUnit": "{{name}} — {{remaining}} left",
+    "amountLabel": "Amount",
+    "quickQuarter": "1/4",
+    "quickHalf": "1/2",
+    "quickAll": "All",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "validation": {
+      "tooMuch": "Cannot use more than {{remaining}} {{unit}}",
+      "tooMuchNoUnit": "Cannot use more than {{remaining}}",
+      "tooLittle": "Amount must be greater than 0"
+    }
+  },
+  "quickAdd": {
+    "namePlaceholder": "What do you have?",
+    "qtyPlaceholder": "Quantity",
+    "unitPlaceholder": "Unit",
+    "submit": "Add",
+    "validation": {
+      "nameRequired": "Enter the item name"
+    }
+  },
+  "viewToggle": {
+    "list": "Shopping list",
+    "pantry": "What do we have at home?"
+  },
+  "footer": "Levels update automatically when you check off items on the shopping list or mark amounts used.",
+  "errors": {
+    "generic": "Something went wrong — try again",
+    "loadFailed": "Could not load pantry",
+    "markUsedFailed": "Could not register use",
+    "deleteFailed": "Could not remove",
+    "addFailed": "Could not add item"
+  }
+}

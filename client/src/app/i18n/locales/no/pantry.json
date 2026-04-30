@@ -1,0 +1,77 @@
+{
+  "title": "Hva har vi hjemme?",
+  "subtitle": "Lager · oppdatert i dag",
+  "stats": {
+    "total_one": "{{count}} vare hjemme",
+    "total_other": "{{count}} varer hjemme",
+    "lowAndExpiring": "{{lowCount}} går tomt snart · {{expiringCount}} med dato"
+  },
+  "empty": {
+    "title": "Spiskammers er tomt",
+    "body": "Varer legges til automatisk når du kjøper på handlelista. Du kan også legge til manuelt nederst."
+  },
+  "loading": "Laster spiskammers …",
+  "error": {
+    "title": "Kunne ikke hente spiskammers",
+    "retry": "Prøv igjen"
+  },
+  "actions": {
+    "markUsed": "Marker brukt",
+    "markUsedAria": "Marker brukt mengde av {{name}}",
+    "delete": "Fjern",
+    "deleteAria": "Fjern {{name}} fra spiskammerset",
+    "addManually": "Legg til vare i spiskammers …"
+  },
+  "item": {
+    "remainingOf": "{{remaining}} av {{total}} {{unit}}",
+    "remainingNoTotal": "{{remaining}} {{unit}}",
+    "remainingNoUnit_one": "{{remaining}} igjen",
+    "remainingNoUnit_other": "{{remaining}} igjen"
+  },
+  "badge": {
+    "low": "Lavt"
+  },
+  "expiry": {
+    "expired": "Utgått",
+    "expiresToday": "Utgår i dag",
+    "expiresInOne": "Utgår i morgen",
+    "expiresInDays": "Utgår om {{days}} dager"
+  },
+  "useDialog": {
+    "title": "Hvor mye brukte du?",
+    "subtitle": "{{name}} — {{remaining}} {{unit}} igjen",
+    "subtitleNoUnit": "{{name}} — {{remaining}} igjen",
+    "amountLabel": "Antall",
+    "quickQuarter": "1/4",
+    "quickHalf": "1/2",
+    "quickAll": "Alt",
+    "confirm": "Bekreft",
+    "cancel": "Avbryt",
+    "validation": {
+      "tooMuch": "Kan ikke bruke mer enn {{remaining}} {{unit}}",
+      "tooMuchNoUnit": "Kan ikke bruke mer enn {{remaining}}",
+      "tooLittle": "Antallet må være større enn 0"
+    }
+  },
+  "quickAdd": {
+    "namePlaceholder": "Hva har du?",
+    "qtyPlaceholder": "Antall",
+    "unitPlaceholder": "Enhet",
+    "submit": "Legg til",
+    "validation": {
+      "nameRequired": "Skriv navnet på varen"
+    }
+  },
+  "viewToggle": {
+    "list": "Handleliste",
+    "pantry": "Hva har vi hjemme?"
+  },
+  "footer": "Nivåer oppdateres automatisk når du huker av i handlelista eller registrerer bruk.",
+  "errors": {
+    "generic": "Noe gikk galt — prøv igjen",
+    "loadFailed": "Kunne ikke hente spiskammers",
+    "markUsedFailed": "Kunne ikke registrere bruk",
+    "deleteFailed": "Kunne ikke fjerne",
+    "addFailed": "Kunne ikke legge til varen"
+  }
+}
