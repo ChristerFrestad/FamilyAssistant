@@ -40,7 +40,8 @@
     "priceAria": "Estimert pris {{price}}",
     "recipeOne": "Til {{name}}",
     "recipeMany_one": "Til {{count}} måltid",
-    "recipeMany_other": "Til {{count}} måltider"
+    "recipeMany_other": "Til {{count}} måltider",
+    "unknown": "Ukjent vare"
   },
   "quickAdd": {
     "placeholder": "Hva trenger du?",

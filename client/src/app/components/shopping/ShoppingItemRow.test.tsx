@@ -203,4 +203,65 @@ describe('ShoppingItemRow', () => {
     // The meta-line is the second flex-row inside the row's main column.
     expect(container.querySelectorAll('.italic')).toHaveLength(0);
   });
+
+  // Regression: Phase 2D crash on linje 122 — item.name was undefined for
+  // rows from POST /api/shopping/items because the response was the raw
+  // _getItems row. Backend now enriches via enrichItemForFrontend, but the
+  // row still defends against the contract drifting again.
+  test('does not crash when item.name is missing (falls back to ingredient columns)', () => {
+    const item = makeItem({}) as unknown as Record<string, unknown>;
+    delete item.name;
+    item.ingredientName = 'Saft';
+    expect(() =>
+      render(
+        <ShoppingItemRow
+          item={item as unknown as Parameters<typeof ShoppingItemRow>[0]['item']}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      )
+    ).not.toThrow();
+    // Falls back to ingredientName when name is gone.
+    expect(screen.getByText('Saft')).toBeInTheDocument();
+  });
+
+  test('falls back to "Ukjent vare" when name and ingredient columns are all missing', () => {
+    const item = makeItem({}) as unknown as Record<string, unknown>;
+    delete item.name;
+    delete item.ingredientName;
+    delete item.ingredientNameNo;
+    expect(() =>
+      render(
+        <ShoppingItemRow
+          item={item as unknown as Parameters<typeof ShoppingItemRow>[0]['item']}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      )
+    ).not.toThrow();
+    expect(screen.getByText('Ukjent vare')).toBeInTheDocument();
+  });
+
+  test('handles undefined mealsJson without crashing', () => {
+    const item = makeItem({}) as unknown as Record<string, unknown>;
+    delete item.mealsJson;
+    expect(() =>
+      render(
+        <ShoppingItemRow
+          item={item as unknown as Parameters<typeof ShoppingItemRow>[0]['item']}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      )
+    ).not.toThrow();
+    // No "Til X måltider"-tekst when meals are missing.
+    expect(screen.queryByText(/Til /)).toBeNull();
+  });
+
+  test('handles empty array mealsJson the same as null', () => {
+    render(
+      <ShoppingItemRow item={makeItem({ mealsJson: [] })} onToggle={() => {}} onDelete={() => {}} />
+    );
+    expect(screen.queryByText(/Til /)).toBeNull();
+  });
 });

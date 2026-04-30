@@ -27,15 +27,25 @@ export interface ShoppingItemRowProps {
   formatPrice?: (kr: number) => string;
 }
 
-function recipeLabel(meals: string[] | null, t: ReturnType<typeof useTranslation>['t']): string {
-  if (!meals || meals.length === 0) return '';
-  if (meals.length === 1) return t('shopping:item.recipeOne', { name: meals[0] });
-  return t('shopping:item.recipeMany', { count: meals.length });
+// Defensive helpers: every input is treated as potentially missing.
+// Backend now returns mealsJson:[] consistently (see enrichItemForFrontend
+// in shopping.repo.js), but legacy responses or a future contract drift
+// could surface null/undefined here. We never want a missing field to
+// crash the row.
+function recipeLabel(
+  meals: string[] | null | undefined,
+  t: ReturnType<typeof useTranslation>['t']
+): string {
+  const list = Array.isArray(meals) ? meals : [];
+  if (list.length === 0) return '';
+  if (list.length === 1) return t('shopping:item.recipeOne', { name: list[0] });
+  return t('shopping:item.recipeMany', { count: list.length });
 }
 
-function recipeTooltip(meals: string[] | null): string | undefined {
-  if (!meals || meals.length === 0) return undefined;
-  return meals.join(', ');
+function recipeTooltip(meals: string[] | null | undefined): string | undefined {
+  const list = Array.isArray(meals) ? meals : [];
+  if (list.length === 0) return undefined;
+  return list.join(', ');
 }
 
 function formatQty(qty: number | null, unit: string | null): string {
@@ -67,8 +77,14 @@ export function ShoppingItemRow({
   formatPrice,
 }: ShoppingItemRowProps): JSX.Element {
   const { t } = useTranslation(['shopping', 'common']);
-  const checked = item.checkedOff;
-  const qtyText = formatQty(item.qty, item.unit);
+  // Defensive name fallback: backend now sets `name` via
+  // enrichItemForFrontend, but in case the field ever drifts we
+  // synthesise from the raw ingredient columns or fall back to a
+  // localised "Ukjent vare" so the row never crashes.
+  const displayName: string =
+    item.name || item.ingredientNameNo || item.ingredientName || t('shopping:item.unknown');
+  const checked = !!item.checkedOff;
+  const qtyText = formatQty(item.qty ?? null, item.unit ?? null);
   const meta = recipeLabel(item.mealsJson, t);
   const metaTip = recipeTooltip(item.mealsJson);
   const showPrice = typeof item.estPrice === 'number' && item.estPrice > 0;
@@ -86,8 +102,8 @@ export function ShoppingItemRow({
         aria-checked={checked}
         aria-label={
           checked
-            ? t('shopping:item.uncheckAria', { name: item.name })
-            : t('shopping:item.checkAria', { name: item.name })
+            ? t('shopping:item.uncheckAria', { name: displayName })
+            : t('shopping:item.checkAria', { name: displayName })
         }
         className={[
           CHECKBOX_BASE,
@@ -119,9 +135,9 @@ export function ShoppingItemRow({
             'truncate font-body text-body',
             checked ? 'text-text-3 line-through' : 'text-text-1',
           ].join(' ')}
-          title={item.name.length > 30 ? item.name : undefined}
+          title={displayName.length > 30 ? displayName : undefined}
         >
-          {item.name}
+          {displayName}
         </div>
         {(qtyText || meta) && (
           <div className="flex items-center gap-1.5 truncate font-body text-meta text-text-3">
@@ -151,7 +167,7 @@ export function ShoppingItemRow({
       <button
         type="button"
         onClick={() => onDelete(item)}
-        aria-label={t('shopping:item.deleteAria', { name: item.name })}
+        aria-label={t('shopping:item.deleteAria', { name: displayName })}
         className={[
           'inline-flex h-7 w-7 flex-shrink-0 items-center justify-center',
           'rounded-md text-text-3 hover:bg-canvas-2 hover:text-coral',

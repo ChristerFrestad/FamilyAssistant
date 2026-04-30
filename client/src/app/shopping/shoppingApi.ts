@@ -52,7 +52,12 @@ export interface ShoppingItem {
   checkedOff: boolean;
   /** Computed leftover qty after pantry is subtracted. */
   stillNeed: number;
-  /** Recipe names that originally contributed this item. */
+  /**
+   * Recipe names that originally contributed this item. Backend
+   * enrichItemForFrontend guarantees an array (never null) for new
+   * responses; we still permit null on the type for forward/backward
+   * compatibility with cached payloads or alternative sources.
+   */
   mealsJson: string[] | null;
   dairyNote: string | null;
   sortOrder: number;
