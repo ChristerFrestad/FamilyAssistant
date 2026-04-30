@@ -2,6 +2,39 @@
 
 const { getFamilyId } = require('../auth/family-context');
 
+/**
+ * Enrich a raw shopping_list_items row for frontend consumption. The
+ * Phase 2D Shopping screen and the legacy /list/current handler share
+ * the same enriched shape; centralising the transform here keeps the
+ * GET and POST contracts in lockstep — when an item comes back from
+ * either endpoint, the frontend sees the same fields with the same
+ * defaults.
+ *
+ * Defaults applied:
+ *   - name: ingredientNameNo || ingredientName (never undefined)
+ *   - checkedOff: !!boughtAt
+ *   - stillNeed: max(0, qty - pantryQty)
+ *   - hasHome: pantryQty || 0
+ *   - isPantry: pantryHas
+ *   - source: 'manual' for sourceType=='manual', else 'recipe'
+ *   - mealsJson: array (defaults to [] when DB column is NULL or
+ *     the row never carried recipe context)
+ */
+function enrichItemForFrontend(it) {
+  if (!it) return it;
+  const stillNeed = Math.max(0, (it.qty || 0) - (it.pantryQty || 0));
+  return {
+    ...it,
+    stillNeed,
+    hasHome: it.pantryQty || 0,
+    checkedOff: !!it.boughtAt,
+    source: it.sourceType === 'manual' ? 'manual' : 'recipe',
+    isPantry: !!it.pantryHas,
+    name: it.ingredientNameNo || it.ingredientName,
+    mealsJson: Array.isArray(it.mealsJson) ? it.mealsJson : [],
+  };
+}
+
 function createShoppingRepos(db, tryParseJson) {
   const shoppingExtras = {
     getWeek(weekYear) {
@@ -349,7 +382,8 @@ function createShoppingRepos(db, tryParseJson) {
         .run(familyId, listId, name, qty, unit, category, nextSort, notes);
       const newId = Number(result.lastInsertRowid);
       const items = shoppingLists._getItems(listId);
-      return items.find((it) => it.id === newId) || null;
+      const raw = items.find((it) => it.id === newId) || null;
+      return enrichItemForFrontend(raw);
     },
 
     /**
@@ -446,4 +480,4 @@ function createShoppingRepos(db, tryParseJson) {
   return { shoppingLists, shoppingExtras };
 }
 
-module.exports = { createShoppingRepos };
+module.exports = { createShoppingRepos, enrichItemForFrontend };

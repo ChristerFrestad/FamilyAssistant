@@ -23,6 +23,7 @@ const schemas = require('./schemas');
 
 const { buildShoppingList, generateForWeek } = require('./services/shopping-list.service');
 const { enrichInBackground } = require('./services/shopping-list-enricher.service');
+const { enrichItemForFrontend } = require('./repositories/shopping.repo');
 const {
   getSwapSuggestions,
   checkShelfLife,
@@ -873,18 +874,10 @@ function registerRoutes(router, { repos, serverState }) {
       // action; checkedOff is true when bought_at is set.
       const cat = it.category || 'Tørrvarer & annet';
       if (!categoriesMap.has(cat)) categoriesMap.set(cat, []);
-      // stillNeed er computed (ikke lagret i DB) — restmengde som må kjøpes
-      // etter at pantry er trukket fra. Frontend bruker dette i render-template.
-      const stillNeed = Math.max(0, (it.qty || 0) - (it.pantryQty || 0));
-      categoriesMap.get(cat).push({
-        ...it,
-        stillNeed,
-        hasHome: it.pantryQty || 0,
-        checkedOff: !!it.boughtAt,
-        source: 'recipe',
-        isPantry: it.pantryHas,
-        name: it.ingredientNameNo || it.ingredientName,
-      });
+      // enrichItemForFrontend gives the row a stable shape (name,
+      // checkedOff, stillNeed, mealsJson:[]). The same helper is used
+      // by POST /api/shopping/items so the contract stays in lockstep.
+      categoriesMap.get(cat).push(enrichItemForFrontend(it));
       total += it.estPrice || 0;
     }
 

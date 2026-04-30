@@ -70,6 +70,36 @@ test('POST /api/shopping/items appends item to active list and returns 201', asy
   }
 });
 
+// Regression test for the Phase 2D bug where the POST response was a
+// raw _getItems row (no name alias, mealsJson=null). Frontend crashed
+// reading item.name.length when rendering the new row. Both the
+// /list/current handler and POST /items must emit the same enriched
+// shape for the frontend to stay safe.
+test('POST /api/shopping/items returns enriched fields (name, checkedOff, mealsJson)', async () => {
+  const server = await startTestServer();
+  try {
+    ensureActiveList(server);
+    const r = await request(server.baseUrl, 'POST', '/api/shopping/items', {
+      body: { name: 'Saft' },
+    });
+    assert.strictEqual(r.status, 201);
+    const item = r.body.item;
+    assert.strictEqual(
+      item.name,
+      'Saft',
+      'name must be present (alias of ingredientNameNo || ingredientName)'
+    );
+    assert.strictEqual(item.checkedOff, false);
+    assert.ok(Array.isArray(item.mealsJson), 'mealsJson must be an array, never null');
+    assert.deepStrictEqual(item.mealsJson, []);
+    assert.strictEqual(item.source, 'manual');
+    assert.strictEqual(item.isPantry, false);
+    assert.strictEqual(typeof item.stillNeed, 'number');
+  } finally {
+    await server.close();
+  }
+});
+
 test('POST /api/shopping/items accepts name only (qty/unit/category optional)', async () => {
   const server = await startTestServer();
   try {
