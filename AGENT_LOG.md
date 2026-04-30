@@ -6,6 +6,110 @@
 
 ---
 
+2026-04-30 – Fase 2B Family-skjerm (Sprint 4 fortsetter)
+
+Oppgave: Erstatte placeholder-Family.tsx med dedikert Familie-
+oversikt — andre hovedskjerm i Fase 2 etter Dashboard. Skjermen
+viser familienavn med Edit-placeholder, grid med MemberCard per
+medlem (avatar, navn, "(Du)"-badge for current user, role-badge
+fra users-tabellen, kategori-label fra family_profile_members,
+PortionFactorSlider med live optimistic update), og en placeholder
+Inviter-knapp. Per-medlem save-status surface med "Lagrer …",
+"Lagret", "Kunne ikke lagre".
+
+Analyse: docs/analyses/2026-04-30-fase-2b-family.md (341 linjer)
+
+- Reisen: 7 hovedflyter, 3-nivå dyp på portion-slider og placeholder-
+  knapper.
+- Edge-cases: 12 (én-person-roster, profile-member uten user, user
+  uten profile-member, 4xx/401/403, concurrent updates, offline,
+  initial fetch fail, stale data, lang medlems-liste, NaN portion).
+- Beslutninger: 5 (toast=inline, edit=placeholder, member-mapping,
+  optimistic, skeleton). Alle bekreftet med Christer FØR
+  implementering.
+- Portainer-risiko: nei (klient-only, backend uendret).
+- ISO 25010: funksjonell egnethet +0.1, brukbarhet +0.1, snitt
+  ~8.55 → ~8.57.
+
+Plan: 5 commits — analyse, API+hook, MemberCard, Family-skjerm+i18n,
+design-gap. Ble 6 commits etter at en placeholder smoke-test i
+screens.test.tsx måtte oppdateres da Family ikke lenger renders
+uten AuthProvider.
+
+Gjort:
+
+- Branch: feat/fase-2b-family.
+- Commits: 6.
+  - `b3dbcb9` docs(analysis): analyse-dokument
+  - `a9a3c94` feat(client/family): familyApi.ts + useFamilyData
+  - `5e11c92` feat(client/family): MemberCard + tester
+  - `2d36264` feat(client/family): Family-skjerm + i18n-keys (NO+EN)
+  - `beb8b38` docs(design): logg design-gap (dedikert tab vs
+    settings-list)
+  - `978cfeb` test(client/family): rens screens.test + Avatar-prop-fix
+- Filer endret: 13 (10 nye, 3 modifiserte). +2019 / -17 linjer.
+- Tester lagt til: ~32 nye client-tester. Total client-test-count:
+  371 (var 339 ved start). Server-tester urørt: 1271 pass, 2 skip,
+  0 fail.
+- DOMAIN_MODEL.md oppdatert: nei. Ingen ny entitet introdusert i
+  denne PR-en — backend-endepunktene fantes fra før (migrasjoner
+  009 + 014 + 023). Hvis DOMAIN_MODEL.md skal få første formelle
+  entry for `families` + `family_profile_members` + `users`-
+  relasjonen, gjøres det i en egen docs-PR (out of scope nå).
+- Backend: ingen endringer. `GET /api/family` og
+  `PUT /api/family/members/:id` hentet fra eksisterende
+  `server/auth/family-routes.js`.
+- Avvik fra plan: Avatar-komponentens `src`-prop håndterte ikke
+  `undefined` under `exactOptionalPropertyTypes: true`. Fikset med
+  betinget prop-spread i MemberCard. Ingen avvik utover dette.
+
+Sikkerhet: ingen nye endepunkter, ingen nye auth-mønstre. Backend
+beholder eksisterende role-checks (`requireRole('adult')` på PUT,
+auth via cookie på GET). Ingen secrets/PII-håndtering.
+
+ISO 25010: per analyse §2.7. Ingen karakteristikk under 8.0.
+
+Lokal CI-verifikasjon: alle grønne.
+
+- `npm run typecheck` (server): 0 feil
+- `npm run typecheck:client`: 0 feil
+- `npm run test:client`: 371/371 grønn
+- `npm test` (server): 1271 pass, 2 skip, 0 fail
+- `npm run audit:prod`: 0 vulnerabilities
+- `npm run build:client`: 296.72 KB raw / 93.54 KB gzipped
+  (forrige main: 91 KB, +2.5 KB gzipped)
+- `npm run test:coverage:gate`: lines 83.89/80, branches
+  73.86/68, functions 81.66/72 — over alle terskler
+- Lint på min nye kode: clean. (Pre-existing `public/v2/assets/
+  main-*.js`-build-artifact-feil i lokal lint er kun lokalt — `public/v2/`
+  er gitignored, så CI ser dette aldri.)
+
+Browser-verifikasjon: kjørte `npm run preview:client` på 7779
+(7778 var opptatt av Christers parallelle dev-server). React app
+mounter, AuthGuard redirecter `/v2/family` → `/v2/login` siden
+preview ikke har session-cookie. Bundle-hash matcher
+`build:client`-output. Ingen console-errors. Full e2e-test av
+Family-skjermen med data krever Christers manuelle test (per
+prompt sin VIKTIG OM MANUELL TEST-seksjon).
+
+Status: åpen — venter på Christer manuell test + push-godkjenning.
+
+Beslutninger Christer må ta: ingen blokkerende. Bekreft etter
+manuell test om:
+- Card-grid-layout føles riktig som dedikert Family-tab vs.
+  settings-listen i mockup
+- Portion-slider-feedback (Lagrer / Lagret / Kunne ikke lagre)
+  føles tydelig nok
+- Plassering av Edit + Inviter-knapper er ok som placeholder
+
+Neste: ved push-instruksjon → squash-commits til 1-3 logiske
+enheter, kjør én siste lokal CI, push til `feat/fase-2b-family`,
+åpne PR med tittel "feat: Fase 2B — Family screen (Sprint 4
+continues)". Vent på CI grønn → vent på Christers godkjenning →
+merge per DEL 5.3 (feat krever Christer).
+
+---
+
 2026-04-20 – Uke 1 oppgaver 1.2–1.5 — STATUS
 
 Oppgave: Utføre Christers uke-1-plan etter at DEL A (lukke PR #53,
