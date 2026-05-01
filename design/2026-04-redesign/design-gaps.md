@@ -166,38 +166,9 @@ slettet felt.
   desktop-stil (f.eks. soft-mint-tint)?"
 - **Status:** Pending
 
-### Primary Button light-mode-kontrast — formell WCAG-verifikasjon utestår
-
-- **Skjerm/Kontekst:** `Button`-komponent, variant `primary`
-  (`client/src/app/components/base/Button.tsx`) i **light mode**
-- **Oppdaget:** 2026-04-28, follow-up til bug-fix `e3b8d6b`
-  (text-ink → text-ink-contrast). Dark mode er løst (se "Løste
-  gaps"), men light-mode-kontrasten krever uavhengig vurdering.
-- **Hva mangler:** Etter fix-commiten bruker primary-knappen
-  `bg-mint` + `text-ink-contrast`. I light mode betyr det
-  `oklch(0.58 0.14 155)` (medium mint) som bakgrunn og
-  `oklch(0.99 0.005 85)` (nær cream/hvit) som tekst. Lys cream-tekst
-  på medium mint gir hånd-estimert WCAG-kontrast på rundt 3:1 —
-  godt under AA-kravet på 4.5:1 for body-text. Bestått for
-  AA-Large-text (≥18 pt eller ≥14 pt fet) og for "graphical objects
-  and UI components" (3:1), men strengt tatt under for body-text.
-  Knappen vår bruker `font-body font-medium` på `text-body` (14 px
-  ikke-fet) i `md`-størrelse — kvalifiserer ikke for AA-Large.
-- **Blokkerende-nivå:** medium — knappen er lesbar, men WCAG AA
-  for body-text er ikke garantert
-- **Midlertidig løsning:** Bruker `bg-mint text-ink-contrast` per
-  spec. Ingen workaround.
-- **Antatt design-grunnlag:** `--mint` og `--ink-contrast` fra
-  `client/src/app/styles/tokens.css`
-- **Spørsmål til design-runde:** "Verifiser WCAG AA-kontrast for
-  primary-knappen i light mode med faktiske farge-konverteringsverktøy
-  (Polypane, WebAIM, Stark, eller @csstools/color). Tre alternativer
-  hvis nåværende valg er under AA: (1) mørkere mint i light mode
-  (f.eks. `oklch(0.48 0.14 155)`) for bedre kontrast med cream-tekst;
-  (2) bytte til mint-deep + samme ink-contrast; (3) hardkodet mørk
-  tekstfarge på primary uavhengig av tema (alltid mørk på mint).
-  Anbefal en — vis WCAG-tall for valgt alternativ."
-- **Status:** Pending
+<!-- Primary Button light-mode-kontrast — flyttet til "Løste gaps"
+     2026-05-01 etter Phase 3A WCAG-revisjon.
+     Se entry "Primary Button light-mode-kontrast" under Løste gaps. -->
 
 ---
 
@@ -206,6 +177,46 @@ slettet felt.
 > Entries flyttes hit fra "Aktuelle" når de er designet, implementert,
 > og verifisert. Bevart som referanse for fremtidige diskusjoner og
 > for å demonstrere format-velging.
+
+### Primary Button light-mode-kontrast
+
+- **Skjerm/Kontekst:** `Button`-komponent, variant `primary`
+  (`client/src/app/components/base/Button.tsx`) i **light mode**
+- **Oppdaget:** 2026-04-28, follow-up til bug-fix `e3b8d6b`
+  (text-ink → text-ink-contrast). Light-mode-kontrasten krevde
+  uavhengig vurdering siden dark mode allerede var løst.
+- **Hva manglet:** Primary-knappen brukte `bg-mint` + `text-ink-contrast`.
+  I light mode betydde det `oklch(0.58 0.14 155)` (medium mint) som
+  bakgrunn og `oklch(0.99 0.005 85)` (nær cream/hvit) som tekst.
+  Mathematisk WCAG-kontrast i light mode: ~3.0:1 — under AA-kravet
+  på 4.5:1 for body-text. Knappen brukte `font-body font-medium` på
+  `text-body` (14 px ikke-fet) som ikke kvalifiserer for AA-Large.
+- **Blokkerende-nivå:** medium (escalert til kritisk under
+  Phase 3A audit siden alle pilot-flow trenger AA-compliance)
+- **Midlertidig løsning:** Bruker `bg-mint text-ink-contrast` per
+  spec. Ingen workaround.
+- **Antatt design-grunnlag:** `--mint` og `--ink-contrast` fra
+  `client/src/app/styles/tokens.css`
+- **Spørsmål til design-runde:** n/a (resolved i Phase 3A WCAG-
+  audit — se Resolusjon)
+- **Status:** Implementert
+- **Resolusjon:** Phase 3A WCAG-revisjon (`fix/wcag-revisjon` branch,
+  PR pending) implementerte BESLUTNING 4 Alternativ A:
+  - `--mint` light mode: L=0.58 → L=0.50 (`oklch(0.50 0.14 155)`)
+  - `--mint-deep` light mode: L=0.45 → L=0.38 (`oklch(0.38 0.13 155)`)
+  - `--mint-deep` dark mode: L=0.55 → L=0.62 (fikset hover-state
+    som også var under AA i dark mode)
+
+  Ny matematisk WCAG-kontrast (verifisert i
+  `client/src/app/styles/contrast.test.ts`):
+  - cream `oklch(0.99 0.005 85)` på dark mint `oklch(0.50 0.14 155)`:
+    ~5.0:1 ✓ AA Normal
+  - cream på mint-deep light `oklch(0.38 0.13 155)`: ~7.5:1 ✓ AAA
+  - dark `oklch(0.15 0.02 95)` på dark mint-deep `oklch(0.62 0.14 155)`:
+    ~5.4:1 ✓ AA Normal
+
+  Alle tre tokens er låst i contrast-tester slik at en designer ikke
+  kan reversere endringen uten at testen feiler.
 
 ### Primary Button-kontrast i dark mode
 
