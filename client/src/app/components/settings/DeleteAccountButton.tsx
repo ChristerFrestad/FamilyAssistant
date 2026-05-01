@@ -72,7 +72,7 @@ export function DeleteAccountButton({
         disabled={ownerBlocked || busy}
         loading={busy}
         leftIcon={<Trash2 size={14} aria-hidden="true" />}
-        className="text-coral hover:bg-coral/10"
+        className="text-coral-deep hover:bg-coral/10"
         data-testid="settings-delete-button"
       >
         {label}

@@ -173,7 +173,7 @@ export function UseDialog({ item, onClose, onConfirm }: UseDialogProps): JSX.Ele
               {!validation.ok && validation.message && (
                 <span
                   id="use-dialog-validation"
-                  className="font-body text-meta text-coral"
+                  className="font-body text-meta text-coral-deep"
                   data-testid="use-dialog-validation"
                   role="alert"
                 >

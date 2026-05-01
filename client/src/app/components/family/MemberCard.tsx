@@ -116,7 +116,7 @@ export function MemberCard({
             </span>
           ) : null}
           {saveStatus === 'error' ? (
-            <span className="font-body text-meta text-coral" data-testid="save-status-error">
+            <span className="font-body text-meta text-coral-deep" data-testid="save-status-error">
               {t('portionFactor.updateError')}
             </span>
           ) : null}

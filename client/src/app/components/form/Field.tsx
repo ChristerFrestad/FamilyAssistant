@@ -96,14 +96,14 @@ export function Field(props: FieldProps): JSX.Element {
       <label htmlFor={childId} className="font-body text-meta text-text-2">
         {label}
         {required && (
-          <span className="text-rose ml-0.5" aria-hidden="true">
+          <span className="text-rose-deep ml-0.5" aria-hidden="true">
             *
           </span>
         )}
       </label>
       {enhancedChild}
       {error ? (
-        <p id={errorId} role="alert" className="font-body text-meta text-rose">
+        <p id={errorId} role="alert" className="font-body text-meta text-rose-deep">
           {error}
         </p>
       ) : hint ? (
