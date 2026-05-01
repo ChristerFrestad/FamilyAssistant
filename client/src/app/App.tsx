@@ -29,6 +29,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { OnboardingGuard } from './components/auth/OnboardingGuard';
 import { OnboardingProvider } from './auth/OnboardingContext';
+import { ThemeProvider } from './theme/ThemeContext';
 import { AppShell } from './components/layout/AppShell';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { Dashboard } from './screens/Dashboard';
@@ -46,6 +47,14 @@ import { FamilySetup } from './screens/auth/FamilySetup';
 import { UserProfile } from './screens/auth/UserProfile';
 
 export default function App(): JSX.Element {
+  return (
+    <ThemeProvider>
+      <AppRoutes />
+    </ThemeProvider>
+  );
+}
+
+function AppRoutes(): JSX.Element {
   return (
     <Routes>
       {/* PUBLIC routes — no AuthGuard. */}
@@ -105,7 +114,14 @@ export default function App(): JSX.Element {
                     }
                   />
                   <Route path="/calendar" element={<Calendar />} />
-                  <Route path="/settings" element={<Settings />} />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ErrorBoundary messageKey="settingsMessage">
+                        <Settings />
+                      </ErrorBoundary>
+                    }
+                  />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </AppShell>

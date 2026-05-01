@@ -8,10 +8,15 @@ import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { Calendar } from './Calendar';
-import { Settings } from './Settings';
 import { NotFound } from './NotFound';
 import { Login } from './auth/Login';
 import { AuthProvider } from '../auth/AuthContext';
+
+// Settings moved out when the real Phase-2F screen landed (Fase 2F
+// Settings). Real Settings behavior tests live in Settings.test.tsx
+// — they cover skeleton/error states, the four sections, family
+// name inline-edit (owner-only), GDPR export download flow, and
+// owner-blocked delete state.
 
 // Dashboard moved out of this file when the real Phase-2A screen
 // landed (PR-#? Fase 2A). Real Dashboard behavior tests live in
@@ -42,11 +47,6 @@ describe('placeholder screens render with i18n headings', () => {
   test('Calendar', () => {
     render(<Calendar />);
     expect(screen.getByRole('heading', { name: 'Kalender', level: 1 })).toBeInTheDocument();
-  });
-
-  test('Settings', () => {
-    render(<Settings />);
-    expect(screen.getByRole('heading', { name: 'Innstillinger', level: 1 })).toBeInTheDocument();
   });
 
   test('NotFound has 404 heading and a Dashboard link', () => {

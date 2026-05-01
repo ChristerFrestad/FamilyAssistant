@@ -1,11 +1,87 @@
 {
   "title": "Settings",
+  "header": {
+    "subtitle": "System, family, and account"
+  },
   "sections": {
+    "system": "System",
     "family": "Family",
+    "user": "User",
+    "account": "Account",
     "mealTimes": "Meal times",
     "gamification": "Gamification",
     "data": "My data",
     "dangerZone": "Danger zone"
+  },
+  "badge": {
+    "sprint6": "Coming in Sprint 6",
+    "sprint7": "Coming in Sprint 7",
+    "requiresResend": "Requires Resend (Sprint 7)"
+  },
+  "system": {
+    "language": {
+      "label": "Language",
+      "description": "Saved in your browser"
+    },
+    "theme": {
+      "label": "Theme",
+      "description": "Light or dark appearance"
+    }
+  },
+  "family": {
+    "name": {
+      "label": "Family name",
+      "editLabel": "Edit",
+      "inputAriaLabel": "Enter new family name",
+      "readOnlyHint": "Only owner can edit"
+    },
+    "timezone": {
+      "label": "Timezone",
+      "description": "Used by calendar integration once it ships"
+    },
+    "mealTimes": {
+      "label": "Meal times",
+      "description": "Breakfast, lunch, dinner — for calendar reminders"
+    },
+    "gamification": {
+      "label": "Gamification",
+      "description": "Points, levels, and badges for completed chores"
+    }
+  },
+  "user": {
+    "emailNotifications": {
+      "label": "Email notifications",
+      "description": "Reminders for meals, chores, and events"
+    },
+    "pushNotifications": {
+      "label": "Push notifications",
+      "description": "Directly in the browser"
+    }
+  },
+  "account": {
+    "export": {
+      "label": "Download my data",
+      "description": "Exports all your data as a JSON file",
+      "button": "Download",
+      "ariaLabel": "Download all my data as a JSON file"
+    },
+    "delete": {
+      "label": "Delete account",
+      "description": "Soft-deleted with a 30-day grace period",
+      "button": "Delete account",
+      "confirmText": "Delete your account? You have 30 days to undo. After that, all data is permanently deleted.",
+      "ownerBlocked": "Transfer ownership or delete the family first"
+    }
+  },
+  "footer": {
+    "version": "FamilyAssistant · v{{version}}"
+  },
+  "actions": {
+    "retry": "Try again"
+  },
+  "errors": {
+    "generic": "Something went wrong — try again",
+    "loadFailed": "Could not load settings"
   },
   "fields": {
     "familyName": "Family name",
@@ -13,10 +89,6 @@
     "breakfastTime": "Breakfast",
     "lunchTime": "Lunch",
     "dinnerTime": "Dinner"
-  },
-  "gamification": {
-    "label": "Enable gamification",
-    "description": "Points, levels and badges for completed chores"
   },
   "data": {
     "exportButton": "Export my data"

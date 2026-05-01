@@ -55,6 +55,7 @@
   "errorBoundary": {
     "title": "Noe gikk galt",
     "shoppingMessage": "Vi kunne ikke vise handlelisten. Last på nytt for å prøve igjen.",
+    "settingsMessage": "Vi kunne ikke vise innstillingene. Last på nytt for å prøve igjen.",
     "genericMessage": "Vi kunne ikke vise denne siden. Last på nytt for å prøve igjen.",
     "retry": "Last på nytt",
     "backToDashboard": "Tilbake til dashboard"

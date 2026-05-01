@@ -55,6 +55,7 @@
   "errorBoundary": {
     "title": "Something went wrong",
     "shoppingMessage": "We could not display the shopping list. Reload to try again.",
+    "settingsMessage": "We could not display the settings. Reload to try again.",
     "genericMessage": "We could not display this page. Reload to try again.",
     "retry": "Reload",
     "backToDashboard": "Back to dashboard"

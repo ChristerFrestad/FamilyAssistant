@@ -1,11 +1,87 @@
 {
   "title": "Innstillinger",
+  "header": {
+    "subtitle": "System, familie og konto"
+  },
   "sections": {
+    "system": "System",
     "family": "Familie",
+    "user": "Bruker",
+    "account": "Konto",
     "mealTimes": "Måltids-tider",
     "gamification": "Gamification",
     "data": "Mine data",
     "dangerZone": "Farlig sone"
+  },
+  "badge": {
+    "sprint6": "Kommer i Sprint 6",
+    "sprint7": "Kommer i Sprint 7",
+    "requiresResend": "Krever Resend (Sprint 7)"
+  },
+  "system": {
+    "language": {
+      "label": "Språk",
+      "description": "Valg lagres i nettleseren din"
+    },
+    "theme": {
+      "label": "Tema",
+      "description": "Lyst eller mørkt utseende"
+    }
+  },
+  "family": {
+    "name": {
+      "label": "Familienavn",
+      "editLabel": "Endre",
+      "inputAriaLabel": "Skriv nytt familienavn",
+      "readOnlyHint": "Kun owner kan endre"
+    },
+    "timezone": {
+      "label": "Tidssone",
+      "description": "Brukes til kalender-integrasjon når den lanseres"
+    },
+    "mealTimes": {
+      "label": "Måltids-tider",
+      "description": "Frokost, lunsj, middag — for kalender-påminnelser"
+    },
+    "gamification": {
+      "label": "Gamification",
+      "description": "Poeng, nivåer og merker for fullførte gjøremål"
+    }
+  },
+  "user": {
+    "emailNotifications": {
+      "label": "E-postvarsler",
+      "description": "Påminnelser om middag, gjøremål og hendelser"
+    },
+    "pushNotifications": {
+      "label": "Push-varsler",
+      "description": "Direkte i nettleseren"
+    }
+  },
+  "account": {
+    "export": {
+      "label": "Last ned mine data",
+      "description": "Eksporterer all din data som JSON-fil",
+      "button": "Last ned",
+      "ariaLabel": "Last ned all min data som JSON-fil"
+    },
+    "delete": {
+      "label": "Slett konto",
+      "description": "Soft-slettet med 30 dagers angrefrist",
+      "button": "Slett konto",
+      "confirmText": "Vil du slette kontoen din? Du har 30 dager på å angre. Etter det er all data slettet permanent.",
+      "ownerBlocked": "Du må overføre eierskap eller slette familien først"
+    }
+  },
+  "footer": {
+    "version": "FamilyAssistant · v{{version}}"
+  },
+  "actions": {
+    "retry": "Prøv igjen"
+  },
+  "errors": {
+    "generic": "Noe gikk galt — prøv igjen",
+    "loadFailed": "Kunne ikke laste innstillinger"
   },
   "fields": {
     "familyName": "Familienavn",
@@ -13,10 +89,6 @@
     "breakfastTime": "Frokost",
     "lunchTime": "Lunsj",
     "dinnerTime": "Middag"
-  },
-  "gamification": {
-    "label": "Aktiver gamification",
-    "description": "Poeng, nivåer og badges for fullførte gjøremål"
   },
   "data": {
     "exportButton": "Last ned mine data"
