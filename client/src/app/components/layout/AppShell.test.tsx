@@ -11,6 +11,7 @@ import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from './AppShell';
 import { AuthProvider } from '../../auth/AuthContext';
+import { ThemeProvider } from '../../theme/ThemeContext';
 import type { AuthUser } from '../../auth/authApi';
 
 // AppShell's UserMenu reads useAuthContext, so we need an
@@ -31,11 +32,13 @@ const TEST_USER: AuthUser = {
 function renderShell(pathname = '/dashboard'): void {
   render(
     <MemoryRouter initialEntries={[pathname]}>
-      <AuthProvider initialState={{ user: TEST_USER, isLoading: false }}>
-        <AppShell>
-          <div data-testid="page-content">Page body</div>
-        </AppShell>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider initialState={{ user: TEST_USER, isLoading: false }}>
+          <AppShell>
+            <div data-testid="page-content">Page body</div>
+          </AppShell>
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>
   );
 }
