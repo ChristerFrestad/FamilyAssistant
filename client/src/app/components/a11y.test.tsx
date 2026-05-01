@@ -106,8 +106,8 @@ describe('a11y — Display', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('ProgressDots with aria-label passes axe', async () => {
-    const { container } = render(<ProgressDots total={3} current={1} ariaLabel="Steg 2 av 3" />);
+  it('ProgressDots passes axe (component renders aria-label internally)', async () => {
+    const { container } = render(<ProgressDots total={3} current={1} />);
     await expectNoAxeViolations(container);
   });
 
@@ -116,8 +116,13 @@ describe('a11y — Display', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('Term passes axe', async () => {
-    const { container } = render(<Term label="Status" value="Aktiv" />);
+  it('Term inline variant passes axe', async () => {
+    const { container } = render(<Term variant="inline">npm install</Term>);
+    await expectNoAxeViolations(container);
+  });
+
+  it('Term block variant passes axe', async () => {
+    const { container } = render(<Term variant="block">SESSION_SECRET=abc123</Term>);
     await expectNoAxeViolations(container);
   });
 });
@@ -179,7 +184,7 @@ describe('a11y — Form', () => {
   });
 
   it('CopyButton passes axe', async () => {
-    const { container } = render(<CopyButton text="hello" label="Kopier" />);
+    const { container } = render(<CopyButton value="hello" label="Kopier" />);
     await expectNoAxeViolations(container);
   });
 });
@@ -229,7 +234,7 @@ describe('a11y — Layout', () => {
 describe('a11y — Overlay', () => {
   it('Modal opened with title and description passes axe', async () => {
     const { container } = render(
-      <Modal isOpen onClose={() => undefined} title="Slett konto" size="sm">
+      <Modal open onClose={() => undefined} title="Slett konto" size="sm">
         <p>Dette kan ikke angres innen 30 dager.</p>
       </Modal>
     );
@@ -263,7 +268,7 @@ describe('a11y — Settings', () => {
     const { container } = render(
       <InlineEditableText
         value="Familien Frestad"
-        onSave={async () => undefined}
+        onSave={async () => true}
         editLabel="Rediger"
         saveLabel="Lagre"
         cancelLabel="Avbryt"
@@ -277,7 +282,7 @@ describe('a11y — Settings', () => {
     const { container } = render(
       <InlineEditableText
         value="Familien Frestad"
-        onSave={async () => undefined}
+        onSave={async () => true}
         editLabel="Rediger"
         saveLabel="Lagre"
         cancelLabel="Avbryt"
