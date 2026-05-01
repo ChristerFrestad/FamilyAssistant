@@ -74,7 +74,9 @@ const config: Config = {
         'cyan-deep': 'var(--cyan-deep)',
         amber: 'var(--amber)',
         coral: 'var(--coral)',
+        'coral-deep': 'var(--coral-deep)',
         rose: 'var(--rose)',
+        'rose-deep': 'var(--rose-deep)',
         // Ink + ink-contrast — primary-button-style invert
         ink: 'var(--ink)',
         'ink-contrast': 'var(--ink-contrast)',
