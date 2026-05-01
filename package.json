@@ -52,7 +52,7 @@
     "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "@sentry/node": "^8.0.0",
+    "@sentry/node": "^10.51.0",
     "sql.js": "^1.14.1"
   },
   "devDependencies": {
