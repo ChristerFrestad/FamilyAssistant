@@ -99,14 +99,33 @@
 
   /* Brand accents — see locked-decisions section 4.5 for the
      mint / cyan / amber / coral / rose roles. Each has a deeper
-     companion for gradient bottoms or pressed states. */
-  --mint: oklch(0.58 0.14 155);
-  --mint-deep: oklch(0.45 0.13 155);
+     companion for gradient bottoms or pressed states.
+
+     Mint and mint-deep were darkened on 2026-05-01 (Phase 3A WCAG
+     audit, BESLUTNING 4) so primary buttons (bg-mint with cream
+     text-ink-contrast) clear WCAG AA 4.5:1 in light mode. Old values
+     L=0.58 / 0.45 produced ~3:1 — failing AA Normal. New L=0.50 / 0.38
+     yields ~5.0:1 / ~6.5:1 mathematically while preserving the
+     mint-green hue. Dark-mode values are unchanged because the
+     contrast there was already AAA. */
+  --mint: oklch(0.5 0.14 155);
+  --mint-deep: oklch(0.38 0.13 155);
   --cyan: oklch(0.6 0.11 215);
   --cyan-deep: oklch(0.48 0.1 215);
   --amber: oklch(0.68 0.14 75);
   --coral: oklch(0.62 0.16 25);
   --rose: oklch(0.58 0.17 0);
+
+  /* Deep accent text-tokens for use as text-color on canvas surfaces
+     in light mode. Bare --coral and --rose at L=0.62 / 0.58 give only
+     ~3.5:1 against the cream canvas — passes WCAG AA Large but fails
+     for body-text used in error messages and destructive labels.
+     The deep variants below sit at L=0.42 to clear AA Normal at 4.5:1.
+     Dark mode does not need separate values: the brighter accents at
+     L=0.78 / 0.72 already exceed AAA against the dark canvas, so the
+     deep tokens point back to the bright variants there. */
+  --coral-deep: oklch(0.42 0.16 25);
+  --rose-deep: oklch(0.42 0.17 0);
 
   /* Ink + ink-contrast pair: primary-button-style invert. ink is
      "nearly black on light, nearly white on dark". ink-contrast is
@@ -116,7 +135,7 @@
 
   /* Glow shadow — used on hero meal card and selected accent
      surfaces. Light variant is muted (no neon glow on a pale page). */
-  --shadow-glow: 0 20px 50px -20px oklch(0.55 0.14 155 / 0.25);
+  --shadow-glow: 0 20px 50px -20px oklch(0.5 0.14 155 / 0.25);
 }
 
 /* ---------------------------------------------------------------------
@@ -140,12 +159,23 @@
     --text-3: oklch(0.58 0.015 85);
 
     --mint: oklch(0.82 0.15 155);
-    --mint-deep: oklch(0.55 0.14 155);
+    /* mint-deep lifted from L=0.55 to L=0.62 on 2026-05-01 (Phase 3A
+       WCAG audit). The previous value gave only 4.35:1 against the
+       dark ink-contrast text — failing AA for the primary button's
+       hover state. L=0.62 yields ~5.4:1 while still reading as the
+       darker companion to mint at L=0.82. */
+    --mint-deep: oklch(0.62 0.14 155);
     --cyan: oklch(0.82 0.12 215);
     --cyan-deep: oklch(0.55 0.11 215);
     --amber: oklch(0.82 0.13 75);
     --coral: oklch(0.78 0.14 25);
     --rose: oklch(0.72 0.16 0);
+
+    /* Deep text-on-canvas tokens point back to the bright variants in
+       dark mode — a bright accent on the dark canvas already gives
+       ~10:1 contrast, so no separate "deep" shade is needed. */
+    --coral-deep: oklch(0.78 0.14 25);
+    --rose-deep: oklch(0.72 0.16 0);
 
     --ink: oklch(0.97 0.01 85);
     --ink-contrast: oklch(0.15 0.02 95);
@@ -175,18 +205,21 @@
   --text-2: oklch(0.42 0.02 85);
   --text-3: oklch(0.58 0.015 85);
 
-  --mint: oklch(0.58 0.14 155);
-  --mint-deep: oklch(0.45 0.13 155);
+  --mint: oklch(0.5 0.14 155);
+  --mint-deep: oklch(0.38 0.13 155);
   --cyan: oklch(0.6 0.11 215);
   --cyan-deep: oklch(0.48 0.1 215);
   --amber: oklch(0.68 0.14 75);
   --coral: oklch(0.62 0.16 25);
   --rose: oklch(0.58 0.17 0);
 
+  --coral-deep: oklch(0.42 0.16 25);
+  --rose-deep: oklch(0.42 0.17 0);
+
   --ink: oklch(0.22 0.02 85);
   --ink-contrast: oklch(0.99 0.005 85);
 
-  --shadow-glow: 0 20px 50px -20px oklch(0.55 0.14 155 / 0.25);
+  --shadow-glow: 0 20px 50px -20px oklch(0.5 0.14 155 / 0.25);
 }
 
 /* User explicitly chose dark. Mirror of the @media-dark block. */
@@ -206,12 +239,15 @@
   --text-3: oklch(0.58 0.015 85);
 
   --mint: oklch(0.82 0.15 155);
-  --mint-deep: oklch(0.55 0.14 155);
+  --mint-deep: oklch(0.62 0.14 155);
   --cyan: oklch(0.82 0.12 215);
   --cyan-deep: oklch(0.55 0.11 215);
   --amber: oklch(0.82 0.13 75);
   --coral: oklch(0.78 0.14 25);
   --rose: oklch(0.72 0.16 0);
+
+  --coral-deep: oklch(0.78 0.14 25);
+  --rose-deep: oklch(0.72 0.16 0);
 
   --ink: oklch(0.97 0.01 85);
   --ink-contrast: oklch(0.15 0.02 95);

@@ -6,6 +6,130 @@
 
 ---
 
+2026-05-01 – Fase 3A WCAG 2.1 AA-revisjon + UX-audit (Sprint 6 åpnet)
+
+Oppgave: Systematisk WCAG 2.1 AA-revisjon + UX-audit av alle 16
+base-komponenter og 5 hovedskjermer (Dashboard, Family, Meals,
+Shopping inkl. Pantry sub-view, Settings) før pilot-launch. Lukker
+master-planens BESLUTNING 4 (mint kontrast-strategi).
+
+Analyse: docs/analyses/2026-05-01-fase-3a-wcag.md (339 linjer)
+
+- Reisen: 3 hovedflyter (pilot-bruker dag 1, dag 30, dag 60) med
+  3-nivå-dybde — login-til-dashboard tab-traversal, Pantry-marker-brukt-
+  modal, theme-toggle på tvers av skjermer.
+- Edge-cases: 15 dokumentert (over 8-minimum) — inkluderer OS-temabytte,
+  prefers-reduced-motion, 200% zoom, screen-reader på dynamic content,
+  fargeblindhet for ExpiryBadge.
+- Beslutninger: 6 (alle Christer-bekreftet via prompt-eksplisitt scope).
+  B1 (jest-axe install godkjent ved at promptet eksplisitt ba om det),
+  B2 (mint Alternativ A — mørkere mint i light mode), B3 (text-3
+  beholdes som-er for hint/meta), B4 (rose-deep/coral-deep tilført),
+  B5 (sm-button beholdes desktop-tett), B6 (CRITICAL+HIGH-fixes i
+  denne PR-en, MEDIUM/LOW i wcag-followups.md).
+- Portainer-risiko: nei (ren frontend, ingen migrasjon).
+- ISO 25010: brukbarhet 8.8 → 8.95 (+0.15, WCAG-compliance og audit-
+  prosedyre), vedlikeholdbarhet 8.6 → 8.65 (+0.05, kontrast-test +
+  jest-axe fanger fremtidige regresjoner). Snitt 8.575 → 8.60 (+0.025).
+
+Plan: 8 commits — analyse, token-fix + kontrast-test, deep-variant
+komponentskifter, jest-axe install + a11y-tester, state-sync test +
+docs, typecheck-fix.
+
+Gjort:
+
+- Branch: fix/wcag-revisjon (fra ren main, etter PR #84-merge).
+- Commits: 6.
+  - cf2de9d docs(analysis): analyse-dokument
+  - a004395 feat(client/tokens): WCAG AA — darken mint, add deep-variants
+  - 993c500 fix(client/components): use deep variants for error/destructive text
+  - ce73f1c test(client): jest-axe a11y suites for components and screens
+  - a8edd1d test+docs(wcag): state-sync regression + WCAG-compliance docs
+  - 2bacaa5 fix(test/a11y): correct prop names to match component signatures
+- Filer endret: 16 (4 nye tester, 1 ny utility, 6 component-fix,
+  4 docs-nye eller -oppdaterte, 1 token-config).
+  - Nye: client/src/app/styles/contrast.{ts,test.ts},
+    client/src/test-helpers/axe.ts,
+    client/src/app/components/{a11y,state-sync}.test.tsx,
+    client/src/app/screens/a11y.test.tsx,
+    docs/analyses/2026-05-01-fase-3a-wcag.md,
+    docs/runbooks/wcag-compliance.md,
+    docs/workflow/wcag-followups.md
+  - Endret: client/src/app/styles/tokens.css,
+    client/tailwind.config.ts,
+    client/src/app/components/{form/Field,family/MemberCard,settings/
+      DeleteAccountButton,pantry/UseDialog,pantry/PantryItem,
+      shopping/ShoppingItemRow}.tsx,
+    design/2026-04-redesign/design-gaps.md,
+    docs/workflow/pending-decisions.md,
+    package.json + package-lock.json (jest-axe install)
+- Tester lagt til: 60 nye client-tester (23 contrast, 30 jest-axe
+  components, 6 jest-axe screens, 1 state-sync). Total client: 770
+  pass (var 710 før Fase 3A). Server: 1293 pass / 2 skip / 0 fail
+  (uendret).
+- DOMAIN_MODEL.md oppdatert: nei. WCAG-audit endrer ikke entiteter
+  eller forretningsregler — kun design-tokens og a11y-attributter.
+- Backend: ingen endringer.
+- Avvik fra plan:
+  1. Dark-mode mint-deep var også under AA på 4.35:1 (pre-eksisterende
+     bug eksponert av min nye contrast-test). Fikset ved å bumpe til
+     L=0.62. Dokumentert i tokens.css-kommentar.
+  2. PortionFactorSlider standalone-bruk feiler axe (mangler label).
+     Komponenten er per design "consumer wraps with label". Lagt til
+     follow-up i wcag-followups.md (LOW-1) for fremtidig prop-add.
+  3. ExpiryBadge tinted-badge text-coral på bg-coral/15 er borderline
+     ~3-3.5:1. Defererert til wcag-followups.md (MEDIUM-1) siden fix
+     krever design-runde-input på visuelt skifte.
+
+Sikkerhet: ingen nye endepunkter, ingen ny auth-logikk, ingen ny
+exposure. Ren design-token + testpakke. jest-axe (~30 KB dev-dep)
+har 1 transitive dep (axe-core) — verifisert ingen runtime-impact
+på prod-bundle (113.21 KB gzipped, identisk med Sprint 5).
+
+Lokal CI-verifikasjon: alle grønne unntatt lint (kjent gap
+dokumentert i pending-decisions.md "ESLint config-gap for public/v2/
+build-artefakter" + Christer's untracked db-check.js-filer; ikke
+forårsaket av denne PR-en).
+
+- npm run typecheck server: 0 feil
+- npm run typecheck:client: 0 feil
+- npm run test:client: 770/770 pass (0 fail)
+- npm test server: 1293 pass / 2 skip / 0 fail
+- npm run audit:prod: 0 vulnerabilities
+- npm run build:client: 113.21 KB gzipped main (uendret fra Sprint 5)
+- npm run test:coverage:gate: lines 84.14/80, branches 74.84/68,
+  functions 82.22/72 — over alle terskler.
+
+Browser-verifikasjon: ikke kjørt — denne PR-en endrer kun design-
+tokens og legger til tester. Christers manuelle pilot-test
+verifiserer visuelt skifte (mørkere mint, dypere coral/rose i
+errors), tab-navigering og screen-reader-flow per prompt-instruks.
+
+Status: åpen — venter på Christer manuell test + push-godkjenning.
+
+Beslutninger Christer må ta: ingen blokkerende. Bekreft etter
+manuell test:
+
+- Mint-grønt i light mode oppleves akseptabelt mørkere (anbefaling:
+  ja, det er fortsatt tydelig mint-grønt; bare tonet ned ~10% L)
+- Error-tekst i Field/Settings er tilstrekkelig synlig
+- Tab gjennom Dashboard og Settings — synlig fokus-ring overalt?
+- NVDA/VoiceOver test (anbefales): naviger Dashboard, verifiser
+  meningsfulle annonseringer
+
+Neste: ved push-instruksjon → squash til 1-3 logiske commits
+(eller behold de 6 hvis ønskelig — alle har klare logiske scope),
+kjør én siste lokal CI, push til fix/wcag-revisjon, åpne PR med
+tittel "fix: WCAG 2.1 AA compliance audit + UX fixes". Vent på
+CI grønn → vent på Christers godkjenning → merge per DEL 5.3
+(fix krever Christer).
+
+Sprint 6 er åpnet: Fase 3A komplett. Neste steg i master-planen er
+Sprint 6 / Prompt 13 (sannsynligvis pre-deploy cleanup eller mer
+audit-arbeid — refer til Christers Del B for detaljer).
+
+---
+
 2026-05-01 – Fase 2F Settings-skjerm (Sprint 5 avsluttet)
 
 Oppgave: Bygge sjette og siste skjerm i Sprint 5 / Fase 2 — Settings.

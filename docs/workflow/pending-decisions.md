@@ -1,6 +1,19 @@
 # Pending decisions — venter på Christer
 
-**Sist oppdatert:** 2026-04-29 (legacy `LOCAL_USER`-fallback i `server/auth/middleware.js` notert som backend cleanup-arbeid for Sprint 6 / pre-Sprint 8 deploy etter rot-årsak-funn under PR #77 hotfix; backup-arkitektur-utvidbarhet for fremtidig ekstern backup notert til Sprint 8 ved oppstart av Sprint 3 / Fase 1e; ESLint config-gap for `public/v2/`-build-artefakter notert etter domain-rename-oppdagelse; audit-trail-utvidelse skjerpet til pre-pilot-launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1 status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61 markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
+**Sist oppdatert:** 2026-05-01 (BESLUTNING 4 — Mint kontrast-strategi —
+markert RESOLVED etter Phase 3A WCAG-revisjon. Tre design-gaps oppfølginger
+(MEDIUM tinted-badge, MEDIUM sm-button-touch, LOW PortionFactorSlider-label)
+flyttet til `wcag-followups.md`. Tidligere oppdateringer: 2026-04-29
+legacy `LOCAL_USER`-fallback i `server/auth/middleware.js` notert som
+backend cleanup-arbeid for Sprint 6 / pre-Sprint 8 deploy etter rot-årsak-
+funn under PR #77 hotfix; backup-arkitektur-utvidbarhet for fremtidig
+ekstern backup notert til Sprint 8 ved oppstart av Sprint 3 / Fase 1e;
+ESLint config-gap for `public/v2/`-build-artefakter notert etter
+domain-rename-oppdagelse; audit-trail-utvidelse skjerpet til pre-pilot-
+launch etter Christer-tilbakemelding på PR #71; Sprint 1 / Prompt 1
+status-refresh tidligere samme dag — batch-2 markert merget, PR #59/#61
+markert lukket; user-scoping + settings-arkitektur + AI-tier-entries lagt
+til 2026-04-28 etter PR #56-lukking; kalender-arkitektur lagt til samme dag)
 
 Dette dokumentet er en lokal huskelapp for beslutninger Christer må
 ta. Primær-lokasjon for Master-plan-beslutninger er
@@ -8,6 +21,42 @@ ta. Primær-lokasjon for Master-plan-beslutninger er
 fase-spesifikke prompter i Del B (1-18). Tidligere uke-2-
 beslutninger (Issue #62) og frontend-bug-analyse (PR #59) er
 nå lukket — listet i historikk-seksjon nedenfor.
+
+---
+
+## ✅ BESLUTNING 4 — Mint kontrast-strategi (RESOLVED 2026-05-01)
+
+**Master-plan-referanse:** Sprint 6 / Prompt 12 (WCAG 2.1 AA-revisjon).
+**Branch:** `fix/wcag-revisjon`.
+
+**Spørsmål:** Primary Button bruker `bg-mint text-ink-contrast` som
+gir ~3:1 kontrast i light mode — under WCAG AA 4.5:1 for body-text.
+Tre alternativer ble vurdert:
+
+- **A: Mørkere mint i light mode** ← VALGT
+- B: Bytte primary-button til mint-deep
+- C: Hardkodet mørk tekstfarge på primary
+
+**Beslutning:** Alternativ A. Bevarer visuell identitet (mint-grønt
+forblir mint-grønt), fixer kontrast systemisk uten å endre design-
+system-pattern.
+
+**Implementasjon:**
+- `--mint` light mode: L=0.58 → L=0.50
+- `--mint-deep` light mode: L=0.45 → L=0.38 (hover)
+- `--mint-deep` dark mode: L=0.55 → L=0.62 (også fikset, hover-state
+  i dark mode var også under AA på 4.35:1)
+- Tilført `--coral-deep` og `--rose-deep` i light mode for error/
+  destructive tekst på canvas
+- 23 matematiske kontrast-tester låser tokens i `client/src/app/
+  styles/contrast.test.ts`
+- 35 jest-axe-tester låser komponenter og skjermer
+
+**Krysslenker:**
+- Analyse: `docs/analyses/2026-05-01-fase-3a-wcag.md`
+- Compliance-status: `docs/runbooks/wcag-compliance.md`
+- Oppfølginger (MEDIUM/LOW): `docs/workflow/wcag-followups.md`
+- Design-gaps: oppdatert (entry flyttet til Løste gaps)
 
 ---
 

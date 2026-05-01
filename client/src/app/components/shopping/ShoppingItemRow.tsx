@@ -170,7 +170,7 @@ export function ShoppingItemRow({
         aria-label={t('shopping:item.deleteAria', { name: displayName })}
         className={[
           'inline-flex h-7 w-7 flex-shrink-0 items-center justify-center',
-          'rounded-md text-text-3 hover:bg-canvas-2 hover:text-coral',
+          'rounded-md text-text-3 hover:bg-canvas-2 hover:text-coral-deep',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-0',
         ].join(' ')}
         data-testid={`shopping-item-delete-${item.id}`}

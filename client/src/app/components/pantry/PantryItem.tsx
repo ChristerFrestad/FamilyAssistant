@@ -140,7 +140,7 @@ export function PantryItem({ item, onMarkUsed, onDelete }: PantryItemProps): JSX
         aria-label={t('actions.deleteAria', { name: item.name })}
         className={[
           'inline-flex items-center justify-center rounded-pill h-8 w-8',
-          'text-text-3 hover:text-coral hover:bg-coral/10 transition-colors',
+          'text-text-3 hover:text-coral-deep hover:bg-coral/10 transition-colors',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-0',
         ].join(' ')}
         data-testid="pantry-delete"
