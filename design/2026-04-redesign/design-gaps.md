@@ -392,6 +392,53 @@ slettet felt.
   her — primary mint, eller ikke-fremtredende secondary?"
 - **Status:** Pending
 
+### Settings-skjerm forenklet for pilot — 4 av mockup-ens 9 grupper
+
+- **Skjerm/Kontekst:** Settings-skjerm på `/v2/settings`
+  (`client/src/app/screens/Settings.tsx`) — siste skjerm i Sprint 5
+  / Fase 2F
+- **Oppdaget:** 2026-05-01, Fase 2F (Settings-skjerm) under
+  scope-bekreftelse med Christer
+- **Hva mangler:** Mockupen `Familieassistenten.html:2288-2570`
+  viser Settings som modal-overlay fra TopBar med 9 SettingsGroups
+  (Hjem-card, Familiemedlemmer, Tilkoblinger, Handel og butikker,
+  Assistenten, Familieliv, Varsler, Preferanser, Konto og personvern,
+  Logg ut). Pilot-implementasjonen er en dedikert `/v2/settings`-tab
+  med 4 seksjoner: System (språk + tema), Familie (navn + 3 disabled
+  Coming soon-rader), Bruker (2 disabled Resend-rader), Konto (GDPR-
+  eksport + slett konto). Fem hele mockup-grupper er ikke bygd:
+  Familiemedlemmer (overlapper med Family-skjerm), Tilkoblinger
+  (Google Cal / Apple Cal — post-pilot), Handel og butikker
+  (Kassal-API-key UI + foretrukne butikker — post-pilot),
+  Assistenten (smarte forslag + stemme — post-pilot), Familieliv
+  (gamification-detaljer — Sprint 6).
+- **Blokkerende-nivå:** lavt — pilot-bruker kan håndtere kjerne-
+  flytene (System-prefs, redigere familienavn, GDPR-eksport,
+  slette konto). Resten er roadmap-stubs som ærlig signaliserer
+  hva som kommer i hvilken sprint.
+- **Midlertidig løsning:** SettingsSection + SettingsRow-pattern
+  med disabled-state og badge-keys (`badge.sprint6`,
+  `badge.sprint7`, `badge.requiresResend`). Pilot-feedback driver
+  hvilke nye seksjoner som prioriteres. Eksisterende mockup-
+  grupper (Familiemedlemmer, Familieliv, Preferanser) overlapper
+  med andre skjermer eller er post-pilot scope.
+- **Antatt design-grunnlag:** Card padding `--p-md`, shadow
+  `--shadow-low`, divider `border-stroke`, badge-tokens fra
+  PantryItem/ExpiryBadge. Footer-versjon-tekst `font-mono
+  text-meta text-text-3`. Alle fra `client/src/app/styles/tokens.css`.
+- **Spørsmål til design-runde:** "Skal Settings være en egen
+  /v2/settings-tab i bottom-nav (vår nåværende implementasjon),
+  eller en modal-overlay fra TopBar (mockup-ens valg)? Hvis tab:
+  hvilken sprint-rekkefølge har de utestående mockup-gruppene
+  (Tilkoblinger, Handel og butikker, Assistenten, gamification-
+  detaljer)? Hvor hører Familiemedlemmer-listen hjemme — egen
+  Family-tab (eksisterende) eller Settings-seksjon (mockup-valg)?
+  Skal Coming soon-stubs forbli i pilot, eller fjernes så
+  tomme seksjoner vises kortere? Hvilke ekstra ikoner / accent-
+  farger trenger settings-rader for å matche mockup-ens visuelle
+  rytme (vi har bare disabled-opacity og sprint-badge i pilot)?"
+- **Status:** Pending
+
 ### Plassering (location) for pantry-items er ikke i datamodell
 
 - **Skjerm/Kontekst:** Pantry-sub-view, gruppering av items

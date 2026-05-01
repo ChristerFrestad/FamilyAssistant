@@ -20,7 +20,7 @@ import { Button } from '../base/Button';
 export interface ErrorBoundaryProps {
   children: ReactNode;
   /** i18n key under common:errorBoundary that picks the message line. Defaults to 'genericMessage'. */
-  messageKey?: 'shoppingMessage' | 'genericMessage';
+  messageKey?: 'shoppingMessage' | 'settingsMessage' | 'genericMessage';
   /** Test override — bypass console.error during render assertions. */
   silent?: boolean;
 }
@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 }
 
 interface FallbackProps {
-  messageKey: 'shoppingMessage' | 'genericMessage';
+  messageKey: 'shoppingMessage' | 'settingsMessage' | 'genericMessage';
 }
 
 function ErrorBoundaryFallback({ messageKey }: FallbackProps): JSX.Element {

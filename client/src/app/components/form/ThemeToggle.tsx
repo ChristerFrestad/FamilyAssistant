@@ -6,9 +6,10 @@
 // vice versa for data-theme="light". Removing the attribute lets the
 // `prefers-color-scheme` @media block in tokens.css decide.
 //
-// Persistence uses localStorage under `fa:theme`. The choice is read
-// synchronously on mount so the first paint already matches the
-// stored preference rather than briefly flashing the system default.
+// State is owned by ThemeProvider (../theme/ThemeContext) so multiple
+// instances of ThemeToggle (one in the AppShell header, one in the
+// Settings screen) stay in sync. Earlier the component carried its
+// own useState, which broke synchronisation between the two surfaces.
 //
 // A near-identical component exists in dev/preview/sections/ — that
 // version uses a different localStorage key (`fa:dev-preview:theme`)
@@ -16,31 +17,8 @@
 // app. We deliberately accept a small amount of duplication to keep
 // the dev/ → app/ import boundary clean (see CLAUDE.md DEL 7.7).
 
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-export type ThemeChoice = 'system' | 'light' | 'dark';
-
-const STORAGE_KEY = 'fa:theme';
-
-function readPersisted(): ThemeChoice {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
-  } catch {
-    // localStorage may be unavailable in private mode — fall through.
-  }
-  return 'system';
-}
-
-function applyTheme(choice: ThemeChoice): void {
-  const html = document.documentElement;
-  if (choice === 'system') {
-    html.removeAttribute('data-theme');
-  } else {
-    html.setAttribute('data-theme', choice);
-  }
-}
+import { useTheme, type ThemeChoice } from '../../theme/ThemeContext';
 
 export interface ThemeToggleProps {
   /** Optional class on the wrapper. */
@@ -49,17 +27,7 @@ export interface ThemeToggleProps {
 
 export function ThemeToggle({ className }: ThemeToggleProps): JSX.Element {
   const { t } = useTranslation('common');
-  const [choice, setChoice] = useState<ThemeChoice>(() => readPersisted());
-
-  useEffect(() => {
-    applyTheme(choice);
-    try {
-      localStorage.setItem(STORAGE_KEY, choice);
-    } catch {
-      // Persistence failure is non-blocking — the in-memory state
-      // still drives data-theme correctly for the current session.
-    }
-  }, [choice]);
+  const { choice, setChoice } = useTheme();
 
   // Order matches the dev preview's variant for visual consistency:
   // System first (the default), then Light, then Dark. This matters

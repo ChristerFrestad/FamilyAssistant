@@ -6,6 +6,117 @@
 
 ---
 
+2026-05-01 – Fase 2F Settings-skjerm (Sprint 5 avsluttet)
+
+Oppgave: Bygge sjette og siste skjerm i Sprint 5 / Fase 2 — Settings.
+Lukker Sprint 5 og gjør produktet "settings-komplett" for pilot.
+Mockup-Settings har 9 SettingsGroups; Christer-bekreftet tett-scope
+implementerer 4 seksjoner (System, Familie, Bruker, Konto).
+
+Analyse: docs/analyses/2026-05-01-fase-2f-settings.md (373 linjer)
+
+- Reisen: 5 hovedflyter (åpne, redigere familienavn, GDPR-eksport,
+  slett konto, prøve disabled-rad).
+- Edge-cases: 20 dokumentert (over 8-minimum) — owner-only edit,
+  navn-validering 0/100 chars, GDPR-feil-håndtering, samtidige
+  saves, theme-sync mellom AppShell-header og Settings-screen.
+- Beslutninger: 8 (Christer-bekreftet 5 hoved + 3 implikasjoner).
+  B1 (ingen migrasjon for family-prefs), B2 (ingen migrasjon for
+  user-prefs), B3 (inline-edit familienavn), B4 (koble GDPR), B5
+  (tett-scope). Disabled stubs for Coming soon-funksjoner.
+- Portainer-risiko: nei (ren frontend, ingen migrasjon).
+- ISO 25010: funksjonell egnethet 8.8 → 8.9 (+0.1, GDPR aktivert),
+  brukbarhet 8.7 → 8.8 (+0.1, inline-edit + Coming soon-stubs),
+  sikkerhet 8.2 → 8.3 (+0.1, GDPR-launch-blocker fjernet),
+  snitt 8.51 → 8.55 (+0.04).
+
+Plan: 6 commits — analyse, API+hook, komponenter, Settings+i18n+
+ErrorBoundary, theme-sync-fix, design-gaps. Endte opp som 5
+commits siden Settings.tsx + i18n + ErrorBoundary kunne kombineres
+i én logisk enhet.
+
+Gjort:
+
+- Branch: feat/fase-2f-settings (fra ren main, etter PR #83-merge).
+- Commits: 4 (etter squash til logiske enheter):
+  - `289f00d` docs(analysis): analyse-dokument
+  - `ddc76ef` feat(client/settings): settingsApi + useSettingsData
+  - `b3b8b92` feat(client/settings): SettingsSection + SettingsRow +
+    InlineEditableText + GDPR-knapper
+  - `cc7e52f` fix(client/theme): lift theme state to ThemeProvider
+  - `b513efd` feat(client/settings): integrate Settings + i18n +
+    ErrorBoundary + design-gaps
+- Filer endret: 24 nye + 9 modifiserte (analysenfil, settingsApi.ts,
+  useSettingsData.ts + tester, 5 komponenter + tester, Settings.tsx
+  + test, ThemeContext.tsx + ThemeToggle-refactor, App.tsx
+  ErrorBoundary-wrap, i18n-utvidelser begge språk, design-gaps).
+- Tester lagt til: ~75 nye client-tester (22 hook+API, 41
+  komponent, 12 Settings-integrasjon). Total client: 710 pass
+  (var 635 før Fase 2F). Server: 1293 pass / 2 skip / 0 fail
+  (uendret).
+- DOMAIN_MODEL.md oppdatert: nei. Ingen ny entitet — Settings
+  konsumerer eksisterende `families`- og `users`-tabeller.
+- Backend: ingen endringer. Konsumerer eksisterende
+  `GET /api/family`, `PUT /api/family`, `GET /api/me/export`,
+  `DELETE /api/me`.
+- Avvik fra plan: under manuell QA fant Christer at ThemeToggle
+  i AppShell-header og i Settings-skjerm ikke synkroniserte.
+  Hver instans hadde egen useState. Fix: lagt til ThemeContext
+  som lifter state til en provider, og ThemeToggle ble en thin
+  consumer. Dette er en ekte bug-fix som hører hjemme i denne
+  PR-en siden Settings er FØRSTE skjerm hvor to ThemeToggle-
+  instanser eksisterer samtidig — bug-en var "skjult" tidligere
+  fordi ingen andre skjermer rendrer ThemeToggle.
+
+Sikkerhet: ingen nye endepunkter, ingen ny auth-logikk. Bruker
+eksisterende `requireRole('owner')` på `PUT /api/family` og
+GDPR-stien sin egen `handleDeleteMe` owner-sjekk. Owner-restriction
+forhåndssjekkes i UI for å unngå garantert-403-flow. Ingen
+secrets eller PII-håndtering i Settings-state. window.confirm()
+brukes for slett-bekreftelse (pilot-scope; bespoke modal er
+Sprint 7-arbeid).
+
+ISO 25010: per analyse §2.7. Ingen karakteristikk under 8.0.
+
+Lokal CI-verifikasjon: alle grønne.
+
+- `npm run typecheck` server: 0 feil
+- `npm run typecheck:client`: 0 feil
+- `npm run test:client`: 710/710 pass (0 fail)
+- `npm test` server: 1293 pass / 2 skip / 0 fail
+- `npm run audit:prod`: 0 vulnerabilities
+- `npm run build:client`: 377.23 KB raw / 113.20 KB gzipped main
+  (+3.36 KB gzipped fra forrige main 109.84 KB)
+- `npm run test:coverage:gate`: lines 84.13/80, branches 74.7/68,
+  functions 82.22/72 — over alle terskler.
+
+Browser-verifikasjon: Christer bekreftet bug-en under manuell test,
+fikset, alle automatiske tester grønn. Visuell repro av fixen
+krever Christers manuelle test (preview-server kan ikke teste
+auth-beskyttede ruter uten session).
+
+Status: åpen — venter på Christer manuell test + push-godkjenning.
+
+Beslutninger Christer må ta: ingen blokkerende. Bekreft etter
+manuell test:
+- Theme-sync mellom Settings og header fungerer nå
+- Familienavn-inline-edit feeler riktig (Enter submitter, Esc
+  avbryter)
+- GDPR-eksport laster ned JSON-fil
+- Owner-blocked delete viser hint
+- Coming soon-rader signaliserer roadmap riktig
+
+Sprint 5 er teknisk komplett: Dashboard, Family, Meals, Shopping
++ Pantry sub-view, Settings — alle hovedskjermer levert.
+
+Neste: ved push-instruksjon → squash til 1-3 logiske commits, kjør
+én siste lokal CI, push til feat/fase-2f-settings, åpne PR med
+tittel "feat: Fase 2F — Settings screen (Sprint 5 complete)". Vent
+på CI grønn → vent på Christers godkjenning → merge per DEL 5.3
+(feat krever Christer).
+
+---
+
 2026-04-30 – Bugfix: manuelle shopping-items når kjøpt → pantry-update
 
 Oppgave: Christer manuelt-testet feat/fase-2e-pantry og rapporterte at
