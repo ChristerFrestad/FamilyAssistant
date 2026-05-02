@@ -32,7 +32,7 @@ shopping list, all from a single dialog without manual re-typing.
   from pantry" mint outline pill when `notes === 'auto:low-stock'`.
 - i18n keys `meals.actions.markCooked`, `meals.actions.alreadyCooked`,
   `meals.cookedDialog.*`, `shopping.badge.fromPantry` (no + en).
-- New documents: `docs/smart-coupling-flow.md` (cross-feature
+- New documents: `docs/runbooks/smart-coupling-flow.md` (cross-feature
   reisen) and `docs/DOMAIN_MODEL.md` BR-001 (low-stock trigger) +
   BR-002 (meal-deduction reason reuse).
 - Tests: 18 backend integration + 1 full E2E chain test + 17
