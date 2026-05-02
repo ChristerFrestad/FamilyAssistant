@@ -19,6 +19,7 @@ const {
 } = require('./google');
 const { createSessionForUser, setSessionCookie, clearSessionCookie } = require('./sessions');
 const { parseCookies, serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
+const { seedFamilyDefaults } = require('../services/seed.service');
 const {
   handleMagicLinkStart,
   handleMagicLinkVerify,
@@ -277,7 +278,17 @@ function handleOnboardingComplete(ctx, repos) {
         )
         .run(userName, portionFactor, userId);
 
-      // 4. Audit-log entry inside the same transaction. We bypass
+      // 4. Seed per-family defaults — recipes, chores, consumables,
+      //    family_profile parent row, default meal-plan and
+      //    chore-schedules for the current ISO week. Without this
+      //    step a freshly onboarded family is empty (no recipes to
+      //    pick, no chores in the dashboard) — see the multi-tenant
+      //    audit (docs/analyses/2026-05-02-multi-tenant-audit.md C1).
+      //    seedFamilyDefaults wraps its own runWithFamily; it is
+      //    idempotent against a partial state.
+      const seedSummary = seedFamilyDefaults(repos, newFamily.id);
+
+      // 5. Audit-log entry inside the same transaction. We bypass
       //    repos.auditLog.record() because that helper reads
       //    family_id from AsyncLocalStorage (which is still null at
       //    this point — the request is mid-onboarding and has no
@@ -303,7 +314,11 @@ function handleOnboardingComplete(ctx, repos) {
           '/api/auth/onboarding/complete',
           null,
           null,
-          JSON.stringify({ event: 'onboarding_completed', memberId: member.id }).slice(0, 2000)
+          JSON.stringify({
+            event: 'onboarding_completed',
+            memberId: member.id,
+            seedSummary,
+          }).slice(0, 2000)
         );
 
       const updatedUser = repos.auth.findById(userId);
