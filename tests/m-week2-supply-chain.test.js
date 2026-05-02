@@ -106,7 +106,7 @@ describe('Uke2 · Audit log repository', () => {
 // ============================================================
 // SBOM-6: withAudit wrapper via HTTP (integration)
 // ============================================================
-describe('Uke2 · withAudit-wrapper på destruktive endepunkter', () => {
+describe('Week2 · withAudit wrapper on destructive endpoints', () => {
   let server;
   before(async () => {
     server = await startTestServer();

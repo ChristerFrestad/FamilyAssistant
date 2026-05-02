@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 //
-// M3.4 Load baseline — kjør en enkel belastningsprofil mot en kjørende
+// M3.4 Load baseline — run a simple load profile against a running
 // Familieassistenten-server og rapporter p50/p95/p99 + RSS.
 //
 // Bruk:
-//   node scripts/load-baseline.js                       # lokal på :3000
+//   node scripts/load-baseline.js                       # local at :3000
 //   node scripts/load-baseline.js --url=https://host    # mot RPi5
 //   node scripts/load-baseline.js --token=$AUTH_TOKEN   # auth headers
 //   node scripts/load-baseline.js --concurrency=10 --duration=60
 //
 // Ingen ekstern avhengighet — bruker node:http. Kan kopieres til RPi5
-// og kjøres der uten npm install.
+// and runs there without npm install.
 //
 // Acceptance thresholds (dokumentert i RUNBOOK §8):
-//   - p95 < 200 ms på cached endpoints (/api/today, /api/meals/current)
-//   - p95 < 800 ms på skrive-endpoints (/api/meals/swap)
+//   - p95 < 200 ms on cached endpoints (/api/today, /api/meals/current)
+//   - p95 < 800 ms on write endpoints (/api/meals/swap)
 //   - RSS < 250 MB etter 60s sustained load
 //   - Feil-rate < 0.1 %
 
@@ -36,7 +36,7 @@ function parseArgs() {
     warmupMs: 2000,
     profile: 'smoke', // smoke|read|write|mixed
     output: '', // JSON-fil til baseline-resultat (uke 5)
-    compare: '', // baseline-fil å sammenligne mot (uke 5, CI gate)
+    compare: '', // baseline file to compare against (week 5, CI gate)
     allowRegressionPct: 20, // tillat p95 opptil +20% vs baseline
   };
   for (const a of process.argv.slice(2)) {
@@ -193,7 +193,7 @@ async function main() {
   // Quick health check
   const health = await req('GET', '/health');
   if (health.status !== 200) {
-    console.error(`Serveren svarer ikke på /health (status=${health.status}). Avslutter.`);
+    console.error(`Server is not responding at /health (status=${health.status}). Exiting.`);
     process.exit(2);
   }
   console.log(`Server OK (health=${health.status}, ${health.durMs.toFixed(1)}ms)`);
@@ -205,7 +205,7 @@ async function main() {
     await req('GET', '/api/today');
   }
 
-  console.log(`Kjører hovedtest (${args.duration}s)...`);
+  console.log(`Running main test (${args.duration}s)...`);
   const hist = new Histogram();
   const perEndpoint = new Map();
   let totalRequests = 0;
@@ -274,7 +274,7 @@ async function main() {
     );
   }
 
-  // Sluttsjekk mot /api/status for å hente oppdaterte breakers + mem
+  // Final check against /api/status to fetch updated breakers + mem
   console.log('');
   console.log('=== SERVER-STATE ETTER TEST ===');
   try {

@@ -2,7 +2,7 @@
 // In-memory LRU response cache med tag-basert invalidering (Fase 3.1)
 //
 // Designvalg:
-//   - Map() bevarer insertion-order → LRU ved å re-inserte ved hit
+//   - Map() preserves insertion order → LRU by re-inserting on hit
 //   - Tags: en route kan legge data i cache med en eller flere tags,
 //     og writes inviderer alle entries med gitt tag. Dette holder
 //     invalidering eksplisitt og forutsigbar.
@@ -18,7 +18,7 @@
 //
 // withCache(ttlMs, tags, handler):
 //   Returnerer en rute-handler som cacher JSON-responsen.
-//   Bruker pathname + query-string som cache-nøkkel.
+//   Uses pathname + query string as the cache key.
 
 function createCache({ max = 200, ttlMs = 60_000 } = {}) {
   const store = new Map(); // key → { data, expiresAt, tags }
@@ -111,7 +111,7 @@ function cacheKey(ctx) {
 
 /**
  * Wrapper som cacher JSON-responsen fra en GET-handler.
- * Bruker pathname + sortert query som nøkkel, og tagger entry med
+ * Uses pathname + sorted query as the key, and tags the entry with
  * de gitte tags slik at writes kan invalidere dem.
  *
  *   router.get('/api/today', withCache(['meals','chores'], handler));

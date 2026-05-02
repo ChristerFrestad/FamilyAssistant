@@ -3,7 +3,7 @@
 // Bruk:
 //   r.post('/api/shopping/add', validateBody(addShoppingSchema), handler);
 //
-// Etter validering finnes resultatet på ctx.body (erstattet med parsed data).
+// After validation the result is on ctx.body (replaced with parsed data).
 // Ved feil kastes en HttpError som error-handleren konverterer til RFC 7807.
 
 const { errors } = require('./errors');

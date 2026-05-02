@@ -1,9 +1,9 @@
 // LLM-integrasjon med tool-calling, RAG, og kontekstvindu-begrensning
-// Støtter: Ollama (standard), llama.cpp server (raskere på RPI5)
+// Supports: Ollama (default), llama.cpp server (faster on RPi5)
 // Anbefalt modell: qwen2.5:3b (Q4_K_M) for 8GB RAM
 //
-// M2.3: Alle LLM-kall går gjennom en circuit breaker slik at en hengende
-// Ollama-prosess ikke hoper opp requests på RPi5.
+// M2.3: All LLM calls go through a circuit breaker so a hanging
+// Ollama process does not pile up requests on the RPi5.
 
 const http = require('http');
 const { getBreaker, CircuitOpenError } = require('./services/circuit-breaker');
@@ -184,7 +184,7 @@ function httpRequest(url, payload, timeout = 60000) {
 
 async function llmChat(messages, options = {}) {
   // M2.3: Rute gjennom circuit breaker (ollama-breakeren dekker begge
-  // lokale backends — llama.cpp har samme feilmønster som Ollama).
+  // local backends — llama.cpp has the same failure pattern as Ollama).
   const breaker = getBreaker('ollama');
   if (!breaker) {
     // Skal ikke skje, men fail-open hvis modulen er fjernet.
@@ -221,7 +221,7 @@ async function ollamaChat(messages, options = {}) {
     },
   };
 
-  // Tool-calling (Ollama native — støttes av Qwen2.5+)
+  // Tool calling (Ollama native — supported by Qwen2.5+)
   if (options.tools) {
     payload.tools = options.tools;
   }
@@ -370,8 +370,8 @@ function trimHistoryToFit(systemPrompt, history, userMessage, maxTokens) {
 
 // === RAG: Hent relevant kontekst fra KB ===
 
-// Fase 4.4: sanitiser KB-data før den legges i system-prompt for å hindre
-// prompt injection. Lazy-load for å unngå circular dep.
+// Phase 4.4: sanitise KB data before it is added to the system prompt to
+// prevent prompt injection. Lazy-load to avoid circular dependency.
 let _sanitize = null;
 function getSanitizer() {
   if (_sanitize) return _sanitize;
@@ -439,7 +439,7 @@ ${dbContext.todayMeal ? `- Dagens middag: ${dbContext.todayMeal}` : '- Ingen mid
 ${dbContext.todayChores ? `- Husarbeid: ${dbContext.todayChores}` : ''}
 ${ragContext}`;
 
-  // Trim historikk til å passe i kontekstvinduet
+  // Trim history to fit the context window
   const trimmedHistory = trimHistoryToFit(
     systemPrompt,
     conversationHistory.slice(-MAX_HISTORY_MESSAGES),
@@ -460,7 +460,7 @@ ${ragContext}`;
       tools: AVAILABLE_TOOLS,
     });
 
-    // Hvis LLM returnerte tool-calls, returner dem for utførelse
+    // If the LLM returned tool calls, return them for execution
     if (result.type === 'tool_calls') {
       return {
         type: 'tool_calls',
@@ -469,8 +469,8 @@ ${ragContext}`;
       };
     }
 
-    // Ren tekst-respons — prøv å ekstrahere eventuelle tool-calls fra teksten
-    // (fallback for modeller som ikke støtter native tool-calling)
+    // Plain text response — try to extract any tool calls from the text
+    // (fallback for models that do not support native tool calling)
     const extracted = extractToolCallsFromText(result.content);
     if (extracted.toolCalls.length > 0) {
       return {
@@ -530,7 +530,7 @@ function extractToolCallsFromText(text) {
     }
   }
 
-  // Prøv også direkte function-call-mønster
+  // Also try direct function-call pattern
   const fnPattern =
     /\b(add_to_shopping_list|add_calendar_event|update_routine|suggest_meal|search_knowledge_base)\s*\(([^)]*)\)/g;
   while ((match = fnPattern.exec(text)) !== null) {
@@ -644,11 +644,11 @@ Svar i JSON: { "name": "...", "category": "rask|comfort|helg", "prepTime": "25 m
   }
 }
 
-// 4. Søndagspush med LLM
+// 4. Sunday push with LLM
 async function llmSundayPush(context) {
   const result = await generateMealSuggestions(context);
   if (result.error) {
-    log(`LLM søndagspush feilet: ${result.error} — faller tilbake til tilfeldig`);
+    log(`LLM sunday-push failed: ${result.error} — falling back to random`);
     return null;
   }
   return result;

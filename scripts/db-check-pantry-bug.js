@@ -1,7 +1,7 @@
 // Diagnose script for pantry auto-add bug.
 // Reads recent shopping_list_items + inventory + inventory_log to verify
 // the hypothesis that manuelle items (productKey IS NULL) never make it
-// into the inventory table even when toggled "kjøpt".
+// into the inventory table even when toggled "bought".
 
 const path = require('path');
 const Database = require('better-sqlite3');
@@ -58,10 +58,10 @@ const log = db
   .all();
 console.log(JSON.stringify(log, null, 2));
 
-console.log('\n=== Sammenligning: hvor mange manuelle items er kjøpt vs i inventory ===');
+console.log('\n=== Comparison: how many manual items are bought vs in inventory ===');
 const manualBoughtCount = manualBought.length;
 const inventoryCount = inv.length;
-console.log(`manuelle items kjøpt:                  ${manualBoughtCount}`);
+console.log(`manual items bought:                  ${manualBoughtCount}`);
 console.log(`inventory rows non-zero:               ${inventoryCount}`);
 console.log(
   `manuelle items i inventory:            ${

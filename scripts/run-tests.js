@@ -2,14 +2,14 @@
 /*
  * scripts/run-tests.js — cross-platform test runner wrapper
  *
- * Node 20 støtter ikke `node --test tests/` (directory-argument, kom i
+ * Node 20 does not support `node --test tests/` (directory argument, came in
  * Node 22.3). npm scripts med `tests/*.test.js` ekspanderes ikke i
- * Windows PowerShell, så vi trenger en portable måte å liste alle
+ * Windows PowerShell, so we need a portable way to list all
  * test-filer.
  *
  * Denne scripten leser tests/-katalogen, filtrerer .test.js-filer, og
  * spawner `node --test <filer>` med eventuelle ekstra flagg som ble
- * gitt på kommandolinjen.
+ * given on the command line.
  *
  * Usage:
  *   node scripts/run-tests.js

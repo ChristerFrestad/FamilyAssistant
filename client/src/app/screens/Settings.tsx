@@ -12,7 +12,7 @@
 //   - Delete account: disabled with hint when user is owner of a family
 //     (backend would 403 anyway via gdpr-routes.handleDeleteMe)
 //
-// Loading/empty/error pattern follows the etablerte mønster: skeleton
+// Loading/empty/error pattern follows the established pattern: skeleton
 // while /api/family is in flight, error-card with retry on failure,
 // data state once family is available. Routing is handled by App.tsx
 // where /settings is wrapped in ErrorBoundary.
@@ -59,7 +59,7 @@ export function Settings(): JSX.Element {
 
   const isOwner = user?.role === 'owner';
   // Owner of a family with members must transfer ownership before
-  // deleting account — backend 403s otherwise. Forhåndssjekk her
+  // deleting account — backend 403s otherwise. Pre-check here
   // for kjapp UX. We treat "any family attached" as the trigger;
   // a single-member family still has the owner constraint per
   // server/auth/gdpr-routes.js handleDeleteMe.

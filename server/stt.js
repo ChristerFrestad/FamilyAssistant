@@ -1,9 +1,9 @@
 // STT (Speech-to-Text) via whisper.cpp / faster-whisper
-// On-demand: lastes bare når brukeren trykker stemmeknappen
-// Frigjør RAM mellom bruk — kritisk for RPI5 8GB
+// On-demand: loaded only when the user presses the voice button
+// Frees RAM between uses — critical for RPi5 8GB
 //
-// Støtter to backends:
-//   1. whisper.cpp CLI (anbefalt for RPI5 — lettest på RAM)
+// Supports two backends:
+//   1. whisper.cpp CLI (recommended for RPi5 — lightest on RAM)
 //   2. faster-whisper HTTP server (mer funksjonalitet, tyngre)
 //
 // Installasjon whisper.cpp:
@@ -47,7 +47,7 @@ function transcribeWithWhisperCpp(audioBuffer, format = 'wav') {
     // Skriv audio-buffer til temp-fil
     fs.writeFileSync(tempFile, audioBuffer);
 
-    // Konverter til 16kHz WAV om nødvendig (whisper.cpp krever dette)
+    // Convert to 16kHz WAV if necessary (whisper.cpp requires this)
     const wavFile = tempFile.endsWith('.wav') ? tempFile : tempFile + '.wav';
     const needsConvert = !tempFile.endsWith('.wav');
 
@@ -90,7 +90,7 @@ function transcribeWithWhisperCpp(audioBuffer, format = 'wav') {
         const elapsed = Date.now() - startTime;
         // whisper.cpp -otxt skriver til .txt-fil, men vi leser stdout
         const text = (stdout || '').trim();
-        log(`Transkribering ferdig på ${elapsed}ms: "${text.slice(0, 80)}..."`);
+        log(`Transcription done in ${elapsed}ms: "${text.slice(0, 80)}..."`);
 
         resolve({
           text,
@@ -102,7 +102,7 @@ function transcribeWithWhisperCpp(audioBuffer, format = 'wav') {
     };
 
     if (needsConvert) {
-      // Bruk ffmpeg for konvertering (finnes på de fleste RPI-installasjoner)
+      // Use ffmpeg for conversion (available on most RPi installations)
       execFile(
         'ffmpeg',
         [
@@ -167,7 +167,7 @@ function transcribeWithFasterWhisper(audioBuffer) {
         try {
           const json = JSON.parse(data);
           const elapsed = Date.now() - startTime;
-          log(`faster-whisper transkribering på ${elapsed}ms`);
+          log(`faster-whisper transcription in ${elapsed}ms`);
           resolve({
             text: json.text || '',
             language: json.language || WHISPER_LANGUAGE,

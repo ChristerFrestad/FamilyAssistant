@@ -16,7 +16,7 @@ const weekYear = z
       const w = Number(v.slice(6));
       return w >= 1 && w <= 53;
     },
-    { message: 'Ukenummer må være mellom 01 og 53' }
+    { message: 'Week number must be between 01 and 53' }
   );
 const positiveId = z.number().int().positive();
 const category = z.string().min(1).max(50);
@@ -230,8 +230,8 @@ const kbSearchQuery = z.object({
 // Pantry (Iterasjon 1 — manuell inventory-justering)
 // ============================================================
 
-// Fase F: productKey og query er nå alternative — hvis productKey mangler
-// kjører server-siden resolver på query. qty kan være hel- eller decimaltall.
+// Phase F: productKey and query are now alternatives — if productKey is missing
+// the server runs the resolver on query. qty can be integer or decimal.
 // total + unit er nye valgfrie felter for Fase F progress-bar og lav-terskel.
 const pantryAddBody = z
   .object({
@@ -257,7 +257,7 @@ const pantryAddBody = z
     reason: z.enum(['manual', 'initial_seed', 'correction']).optional(),
   })
   .strict()
-  .refine((d) => !!d.productKey || !!d.query, { message: 'productKey eller query må være satt' });
+  .refine((d) => !!d.productKey || !!d.query, { message: 'productKey or query must be provided' });
 
 const pantryCorrectBody = z
   .object({
@@ -371,7 +371,7 @@ const profileUpdateBody = z.object({
 //
 // Atomic onboarding payload. The frontend collects family-name (Step 1)
 // and personal profile (Step 2) into local state and submits both in a
-// single request once the user clicks "Fullfør". The handler then runs
+// single request once the user clicks "Done". The handler then runs
 // one transaction that creates the family, the matching profile-member
 // row, sets the user's role to 'owner', stores the slider value on
 // users.portion_factor, flips onboarding_completed=1, and writes an

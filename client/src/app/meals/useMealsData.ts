@@ -52,8 +52,8 @@ export interface UseMealsDataOverrides {
 }
 
 /**
- * ISO weekday with mandag=0..søndag=6 (matches backend dayOfWeek).
- * JS Date.getDay() returns søndag=0..lørdag=6, so we shift.
+ * ISO weekday with Monday=0..Sunday=6 (matches backend dayOfWeek).
+ * JS Date.getDay() returns Sunday=0..Saturday=6, so we shift.
  */
 export function isoWeekday(d: Date): number {
   return (d.getDay() + 6) % 7;

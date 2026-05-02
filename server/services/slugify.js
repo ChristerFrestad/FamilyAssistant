@@ -1,21 +1,23 @@
 // @ts-check
 /**
- * Fase F – Canonical productKey slugification.
+ * Phase F — Canonical productKey slugification.
  *
- * All produktnavn som kommer inn fra UI (pantry, shopping, manuell add)
- * MÅ gå gjennom denne funksjonen. Mål: samme vare = samme key uansett
- * om den kom fra Kassal, pantry-historikk eller et fritt skrevet navn.
+ * All product names coming in from the UI (pantry, shopping, manual
+ * add) MUST go through this function. Goal: same item = same key
+ * regardless of whether it came from Kassal, pantry history or a
+ * free-form name.
  *
- * Regler:
+ * Rules:
  *  - Lowercase
- *  - Æ → e, Ø → o, Å → a (norsk → ASCII)
- *  - Bindestrek og underscore → ingenting
- *  - Whitespace → bindestrek
- *  - Alt annet ikke-alfanumerisk fjernes
- *  - Trim til maks 64 tegn
+ *  - Æ → e, Ø → o, Å → a (Norwegian → ASCII)
+ *  - Hyphen and underscore → nothing
+ *  - Whitespace → hyphen
+ *  - All other non-alphanumeric characters removed
+ *  - Trim to a max of 64 chars
  *
- * @param {unknown} name - Rått produktnavn fra UI eller API
- * @returns {string} Kanonisk lowercase slug (maks 64 tegn), eller tom streng ved ugyldig input
+ * @param {unknown} name - Raw product name from UI or API
+ * @returns {string} Canonical lowercase slug (max 64 chars), or empty
+ *     string on invalid input
  */
 function slugifyProductKey(name) {
   if (!name || typeof name !== 'string') return '';
@@ -23,22 +25,22 @@ function slugifyProductKey(name) {
     name
       .toLowerCase()
       .trim()
-      // Norske tegn
+      // Norwegian characters
       .replace(/æ/g, 'e')
       .replace(/ø/g, 'o')
       .replace(/å/g, 'a')
-      // Alle diakritiske tegn
+      // All diacritic characters
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      // Whitespace → bindestrek
+      // Whitespace → hyphen
       .replace(/\s+/g, '-')
-      // Fjern alt som ikke er a-z, 0-9 eller bindestrek
+      // Strip anything that is not a-z, 0-9 or hyphen
       .replace(/[^a-z0-9-]/g, '')
-      // Collapse gjentagende bindestreker
+      // Collapse repeated hyphens
       .replace(/-+/g, '-')
-      // Fjern leading/trailing
+      // Strip leading/trailing
       .replace(/^-+|-+$/g, '')
-      // Maks lengde
+      // Max length
       .slice(0, 64)
   );
 }

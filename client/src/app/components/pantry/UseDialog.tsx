@@ -2,7 +2,7 @@
 //
 // Lar brukeren registrere hvor mye av en pantry-item de har brukt. Tre
 // quick-buttons (1/4, 1/2, Alt) som setter input-feltet, pluss manuelt
-// nummer-input. Validering: 0 < amount <= remaining. Submit disabled når
+// number input. Validation: 0 < amount <= remaining. Submit disabled when
 // validering feiler. Quick-button verdier rundes til 1 desimal.
 //
 // Komponenten er ren presentation; den vet ingenting om backend. Parent

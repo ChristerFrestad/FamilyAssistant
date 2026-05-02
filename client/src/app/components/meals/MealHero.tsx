@@ -9,7 +9,7 @@
 //   3. recipe === null     → empty-state panel with placeholder CTA.
 //   4. recipe present      → full hero with category-tag, prep-time,
 //                             title, "Bytt middag" placeholder action,
-//                             "Åpne kilde" link if recipe.url is set.
+//                             "Open source" link if recipe.url is set.
 //
 // Pure render. Placeholder actions invoke onPlaceholderAction so the
 // parent (Meals.tsx) can surface inline "kommer i Sprint 5"-status

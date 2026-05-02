@@ -1,42 +1,44 @@
 // @ts-check
 /**
- * B7 / D7 lag 3 — HARDT filter MED override for diet_tags.
+ * B7 / D7 layer 3 — HARD filter WITH override for diet_tags.
  *
- * Mens allergy-filter skjuler oppskrifter permanent og dislike-filter
- * bare varsler, skjuler diet-filter oppskrifter default men kan slås av
- * via `options.ignoreDietTags=true`. UI bestemmer om toggelen er på.
+ * While allergy-filter hides recipes permanently and dislike-filter only
+ * warns, diet-filter hides recipes by default but can be turned off via
+ * `options.ignoreDietTags=true`. The UI decides whether the toggle is on.
  *
- * Input: familyContext med `members[]` hvor hvert medlem har `dietTags`
- * (enum-array). Diet_tags har INGEN fallback-arv — det er livsstil, ikke
- * noe familien kan "sette for alle".
+ * Input: familyContext with `members[]` where each member has `dietTags`
+ * (enum array). Diet_tags have NO fallback inheritance — it is a
+ * lifestyle choice, not something the family can "set for everyone".
  *
- * Matching: hver diet_tag er koblet til et sett ingredient-trigger-
- * substrings via `DIET_TAG_TRIGGERS`. Enkel substring-match (samme
- * teknikk som allergy-filter). Bevisst pragmatisk — kan utvides senere
- * med ingredient-kategorisering i DB.
+ * Matching: each diet_tag is linked to a set of ingredient trigger
+ * substrings via `DIET_TAG_TRIGGERS`. Simple substring match (same
+ * technique as allergy-filter). Deliberately pragmatic — can be extended
+ * later with ingredient categorisation in the DB.
  *
- * Fare for overlapp med allergier:
- *   diet_tag `laktosefri` triggerer melk-produkter — samme som allergi
- *   `laktose`. Det er OK: allergy-filter skjuler oppskriften via lag 1,
- *   og diet-filter rapporterer samtidig at diet_tag ble brutt. Call site
- *   kombinerer flaggene og bestemmer UI-prioritet (allergi først).
+ * Overlap risk with allergies:
+ *   diet_tag `laktosefri` triggers milk products — same as allergy
+ *   `laktose`. That's OK: allergy-filter hides the recipe via layer 1,
+ *   and diet-filter simultaneously reports that diet_tag was violated.
+ *   The call site combines the flags and decides UI priority (allergy
+ *   first).
  *
- * D7-override:
- *   Når `options.ignoreDietTags=true` returneres { hasDietConflicts:
- *   false, dietConflicts: [] } UANSETT hva oppskriften inneholder.
- *   Dette er query-param-drevet (f.eks. ?ignoreDietTags=true), ikke
- *   server-state — UI husker toggle-tilstanden.
+ * D7 override:
+ *   When `options.ignoreDietTags=true` we return { hasDietConflicts:
+ *   false, dietConflicts: [] } REGARDLESS of what the recipe contains.
+ *   This is query-param driven (e.g. ?ignoreDietTags=true), not
+ *   server-state — the UI remembers the toggle state.
  */
 
 /**
- * Seed-mapping fra diet_tag → trigger-substrings. Matcher D3 enum-liste
- * (13 verdier). Listene er konservative: heller ha false positives
- * (oppskrift skjules feil) enn missed blocks (vegetarianer får kjøtt).
+ * Seed mapping from diet_tag → trigger substrings. Matches the D3 enum
+ * list (13 values). The lists are conservative: prefer false positives
+ * (recipe hidden incorrectly) over missed blocks (vegetarian served meat).
  *
- * Note: `diabetiker-vennlig` er BEVISST utelatt — diabetes krever
- * næringsstoffinfo per oppskrift + per-bruker karbo/sukker-grenser for
- * å gi medisinsk nytte. Én enum-tag ville gitt falsk trygghet. Utsatt
- * til fase 2 (tidligst uke 6-10). Se `docs/workflow/pending-decisions.md`.
+ * Note: `diabetiker-vennlig` is INTENTIONALLY omitted — diabetes
+ * requires nutritional info per recipe + per-user carb/sugar limits to
+ * provide medical value. A single enum tag would give false safety.
+ * Deferred to phase 2 (earliest weeks 6-10). See
+ * `docs/workflow/pending-decisions.md`.
  *
  * @type {Record<string, string[]>}
  */
@@ -293,18 +295,18 @@ const DIET_TAG_TRIGGERS = Object.freeze({
 
 /**
  * @typedef {object} DietConflict
- * @property {string} ingredient - Ingrediens-navn fra oppskriften
- * @property {string} dietTag - Hvilken diet_tag ble brutt (f.eks. "vegetarian")
- * @property {string} memberName - Hvilket medlem har diet_tag
- * @property {string} trigger - Substring som matchet
+ * @property {string} ingredient - Ingredient name from the recipe
+ * @property {string} dietTag - Which diet_tag was violated (e.g. "vegetarian")
+ * @property {string} memberName - Which member has the diet_tag
+ * @property {string} trigger - Substring that matched
  */
 
 /**
  * @typedef {object} DietCheckResult
- * @property {boolean} hasDietConflicts - false hvis ignoreDietTags=true
+ * @property {boolean} hasDietConflicts - false if ignoreDietTags=true
  * @property {DietConflict[]} dietConflicts
  * @property {string[]} activeDietTags - Union across all members
- * @property {boolean} overrideActive - true hvis ignoreDietTags=true
+ * @property {boolean} overrideActive - true if ignoreDietTags=true
  */
 
 /**
@@ -359,7 +361,7 @@ function checkRecipeForFamily(recipe, familyContext, options = {}) {
             conflicts.push({
               ingredient: rawName,
               dietTag: tag,
-              memberName: m.name || 'Ukjent',
+              memberName: m.name || 'Unknown',
               trigger,
             });
             break; // one conflict per (member, tag) per ingredient

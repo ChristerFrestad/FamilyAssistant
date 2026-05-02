@@ -1,22 +1,23 @@
 /**
- * Fase F – Pantry identity resolver.
+ * Phase F — Pantry identity resolver.
  *
- * Tar en fritekst-forespørsel og returnerer opp til N forslag, hvor hvert
- * forslag har:
+ * Takes a free-text query and returns up to N suggestions where each
+ * suggestion has:
  *   { productKey, name, source, frequency, lastUsedAt, confidence }
  *
- * Kilder:
- *   "kassal" — matchet mot Kassal-produktkatalog (via repos.products som
- *              inneholder både seed-produkter og Kassal-synket data)
- *   "lokal"  — matchet mot pantry-historikk fra inventory_log (har vært
- *              i pantry før, men finnes ikke i products-katalog)
- *   "ny"     — intet treff; vi foreslår å opprette et nytt slug
+ * Sources:
+ *   "kassal" — matched against Kassal product catalog (via repos.products
+ *              which contains both seed products and Kassal-synced data)
+ *   "lokal"  — matched against pantry history from inventory_log (has
+ *              been in pantry before but is not in the products catalog)
+ *   "ny"     — no match; we suggest creating a new slug
  *
- * Kombinasjons-regler:
- *   1. Eksakte prefix-matches øverst, deretter substring-matches
- *   2. Kassal-matches vektes høyere enn lokal-historikk ved likhet
- *   3. Historikk-matches vektes etter antall ganger brukt
- *   4. Returnerer alltid en "ny"-rad nederst hvis det ikke allerede er en eksakt match
+ * Combination rules:
+ *   1. Exact prefix matches first, then substring matches
+ *   2. Kassal matches weighted higher than local history when equal
+ *   3. History matches weighted by usage count
+ *   4. Always return a "ny" row at the bottom unless there is already
+ *      an exact match
  */
 
 const { slugifyProductKey } = require('./slugify');
@@ -30,7 +31,7 @@ function resolvePantryInput(repos, query) {
   const results = [];
   const seenKeys = new Set();
 
-  // 1. Søk i products-katalog (kassal + seed)
+  // 1. Search products catalog (kassal + seed)
   try {
     const products = repos.products.search(q) || [];
     for (const p of products) {
@@ -51,10 +52,11 @@ function resolvePantryInput(repos, query) {
       });
     }
   } catch {
-    // Robust mot repo-feil — fortsett med andre kilder
+    // Robust against repo errors — continue with other sources
   }
 
-  // 2. Søk i inventory-historikk (ting som finnes i pantry nå, uansett hvor de kom fra)
+  // 2. Search inventory history (items currently in pantry, regardless
+  //    of where they came from)
   try {
     const inventoryMap = repos.inventory.getAll();
     for (const [productKey, inv] of Object.entries(inventoryMap)) {
@@ -78,8 +80,8 @@ function resolvePantryInput(repos, query) {
     // Robust
   }
 
-  // 3. Søk i inventory_log-historikk for å fange opp ting som er fjernet
-  //    (qty_remaining = 0) men brukeren har hatt før
+  // 3. Search inventory_log history to catch items that have been
+  //    removed (qty_remaining = 0) but the user has had before
   try {
     if (repos._db && typeof repos._db.prepare === 'function') {
       const escapedQ = q.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -115,7 +117,7 @@ function resolvePantryInput(repos, query) {
     // Robust
   }
 
-  // Sorter: confidence desc, deretter frequency desc
+  // Sort: confidence desc, then frequency desc
   results.sort((a, b) => {
     if (b.confidence !== a.confidence) return b.confidence - a.confidence;
     return (b.frequency || 0) - (a.frequency || 0);
@@ -123,7 +125,7 @@ function resolvePantryInput(repos, query) {
 
   const trimmed = results.slice(0, MAX_RESULTS);
 
-  // 4. Alltid tilby "opprett ny"-rad hvis ingen eksakt match
+  // 4. Always offer a "create new" row when there is no exact match
   const hasExact = trimmed.some((r) => r.confidence >= 1.0);
   if (!hasExact && q.length >= 2) {
     const newKey = slugifyProductKey(query);
@@ -146,14 +148,14 @@ function resolvePantryInput(repos, query) {
 }
 
 /**
- * Resolver en inn-kommende add-request mot katalogen. Returnerer canonical
- * productKey + klassifisering av kilde. Brukes av POST /api/pantry/add når
- * klienten ikke allerede har bestemt seg for en productKey.
+ * Resolve an incoming add request against the catalog. Returns canonical
+ * productKey + source classification. Used by POST /api/pantry/add when
+ * the client has not already chosen a productKey.
  */
 function resolveOrCreate(repos, query) {
   const suggestions = resolvePantryInput(repos, query);
   if (suggestions.length === 0) {
-    // Fallback: slugify direkte
+    // Fallback: slugify directly
     const key = slugifyProductKey(query);
     return { productKey: key, name: query, source: 'ny' };
   }

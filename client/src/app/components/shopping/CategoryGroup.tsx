@@ -32,7 +32,7 @@ function categoryAccent(name: string): BadgeVariant {
 
 // Known enum-keys that get localised display text. Manual items default
 // to 'other' on the backend; future migration of seed-data categories
-// (currently norske strings like 'Frukt & grønt') is tracked in
+// (currently Norwegian strings like 'Frukt & grønt') is tracked in
 // design-gaps.md and would expand this set. Anything not in the set
 // passes through unchanged so existing seed-data renders without
 // regression while we migrate gradually.

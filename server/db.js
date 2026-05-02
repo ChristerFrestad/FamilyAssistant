@@ -28,10 +28,10 @@ function ensureWritableDir(dir, label) {
       throw new Error(
         `Kan ikke opprette ${label} (${dir}): ${err.code}. ` +
           `Prosessen mangler skrivetilgang. Sjekk at:\n` +
-          `  1. Et persistent volum er mountet på ${DATA_DIR} ` +
+          `  1. A persistent volume is mounted at ${DATA_DIR} ` +
           `(Docker: 'volumes: - ./data:/app/data'; Portainer: legg til volume i stack-config).\n` +
           `  2. Volumet eies av container-brukeren (distroless 'nonroot' = UID 65532). ` +
-          `Fix: 'chown -R 65532:65532 <host-path>' på host, eller bygg imaget ` +
+          `Fix: 'chown -R 65532:65532 <host-path>' on host, eller bygg imaget ` +
           `slik at ${DATA_DIR} pre-eksisterer med riktig ownership.\n` +
           `  3. Alternativt: sett DB_PATH og BACKUP_DIR til en skrivbar path via env.`,
         { cause: err }
@@ -109,7 +109,7 @@ async function initDB() {
   if (sqljs) {
     if (process.env.NODE_ENV === 'production') {
       log(
-        '⚠ sql.js i produksjon: transaksjoner er ikke trådsikre, og data kan tapes ved krasj. Installer better-sqlite3.'
+        '⚠ sql.js in production: transactions are not thread-safe and data can be lost on crash. Install better-sqlite3.'
       );
     }
     return sqljs;

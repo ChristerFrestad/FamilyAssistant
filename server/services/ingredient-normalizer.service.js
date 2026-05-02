@@ -1,28 +1,31 @@
-// Ingredient normalizer (Iterasjon 3b fase C)
+// Ingredient normalizer (Iteration 3b phase C)
 //
-// Ansvar:
-//   1. Gjett språk (EN vs NO) på et ingrediensnavn
-//   2. Oversett EN → NO via statisk ordbok (multi_word først, så single_word)
-//   3. Fjern stopp-ord (fresh, chopped, finely, large, …)
-//   4. Trekk ut qty + unit fra en fritt formatert streng
-//      (eks. "400g ground beef" → qty=400, unit='g', name='ground beef')
-//   5. Cup-til-gram konvertering for vanlige tørrvarer
-//   6. LLM-fallback når ordboka ikke dekker nok ord (>20% ukjente),
-//      cachet i llm_cache med stabil nøkkel
+// Responsibilities:
+//   1. Detect language (EN vs NO) of an ingredient name
+//   2. Translate EN → NO via static dictionary (multi_word first, then
+//      single_word)
+//   3. Strip stop words (fresh, chopped, finely, large, …)
+//   4. Extract qty + unit from a free-form string (e.g. "400g ground
+//      beef" → qty=400, unit='g', name='ground beef')
+//   5. Cup-to-gram conversion for common dry goods
+//   6. LLM fallback when the dictionary does not cover enough words
+//      (>20% unknown), cached in llm_cache with a stable key
 //
-// Designvalg:
-//   - Ren funksjon (bortsett fra LLM-fallback som tar repos for cache).
-//     Kan brukes både synkron (dict-only) via normalizeSync() og
-//     asynkron (med LLM-fallback) via normalize().
-//   - 80%-terskel: hvis minst 80% av "betydelige tokens" (etter
-//     stopp-ord-fjerning) finnes i ordboka, godta dict-resultatet.
-//     Ellers → LLM.
-//   - LLM-kall bruker eksisterende llm_cache (key: 'ingr_tr:<lowercase raw>').
-//     TTL er 30 dager — oversettelser er stabile.
-//   - Hvis LLM ikke er tilgjengelig (ingen Ollama) → pass through
-//     dict-resultatet selv om under terskel. Bedre enn å feile.
-//   - Norsk input er passthrough — vi forsøker ikke å normalisere NO→NO
-//     bortsett fra qty/unit-utvinning og lowercase trim.
+// Design choices:
+//   - Pure function (except the LLM fallback which takes repos for the
+//     cache). Can be used both synchronously (dict-only) via
+//     normalizeSync() and asynchronously (with LLM fallback) via
+//     normalize().
+//   - 80% threshold: if at least 80% of "significant tokens" (after
+//     stop-word removal) are in the dictionary, accept the dict result.
+//     Otherwise → LLM.
+//   - LLM call uses the existing llm_cache (key:
+//     'ingr_tr:<lowercase raw>'). TTL is 30 days — translations are
+//     stable.
+//   - If LLM is not available (no Ollama) → pass through the dict
+//     result even if below threshold. Better than failing.
+//   - Norwegian input is pass-through — we do not try to normalise
+//     NO→NO except for qty/unit extraction and lowercase trim.
 
 const path = require('path');
 const fs = require('fs');
@@ -39,13 +42,13 @@ function loadDictionary() {
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
     _dict = JSON.parse(raw);
-    // Pre-compute sorted multi-word keys (lengste først) for match-prioritet
+    // Pre-compute sorted multi-word keys (longest first) for match priority
     _dict._multiWordKeysSorted = Object.keys(_dict.multi_word || {}).sort(
       (a, b) => b.length - a.length
     );
     _dict._stopWordsSet = new Set(_dict.stop_words || []);
   } catch (err) {
-    logger.error({ err: err.message, filePath }, 'normalizer: kunne ikke laste ordbok');
+    logger.error({ err: err.message, filePath }, 'normalizer: failed to load dictionary');
     _dict = {
       multi_word: {},
       single_word: {},
@@ -59,14 +62,14 @@ function loadDictionary() {
 }
 
 // ============================================================
-// Språkdeteksjon
+// Language detection
 // ============================================================
 
-// Norske tegn som indikerer klart NO
+// Norwegian-only characters indicate NO
 const NORWEGIAN_CHARS = /[æøåÆØÅ]/;
 
-// Heuristikk: streng med ingen æøå OG som inneholder minst ett engelsk
-// ordbok-ord → sannsynligvis EN. Strenger med æøå → NO.
+// Heuristic: a string with no æøå AND that contains at least one
+// English dictionary word → probably EN. Strings with æøå → NO.
 function detectLanguage(text) {
   if (!text || typeof text !== 'string') return 'unknown';
   if (NORWEGIAN_CHARS.test(text)) return 'no';
@@ -75,32 +78,32 @@ function detectLanguage(text) {
   const lowered = text.toLowerCase();
   const tokens = tokenize(lowered);
 
-  // Sjekk multi-word først
+  // Check multi-word first
   for (const phrase of dict._multiWordKeysSorted) {
     if (lowered.includes(phrase)) return 'en';
   }
-  // Så single-word
+  // Then single-word
   for (const tok of tokens) {
     if (dict.single_word[tok]) return 'en';
   }
-  // Ingen match — ukjent, behandles som NO (passthrough)
+  // No match — unknown, treated as NO (passthrough)
   return 'unknown';
 }
 
 // ============================================================
-// Tokenisering og qty/unit-utvinning
+// Tokenisation and qty/unit extraction
 // ============================================================
 
 function tokenize(text) {
   if (!text) return [];
   return text
     .toLowerCase()
-    .replace(/[()[\],;]/g, ' ') // tegn som splitter ord
+    .replace(/[()[\],;]/g, ' ') // characters that split words
     .split(/\s+/)
     .filter(Boolean);
 }
 
-// Regex som fanger "400g", "1.5 kg", "2 cups", "1/2 tsp", "3 stk"
+// Regex that matches "400g", "1.5 kg", "2 cups", "1/2 tsp", "3 stk"
 const QTY_UNIT_REGEX =
   /(\d+(?:[.,]\d+)?(?:\/\d+)?)\s*(kg|kilo|kilogram|g|gram|mg|l|liter|dl|cl|ml|stk|pcs|piece|pieces|cup|cups|tbsp|tsp|tablespoon|teaspoon|tablespoons|teaspoons|oz|lb|lbs|pound|pounds)\b/i;
 
@@ -136,7 +139,7 @@ const UNIT_CANONICAL = {
 };
 
 function parseFraction(str) {
-  // Håndterer "1/2", "3/4" osv.
+  // Handles "1/2", "3/4", etc.
   if (str.includes('/')) {
     const [num, den] = str.split('/').map(Number);
     if (den) return num / den;
@@ -155,11 +158,11 @@ function extractQtyUnit(text) {
 }
 
 // ============================================================
-// Oversettelse (statisk ordbok)
+// Translation (static dictionary)
 // ============================================================
 
 /**
- * Fjern stopp-ord fra en token-liste.
+ * Strip stop words from a token list.
  */
 function stripStopWords(tokens) {
   const dict = loadDictionary();
@@ -167,46 +170,49 @@ function stripStopWords(tokens) {
 }
 
 /**
- * Oversett EN → NO via dict. Returnerer { name, coverage, source }.
- * coverage = andel av betydelige tokens (i originalteksten, etter stopp-ord-fjerning)
- * som ble truffet av enten multi-word eller single-word regler.
+ * Translate EN → NO via dict. Returns { name, coverage, source }.
+ * coverage = fraction of significant tokens (in the original text, after
+ * stop-word removal) that were hit by either multi-word or single-word
+ * rules.
  */
 function translateViaDict(text) {
   const dict = loadDictionary();
   const lowered = text.toLowerCase().trim();
 
-  // Tell betydelige tokens i originalteksten — denne er nevneren for coverage
+  // Count significant tokens in the original text — this is the
+  // denominator for coverage
   const origSignificantCount = stripStopWords(tokenize(lowered)).length;
 
   let working = lowered;
   let hits = 0;
-  // Marker ord som kommer fra replacement (så vi ikke dobbelt-teller i single-word-fasen)
+  // Mark tokens that come from a replacement (so we don't double-count
+  // in the single-word phase)
   const replacedTokenSet = new Set();
 
-  // 1. Multi-word replacements (lengste først for riktig prioritet)
+  // 1. Multi-word replacements (longest first for correct priority)
   for (const phrase of dict._multiWordKeysSorted) {
     while (working.includes(phrase)) {
       const phraseSigCount = stripStopWords(tokenize(phrase)).length;
       hits += phraseSigCount;
       const replacement = dict.multi_word[phrase];
-      // Marker replacement-tokens (disse "tilhører" multi-word-dekning)
+      // Mark replacement tokens (they "belong to" multi-word coverage)
       for (const tok of tokenize(replacement)) replacedTokenSet.add(tok);
       working = working.replace(phrase, replacement);
     }
   }
 
-  // 2. Tokeniser post-replace, fjern stopp-ord, oversett enkeltord
+  // 2. Tokenise post-replace, strip stop-words, translate single tokens
   const tokens = tokenize(working);
   const significant = stripStopWords(tokens);
 
   const translated = significant.map((tok) => {
-    // Allerede dekket av multi-word replacement — ikke dobbelt-tell
+    // Already covered by a multi-word replacement — don't double-count
     if (replacedTokenSet.has(tok)) return tok;
     if (dict.single_word[tok]) {
       hits++;
       return dict.single_word[tok];
     }
-    // Ukjent token — behold som det er
+    // Unknown token — keep as-is
     return tok;
   });
 
@@ -220,12 +226,12 @@ function translateViaDict(text) {
 }
 
 // ============================================================
-// Cup-konvertering (dry goods)
+// Cup conversion (dry goods)
 // ============================================================
 
 /**
- * Hvis qty+unit er cup og navnet er en kjent tørrvare, konverter til gram.
- * Returnerer { qty, unit } uendret hvis ingen konvertering mulig.
+ * If qty+unit is cup and the name is a known dry good, convert to grams.
+ * Returns { qty, unit } unchanged if no conversion is possible.
  */
 function maybeConvertCup(qty, unit, nameNo) {
   if (qty == null || unit == null) return { qty, unit };
@@ -235,7 +241,7 @@ function maybeConvertCup(qty, unit, nameNo) {
   const table = dict.unit_conversions && dict.unit_conversions.cup;
   if (!table) return { qty, unit };
 
-  // Finn første matching nøkkel i nameNo (token-substring)
+  // Find the first matching key in nameNo (token substring)
   const lowered = (nameNo || '').toLowerCase();
   for (const key of Object.keys(table)) {
     if (key.startsWith('_')) continue;
@@ -251,9 +257,9 @@ function maybeConvertCup(qty, unit, nameNo) {
 // ============================================================
 
 /**
- * Ber LLM om å oversette et ukjent ingrediensnavn til norsk.
- * Cache'r i llm_cache med 30-dagers TTL.
- * Returnerer null hvis LLM ikke er tilgjengelig eller feiler.
+ * Ask the LLM to translate an unknown ingredient name to Norwegian.
+ * Caches in llm_cache with a 30-day TTL.
+ * Returns null if the LLM is not available or fails.
  */
 async function translateViaLlm(repos, rawText) {
   if (!repos || !repos.llmCache) return null;
@@ -265,11 +271,11 @@ async function translateViaLlm(repos, rawText) {
       const parsed = JSON.parse(cached.response);
       return { name: parsed.name, source: 'llm_cache' };
     } catch {
-      /* ignorer, fall through */
+      /* ignore, fall through */
     }
   }
 
-  // Dynamisk import av llm for å unngå require-syklus (llm bruker repos)
+  // Dynamic require of llm to avoid require cycle (llm uses repos)
   let llm;
   try {
     llm = require('../llm');
@@ -288,7 +294,7 @@ async function translateViaLlm(repos, rawText) {
   const prompt = `Oversett følgende matvare/ingrediens fra engelsk til norsk. Svar KUN med JSON på formen {"name":"..."} uten ekstra tekst. Ingrediens: "${rawText}"`;
 
   try {
-    // llmChat er den generelle low-level chat-funksjonen i llm.js
+    // llmChat is the general low-level chat function in llm.js
     if (typeof llm.llmChat !== 'function') return null;
     const result = await llm.llmChat(
       [
@@ -298,7 +304,7 @@ async function translateViaLlm(repos, rawText) {
       { temperature: 0.1, maxTokens: 64 }
     );
 
-    // llmChat returnerer { type, content } — vi vil kun ha tekst-svar
+    // llmChat returns { type, content } — we only want text answers
     const responseText =
       typeof result === 'string'
         ? result
@@ -307,7 +313,7 @@ async function translateViaLlm(repos, rawText) {
           : null;
     if (!responseText) return null;
 
-    // Prøv å parse JSON fra svaret (kan være innpakket i markdown-fence)
+    // Try to parse JSON from the response (may be wrapped in a markdown fence)
     const jsonMatch = responseText.match(/\{[^{}]*"name"[^{}]*\}/);
     if (!jsonMatch) return null;
     const parsed = JSON.parse(jsonMatch[0]);
@@ -323,7 +329,7 @@ async function translateViaLlm(repos, rawText) {
 
     return { name: parsed.name, source: 'llm' };
   } catch (err) {
-    logger.warn({ err: err.message, rawText }, 'normalizer: LLM-fallback feilet');
+    logger.warn({ err: err.message, rawText }, 'normalizer: LLM fallback failed');
     return null;
   }
 }
@@ -335,13 +341,14 @@ async function translateViaLlm(repos, rawText) {
 const DICT_COVERAGE_THRESHOLD = 0.8;
 
 /**
- * Synkron normalisering — kun ordbok, ingen LLM. Brukes fra
- * shopping-list.service.generateForWeek (som er synkron).
+ * Synchronous normalisation — dict only, no LLM. Used by
+ * shopping-list.service.generateForWeek (which is synchronous).
  *
  * @param {Object} input
- * @param {string} input.name — ingrediensnavn (kan inneholde qty/unit innbakt)
- * @param {number} [input.qty] — qty hvis allerede kjent
- * @param {string} [input.unit] — unit hvis allerede kjent
+ * @param {string} input.name — ingredient name (may include qty/unit
+ *     embedded)
+ * @param {number} [input.qty] — qty if already known
+ * @param {string} [input.unit] — unit if already known
  * @returns {{nameOriginal, nameNo, qty, unit, language, confidence, source}}
  */
 function normalizeSync({ name, qty = null, unit = null }) {
@@ -358,7 +365,7 @@ function normalizeSync({ name, qty = null, unit = null }) {
     };
   }
 
-  // Utvinn qty/unit hvis ikke oppgitt
+  // Extract qty/unit if not provided
   let workingName = nameOriginal;
   if (qty == null || unit == null) {
     const extracted = extractQtyUnit(nameOriginal);
@@ -371,7 +378,7 @@ function normalizeSync({ name, qty = null, unit = null }) {
 
   const language = detectLanguage(workingName);
 
-  // Norsk eller ukjent → passthrough (fjern kun stopp-ord som ikke er norske)
+  // Norwegian or unknown → passthrough (only strip non-Norwegian stop words)
   if (language === 'no' || language === 'unknown') {
     const cleaned = workingName.replace(/\s+/g, ' ').trim();
     return {
@@ -385,7 +392,7 @@ function normalizeSync({ name, qty = null, unit = null }) {
     };
   }
 
-  // Engelsk → dict-oversett
+  // English → dict translate
   const dictResult = translateViaDict(workingName);
   const converted = maybeConvertCup(qty, unit, dictResult.name);
 
@@ -402,17 +409,17 @@ function normalizeSync({ name, qty = null, unit = null }) {
 }
 
 /**
- * Asynkron normalisering — kan falle tilbake til LLM hvis dict-dekning
- * er lav. Brukes av enricher (som allerede er async).
+ * Asynchronous normalisation — can fall back to LLM when dict coverage
+ * is low. Used by the enricher (which is already async).
  */
 async function normalize(repos, input) {
   const dictRes = normalizeSync(input);
   if (!dictRes.needsLlm || dictRes.language !== 'en') return dictRes;
 
   const llmRes = await translateViaLlm(repos, dictRes.nameOriginal);
-  if (!llmRes) return dictRes; // LLM ikke tilgjengelig → behold dict-resultat
+  if (!llmRes) return dictRes; // LLM not available → keep dict result
 
-  // Kjør en ny dict-runde på LLM-output for stopp-ord-fjerning + unit-konvertering
+  // Run another dict pass on LLM output for stop-word stripping + unit conversion
   const cleaned = translateViaDict(llmRes.name);
   const converted = maybeConvertCup(dictRes.qty, dictRes.unit, cleaned.name || llmRes.name);
 
@@ -422,13 +429,13 @@ async function normalize(repos, input) {
     qty: converted.qty,
     unit: converted.unit,
     confidence: Math.max(dictRes.confidence, 0.85),
-    source: llmRes.source, // 'llm' eller 'llm_cache'
+    source: llmRes.source, // 'llm' or 'llm_cache'
     needsLlm: false,
   };
 }
 
 /**
- * Reset dict cache — brukes av tester som vil re-laste ordboka.
+ * Reset dict cache — used by tests that want to reload the dictionary.
  */
 function _resetDictionaryCache() {
   _dict = null;

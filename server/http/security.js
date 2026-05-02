@@ -4,7 +4,7 @@
 //   - bearerAuth       : Bearer-token autentisering
 //   - rateLimit        : In-memory sliding window rate limiter per IP
 //   - securityHeaders  : X-Content-Type-Options, X-Frame-Options, etc.
-//   - sanitizeForPrompt: Fjerner prompt-injection-mønstre før KB-tekst går til LLM
+//   - sanitizeForPrompt: strips prompt-injection patterns before KB text goes to LLM
 //
 // Alt er null-dependency og fungerer med node:http direkte.
 
@@ -74,7 +74,7 @@ function bearerAuth(ctx) {
 // to Google's consent screen) so only they need the tighter bucket.
 const hits = new Map();
 const authHits = new Map();
-const RATE_LIMIT_MAX_IPS = 10000; // Maks antall IP-er i map før eviction
+const RATE_LIMIT_MAX_IPS = 10000; // Max number of IPs in the map before eviction
 
 // Method+path tuples that go through the strict auth-bucket. Anything
 // not in this set falls back to the global limit (300/min default),
@@ -90,7 +90,7 @@ function isStrictAuthEndpoint(ctx) {
 }
 
 function getClientIp(req) {
-  // Kun stol på X-Forwarded-For hvis TRUST_PROXY er eksplisitt satt (reverse proxy)
+  // Only trust X-Forwarded-For when TRUST_PROXY is explicitly set (reverse proxy)
   if (process.env.TRUST_PROXY === 'true') {
     const fwd = req.headers['x-forwarded-for'];
     if (fwd) {
@@ -248,7 +248,7 @@ function applySecurityHeaders(res) {
   res.setHeader('Content-Security-Policy', CSP_POLICY);
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-  // HSTS settes bare når vi er bak HTTPS (Caddy) — det sjekker vi via env
+  // HSTS is only set when we are behind HTTPS (Caddy) — we check that via env
   if (config.NODE_ENV === 'production' && process.env.HTTPS_TERMINATED === 'true') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }

@@ -43,7 +43,7 @@ function serveStatic(res, filePath) {
     const content = fs.readFileSync(filePath);
     const headers = { 'Content-Type': mime };
     const basename = path.basename(filePath);
-    // M5.2: Service worker MÅ serves uten langtids-cache, og må kunne kontrollere
+    // M5.2: Service worker MUST be served without long-term cache and must be able to control
     // roten av originen. Service-Worker-Allowed tillater dette eksplisitt.
     if (basename === 'sw.js') {
       headers['Service-Worker-Allowed'] = '/';

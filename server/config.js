@@ -1,5 +1,5 @@
-// Sentralisert konfigurasjon med Zod-validert env
-// Alle env-variabler leses og valideres hér. Koden leser fra config.X
+// Centralised configuration with Zod-validated env vars.
+// All env vars are read and validated here. Code reads from config.X
 // i stedet for process.env.X, s\u00e5 feil konfigurasjon fanges ved oppstart.
 
 const fs = require('fs');
@@ -22,10 +22,10 @@ const envSchema = z.object({
   MAX_BODY_BYTES: z.coerce.number().int().positive().default(1_048_576), // 1 MB
   ALLOWED_ORIGINS: z.string().default('*'),
   AUTH_TOKEN: z.string().optional(),
-  // SBOM-5: token-rotation. ISO-8601 dato når AUTH_TOKEN sist ble rotert.
+  // SBOM-5: token rotation. ISO-8601 date when AUTH_TOKEN was last rotated.
   // Settes manuelt i .env etter rotering. Hvis ikke satt: tolkes som "ukjent".
   AUTH_TOKEN_CREATED_AT: z.string().optional(),
-  // Antall dager før en token anses "stale" og /ready flagger warning.
+  // Number of days before a token is considered "stale" and /ready flags a warning.
   // Default 90 dager (kvartalsvis rotering).
   AUTH_TOKEN_MAX_AGE_DAYS: z.coerce.number().int().positive().default(90),
 
@@ -109,14 +109,14 @@ const envSchema = z.object({
   BOOTSTRAP_FILE: z.string().optional(),
 });
 
-// Auto-detekter node --test og sett NODE_ENV=test hvis ikke eksplisitt satt.
-// Dette hindrer at top-level require('../server/...') i testfiler triggerer
-// produksjons-guardene (AUTH_TOKEN, ALLOWED_ORIGINS) før test-helperen rekker
-// å sette process.env.NODE_ENV=test.
+// Auto-detect node --test and set NODE_ENV=test if not explicitly set.
+// This prevents top-level require('../server/...') in test files from
+// triggering production guards (AUTH_TOKEN, ALLOWED_ORIGINS) before the
+// test helper has a chance to set process.env.NODE_ENV=test.
 function autoDetectTestEnv() {
   if (process.env.NODE_ENV) return;
-  // node --test setter NODE_TEST_CONTEXT='child' i worker-prosessen og
-  // legger 'node:test' i require.cache hos loaderen.
+  // node --test sets NODE_TEST_CONTEXT='child' in the worker process and
+  // adds 'node:test' to require.cache in the loader.
   if (process.env.NODE_TEST_CONTEXT) {
     process.env.NODE_ENV = 'test';
     return;
@@ -259,11 +259,11 @@ function loadConfig() {
     cfg.BOOTSTRAP_MODE = true;
   }
 
-  // Produksjons-krav: AUTH_TOKEN MÅ v\u00e6re satt hvis NODE_ENV=production,
-  // OG vi ikke er i BOOTSTRAP_MODE (som er førstegangs-deploy via Docker).
-  // PILOT_BYPASS er en eksplisitt auth-less modus og trenger heller ikke
-  // AUTH_TOKEN; produksjonssikkerheten er dekket av den separate
-  // PILOT_BYPASS_PRODUCTION_ACK-sjekken lenger ned.
+  // Production requirement: AUTH_TOKEN MUST be set when NODE_ENV=production,
+  // AND we are not in BOOTSTRAP_MODE (the first-run deploy via Docker).
+  // PILOT_BYPASS is an explicit auth-less mode and likewise does not require
+  // AUTH_TOKEN; production safety is covered by the separate
+  // PILOT_BYPASS_PRODUCTION_ACK check further down.
   if (
     cfg.NODE_ENV === 'production' &&
     !cfg.AUTH_TOKEN &&
@@ -281,9 +281,10 @@ function loadConfig() {
   }
 
   // CORS-hardening: kan ikke bruke '*' samtidig med AUTH_TOKEN i production.
-  // BOOTSTRAP_MODE får ha '*' midlertidig siden wizarden må serveres bredt
-  // på LAN-en før brukeren vet egen IP/domene. PILOT_BYPASS er også unntatt
-  // — pilot-deploys på LAN trenger bredt CORS for at knappen skal virke.
+  // BOOTSTRAP_MODE may keep '*' temporarily because the wizard must be
+  // served broadly on the LAN before the user knows their IP/domain.
+  // PILOT_BYPASS is also exempt — pilot deploys on the LAN need broad
+  // CORS so the button works.
   if (
     cfg.NODE_ENV === 'production' &&
     cfg.ALLOWED_ORIGINS_LIST === '*' &&

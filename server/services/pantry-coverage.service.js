@@ -1,23 +1,23 @@
-// Pantry-coverage scoring for oppskriftsforslag.
+// Pantry-coverage scoring for recipe suggestions.
 //
-// Brukes av meal-planning.service.js til å rangere oppskrifter basert på
-// hva som allerede ligger i pantry. To moduser:
+// Used by meal-planning.service.js to rank recipes based on what is
+// already in the pantry. Two modes:
 //
-//   - 'maksimer':  ren pantry-dekning. Score = veiet snitt av hvor stor
-//                  andel av hver ingrediens som finnes hjemme.
-//   - 'balansert': samme base-score pluss urgency-bonus for ingredienser
-//                  som matcher pantry-varer med kort tid igjen til utløp.
-//                  Bidrar til å redusere matsvinn.
+//   - 'maksimer':  pure pantry coverage. Score = weighted average of
+//                  how much of each ingredient is at home.
+//   - 'balansert': same base score plus an urgency bonus for ingredients
+//                  matching pantry items close to expiry. Helps reduce
+//                  food waste.
 //
-// Ren modul — ingen DB, ingen side effects. Tester seedes med en
-// konstruert inventoryMap (samme form som repos.inventory.getAll()).
+// Pure module — no DB, no side effects. Tests seed with a constructed
+// inventoryMap (same shape as repos.inventory.getAll()).
 
 'use strict';
 
 const OPTIONAL_WEIGHT = 0.3;
 const REQUIRED_WEIGHT = 1.0;
 
-// Bonus per ingrediens som matcher en pantry-vare som utløper snart.
+// Bonus per ingredient that matches a pantry item expiring soon.
 const URGENCY_BONUS_CRITICAL = 0.15; // daysLeft <= 1
 const URGENCY_BONUS_SOON = 0.08; // daysLeft <= 3
 
@@ -48,12 +48,12 @@ function urgencyBonus(daysLeft) {
 }
 
 /**
- * Score én oppskrift mot pantry.
+ * Score one recipe against the pantry.
  *
  * @param {{ ingredients: Array }} recipe
- * @param {Object} inventoryMap - fra repos.inventory.getAll()
+ * @param {Object} inventoryMap - from repos.inventory.getAll()
  * @param {'maksimer'|'balansert'} mode
- * @param {number} [now=Date.now()] - for testbarhet
+ * @param {number} [now=Date.now()] - for testability
  * @returns {{
  *   score: number,
  *   ingredientsAtHome: number,
@@ -90,9 +90,9 @@ function scoreRecipeByPantry(recipe, inventoryMap, mode = 'maksimer', now = Date
     weightedCoverage += cover * weight;
     totalWeight += weight;
 
-    // "At home" = noe mengde tilgjengelig (matcher dagens adferd i
-    // getSwapSuggestions der homeCount teller ingredienser med qtyRemaining >= qty).
-    // Vi bruker cover > 0 for å gi kredit for delvis dekning også.
+    // "At home" = some quantity available (matches the current behavior
+    // in getSwapSuggestions where homeCount counts ingredients with
+    // qtyRemaining >= qty). We use cover > 0 to credit partial coverage too.
     if (cover > 0) ingredientsAtHome++;
 
     let daysLeft = null;
@@ -121,9 +121,10 @@ function scoreRecipeByPantry(recipe, inventoryMap, mode = 'maksimer', now = Date
 }
 
 /**
- * Rangér oppskrifter desc på pantry-score. Topp-N returneres.
- * Hver returnert oppskrift annoteres med scoring-felter (score, ingredientsAtHome,
- * totalIngredients, expiringUsed) — selve recipe-objektet kopieres uendret.
+ * Rank recipes desc by pantry score. Top-N returned. Each returned
+ * recipe is annotated with scoring fields (score, ingredientsAtHome,
+ * totalIngredients, expiringUsed) — the recipe object itself is copied
+ * unchanged.
  *
  * @param {Array} recipes
  * @param {Object} inventoryMap
@@ -153,22 +154,22 @@ function rankRecipes(
 
   scored.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    // Tie-break for 'balansert': flere utløps-varer brukt vinner
+    // Tie-break for 'balansert': more expiring items used wins
     if (mode === 'balansert' && b.expiringUsed !== a.expiringUsed) {
       return b.expiringUsed - a.expiringUsed;
     }
-    // Generell tie-break: kortere prepTime vinner hvis numerisk
+    // General tie-break: shorter prepTime wins if numeric
     const pa = parsePrepTimeMinutes(a.recipe.prepTime);
     const pb = parsePrepTimeMinutes(b.recipe.prepTime);
     if (pa !== pb) return pa - pb;
-    // Stabil: ID
+    // Stable: ID
     return (a.recipe.id || 0) - (b.recipe.id || 0);
   });
 
   return limit ? scored.slice(0, limit) : scored;
 }
 
-// "20 min" → 20. "1 time" → 60. Ukjent → 999 (havner sist i tie-break).
+// "20 min" → 20. "1 time" → 60. Unknown → 999 (lands last in tie-break).
 function parsePrepTimeMinutes(s) {
   if (!s) return 999;
   const m = String(s).match(/(\d+)\s*(min|t|tim|time)?/i);
@@ -180,9 +181,10 @@ function parsePrepTimeMinutes(s) {
 }
 
 /**
- * "Trekk fra" pantry-mengder som en valgt oppskrift vil bruke. Returnerer
- * en NY inventoryMap (muterer ikke input) — nyttig for sekvensielt valg
- * av oppskrifter til en uke hvor samme vare ikke skal telles to ganger.
+ * "Subtract" pantry quantities that a chosen recipe will use. Returns a
+ * NEW inventoryMap (does not mutate input) — useful for sequential
+ * recipe selection across a week where the same item should not be
+ * counted twice.
  */
 function subtractIngredientsFromInventory(inventoryMap, recipe) {
   const next = { ...inventoryMap };
@@ -203,6 +205,6 @@ module.exports = {
   keyForIngredient,
   coverForIngredient,
   daysUntilExpiry,
-  // eksponert for tester
+  // exposed for tests
   _internals: { OPTIONAL_WEIGHT, REQUIRED_WEIGHT, URGENCY_BONUS_CRITICAL, URGENCY_BONUS_SOON },
 };
