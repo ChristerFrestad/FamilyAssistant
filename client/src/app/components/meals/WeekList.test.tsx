@@ -9,6 +9,7 @@ const NO_LONG = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 
 
 function makeSlot(dayOfWeek: number, overrides: Partial<MealSlot> = {}): MealSlot {
   return {
+    id: 200 + dayOfWeek,
     dayOfWeek,
     dayName:
       ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag'][dayOfWeek] ?? '',

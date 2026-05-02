@@ -40,7 +40,9 @@
     "swap": "Swap meal",
     "plan": "Plan meal",
     "openSource": "Open source",
-    "retry": "Try again"
+    "retry": "Try again",
+    "markCooked": "Mark cooked",
+    "alreadyCooked": "Cooked"
   },
   "empty": {
     "heroTitle": "No meal planned",
@@ -79,5 +81,31 @@
   },
   "placeholder": {
     "description": "Coming in Phase 2C — week menu, recipes, and swap flow."
+  },
+  "cookedDialog": {
+    "title": "Deduct from pantry",
+    "description": "Pick how much of each ingredient to deduct from the pantry.",
+    "emptyMatched": "None of this recipe's ingredients are linked to the pantry. You can mark the meal cooked without deducting.",
+    "noPantryLink": "Not in pantry",
+    "have": "Have {{remaining}} {{unit}}",
+    "haveNoUnit": "Have {{remaining}}",
+    "amountLabel": "Amount",
+    "skipRow": "Skip this one",
+    "exceedsPantry": "More than what's at home — will deduct to 0.",
+    "validation": {
+      "negative": "Amount must be 0 or more.",
+      "tooMuch": "More than we have: {{remaining}} {{unit}}.",
+      "tooMuchNoUnit": "More than we have: {{remaining}}."
+    },
+    "confirm": "Confirm deduction",
+    "skip": "Skip deduction",
+    "cancel": "Cancel",
+    "loading": "Loading suggestions …",
+    "errorLoad": "Could not load suggestions.",
+    "errorApply": "Could not deduct from pantry. Try again.",
+    "successApplied": "Deducted from pantry.",
+    "successSkipped": "Marked cooked without deducting.",
+    "lowStock": "{{count}} item added to shopping list because pantry ran low.",
+    "lowStock_other": "{{count}} items added to shopping list because pantry ran low."
   }
 }

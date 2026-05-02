@@ -14,6 +14,7 @@ const NO_DAYS = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'];
 
 function makeSlots(overrides: Partial<MealSlot>[] = []): MealSlot[] {
   return Array.from({ length: 7 }, (_, i) => ({
+    id: 100 + i,
     dayOfWeek: i,
     dayName: ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag'][i] ?? '',
     recipeId: i + 1,

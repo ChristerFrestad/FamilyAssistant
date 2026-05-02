@@ -41,6 +41,12 @@ export interface MealHeroProps {
   onPlaceholderAction: (kind: 'swap' | 'plan') => void;
   /** Inline placeholder status text, if the parent has one to show. */
   placeholderStatus?: string | null;
+  /**
+   * Sprint 6 — fires when the user taps "Marker tilberedt". Optional
+   * so existing tests that do not exercise the cook-flow can keep
+   * rendering the hero without supplying a handler.
+   */
+  onMarkCooked?: (mealId: number) => void;
 }
 
 export function MealHero({
@@ -49,6 +55,7 @@ export function MealHero({
   isToday,
   onPlaceholderAction,
   placeholderStatus,
+  onMarkCooked,
 }: MealHeroProps): JSX.Element {
   const { t } = useTranslation('meals');
 
@@ -113,6 +120,7 @@ export function MealHero({
   }
 
   const recipe = slot.recipe;
+  const isCooked = slot.status === 'cooked' || slot.status === 'eaten';
   return (
     <Card padding="md" shadow="low" data-testid="meal-hero-recipe">
       <HeroDayHeader label={headerLabel} />
@@ -125,11 +133,26 @@ export function MealHero({
             {recipe.prepTime}
           </span>
         ) : null}
+        {isCooked ? (
+          <Badge variant="mint" data-testid="meal-hero-cooked-badge">
+            {t('actions.alreadyCooked')}
+          </Badge>
+        ) : null}
       </div>
       <h2 className="mb-3 font-display text-display-sm text-text-1" data-testid="meal-hero-name">
         {recipe.name}
       </h2>
       <div className="flex flex-wrap items-center gap-2">
+        {!isCooked && onMarkCooked ? (
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => onMarkCooked(slot.id)}
+            data-testid="meal-hero-mark-cooked-button"
+          >
+            {t('actions.markCooked')}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="secondary"

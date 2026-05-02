@@ -69,5 +69,8 @@
   },
   "placeholder": {
     "description": "Kommer i Fase 2C — handleliste med kategorier, pantry-integrasjon og angre-flyt."
+  },
+  "badge": {
+    "fromPantry": "Foreslått fra pantry"
   }
 }

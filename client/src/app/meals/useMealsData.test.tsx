@@ -17,6 +17,7 @@ import type { FamilyResponse } from '../family/familyApi';
 const SAMPLE_MEALS: MealsCurrentResponse = {
   weekYear: '2026-W18',
   meals: Array.from({ length: 7 }, (_, i) => ({
+    id: 300 + i,
     dayOfWeek: i,
     dayName: ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag'][i] ?? '',
     recipeId: i === 2 ? null : i + 1,

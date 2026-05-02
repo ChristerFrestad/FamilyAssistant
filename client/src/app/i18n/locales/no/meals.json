@@ -40,7 +40,9 @@
     "swap": "Bytt middag",
     "plan": "Planlegg middag",
     "openSource": "Åpne kilde",
-    "retry": "Prøv igjen"
+    "retry": "Prøv igjen",
+    "markCooked": "Marker tilberedt",
+    "alreadyCooked": "Tilberedt"
   },
   "empty": {
     "heroTitle": "Ingen middag planlagt",
@@ -79,5 +81,31 @@
   },
   "placeholder": {
     "description": "Kommer i Fase 2C — ukemeny, oppskrifter og swap-flyt."
+  },
+  "cookedDialog": {
+    "title": "Trekk fra pantry",
+    "description": "Velg hvor mye av hver ingrediens som skal trekkes fra pantry.",
+    "emptyMatched": "Ingen av ingrediensene i denne oppskriften er knyttet til pantry. Du kan markere måltidet som tilberedt uten trekk.",
+    "noPantryLink": "Ikke i pantry",
+    "have": "Har {{remaining}} {{unit}}",
+    "haveNoUnit": "Har {{remaining}}",
+    "amountLabel": "Mengde",
+    "skipRow": "Hopp over",
+    "exceedsPantry": "Mer enn det vi har hjemme — trekkes til 0.",
+    "validation": {
+      "negative": "Mengde må være 0 eller mer.",
+      "tooMuch": "Mer enn vi har: {{remaining}} {{unit}}.",
+      "tooMuchNoUnit": "Mer enn vi har: {{remaining}}."
+    },
+    "confirm": "Bekreft trekk",
+    "skip": "Skip trekk",
+    "cancel": "Avbryt",
+    "loading": "Henter forslag …",
+    "errorLoad": "Kunne ikke hente forslag.",
+    "errorApply": "Kunne ikke trekke fra pantry. Prøv igjen.",
+    "successApplied": "Trukket fra pantry.",
+    "successSkipped": "Markert tilberedt uten trekk.",
+    "lowStock": "{{count}} vare lagt til handleliste fordi pantry ble lav.",
+    "lowStock_other": "{{count}} varer lagt til handleliste fordi pantry ble lav."
   }
 }
