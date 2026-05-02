@@ -6,6 +6,95 @@
 
 ---
 
+2026-05-02 – Sprint 6 finalize: smart-coupling Pantry-Måltider-Handleliste
+
+Oppgave: Mulighet A — bygg full kjede i én PR. Inkluder
+mark-eaten-endepunkt + pantry-trekk-dialog som er kjerneverdi for
+pilot. Reuse `'correction'`-reason i inventory_log (ingen ny
+migration). Pre-deploy cleanup-bit holdt konservativ per CLAUDE.md
+DEL 7.7.
+
+Analyse: docs/analyses/2026-05-02-sprint-6-finalize-with-coupling.md
+(403 linjer)
+
+- Reisen: 8-stegs kjede plan → list → buy → pantry → cook →
+  deduct → restock med 3-nivå-dybde på flere grener.
+- Edge-cases: 20 dokumentert (over 8-minimum) — recipe uten
+  ingredients, ingredient uten productKey, slug-kolliderte
+  ingredients, dobbel mark-eaten, Cancel-når-network-feiler,
+  family-roster-zero, optional-ingrediens-skip.
+- Beslutninger: 6 (alle Christer-godkjent via Mulighet A-prompten).
+  Two endpoints (mark-eaten + apply-deduction), reuse
+  `'correction'`-reason, Marker tilberedt synlig alltid for
+  status='planned', "Suggested from pantry"-badge i Shopping,
+  ingen optimistic update på pantry-list, konservativ dead-code-
+  scope per DEL 7.7.
+- Portainer-risiko: nei (ingen migration, ingen oppstart-endring,
+  kun tjeneste-utvidelser + frontend).
+- ISO 25010: funksjonell egnethet 8.8 → 8.95 (+0.15, kjerne-
+  verdikjede lukket), brukervennlighet 8.6 → 8.7, vedlikeholdbarhet
+  8.3 → 8.35 (DOMAIN_MODEL får første reelle innslag),
+  pålitelighet 8.4 → 8.45 (broken low-stock-trigger fix). Snitt
+  ~8.55 → 8.62 (+0.07).
+
+Plan: 12 commits — analyse, backend service+routes+tests, frontend
+dialog+hook+i18n+badge+tests, E2E-chain-test, low-stock-tighten,
+docs (DOMAIN_MODEL + smart-coupling-flow + README + CHANGELOG).
+Endte som 6 squashable logiske enheter pluss analyse-commit.
+
+Gjort:
+
+- Branch: feat/sprint-6-finalize-with-coupling (fra ren main, etter
+  PR #87-merge).
+- Commits: 6 (analyse + backend + frontend + E2E + lokal CI grønn
+  + docs).
+- Filer endret: 28 (12 nye, 16 modifiserte). Backend +662
+  innsettelser, frontend +1150, tester +416.
+- Tester lagt til: 36 nye (18 backend integration + 1 E2E chain +
+  17 client). Total backend: 1320 pass, 2 skip, 0 fail (var
+  1302+2+0 før denne PR-en — +18 nye). Total client: 805 pass
+  (var 770 før — +35 nye). Bundle: 113.21 → 115.83 KB gzipped
+  (+2.62 KB, godt under 130 KB-mål).
+- DOMAIN_MODEL.md oppdatert: ja (BR-001 low-stock-trigger, BR-002
+  meal-deduction-reason-reuse). Første reelle entries i denne filen
+  som har vært tom siden uke 1.
+- Avvik fra plan: low-stock-trigger var pre-eksisterende broken
+  (ikke bare manglende — `addItem`-kall hadde feil signatur og
+  `getActive(weekYear)` ble kalt uten arg). Fix tatt med i scope
+  som "drive-by" siden vi uansett verifiserte denne flyten.
+  Endringen er strengt forbedring, ingen kontrakt-endring.
+
+Sikkerhet: ingen nye sensitive endepunkter. Alle tre nye routes
+under `requireRole('adult')`. Zod-validering på apply-deduction
+body. Ingen secrets, PII, eller cross-tenant-eksponering. Sjekkliste
+i PR-beskrivelsen.
+
+ISO 25010: per analyse §2.7. Snitt 8.55 → 8.62. Ingen karakteristikk
+under 8.0.
+
+Lokal CI: alle grønne (lint på endrede filer ren, typecheck
+server+client OK, 1320 + 805 tests pass, audit 0 vulns, build OK).
+
+Status: åpen — venter på Christer manuell verifikasjon + push +
+merge-instruksjon.
+
+Beslutninger Christer må ta:
+
+- Manuell verifikasjon i UI (full chain test-instruksjoner i PR):
+  bekreft at MarkCookedDialog renderer suggestions, Confirm
+  dekrementer pantry, Skip lar pantry være, Cancel ruller status
+  tilbake, "Foreslått fra pantry"-badge vises på auto-restocked
+  shopping-rad.
+- Bekreftelse at reuse av `'correction'`-reason er greit for pilot
+  (post-pilot kan vi vurdere migration med dedikert
+  `'meal_deduction'`-enum-verdi).
+
+Neste: ved push-godkjenning → squash til 1-2 meningsfulle commits,
+push, åpne PR med engelsk tittel + body, vent CI grønn → vente på
+"merge"-instruksjon → merge per DEL 5.3 (feat krever Christer).
+
+---
+
 2026-05-01 – Fase 3A WCAG 2.1 AA-revisjon + UX-audit (Sprint 6 åpnet)
 
 Oppgave: Systematisk WCAG 2.1 AA-revisjon + UX-audit av alle 16

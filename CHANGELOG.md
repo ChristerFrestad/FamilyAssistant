@@ -6,6 +6,62 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Sprint 6 finalize — smart-coupling Pantry · Meals · Shopping (2026-05-02)
+
+**Closes the core value-chain for pilot.** Cooking a meal now leads
+to a pantry deduction, and pantry running low auto-restocks the
+shopping list, all from a single dialog without manual re-typing.
+
+**Added**
+
+- New backend service `server/services/pantry-deduction.service.js`
+  with `buildSuggestions(repos, slot)` and `applyDeduction(repos,
+  mealId, items)`. Reuses `inventory_log.reason='correction'` and
+  tags rows with `notes='meal_deduction:<mealId>'` for audit
+  reconstruction (no migration).
+- Three new endpoints under `/api/meals/:id`: `mark-eaten` (commits
+  cook-status + returns suggestions), `apply-deduction` (mutates
+  pantry per item), `unmark-eaten` (cancel undo).
+- New Zod body schema `mealApplyDeductionBody` and `getById` /
+  `setStatusById` helpers on `mealPlans` repo.
+- Frontend `MarkCookedDialog` with per-ingredient editable rows,
+  skip toggle, validation; new `usePantryDeduction` hook drives the
+  state machine; `MealHero` got a primary "Marker tilberedt" button
+  and a "Tilberedt" badge for cooked status.
+- `ShoppingItemRow` renders a "Foreslått fra pantry" / "Suggested
+  from pantry" mint outline pill when `notes === 'auto:low-stock'`.
+- i18n keys `meals.actions.markCooked`, `meals.actions.alreadyCooked`,
+  `meals.cookedDialog.*`, `shopping.badge.fromPantry` (no + en).
+- New documents: `docs/smart-coupling-flow.md` (cross-feature
+  reisen) and `docs/DOMAIN_MODEL.md` BR-001 (low-stock trigger) +
+  BR-002 (meal-deduction reason reuse).
+- Tests: 18 backend integration + 1 full E2E chain test + 17
+  client (dialog + hook + Meals wiring). Net +36 over Sprint 6
+  pre-finalize.
+
+**Fixed**
+
+- `pantry.service.checkAndTriggerLowStock` was silently no-opping
+  since Phase F2: it called `addItem` with a single-object
+  argument while the repo expects `(listId, opts)` positional
+  args. Auto-add to active shopping list now actually fires when
+  inventory drops below 15% of total.
+- `getActive(weekYear)` was previously called without the weekYear
+  argument and silently returned null. Now resolves the current ISO
+  weekYear via `seed.getWeekYear()`.
+- `checkAndTriggerLowStock` previously suppressed the auto-add when
+  any row matched the productKey, including bought (historic) rows.
+  Now only an unbought row blocks the trigger — historic bought
+  rows do not.
+- Frontend `MealStatus` type now includes `'cooked'` (the actual
+  backend enum value); legacy `'eaten'` kept as alias for
+  backward-compat.
+
+**Bundle**
+
+- main bundle: 113.21 KB → 115.83 KB gzipped (+2.62 KB), well
+  inside the 130 KB target.
+
 ### Temporary diagnostics (added and removed within this cycle)
 
 - `GET /api/debug/shopping-state` — **added in PR #54** (2026-04-20),
