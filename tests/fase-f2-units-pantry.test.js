@@ -21,9 +21,9 @@ describe('Fase F2 — units.js', () => {
   });
 
   test('validateUnit avviser ugyldige', () => {
-    assert.throws(() => units.validateUnit('oz'), /Ugyldig enhet/);
-    assert.throws(() => units.validateUnit('pound'), /Ugyldig enhet/);
-    assert.throws(() => units.validateUnit('cup'), /Ugyldig enhet/);
+    assert.throws(() => units.validateUnit('oz'), /Invalid unit/);
+    assert.throws(() => units.validateUnit('pound'), /Invalid unit/);
+    assert.throws(() => units.validateUnit('cup'), /Invalid unit/);
   });
 
   test('validateUnit faller tilbake til "stk" for tom/null', () => {

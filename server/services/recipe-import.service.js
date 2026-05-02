@@ -1,29 +1,30 @@
-// Recipe import service (Iterasjon 3b fase D)
+// Recipe import service (Iteration 3b phase D)
 //
-// Ansvar:
-//   1. Ta imot en fritt formatert oppskrift som tekst (paste) eller bilde
-//      (OCR) og parse den til strukturert { name, category, prepTimeMin,
-//      servings, ingredients, steps } via LLM.
-//   2. Normaliser hver ingrediens via fase C sin ingredient-normalizer
-//      (qty/unit-utvinning + EN→NO-oversettelse).
-//   3. Skriv til recipes + recipe_ingredients via repos.recipes.insert.
+// Responsibilities:
+//   1. Take a free-form recipe as text (paste) or image (OCR) and parse
+//      it into structured { name, category, prepTimeMin, servings,
+//      ingredients, steps } via LLM.
+//   2. Normalise each ingredient via the phase C ingredient-normalizer
+//      (qty/unit extraction + EN→NO translation).
+//   3. Write to recipes + recipe_ingredients via repos.recipes.insert.
 //
-// Designvalg:
-//   - Én ren funksjon per inngang: importFromText og importFromImage.
-//     importFromImage er en tynn wrapper som kjører OCR og delegerer
-//     til importFromText.
-//   - LLM-prompten returnerer JSON. Hvis parsing feiler, svarer vi med
-//     { error, raw } slik at bruker kan se hva som gikk galt. Vi skriver
-//     IKKE partielle rader.
-//   - category fra LLM valideres mot CHECK-constraint (rask|comfort|helg).
-//     Ukjent → 'rask' som trygg default.
-//   - Språk-deteksjon skjer via ingredient-normalizer.detectLanguage på
-//     første ~300 tegn av teksten. EN-kilder kjøres uendret gjennom LLM;
-//     LLM-en bes oversette ingredienser til norsk. Fase C-normalizer
-//     kjøres i tillegg på hvert ingrediens-navn for qty-utvinning og
-//     som fallback hvis LLM glemte oversettelsen.
-//   - OCR-adapter er pluggbar (samme mønster som receipt.service) slik
-//     at tester kan sende inn en fake adapter og slippe Tesseract-CLI.
+// Design choices:
+//   - One pure function per entry: importFromText and importFromImage.
+//     importFromImage is a thin wrapper that runs OCR and delegates to
+//     importFromText.
+//   - The LLM prompt returns JSON. If parsing fails we respond with
+//     { error, raw } so the user can see what went wrong. We do NOT
+//     write partial rows.
+//   - category from the LLM is validated against the CHECK constraint
+//     (rask|comfort|helg). Unknown → 'rask' as a safe default.
+//   - Language detection happens via ingredient-normalizer.detectLanguage
+//     on the first ~300 characters of the text. EN sources are passed
+//     through the LLM unchanged; the LLM is asked to translate
+//     ingredients to Norwegian. The phase C normalizer is also run on
+//     each ingredient name for qty extraction and as a fallback if the
+//     LLM forgets the translation.
+//   - The OCR adapter is pluggable (same pattern as receipt.service)
+//     so tests can pass a fake adapter and avoid the Tesseract CLI.
 
 const fs = require('fs');
 const os = require('os');
@@ -31,8 +32,9 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { logger } = require('../logger');
-// VIKTIG: ikke destrukturer — vi vil at tester skal kunne swappe llm.llmChat
-// dynamisk via require.cache. Behold modul-referansen og slå opp ved bruk.
+// IMPORTANT: don't destructure — tests need to be able to swap llm.llmChat
+// dynamically via require.cache. Keep the module reference and look up
+// at usage time.
 const llm = require('../llm');
 const normalizer = require('./ingredient-normalizer.service');
 const receiptService = require('./receipt.service');
@@ -44,32 +46,32 @@ const MAX_INGREDIENT_NAME_CHARS = 100;
 const MAX_STEP_CHARS = 500;
 
 /**
- * Fjerner control-chars, HTML-tags og begrenser lengden på en streng.
- * Brukes som defense-in-depth mot ondsinnet LLM-output eller OCR-injection.
- * Frontend escaper også ved visning (M1.1), men vi kapper og vasker her
- * slik at data ikke er vedholdende korrupt i DB.
+ * Strip control chars, HTML tags and limit string length.
+ * Used as defense-in-depth against malicious LLM output or OCR injection.
+ * Frontend also escapes on display (M1.1), but we cap and clean here so
+ * data is not persistently corrupt in the DB.
  */
 function sanitizeString(s, maxLen) {
   if (s === null || s === undefined) return '';
   let out = String(s);
-  // Fjern NUL og ASCII-kontrolltegn (unntatt nyelinje/tabulator)
+  // Strip NUL and ASCII control chars (except newline/tab)
   out = out.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
-  // Strip ut alle HTML/script/tag-lignende konstruksjoner
+  // Strip out all HTML/script/tag-like constructs
   out = out.replace(
     /<\s*\/?\s*(script|iframe|object|embed|style|link|meta|img|svg|math|base)\b[^>]*>/gi,
     ''
   );
-  // Fjern gjenværende <...>-mønstre (generic HTML tags) — vi vil ha ren tekst
+  // Remove remaining <...> patterns (generic HTML tags) — we want plain text
   out = out.replace(/<[^>]*>/g, '');
-  // Trim + kapp lengde
+  // Trim + cap length
   out = out.trim();
   if (out.length > maxLen) out = out.slice(0, maxLen);
   return out;
 }
 
 /**
- * Tillater kun trygge URL-schemes for lagrede oppskrifts-URLer.
- * Returnerer null for javascript:, data:, vbscript: etc.
+ * Allow only safe URL schemes for stored recipe URLs.
+ * Returns null for javascript:, data:, vbscript: etc.
  */
 function sanitizeUrl(u) {
   if (!u) return null;
@@ -81,8 +83,12 @@ function sanitizeUrl(u) {
 }
 
 // ============================================================
-// LLM-prompt
+// LLM prompt
 // ============================================================
+//
+// NOTE: the prompt strings below are deliberately Norwegian — they
+// instruct the LLM to respond in Norwegian. This is functional content,
+// not developer-facing text.
 
 const IMPORT_SYSTEM_PROMPT = `Du er en oppskrift-parser for en norsk familie. Du mottar rå tekst fra en oppskrift (norsk eller engelsk) og returnerer strukturerte data i JSON.
 
@@ -117,7 +123,7 @@ function buildUserPrompt({ title, text, sourceUrl }) {
 }
 
 // ============================================================
-// LLM-kall + JSON-ekstraksjon
+// LLM call + JSON extraction
 // ============================================================
 
 async function parseRecipeWithLlm({ title, text, sourceUrl }) {
@@ -131,25 +137,26 @@ async function parseRecipeWithLlm({ title, text, sourceUrl }) {
     );
 
     const content = typeof result === 'string' ? result : (result && result.content) || '';
-    if (!content) return { error: 'Tomt LLM-svar' };
+    if (!content) return { error: 'Empty LLM response' };
 
-    // Først: prøv å matche et JSON-objekt i svaret (kan være innpakket i markdown)
+    // First: try to match a JSON object in the response (may be wrapped
+    // in markdown)
     const match = content.match(/\{[\s\S]*\}/);
-    if (!match) return { error: 'Ingen JSON i LLM-svar', raw: content };
+    if (!match) return { error: 'No JSON in LLM response', raw: content };
 
     try {
       const parsed = JSON.parse(match[0]);
       return { parsed };
     } catch (err) {
-      return { error: `JSON-parse feilet: ${err.message}`, raw: match[0] };
+      return { error: `JSON parse failed: ${err.message}`, raw: match[0] };
     }
   } catch (err) {
-    return { error: `LLM-kall feilet: ${err.message}` };
+    return { error: `LLM call failed: ${err.message}` };
   }
 }
 
 // ============================================================
-// Validering + normalisering av parset oppskrift
+// Validation + normalisation of parsed recipe
 // ============================================================
 
 function sanitizeCategory(cat) {
@@ -164,13 +171,13 @@ function sanitizeIngredients(rawIngredients) {
   const out = [];
   for (const ing of rawIngredients) {
     if (!ing || typeof ing !== 'object') continue;
-    // Fjern HTML-tags / control-chars før normalizer ser navnet
+    // Strip HTML tags / control chars before the normalizer sees the name
     const name = sanitizeString(ing.name, MAX_INGREDIENT_NAME_CHARS);
     if (!name) continue;
 
-    // Kjør gjennom fase C normalizer for qty/unit-utvinning + EN→NO
-    // Hvis LLM-en allerede har gitt qty/unit respekterer vi det og
-    // bruker normalizer kun til å oversette navnet.
+    // Run through the phase C normalizer for qty/unit extraction + EN→NO.
+    // If the LLM already provided qty/unit we respect it and only use
+    // the normalizer to translate the name.
     const llmQty = Number.isFinite(ing.qty) && ing.qty > 0 ? ing.qty : null;
     const llmUnit = typeof ing.unit === 'string' && ing.unit ? sanitizeString(ing.unit, 20) : null;
 
@@ -203,13 +210,13 @@ function sanitizeSteps(rawSteps) {
 // ============================================================
 
 /**
- * Parse en fritt formatert oppskrifts-tekst via LLM og skriv til DB.
+ * Parse a free-form recipe text via LLM and write to DB.
  *
  * @param {Object} repos
  * @param {Object} input
- * @param {string} input.text                — rå oppskriftstekst (påkrevd)
- * @param {string} [input.title]             — valgfritt navn-forslag
- * @param {string} [input.sourceUrl]         — kilde-URL hvis kjent
+ * @param {string} input.text                — raw recipe text (required)
+ * @param {string} [input.title]             — optional name hint
+ * @param {string} [input.sourceUrl]         — source URL if known
  * @param {string} [input.language]          — 'no'|'en'|'auto' (default auto)
  * @returns {Promise<{recipeId?, recipe?, error?, raw?}>}
  */
@@ -218,7 +225,7 @@ async function importFromText(
   { text, title = null, sourceUrl = null, language = 'auto' } = {}
 ) {
   if (!text || typeof text !== 'string' || text.trim().length < 20) {
-    return { error: 'Oppskriftstekst er for kort (minimum 20 tegn)' };
+    return { error: 'Recipe text is too short (minimum 20 chars)' };
   }
 
   const detectedLang =
@@ -231,18 +238,19 @@ async function importFromText(
 
   const llmRes = await parseRecipeWithLlm({ title, text, sourceUrl });
   if (llmRes.error) {
-    logger.warn({ err: llmRes.error }, 'recipe-import: LLM feilet');
+    logger.warn({ err: llmRes.error }, 'recipe-import: LLM failed');
     return { error: llmRes.error, raw: llmRes.raw };
   }
 
   const parsed = llmRes.parsed;
-  // M1.5: rens alt user/LLM-kontrollert tekst mot XSS + control chars før DB-skriv
+  // M1.5: scrub all user/LLM-controlled text against XSS + control chars
+  // before DB write
   const name = sanitizeString(parsed.name || title || '', MAX_NAME_CHARS);
-  if (!name) return { error: 'Mangler oppskriftsnavn i LLM-svar', raw: parsed };
+  if (!name) return { error: 'Missing recipe name in LLM response', raw: parsed };
 
   const ingredients = sanitizeIngredients(parsed.ingredients);
   if (ingredients.length === 0) {
-    return { error: 'Ingen gyldige ingredienser parset', raw: parsed };
+    return { error: 'No valid ingredients parsed', raw: parsed };
   }
 
   const steps = sanitizeSteps(parsed.steps);
@@ -268,7 +276,7 @@ async function importFromText(
     ingredients,
   });
 
-  logger.info({ recipeId, name, ingredientCount: ingredients.length }, 'recipe-import: lagret');
+  logger.info({ recipeId, name, ingredientCount: ingredients.length }, 'recipe-import: saved');
 
   return {
     recipeId,
@@ -292,29 +300,29 @@ function extForMime(mime) {
 }
 
 /**
- * Lagre en opplastet bildebuffer til en midlertidig fil, kjør OCR,
- * og send den resulterende teksten gjennom importFromText.
+ * Save an uploaded image buffer to a temporary file, run OCR, and pass
+ * the resulting text through importFromText.
  *
  * @param {Object} repos
  * @param {Object} input
- * @param {Buffer} input.buffer              — råbytes (påkrevd)
+ * @param {Buffer} input.buffer              — raw bytes (required)
  * @param {string} input.mime                — 'image/jpeg' etc.
- * @param {string} [input.title]             — valgfritt navn-forslag
- * @param {Function} [input.ocrAdapter]      — override for tester
+ * @param {string} [input.title]             — optional name hint
+ * @param {Function} [input.ocrAdapter]      — override for tests
  * @returns {Promise<{recipeId?, error?, raw?}>}
  */
 async function importFromImage(repos, { buffer, mime, title = null, ocrAdapter = null } = {}) {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
-    return { error: 'Tom eller ugyldig bildebuffer' };
+    return { error: 'Empty or invalid image buffer' };
   }
   if (buffer.length > 10 * 1024 * 1024) {
-    return { error: 'Bildet er for stort (max 10MB)' };
+    return { error: 'Image is too large (max 10MB)' };
   }
   if (!ALLOWED_IMAGE_MIMES.has(mime)) {
-    return { error: `Ugyldig bildetype: ${mime}` };
+    return { error: `Invalid image type: ${mime}` };
   }
 
-  // Lagre til temp-fil slik at Tesseract-CLI kan lese den
+  // Save to a temp file so the Tesseract CLI can read it
   const hash = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 16);
   const tmpPath = path.join(os.tmpdir(), `recipe-import-${hash}.${extForMime(mime)}`);
   fs.writeFileSync(tmpPath, buffer);
@@ -328,15 +336,15 @@ async function importFromImage(repos, { buffer, mime, title = null, ocrAdapter =
     const ocr = await adapter(tmpPath);
     const text = (ocr && ocr.text) || '';
     if (!text || text.trim().length < 20) {
-      return { error: 'OCR ga for lite tekst — ikke en oppskrift eller uleselig bilde' };
+      return { error: 'OCR returned too little text — not a recipe or unreadable image' };
     }
 
     return await importFromText(repos, { text, title });
   } catch (err) {
-    logger.warn({ err: err.message }, 'recipe-import: OCR feilet');
-    return { error: `OCR feilet: ${err.message}` };
+    logger.warn({ err: err.message }, 'recipe-import: OCR failed');
+    return { error: `OCR failed: ${err.message}` };
   } finally {
-    // Rydd temp-fil best-effort
+    // Best-effort cleanup of temp file
     try {
       fs.unlinkSync(tmpPath);
     } catch {
@@ -348,7 +356,7 @@ async function importFromImage(repos, { buffer, mime, title = null, ocrAdapter =
 module.exports = {
   importFromText,
   importFromImage,
-  // eksportert for tester
+  // exported for tests
   sanitizeCategory,
   sanitizeIngredients,
   sanitizeSteps,

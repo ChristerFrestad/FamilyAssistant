@@ -1,33 +1,33 @@
-// Shopping list enricher (Iterasjon 3b fase B)
+// Shopping list enricher (Iteration 3b phase B)
 //
-// Ansvar:
-//   1. Gå gjennom items på en persistent handleliste og resolve dem mot
-//      Kassal.app SKU-katalogen via product-resolver.
-//   2. Respektere rate limit (55 RPM i kassal-client) + circuit breaker.
-//   3. Stoppe tidlig og sette enrichment_status='partial' hvis vi treffer
-//      sperren — cron-jobben plukker opp igjen senere.
-//   4. Skrive resolusjonen (kassal_product_id, confidence, candidates,
-//      est_price oppdatert) via shoppingLists.attachResolution.
+// Responsibilities:
+//   1. Iterate items on a persistent shopping list and resolve them
+//      against the Kassal.app SKU catalog via product-resolver.
+//   2. Respect the rate limit (55 RPM in kassal-client) + circuit breaker.
+//   3. Stop early and set enrichment_status='partial' when we hit the
+//      limit — the cron job picks up later.
+//   4. Write the resolution (kassal_product_id, confidence, candidates,
+//      updated est_price) via shoppingLists.attachResolution.
 //
-// Designvalg:
-//   - Ingen API-nøkkel → enrichment_status='done' (noop, lista er "ferdig"
-//     i den forstand at det ikke finnes mer å berike uten API).
-//   - 'running'/'done' → hopper over (idempotens + beskyttelse mot at
-//     to enrichers jobber på samme liste).
-//   - INTER_REQUEST_DELAY_MS (default 1100) = litt over ett sekund mellom
-//     hvert resolver-kall. 55 RPM betyr én request per 1.09s; 1.1s gir
-//     ekstra margin og unngår at vi tømmer bucket i bursts.
-//     Tester kan sette delayMs=0 for fart.
-//   - Pre-check av kassal-client.getStatus() før hvert kall gjør at vi
-//     bailer rent før vi brenner en request. Resolver-returner null ved
-//     rate-limit internt (stale-if-error), men vi vil distinguere 'no match'
-//     fra 'rate limited' slik at vi ikke markerer lista som 'done' når
-//     vi egentlig bare ikke kom oss gjennom alle items.
-//   - Cron plukker opp 'partial' og 'pending' med samme logikk — ved
-//     restart etter crash er 'running' tilsynelatende stuck, men
-//     listPendingEnrichment() inkluderer ikke 'running' → vi må håndtere
-//     stuck 'running' separat (cron ser etter gamle generated_at > 30min
-//     i fremtiden; ikke kritisk i 3b-fase B).
+// Design choices:
+//   - No API key → enrichment_status='done' (noop, the list is "done"
+//     in the sense that there is nothing more to enrich without the API).
+//   - 'running'/'done' → skipped (idempotency + protection against two
+//     enrichers working on the same list).
+//   - INTER_REQUEST_DELAY_MS (default 1100) = just over one second
+//     between each resolver call. 55 RPM means one request per 1.09s;
+//     1.1s gives extra margin and avoids draining the bucket in bursts.
+//     Tests can set delayMs=0 for speed.
+//   - Pre-check of kassal-client.getStatus() before each call lets us
+//     bail cleanly before burning a request. The resolver returns null
+//     on internal rate-limit (stale-if-error), but we want to distinguish
+//     'no match' from 'rate limited' so we don't mark the list as 'done'
+//     when we just didn't get through all items.
+//   - The cron picks up 'partial' and 'pending' with the same logic —
+//     after a crash restart, 'running' may look stuck;
+//     listPendingEnrichment() does not include 'running' → stuck
+//     'running' must be handled separately (the cron checks for old
+//     generated_at > 30min in the future; not critical in 3b phase B).
 
 const { logger } = require('../logger');
 const productResolver = require('./product-resolver.service');
@@ -42,16 +42,16 @@ function sleep(ms) {
 }
 
 /**
- * Berik en handleliste med Kassal-data. Itererer items med
- * needs_buy=1 og kassal_product_id IS NULL. Stopper tidlig ved
- * circuit-open eller tom token bucket og markerer 'partial'.
+ * Enrich a shopping list with Kassal data. Iterates items with
+ * needs_buy=1 and kassal_product_id IS NULL. Stops early on circuit-open
+ * or empty token bucket and marks 'partial'.
  *
  * @param {Object} repos
  * @param {number} listId
  * @param {Object} [opts]
- * @param {number} [opts.delayMs]       — delay mellom kall (default 1100)
- * @param {number} [opts.maxItems]      — øvre grense per kjøring
- * @param {string} [opts.apiKey]        — override env-nøkkel (tester)
+ * @param {number} [opts.delayMs]       — delay between calls (default 1100)
+ * @param {number} [opts.maxItems]      — upper bound per run
+ * @param {string} [opts.apiKey]        — override env key (tests)
  * @returns {Promise<{listId, enriched, skipped, bailed, finalStatus, reason?}>}
  */
 async function enrichList(
@@ -75,7 +75,7 @@ async function enrichList(
     };
   }
 
-  // Fast-exit: allerede ferdig eller kjører (idempotens)
+  // Fast-exit: already done or running (idempotency)
   if (list.enrichmentStatus === 'done') {
     return {
       listId,
@@ -97,7 +97,7 @@ async function enrichList(
     };
   }
 
-  // Ingen API-nøkkel → marker done, ingenting å gjøre
+  // No API key → mark done, nothing to do
   if (!apiKey) {
     repos.shoppingLists.setEnrichmentStatus(listId, 'done', { startedAt: true, finishedAt: true });
     return {
@@ -114,14 +114,14 @@ async function enrichList(
     .filter((it) => it.needsBuy && !it.kassalProductId && it.ingredientName)
     .slice(0, maxItems);
 
-  // Last kjede-preferanser fra familieprofil (Migration 013)
+  // Load chain preferences from family profile (Migration 013)
   const profile = repos.familyProfile ? repos.familyProfile.get() : {};
   const chainPrefs = {
     preferredChain: profile.preferredChain || null,
     secondaryChain: profile.secondaryChain || null,
   };
 
-  // Ingenting å berike → done
+  // Nothing to enrich → done
   if (toEnrich.length === 0) {
     repos.shoppingLists.setEnrichmentStatus(listId, 'done', { startedAt: true, finishedAt: true });
     return {
@@ -145,23 +145,26 @@ async function enrichList(
   for (let i = 0; i < toEnrich.length; i++) {
     const item = toEnrich[i];
 
-    // Pre-check: rate limit / circuit breaker før vi kaller resolver
+    // Pre-check: rate limit / circuit breaker before calling resolver
     const status = kassalClient.getStatus();
     if (status.circuitOpen) {
       bailed = true;
       bailReason = 'circuit_open';
-      logger.warn({ listId, remaining: toEnrich.length - i }, 'enricher: circuit open, bailer');
+      logger.warn({ listId, remaining: toEnrich.length - i }, 'enricher: circuit open, bailing');
       break;
     }
     if (status.tokensAvailable < 1) {
       bailed = true;
       bailReason = 'rate_limit';
-      logger.warn({ listId, remaining: toEnrich.length - i }, 'enricher: tom token bucket, bailer');
+      logger.warn(
+        { listId, remaining: toEnrich.length - i },
+        'enricher: empty token bucket, bailing'
+      );
       break;
     }
 
     // Resolve
-    // Fase C: preferer norsk navn hvis normalizer har satt det
+    // Phase C: prefer the Norwegian name if the normalizer set one
     const searchName = item.ingredientNameNo || item.ingredientName;
     let resolution = null;
     let resolverThrew = false;
@@ -178,19 +181,19 @@ async function enrichList(
         { captureSource: 'lookup', chainPrefs }
       );
     } catch (err) {
-      logger.warn({ err: err.message, itemId: item.id }, 'enricher: resolver kastet');
+      logger.warn({ err: err.message, itemId: item.id }, 'enricher: resolver threw');
       resolverThrew = true;
       skipped++;
     }
 
     if (resolverThrew) {
-      // Ikke dobbel-tell; gå videre til neste item
+      // Don't double-count; move on to the next item
       if (i + 1 < toEnrich.length) await sleep(delayMs);
       continue;
     }
 
     if (resolution && resolution.kassalProductRowId) {
-      // Hent ev. pris fra beste kandidat for estimated_price oppdatering
+      // Get optional price from the best candidate for estimated_price update
       const bestCand =
         Array.isArray(resolution.candidates) && resolution.candidates.length > 0
           ? resolution.candidates[0]
@@ -208,7 +211,7 @@ async function enrichList(
       });
       enriched++;
     } else if (resolution) {
-      // Svakt treff (confidence under threshold) — lagre kandidater for UI-valg
+      // Weak match (confidence below threshold) — save candidates for UI selection
       if (Array.isArray(resolution.candidates) && resolution.candidates.length > 0) {
         repos.shoppingLists.attachResolution(item.id, {
           kassalProductId: null,
@@ -224,23 +227,24 @@ async function enrichList(
       skipped++;
     }
 
-    // Spacing mellom kall for å spre belastningen jevnt under 55 RPM
+    // Spacing between calls to spread load evenly under 55 RPM
     if (i + 1 < toEnrich.length) await sleep(delayMs);
   }
 
   const finalStatus = bailed ? 'partial' : 'done';
   repos.shoppingLists.setEnrichmentStatus(listId, finalStatus, { finishedAt: !bailed });
 
-  logger.info({ listId, enriched, skipped, bailed, bailReason, finalStatus }, 'enricher: ferdig');
+  logger.info({ listId, enriched, skipped, bailed, bailReason, finalStatus }, 'enricher: done');
 
   return { listId, enriched, skipped, bailed, finalStatus, reason: bailReason };
 }
 
 /**
- * Skann etter aktive lister med enrichment_status IN ('pending','partial')
- * og kjør enrichList på hver. Brukes av cron-jobben.
+ * Scan for active lists with enrichment_status IN ('pending','partial')
+ * and run enrichList on each. Used by the cron job.
  *
- * Kjører sekvensielt — vi vil ikke brenne gjennom rate limit parallelt.
+ * Runs sequentially — we don't want to burn through the rate limit in
+ * parallel.
  */
 async function enrichPendingLists(repos, opts = {}) {
   const ids = repos.shoppingLists.listPendingEnrichment(opts.maxLists || 5);
@@ -248,19 +252,20 @@ async function enrichPendingLists(repos, opts = {}) {
   for (const id of ids) {
     const r = await enrichList(repos, id, opts);
     results.push(r);
-    if (r.bailed) break; // Rate limit truffet — vent til neste cron-slot
+    if (r.bailed) break; // Rate limit hit — wait until next cron slot
   }
   return results;
 }
 
 /**
- * Fire-and-forget wrapper: schedulerer enrichList i bakgrunnen uten å
- * blokkere kalleren. Brukt av generateForWeek-ruten og autogenerer-hook.
+ * Fire-and-forget wrapper: schedules enrichList in the background
+ * without blocking the caller. Used by the generateForWeek route and
+ * the auto-generate hook.
  */
 function enrichInBackground(repos, listId, opts = {}) {
   setImmediate(() => {
     enrichList(repos, listId, opts).catch((err) => {
-      logger.error({ err: err.message, listId }, 'enricher: bakgrunnsfeil');
+      logger.error({ err: err.message, listId }, 'enricher: background error');
     });
   });
 }

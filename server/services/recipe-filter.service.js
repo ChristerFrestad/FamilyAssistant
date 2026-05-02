@@ -1,33 +1,33 @@
 // @ts-check
 /**
- * B7 / D7 — Fasade over de tre filter-lagene (allergy / dislike / diet).
+ * B7 / D7 — Facade over the three filter layers (allergy / dislike / diet).
  *
- * Orchestrerer:
- *   Lag 1 (allergy): HARDT filter, ingen override — recipe skjules hvis
- *                    ÉN eller flere medlemmers allergier er brutt.
- *   Lag 2 (dislike): SOFT filter — warnings i responsen, recipe vises
- *                    alltid. UI merker hvilke ingredienser hvilke
- *                    medlemmer misliker.
- *   Lag 3 (diet):    HARDT filter MED override — recipe skjules hvis en
- *                    av medlemmenes diet_tags treffer, men
+ * Orchestrates:
+ *   Layer 1 (allergy): HARD filter, no override — recipe is hidden if
+ *                      ONE or more members' allergies are violated.
+ *   Layer 2 (dislike): SOFT filter — warnings in the response, recipe
+ *                      is always shown. The UI marks which ingredients
+ *                      which members dislike.
+ *   Layer 3 (diet):    HARD filter WITH override — recipe is hidden if
+ *                      one of the members' diet_tags hits, but
  *                    options.ignoreDietTags=true slår av dette laget
  *                    (allergies og dislikes påvirkes IKKE av override).
  *
- * Call-site-API:
+ * Call-site API:
  *
  *   const filter = require('./services/recipe-filter.service');
  *
- *   // Én oppskrift
+ *   // Single recipe
  *   const res = filter.filterRecipeForFamily(recipe, ctx, opts);
  *   // → { allergy, dislike, diet, hiddenByAllergy, hiddenByDiet,
  *   //     shownWithDislikeWarning }
  *
- *   // Liste av oppskrifter
+ *   // List of recipes
  *   const all = filter.filterRecipesForFamily(recipes, ctx, opts);
  *   // → { visible, hidden, hiddenByAllergy, hiddenByDiet,
  *   //     shownWithDislikeWarning }
  *
- * Bygge familyContext fra repos:
+ * Building familyContext from repos:
  *   const ctx = filter.buildFamilyContext({
  *     familyProfile: repos.familyProfile.get(),
  *     members: repos.family.listMembers(familyId),

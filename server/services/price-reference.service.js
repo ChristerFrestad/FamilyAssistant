@@ -1,40 +1,41 @@
-// Price-reference service (Iterasjon 1)
+// Price-reference service (Iteration 1)
 //
-// Ansvar:
-//   1. Slå opp prisreferanse for et gitt produkt (product_key eller EAN)
-//   2. Indeksere gamle priser med SSB konsumprisindeks (KPI / tabell 14700)
-//      når Kassal ikke har en fersk observasjon
-//   3. Hente friske priser fra Kassal.app (valgfritt — slår seg av hvis ingen
-//      API-nøkkel er konfigurert)
-//   4. Estimere total verdi av pantry basert på eksisterende referanser
+// Responsibilities:
+//   1. Look up the price reference for a given product (product_key or EAN)
+//   2. Index old prices with SSB CPI (KPI / table 14700) when Kassal does
+//      not have a fresh observation
+//   3. Fetch fresh prices from Kassal.app (optional — disables itself if
+//      no API key is configured)
+//   4. Estimate the total value of the pantry based on existing references
 //
-// Designvalg:
-//   - Kassal-klient er "best effort" — feil logges men kaster ikke.
-//   - CPI-tallet er konfigurerbart i seed-format slik at vi kan endre det
-//     årlig uten å treffe SSBs API i produksjon. En årlig cron-jobb kan
-//     oppdatere verdien.
-//   - Service kaster aldri hvis repos-metoder er intakte; retur er alltid
-//     et strukturert objekt så kallere slipper try/catch rundt hver lookup.
+// Design choices:
+//   - Kassal client is "best effort" — errors are logged but not thrown.
+//   - The CPI number is configurable in seed format so we can update it
+//     yearly without hitting SSB's API in production. A yearly cron job
+//     can update the value.
+//   - The service never throws as long as repos methods are intact;
+//     the return is always a structured object so callers don't need a
+//     try/catch around every lookup.
 //
-// Se også: server/repositories.js (priceReferences, priceHistory)
+// See also: server/repositories.js (priceReferences, priceHistory)
 
 const { logger } = require('../logger');
 
 // ============================================================
-// Konstanter
+// Constants
 // ============================================================
 
-// Ferskhet (dager) som styrer hvilken strategi som brukes ved lookup.
-const FRESH_DAYS = 30; // <30 dager: bruk direkte, confidence = originalen
-const INDEX_DAYS = 90; // 30–90: CPI-indekser til ny pris
-const STALE_DAYS = 90; // >90: markeres stale (search-UI kan skjule)
+// Freshness (days) controlling which strategy is used at lookup.
+const FRESH_DAYS = 30; // <30 days: use directly, confidence = original
+const INDEX_DAYS = 90; // 30–90: CPI-index to a new price
+const STALE_DAYS = 90; // >90: marked stale (search UI can hide)
 
-// Default SSB KPI YoY-vekst i prosent (oppdateres manuelt ved årsskifte).
-// Hvis en mer oppdatert verdi eksisterer i price_references.indexed_from
-// brukes den i stedet; dette er bare fallback.
-const DEFAULT_CPI_ANNUAL_PCT = 3.5; // 2025-nivå, revurderes årlig
+// Default SSB CPI YoY growth in percent (updated manually at year-end).
+// If a more recent value exists in price_references.indexed_from it is
+// used instead; this is only a fallback.
+const DEFAULT_CPI_ANNUAL_PCT = 3.5; // 2025 level, reassessed yearly
 
-// Kassal.app API — krever API-nøkkel for å være aktivert.
+// Kassal.app API — requires an API key to be enabled.
 const KASSAL_BASE_URL = 'https://kassal.app/api/v1';
 const KASSAL_TIMEOUT_MS = 8000;
 
@@ -50,8 +51,9 @@ function daysSince(isoDate) {
 }
 
 /**
- * Beregn CPI-multiplier basert på antall dager siden sist verifisert.
- * f.eks. 200 dager med 3.5% årlig vekst → 1.0 * (1.035)^(200/365) ≈ 1.0191
+ * Compute the CPI multiplier based on the number of days since last
+ * verified.
+ * e.g. 200 days with 3.5% annual growth → 1.0 * (1.035)^(200/365) ≈ 1.0191
  */
 function cpiMultiplier(daysOld, annualPct = DEFAULT_CPI_ANNUAL_PCT) {
   if (!Number.isFinite(daysOld) || daysOld <= 0) return 1;
@@ -64,13 +66,13 @@ function cpiMultiplier(daysOld, annualPct = DEFAULT_CPI_ANNUAL_PCT) {
 // ============================================================
 
 /**
- * Finn beste tilgjengelige pris for et produkt.
- * Returnerer:
+ * Find the best available price for a product.
+ * Returns:
  *   { price, confidence, source, store, daysOld, priceRefId, productName }
- * eller null hvis ingen referanse finnes.
+ * or null if no reference exists.
  *
- * Hvis raden er 30–90 dager gammel, CPI-indekseres prisen i minnet
- * (uten å skrive til DB — indekseringen skrives ved cron-jobb).
+ * If the row is 30–90 days old, the price is CPI-indexed in memory
+ * (without writing to DB — the indexing is written by a cron job).
  */
 function lookupPrice(repos, productKey, { ean = null } = {}) {
   let row = null;
@@ -81,9 +83,9 @@ function lookupPrice(repos, productKey, { ean = null } = {}) {
   const age = daysSince(row.lastVerified);
   const fresh = age < FRESH_DAYS;
   const stale = age >= STALE_DAYS;
-  // "indexed" = CPI ble brukt til å justere prisen i minnet.
-  // Alt over FRESH_DAYS får CPI-indeksering; stale får i tillegg lavere
-  // confidence slik at UI kan vise advarsel.
+  // "indexed" = CPI was used to adjust the price in memory.
+  // Anything older than FRESH_DAYS gets CPI indexing; stale rows also
+  // get a lower confidence so the UI can show a warning.
   const indexed = !fresh;
 
   let price = row.currentPrice;
@@ -111,8 +113,8 @@ function lookupPrice(repos, productKey, { ean = null } = {}) {
 }
 
 /**
- * Returner et estimat for total verdi av gjeldende pantry.
- * Ukjente varer gis 0 slik at summen er et "lower bound".
+ * Return an estimate of the total value of the current pantry.
+ * Unknown items get 0 so the sum is a "lower bound".
  */
 function estimatePantryValue(repos) {
   const inventoryMap = repos.inventory.getAll();
@@ -127,8 +129,8 @@ function estimatePantryValue(repos) {
       continue;
     }
     knownCount++;
-    // Skaler prisen med beholdning: qtyRemaining / pack_size gir antall "pakker".
-    // Hvis pack_size er ukjent, bruk 1 pakke som fallback.
+    // Scale the price by remaining stock: qtyRemaining / pack_size gives
+    // the number of "packs". If pack_size is unknown, use 1 pack as fallback.
     const packSize = ref.packSize || 1;
     const packs = Math.max(1, Math.ceil(inv.qtyRemaining / packSize));
     total += ref.price * packs;
@@ -145,13 +147,13 @@ function estimatePantryValue(repos) {
 }
 
 // ============================================================
-// CPI-indeksering (daglig/ukentlig cron)
+// CPI indexing (daily/weekly cron)
 // ============================================================
 
 /**
- * Finn alle priser eldre enn INDEX_DAYS og oppdater dem via CPI.
- * Skriver ny rad til price_history med source='cpi_index'.
- * Returnerer antall oppdaterte rader.
+ * Find all prices older than INDEX_DAYS and update them via CPI.
+ * Writes a new row to price_history with source='cpi_index'.
+ * Returns the number of updated rows.
  */
 function applyCpiIndexing(
   repos,
@@ -160,9 +162,9 @@ function applyCpiIndexing(
   const stale = repos.priceReferences.getStale(olderThanDays);
   if (stale.length === 0) return 0;
 
-  // Beregn gjennomsnittlig alder så multiplier blir rimelig.
-  // Hver rad kan være ulik alder, men siden verdien bare er et estimat
-  // bruker vi per-row-beregning.
+  // Compute average age so the multiplier is reasonable.
+  // Each row can be a different age, but since the value is only an
+  // estimate we use per-row calculation.
   let count = 0;
   for (const row of stale) {
     const age = daysSince(row.lastVerified);
@@ -170,9 +172,9 @@ function applyCpiIndexing(
     const mult = cpiMultiplier(age, annualPct);
     const newPrice = Math.round(row.currentPrice * mult * 100) / 100;
     if (newPrice === row.currentPrice) continue;
-    // Bruk eksisterende repo-metode for atomisk update + history
-    // (applyCpiMultiplier oppdaterer alle stale — vi kan ikke bruke den per-rad
-    //  uten å introdusere N*N-arbeid, så vi gjør det manuelt her.)
+    // Use existing repo method for atomic update + history
+    // (applyCpiMultiplier updates all stale — we can't use it per-row
+    //  without introducing N*N work, so we do it manually here.)
     repos._db
       .prepare(
         `
@@ -191,18 +193,18 @@ function applyCpiIndexing(
     count++;
   }
   if (count > 0) {
-    logger.info({ count, olderThanDays, annualPct }, 'price-reference: CPI-indeksering fullført');
+    logger.info({ count, olderThanDays, annualPct }, 'price-reference: CPI indexing completed');
   }
   return count;
 }
 
 // ============================================================
-// Kassal.app-klient (best effort, valgfri)
+// Kassal.app client (best effort, optional)
 // ============================================================
 
 /**
- * Hent én produkt-oppslag fra Kassal (krever KASSAL_API_KEY).
- * Returnerer parsed response eller null.
+ * Fetch a single product lookup from Kassal (requires KASSAL_API_KEY).
+ * Returns parsed response or null.
  */
 async function fetchFromKassal(query, { apiKey = process.env.KASSAL_API_KEY } = {}) {
   if (!apiKey) return null;
@@ -215,13 +217,13 @@ async function fetchFromKassal(query, { apiKey = process.env.KASSAL_API_KEY } = 
       signal: controller.signal,
     });
     if (!res.ok) {
-      logger.warn({ status: res.status, query }, 'price-reference: Kassal-feil');
+      logger.warn({ status: res.status, query }, 'price-reference: Kassal error');
       return null;
     }
     const body = await res.json();
     return body?.data || null;
   } catch (err) {
-    logger.warn({ err: err.message, query }, 'price-reference: Kassal-oppslag feilet');
+    logger.warn({ err: err.message, query }, 'price-reference: Kassal lookup failed');
     return null;
   } finally {
     clearTimeout(tm);
@@ -229,13 +231,13 @@ async function fetchFromKassal(query, { apiKey = process.env.KASSAL_API_KEY } = 
 }
 
 /**
- * Synk én enkelt product_key fra Kassal og skriv til price_references.
- * Returnerer oppdatert rad eller null.
+ * Sync a single product_key from Kassal and write to price_references.
+ * Returns the updated row or null.
  */
 async function syncProductFromKassal(repos, productKey, searchQuery) {
   const data = await fetchFromKassal(searchQuery || productKey);
   if (!data || data.length === 0) return null;
-  // Velg billigste observasjon
+  // Pick the cheapest observation
   const best = data
     .filter((p) => p && Number.isFinite(p.current_price))
     .sort((a, b) => a.current_price - b.current_price)[0];
@@ -268,8 +270,8 @@ module.exports = {
   applyCpiIndexing,
   fetchFromKassal,
   syncProductFromKassal,
-  cpiMultiplier, // eksportert for testing
-  daysSince, // eksportert for testing
+  cpiMultiplier, // exported for testing
+  daysSince, // exported for testing
   FRESH_DAYS,
   INDEX_DAYS,
   STALE_DAYS,

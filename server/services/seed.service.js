@@ -1,13 +1,15 @@
 // @ts-check
-// Seed service: initialiserer SQLite-databasen med data fra server/seed.js
-// første gang den startes. Idempotent — hopper over hvis data finnes.
+// Seed service: initialises the SQLite database with data from
+// server/seed.js the first time the server starts. Idempotent — skips
+// when data already exists.
 
 const seed = require('../seed');
 
 function seedIfEmpty(repos) {
   const { products, recipes, chores, consumables } = repos;
-  // Hver seksjon bruker sin egen transaksjon (via repo.upsertMany / insert).
-  // Vi wrapper ikke alt i \u00e9n ytre transaksjon fordi SQLite ikke st\u00f8tter nested tx.
+  // Each section uses its own transaction (via repo.upsertMany / insert).
+  // We don't wrap everything in one outer transaction because SQLite
+  // does not support nested tx.
 
   // === PRODUCTS ===
   if (products.count() === 0) {
@@ -27,7 +29,7 @@ function seedIfEmpty(repos) {
       }
     });
     tx();
-    console.log(`[SEED] Sa\u00e5dd ${Object.keys(seed.products).length} produkter`);
+    console.log(`[SEED] Seeded ${Object.keys(seed.products).length} products`);
   }
 
   // === RECIPES ===
@@ -42,19 +44,19 @@ function seedIfEmpty(repos) {
       }
     });
     tx();
-    console.log(`[SEED] Sa\u00e5dd ${seed.recipes.length} oppskrifter`);
+    console.log(`[SEED] Seeded ${seed.recipes.length} recipes`);
   }
 
   // === CHORES ===
   if (chores.getAll().length === 0) {
     chores.upsertMany(seed.chores);
-    console.log(`[SEED] Sa\u00e5dd ${seed.chores.length} husarbeid-oppgaver`);
+    console.log(`[SEED] Seeded ${seed.chores.length} chores`);
   }
 
   // === CONSUMABLES ===
   if (consumables.getAll().length === 0) {
     consumables.upsertMany(seed.consumables);
-    console.log(`[SEED] Sa\u00e5dd ${seed.consumables.length} consumables`);
+    console.log(`[SEED] Seeded ${seed.consumables.length} consumables`);
   }
 }
 

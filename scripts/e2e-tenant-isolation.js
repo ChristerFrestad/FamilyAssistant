@@ -3,9 +3,9 @@
 // against a locally running server, each authenticated as a different
 // user in a different family. Verifies that data does not leak across.
 //
-// Christer's requirement (Q4 precision): "to faktiske brukere på to
+// Christer's requirement (Q4 precision): "two real users on two
 // faktiske familier som logger inn og bekrefter at de ikke ser
-// hverandres data. Ikke bare grønne tester."
+// each other's data. Not just green tests."
 
 const http = require('http');
 const { URL } = require('url');

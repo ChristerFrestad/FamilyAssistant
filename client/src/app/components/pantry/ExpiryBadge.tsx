@@ -1,18 +1,18 @@
 // Holdbarhet-badge for pantry items.
 //
 // Tilleggsoppdrag fra Christer (B5) — backend leverer expiresEst
-// (ISO YYYY-MM-DD); når feltet er satt vises en kompakt status-badge
-// med farge basert på hvor nært utløp er. Når feltet er null/undefined
-// returnerer komponenten null (ingen visuell støy for items uten dato).
+// (ISO YYYY-MM-DD); when the field is set we show a compact status badge
+// with color based on how close expiry is. When the field is null/undefined
+// the component returns null (no visual noise for items without a date).
 //
 // Fargesystem (matcher design-tokens):
-//   - amber  : "Snart utgått" — ≤ 7 dager unna
-//   - coral  : "Utgår i morgen" / "Utgår i dag" — ≤ 1 dag, eller "Utgått" — passert
+//   - amber  : "Expiring soon" — ≤ 7 days away
+//   - coral  : "Expires tomorrow" / "Expires today" — ≤ 1 day, or "Expired" — past
 //   - mint   : > 7 dager unna (ikke vist; vi viser kun warning-tilstander)
 //
-// Beslutning: vi viser KUN advarsler. En badge for "Utgår om 30 dager"
-// gir negativ verdi — den drukner critical signals i støy. Kun ≤ 7
-// dager + utgått trigger badge.
+// Decision: we only show warnings. A badge for "Expires in 30 days"
+// has negative value — it drowns critical signals in noise. Only ≤ 7
+// days + expired trigger the badge.
 
 import { useTranslation } from 'react-i18next';
 

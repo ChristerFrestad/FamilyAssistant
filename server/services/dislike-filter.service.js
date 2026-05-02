@@ -1,27 +1,28 @@
 // @ts-check
 /**
- * B7 / D7 lag 2 — SOFT filter for mislikte ingredienser.
+ * B7 / D7 layer 2 — SOFT filter for disliked ingredients.
  *
- * Mens allergy-filter er safety-laget (binær blokkering, ingen override),
- * er dislike-filter komfort-laget: oppskrifter med mislikte ingredienser
- * vises ALLTID, men UI merker ingrediensen med "Lise misliker sopp".
+ * While allergy-filter is the safety layer (binary block, no override),
+ * dislike-filter is the comfort layer: recipes with disliked ingredients
+ * are ALWAYS shown, but the UI marks the ingredient with "Lise dislikes
+ * mushroom".
  *
- * Fallback-semantikk (D6): et medlem med dislikes=null arver
- * familyDislikes fra family_profile. Et medlem med dislikes=[] har
- * eksplisitt "ingen mislikte" (ikke fall tilbake).
+ * Fallback semantics (D6): a member with dislikes=null inherits
+ * familyDislikes from family_profile. A member with dislikes=[] has
+ * explicitly "no dislikes" (does not fall back).
  *
- * Matching: enkel case-insensitiv substring. I motsetning til
- * allergy-filter brukes det IKKE et utvidet trigger-synonym-kart
- * (ingen `ALLERGY_TRIGGERS`-tilsvarende) fordi dislikes er personlige
- * og bruker skriver dem ferdig. "Sopp" matcher "sopp", "champignon",
- * "skogsopp" hvis bruker skriver "sopp" i dislike-listen, men gjør det
- * ikke for "aubergine" ved mindre bruker har skrevet "aubergine".
+ * Matching: simple case-insensitive substring. Unlike allergy-filter we
+ * do NOT use an expanded trigger-synonym map (no `ALLERGY_TRIGGERS`
+ * equivalent) because dislikes are personal and the user writes them
+ * verbatim. "Sopp" matches "sopp", "champignon", "skogsopp" if the user
+ * writes "sopp" in the dislike list, but does NOT match "aubergine"
+ * unless the user has typed "aubergine".
  *
- * Design-note: dislikes og allergies kan peke på samme ord (noen
- * misliker melk UTEN å være laktoseallergiker). Det er OK — de fanges
- * av forskjellige lag, og dislike-filter rapporterer den ingrediensen
- * selv om allergy-filter også gjorde det. Call site bestemmer om de
- * vises som warning eller skjuler raden helt.
+ * Design note: dislikes and allergies can point at the same word (some
+ * dislike milk WITHOUT being lactose-allergic). That is OK — they are
+ * caught by different layers, and dislike-filter reports the ingredient
+ * even if allergy-filter also did. The call site decides whether to
+ * show them as a warning or hide the row entirely.
  */
 
 /**
@@ -31,9 +32,9 @@
 
 /**
  * @typedef {object} DislikeWarning
- * @property {string} ingredient - Ingrediens-navn fra oppskriften
- * @property {string[]} dislikedBy - Navn på medlemmer som misliker denne
- * @property {string[]} triggers - Dislike-strenger som matchet
+ * @property {string} ingredient - Ingredient name from the recipe
+ * @property {string[]} dislikedBy - Names of members who dislike this
+ * @property {string[]} triggers - Dislike strings that matched
  */
 
 /**
@@ -65,7 +66,7 @@ function checkRecipeForFamily(recipe, familyContext) {
   const effectiveMembers =
     members.length > 0
       ? members.map((m) => ({
-          name: m.name || 'Ukjent',
+          name: m.name || 'Unknown',
           effective: effectiveDislikesForMember(m, fd),
         }))
       : [{ name: 'familie', effective: fd }];

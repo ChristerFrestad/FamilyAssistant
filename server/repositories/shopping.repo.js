@@ -75,7 +75,7 @@ function createShoppingRepos(db, tryParseJson) {
   const shoppingLists = {
     /**
      * Opprett en ny aktiv handleliste for uken med sine items.
-     * Flytter ev. eksisterende 'active' for samme uke til 'superseded' først.
+     * Moves any existing 'active' for the same week to 'superseded' first.
      * Returnerer { listId, itemCount, needsBuyCount }.
      */
     createActive(weekYear, items, { totalEstPrice = null, notes = null } = {}) {
@@ -188,9 +188,9 @@ function createShoppingRepos(db, tryParseJson) {
 
     /**
      * Finn aktive handlelister som trenger berikelse (pending eller partial).
-     * Brukes av cron-jobben for å resumere berikelse etter rate-limit/crash.
-     * NB: Cron-bruk kjører per-family via runWithFamily, så family_id-filtret
-     * her er basert på gjeldende kontekst.
+     * Used by the cron job to resume enrichment after rate-limit/crash.
+     * Note: cron runs per-family via runWithFamily, so the family_id filter
+     * here is based on the current context.
      */
     listPendingEnrichment(limit = 10) {
       const familyId = getFamilyId();
@@ -210,7 +210,7 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
-     * Lister (uten items) for en uke, nyeste først. Brukt av historikk-UI.
+     * Lists (without items) for a week, newest first. Used by the history UI.
      */
     getByWeek(weekYear) {
       const familyId = getFamilyId();
@@ -297,9 +297,9 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
-     * Merk item som kjøpt. Setter bought_at og bought_qty.
-     * Kallerne (service-laget) må selv oppdatere inventory og
-     * eventuelt productResolutions — repo-en gjør ikke side-effekter
+     * Mark item as bought. Sets bought_at and bought_qty.
+     * Callers (service layer) must update inventory themselves and
+     * optionally productResolutions — the repo does not do side effects
      * utenfor sin egen tabell.
      */
     markItemBought(itemId, boughtQty) {
@@ -317,7 +317,7 @@ function createShoppingRepos(db, tryParseJson) {
 
     /**
      * "Jeg har ikke denne varen likevel": flytt item fra pantry-dekket
-     * til må-kjøpes. needs_buy=1, pantry_has=0.
+     * back to must-buy. needs_buy=1, pantry_has=0.
      */
     markItemUnpantry(itemId) {
       const familyId = getFamilyId();
@@ -452,7 +452,7 @@ function createShoppingRepos(db, tryParseJson) {
     },
 
     /**
-     * Skriv Kassal-resolusjon på et item (brukt av fase B enricher).
+     * Write Kassal resolution on an item (used by phase B enricher).
      */
     attachResolution(
       itemId,

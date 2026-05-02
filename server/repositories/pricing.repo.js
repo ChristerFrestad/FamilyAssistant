@@ -184,7 +184,7 @@ function createPricingRepos(db) {
         .all(productKey);
     },
     getBest(productKey) {
-      // Returnerer beste tilgjengelige referanse: ferskest + høyest confidence
+      // Returns the best available reference: freshest + highest confidence
       const rows = priceReferences.getByProductKey(productKey);
       if (rows.length === 0) return null;
       return rows[0];
@@ -223,8 +223,8 @@ function createPricingRepos(db) {
         .all(like, like, like, limit);
     },
     upsert(ref) {
-      // INSERT OR REPLACE ville slettet id og historikk-FK, så vi bruker
-      // ON CONFLICT på UNIQUE-indeksen (product_key, store, source) og
+      // INSERT OR REPLACE would delete the id and the history FK, so we use
+      // ON CONFLICT on the UNIQUE index (product_key, store, source) and
       // oppdaterer kun felter vi faktisk vil endre.
       db.prepare(
         `
@@ -273,7 +273,7 @@ function createPricingRepos(db) {
       );
     },
     getByProductKeyStoreSource(productKey, store, source) {
-      // Intern hjelper brukt av upsert for å returnere raden.
+      // Internal helper used by upsert to return the row.
       const row = db
         .prepare(
           `

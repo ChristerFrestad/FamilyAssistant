@@ -416,7 +416,7 @@ describe('kassal-client.service', () => {
     assert.equal(result[0].name, 'Gammel melk');
   });
 
-  test('circuit breaker åpner etter 3 påfølgende feil', async () => {
+  test('circuit breaker opens after 3 consecutive failures', async () => {
     const kc = require('../server/services/kassal-client.service');
     kc.resetState();
     mockFetch(() => errResponse(500));

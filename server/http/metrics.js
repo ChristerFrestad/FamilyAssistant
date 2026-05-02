@@ -9,7 +9,7 @@
 //   - Route-label normaliseres til "route template" (ikke full path),
 //     slik at /api/recipes/42 og /api/recipes/17 aggregeres til samme bucket.
 //   - Latency lagres som bucket-count for p50/p95/p99-beregning.
-//     Full HDR er unødvendig for en RPi5 — 16 buckets gir holdbar presisjon.
+//     Full HDR is unnecessary for an RPi5 — 16 buckets give workable precision.
 //   - Ingen ekstern avhengighet (Prometheus client er overkill).
 //
 // Eksposerer:
@@ -74,7 +74,7 @@ function record(method, routeTemplate, status, durationMs) {
 
 /**
  * Beregner persentil fra et bucket-histogram.
- * Returnerer øvre grense for bucketen der persentilen faller.
+ * Returns the upper bound of the bucket where the percentile falls.
  */
 function percentile(buckets, totalCount, p) {
   if (totalCount === 0) return 0;
@@ -123,7 +123,7 @@ function snapshot() {
 
 /**
  * Prometheus-exposition format (text/plain).
- * Gir ops-team mulighet til å scrape /metrics direkte.
+ * Lets the ops team scrape /metrics directly.
  */
 function toPrometheus() {
   const lines = [];
@@ -174,11 +174,11 @@ function reset() {
 // Serialize / hydrate (for persistert metrics)
 // ============================================================
 //
-// Prometheus counters må være monotont voksende på tvers av restarts, ellers
-// får rate()-beregninger kunstige "counter reset"-events. Ved å lagre state
+// Prometheus counters must be monotonically increasing across restarts, otherwise
+// rate() calculations get spurious "counter reset" events. By storing state
 // til disk ved shutdown + daglig cron kan vi hydrate ved oppstart og bevare
 // telleverdier. bucket-arrays og byStatus serialiseres direkte; prosessens
-// startedAt tas IKKE med — den nullstilles per prosess (uptime = nåværende
+// startedAt is NOT included — it is reset per process (uptime = current
 // prosesstid, ikke akkumulert).
 
 function serialize() {

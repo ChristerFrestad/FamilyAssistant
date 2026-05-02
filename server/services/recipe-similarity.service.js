@@ -1,16 +1,16 @@
 // @ts-check
 /**
- * Fase F4 — Recipe similarity.
+ * Phase F4 — Recipe similarity.
  *
- * Beregner likhet mellom to oppskrifter basert på:
- *   - Jaccard-similarity over ingrediens-productKeys (vekt 0.6)
- *   - Kategori-match (1 hvis samme category, 0 ellers; vekt 0.3)
- *   - Servings-proximity (1 - |diff|/max(servings); vekt 0.1)
+ * Computes similarity between two recipes based on:
+ *   - Jaccard similarity over ingredient productKeys (weight 0.6)
+ *   - Category match (1 if same category, 0 otherwise; weight 0.3)
+ *   - Servings proximity (1 - |diff|/max(servings); weight 0.1)
  *
- * Resultat: score i [0, 1].
+ * Result: score in [0, 1].
  *
- * Caching: enkel LRU-cache med TTL 10 minutter på per-recipe-id basis.
- * Invalidatet eksplisitt av clear() når oppskrifter endres.
+ * Caching: simple LRU cache with 10 minute TTL on a per-recipe-id basis.
+ * Invalidated explicitly by clear() when recipes change.
  */
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -51,11 +51,10 @@ function computeSimilarity(a, b) {
   const score = ingJac * 0.6 + categoryMatch * 0.3 + servingsProximity * 0.1;
 
   const reasons = [];
-  if (ingJac > 0.4) reasons.push(`${Math.round(ingJac * 100)}% felles ingredienser`);
-  else if (ingJac > 0) reasons.push(`${Math.round(ingJac * 100)}% overlapp`);
-  if (categoryMatch) reasons.push(`samme kategori (${a.category})`);
-  if (servingsProximity >= 0.8 && a.servings && b.servings)
-    reasons.push(`samme porsjons-størrelse`);
+  if (ingJac > 0.4) reasons.push(`${Math.round(ingJac * 100)}% shared ingredients`);
+  else if (ingJac > 0) reasons.push(`${Math.round(ingJac * 100)}% overlap`);
+  if (categoryMatch) reasons.push(`same category (${a.category})`);
+  if (servingsProximity >= 0.8 && a.servings && b.servings) reasons.push(`same serving size`);
 
   return { score: Math.min(1, score), reasons };
 }
@@ -65,7 +64,7 @@ function findSimilar(repos, recipeId, limit = 5) {
   const id = parseInt(recipeId, 10);
   if (!Number.isFinite(id)) return [];
 
-  // Cache-sjekk
+  // Cache check
   const now = Date.now();
   const cached = cache.get(id);
   if (cached && now - cached.at < CACHE_TTL_MS) {
@@ -93,9 +92,9 @@ function findSimilar(repos, recipeId, limit = 5) {
     .filter((r) => r.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  // Cache lagring
+  // Cache store
   if (cache.size >= CACHE_MAX) {
-    // Fjern eldste
+    // Drop oldest
     const oldest = [...cache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
     if (oldest) cache.delete(oldest[0]);
   }

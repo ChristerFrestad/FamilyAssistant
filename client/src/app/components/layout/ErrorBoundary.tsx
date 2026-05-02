@@ -8,7 +8,7 @@
 // can surface different copy ("could not load shopping list", "could
 // not load family", etc.). The "Tilbake til dashboard"-link uses
 // react-router's Link so the page does not reload — the boundary
-// state is reset by the route change. The "Last på nytt"-button
+// state is reset by the route change. The "Reload" button
 // triggers a hard reload to recover from corrupt module state.
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';

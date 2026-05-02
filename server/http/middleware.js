@@ -7,8 +7,8 @@ const { config } = require('../config');
 const { childWithRequestId } = require('../logger');
 const { HttpError, errors } = require('./errors');
 
-// Minimum response-størrelse (bytes) før gzip kobles inn.
-// Under dette er overhead større enn gevinsten.
+// Minimum response size (bytes) before gzip kicks in.
+// Below that the overhead is larger than the gain.
 const COMPRESSION_THRESHOLD = 1024;
 
 // ============================================================
@@ -89,7 +89,7 @@ function writeJsonWithETag(req, res, data, status) {
   if (res.writableEnded) return;
   const payload = Buffer.from(JSON.stringify(data), 'utf8');
 
-  // Weak ETag basert på sha1 av kroppen (før gzip).
+  // Weak ETag based on sha1 of the body (before gzip).
   // Weak fordi gzip endrer bytes men ikke semantikken.
   const etag =
     'W/"' + crypto.createHash('sha1').update(payload).digest('base64').slice(0, 22) + '"';
@@ -101,7 +101,7 @@ function writeJsonWithETag(req, res, data, status) {
     'Cache-Control': 'private, max-age=0, must-revalidate',
   };
 
-  // If-None-Match → 304 Not Modified (sparer båndbredde + klient-render)
+  // If-None-Match → 304 Not Modified (saves bandwidth + client render)
   const inm = req.headers['if-none-match'];
   if (status === 200 && inm && inm === etag) {
     res.writeHead(304, headers);
@@ -133,14 +133,14 @@ function writeJsonWithETag(req, res, data, status) {
 function createContext(req, res, pathname, query) {
   const requestId = req.headers['x-request-id'] || crypto.randomBytes(8).toString('hex');
   // Uke 6 (OBS-3): session_corr lar oss spore en "bruker-intensjon"
-  // gjennom logg på tvers av flere requests. Klient kan sende samme
-  // X-Session-Correlation-Id over f.eks. hele "legg til vare + kjøp"-flyten,
-  // så logg-analyse kan finne alle requests som tilhørte operasjonen.
+  // through logs across multiple requests. The client can send the same
+  // X-Session-Correlation-Id over e.g. the entire "add item + buy" flow
+  // so log analysis can find all requests that belonged to the operation.
   // Fallback: samme verdi som requestId (= én operasjon == én request).
   const sessionCorr = req.headers['x-session-correlation-id'] || requestId;
   // user_hint er en valgfri label (ikke identitet!) som klienten kan sette
-  // for å markere hvilken family-member som utførte handlingen. Validert
-  // mot ^[a-zA-Z0-9_-]{1,32}$ for å unngå log injection.
+  // to mark which family member performed the action. Validated
+  // against ^[a-zA-Z0-9_-]{1,32}$ to avoid log injection.
   const userHintRaw = req.headers['x-user-hint'] || '';
   const userHint = /^[a-zA-Z0-9_-]{1,32}$/.test(userHintRaw) ? userHintRaw : null;
 
@@ -181,7 +181,7 @@ function createContext(req, res, pathname, query) {
               detail: 'Uventet feil',
               instance: pathname,
             };
-      // M4.1: Alltid inkluder request-id i problem-body så klienten kan
+      // M4.1: always include request-id in the problem body so the client can
       // vise den som feilkode, og operator kan grep'e journald direkte.
       problem.requestId = requestId;
       const payload = Buffer.from(JSON.stringify(problem), 'utf8');

@@ -1,51 +1,51 @@
 // @ts-check
-// State-snapshot: persist in-memory state (primært metrics) på tvers av
-// restarts slik at Prometheus-tellere ikke resetter ved deploys.
+// State snapshot: persist in-memory state (primarily metrics) across
+// restarts so that Prometheus counters do not reset on deploys.
 //
 // Design:
-//   - Én tabell (state_snapshots) med { type, data_json, created_at }
-//   - Retention: maks 2 rader per type, eldste slettes først
-//   - Ferskhetsgaranti: hvis seneste rad er eldre enn STALE_MS, betraktes
-//     den som "for gammel" ved restore() og returneres ikke. Ved en
-//     snapshot() skrives en fersk uansett (også hvis data er uendret),
-//     slik at dette kravet alltid holder.
-//   - Kun "metrics" er registrert per nå. Rate limit persisteres IKKE
-//     (bevisst valg: reset-ved-restart er standard og gir bedre UX for
-//     legitime brukere; se memory/feedback_state_snapshot.md).
+//   - One table (state_snapshots) with { type, data_json, created_at }
+//   - Retention: at most 2 rows per type, oldest deleted first
+//   - Freshness guarantee: if the latest row is older than STALE_MS, it is
+//     considered "too old" by restore() and is not returned. On a
+//     snapshot() writes a fresh row regardless (even if data is unchanged),
+//     so this requirement always holds.
+//   - Only "metrics" is registered for now. Rate limit is NOT persisted
+//     (deliberate choice: reset-on-restart is the default and gives better UX for
+//     legitimate users; see memory/feedback_state_snapshot.md).
 //
-// Livssyklus-hooks kalles fra server/index.js:
-//   1. Ved boot (etter createRepositories, før createServer):
+// Lifecycle hooks are called from server/index.js:
+//   1. At boot (after createRepositories, before createServer):
 //        restoreAll(repos)
-//   2. Daglig cron kl. 03:30:
+//   2. Daily cron at 03:30:
 //        snapshotAll(repos)
-//   3. Ved SIGTERM/SIGINT (graceful shutdown):
+//   3. On SIGTERM/SIGINT (graceful shutdown):
 //        snapshotAll(repos)
 //
-// Alle feil er ikke-fatale — en feil i snapshot/restore skal aldri
-// hindre serveren fra å starte eller stoppe. De logges via ctx.log.
+// All errors are non-fatal — an error in snapshot/restore must never
+// prevent the server from starting or stopping. They are logged via ctx.log.
 
 const metrics = require('./http/metrics');
 const { logger } = require('./logger');
 
-// 72 timer = ferskhetsgrense for "gyldig" snapshot
+// 72 hours = freshness limit for a "valid" snapshot
 const STALE_MS = 72 * 3600 * 1000;
 
-// Maks antall rader å beholde per type
+// Max number of rows to keep per type
 const KEEP_PER_TYPE = 2;
 
-// Registrerte serialize/hydrate-par. Holder det åpent slik at vi senere
-// kan legge til flere typer (f.eks. response-cache-warmup) uten å røre
+// Registered serialize/hydrate pairs. We keep it open so we can later
+// add more types (e.g. response-cache warmup) without touching
 // lifecycle-hooks.
 const registrations = new Map();
 
 function register(type, { serialize, hydrate }) {
   if (typeof serialize !== 'function' || typeof hydrate !== 'function') {
-    throw new Error(`state-snapshot.register(${type}): serialize og hydrate må være funksjoner`);
+    throw new Error(`state-snapshot.register(${type}): serialize and hydrate must be functions`);
   }
   registrations.set(type, { serialize, hydrate });
 }
 
-// Default-registrering: metrics er alltid med.
+// Default registration: metrics is always included.
 register('metrics', {
   serialize: () => metrics.serialize(),
   hydrate: (data) => metrics.hydrate(data),
@@ -58,13 +58,13 @@ function isStale(createdAt) {
 }
 
 /**
- * Skriv en snapshot av gitt type til DB. Uavhengig av om dataen
- * faktisk har endret seg — dette garanterer ferskhet.
+ * Write a snapshot of the given type to DB. Regardless of whether
+ * the data actually changed — this guarantees freshness.
  */
 function snapshotOne(repos, type) {
   const reg = registrations.get(type);
   if (!reg) {
-    logger.warn({ type }, 'state-snapshot: ingen registrering for type');
+    logger.warn({ type }, 'state-snapshot: no registration for type');
     return false;
   }
   try {
@@ -72,20 +72,20 @@ function snapshotOne(repos, type) {
     const json = JSON.stringify(data);
     repos.stateSnapshots.insert(type, json);
     const trimmed = repos.stateSnapshots.trimToLast(type, KEEP_PER_TYPE);
-    logger.info({ type, bytes: json.length, trimmed }, 'state-snapshot: lagret');
+    logger.info({ type, bytes: json.length, trimmed }, 'state-snapshot: saved');
     return true;
   } catch (err) {
     logger.error(
       { err: { message: err.message, stack: err.stack }, type },
-      'state-snapshot: snapshot feilet'
+      'state-snapshot: snapshot failed'
     );
     return false;
   }
 }
 
 /**
- * Hent nyeste snapshot fra DB og kall hydrate hvis den ikke er for gammel.
- * Returnerer true hvis hydratisering skjedde, false ellers.
+ * Get the latest snapshot from DB and call hydrate if it is not too old.
+ * Returns true if hydration happened, false otherwise.
  */
 function restoreOne(repos, type) {
   const reg = registrations.get(type);
@@ -93,13 +93,13 @@ function restoreOne(repos, type) {
   try {
     const row = repos.stateSnapshots.getLatest(type);
     if (!row) {
-      logger.info({ type }, 'state-snapshot: ingen tidligere snapshot funnet');
+      logger.info({ type }, 'state-snapshot: no previous snapshot found');
       return false;
     }
     if (isStale(row.createdAt)) {
       logger.warn(
         { type, createdAt: row.createdAt },
-        'state-snapshot: for gammel, hopper over hydratisering'
+        'state-snapshot: too old, skipping hydration'
       );
       return false;
     }
@@ -107,20 +107,20 @@ function restoreOne(repos, type) {
     try {
       data = JSON.parse(row.dataJson);
     } catch (err) {
-      logger.error({ err: { message: err.message }, type }, 'state-snapshot: JSON-parse feilet');
+      logger.error({ err: { message: err.message }, type }, 'state-snapshot: JSON parse failed');
       return false;
     }
     const ok = reg.hydrate(data);
     if (ok) {
-      logger.info({ type, createdAt: row.createdAt }, 'state-snapshot: hydratisert');
+      logger.info({ type, createdAt: row.createdAt }, 'state-snapshot: hydrated');
       return true;
     }
-    logger.warn({ type }, 'state-snapshot: hydrate returnerte false');
+    logger.warn({ type }, 'state-snapshot: hydrate returned false');
     return false;
   } catch (err) {
     logger.error(
       { err: { message: err.message, stack: err.stack }, type },
-      'state-snapshot: restore feilet'
+      'state-snapshot: restore failed'
     );
     return false;
   }
@@ -143,10 +143,10 @@ function restoreAll(repos) {
 }
 
 // ============================================================
-// Cron-scheduling (daglig kl. 03:30)
+// Cron scheduling (daily at 03:30)
 // ============================================================
-// Mellom backup (03:00) og LLM-cache-cleanup (04:00). Egen scheduler
-// slik at modulen er selvstendig og ikke krever endringer i cron.js.
+// Between backup (03:00) and LLM cache cleanup (04:00). Own scheduler
+// so the module is self-contained and does not require changes to cron.js.
 
 let snapshotTimer = null;
 
@@ -165,7 +165,7 @@ function startSnapshotScheduler(repos, { hour = 3, minute = 30 } = {}) {
     snapshotTimer.unref?.();
   }
   const ms = msUntilDaily(hour, minute);
-  logger.info({ ms, hour, minute }, 'state-snapshot: daglig scheduler startet');
+  logger.info({ ms, hour, minute }, 'state-snapshot: daily scheduler started');
   snapshotTimer = setTimeout(runAndReschedule, ms);
   snapshotTimer.unref?.();
   return () => {

@@ -446,9 +446,9 @@ function createSystemRepos(db, tryParseJson) {
      * @param {string} entry.entityType  - ressurs-type (f.eks. 'recipe')
      * @param {string|number} [entry.entityId]
      * @param {string} entry.route       - full HTTP-path, f.eks. '/api/recipes/42'
-     * @param {object} [entry.before]    - objekt før endring (hashes)
+     * @param {object} [entry.before]    - object before change (hashes)
      * @param {object} [entry.after]     - objekt etter endring (hashes)
-     * @param {object} [entry.metadata]  - ekstra context (små key-val)
+     * @param {object} [entry.metadata]  - extra context (small key/val)
      */
     record(entry) {
       const familyId = getFamilyId();

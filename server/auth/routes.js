@@ -212,7 +212,7 @@ function handleMe(ctx) {
 // Atomic completion of the two-step onboarding wizard. The frontend
 // collects family-name (Step 1) and personal profile (Step 2) into
 // local OnboardingContext state and calls this endpoint exactly once
-// when the user clicks "Fullfør". Everything happens in a single
+// when the user clicks "Done". Everything happens in a single
 // transaction so a tab-close between Step 1 and Step 2 leaves no
 // trace in the database. Replaces the old "flag-flip only" version
 // of this endpoint and the now-deleted POST /api/onboarding/create-

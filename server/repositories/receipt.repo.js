@@ -247,7 +247,7 @@ function createReceiptRepos(db) {
 
   const kassalProducts = {
     /**
-     * Upsert basert på kassal_id (stable id fra Kassal).
+     * Upsert based on kassal_id (stable id from Kassal).
      * Oppdaterer last_seen_* felter hvis price/store er satt.
      */
     upsert(p) {
@@ -358,7 +358,7 @@ function createReceiptRepos(db) {
 
   const productResolutions = {
     /**
-     * Registrér at vi "så" en resolution (upload-fasen). times_seen++.
+     * Record that we "saw" a resolution (upload phase). times_seen++.
      */
     upsertSeen({ productKey, kassalProductId, resolvedVia, confidence }) {
       const existing = db

@@ -1,21 +1,23 @@
-// Shopping list service (Iterasjon 3b fase A)
+// Shopping list service (Iteration 3b phase A)
 //
-// Ansvar:
-//   1. Bygg opp en handleliste-struktur fra ukeplan + pantry + consumables + extras
-//   2. Persistér som 'active' handleliste i shopping_lists + shopping_list_items
-//   3. Behold bakoverkompatibel buildShoppingList() som leser den persistente
-//      lista hvis den finnes (eller beregner on-demand som fallback)
+// Responsibilities:
+//   1. Build a shopping-list structure from week plan + pantry +
+//      consumables + extras
+//   2. Persist as the 'active' shopping list in shopping_lists +
+//      shopping_list_items
+//   3. Keep backward-compatible buildShoppingList() that reads the
+//      persistent list when it exists (or computes on-demand as fallback)
 //
-// Designvalg:
-//   - generateForWeek() er den autoritative skriveveien. Alle andre
-//     konsumenter (routes.js, sunday-push) kaller denne.
-//   - buildShoppingList() beholdes som lese-API for bakoverkompatibilitet:
-//     hvis det finnes en 'active' liste i DB, returner den formatert som
-//     det gamle objektet. Hvis ikke, beregn on-demand UTEN å persistere.
-//     Det lar eksisterende tester (sunday-push som ikke har kalt generate)
-//     og GET /api/shopping/current fungere uten endringer.
-//   - Ingen Kassal-kall i denne fasen. Fase B sender bakgrunnsjobb for
-//     berikelse etter at lista er lagret.
+// Design choices:
+//   - generateForWeek() is the authoritative write path. All other
+//     consumers (routes.js, sunday-push) call this one.
+//   - buildShoppingList() is preserved as a read API for backward
+//     compatibility: if there is an 'active' list in DB, return it
+//     formatted as the old object. Otherwise compute on-demand WITHOUT
+//     persisting. This lets existing tests (sunday-push that has not
+//     called generate) and GET /api/shopping/current work unchanged.
+//   - No Kassal calls in this phase. Phase B kicks off a background job
+//     for enrichment after the list is saved.
 
 const { normalizeSync } = require('./ingredient-normalizer.service');
 const { getOptionalFamilyId } = require('../auth/family-context');
@@ -34,14 +36,15 @@ const CATEGORY_ORDER = [
 ];
 
 // ============================================================
-// Beregning (felles for build + generate)
+// Computation (shared between build + generate)
 // ============================================================
 
 /**
- * Beregn hva som skal på handlelista for en uke, basert på nåværende
- * ukeplan, pantry, consumables og extras. Ren funksjon — ingen DB-skriving.
- * Returnerer et flat item-array klart for insert i shopping_list_items,
- * pluss den legacy kategori-strukturen for bakoverkompatibilitet.
+ * Compute what should be on the shopping list for a week based on the
+ * current week plan, pantry, consumables and extras. Pure function — no
+ * DB writes. Returns a flat item array ready for insertion into
+ * shopping_list_items plus the legacy category structure for backward
+ * compatibility.
  */
 function computeShoppingListForWeek(repos, weekYear) {
   const plan = repos.mealPlans.getWeek(weekYear);
@@ -58,8 +61,8 @@ function computeShoppingListForWeek(repos, weekYear) {
 
   const seen = new Map();
 
-  // 1. Samle ingredienser fra aktive middager.
-  //    'away', 'skipped' og 'removed' teller ikke — dagen trenger ingen mat.
+  // 1. Collect ingredients from active dinners.
+  //    'away', 'skipped' and 'removed' do not count — the day needs no food.
   for (const slot of plan) {
     if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed') continue;
     const recipe = allRecipes.find((r) => r.id === slot.recipeId);
@@ -84,7 +87,7 @@ function computeShoppingListForWeek(repos, weekYear) {
     }
   }
 
-  // 2. Bygg flatItems + catMap (gruppert for legacy-format)
+  // 2. Build flatItems + catMap (grouped for legacy format)
   const flatItems = [];
   const catMap = {};
 
@@ -107,10 +110,10 @@ function computeShoppingListForWeek(repos, weekYear) {
 
     const name = product ? product.productName : data.name;
 
-    // Fase C: normaliser ingrediensnavn til norsk hvis det ser engelsk ut.
-    // Hvis product-matchen allerede har et norsk productName, hopper vi over
-    // fordi det er autoritativt. Ellers kjør normalizer på data.name (originalen
-    // fra recipe).
+    // Phase C: normalise ingredient name to Norwegian if it looks English.
+    // If the product match already has a Norwegian productName we skip
+    // because that is authoritative. Otherwise run the normalizer on
+    // data.name (the original from the recipe).
     let ingredientNameNo = null;
     if (!product) {
       const norm = normalizeSync({ name: data.name, qty: data.totalQty, unit: data.unit });
@@ -140,7 +143,7 @@ function computeShoppingListForWeek(repos, weekYear) {
       dairyNote,
     });
 
-    // Legacy catMap skipper items som er dekket fra pantry
+    // Legacy catMap skips items that are covered from the pantry
     if (stillNeed <= 0) continue;
     if (!catMap[cat]) catMap[cat] = [];
     catMap[cat].push({
@@ -222,7 +225,7 @@ function computeShoppingListForWeek(repos, weekYear) {
     });
   }
 
-  // 4. Manuelt tillagte extras
+  // 4. Manually-added extras
   for (const extra of extras) {
     const cat = extra.category || 'T\u00f8rrvarer & annet';
     flatItems.push({
@@ -281,26 +284,26 @@ function computeShoppingListForWeek(repos, weekYear) {
 }
 
 // ============================================================
-// Public: generer persistent handleliste for en uke
+// Public: generate persistent shopping list for a week
 // ============================================================
 
 /**
- * Generer (eller regenerer) en handleliste for en uke og persister den.
+ * Generate (or regenerate) a shopping list for a week and persist it.
  *
- * Oppfører seg idempotent: tidligere 'active' for samme uke blir
- * flyttet til 'superseded' før ny 'active' opprettes (håndheves av
+ * Behaves idempotently: previous 'active' for the same week is moved to
+ * 'superseded' before the new 'active' is created (enforced by the
  * partial unique index + shoppingLists.createActive).
  *
  * @param {Object} repos
  * @param {string} weekYear
  * @param {Object} [opts]
- * @param {boolean} [opts.force=false] — generer selv om uken ikke er komplett
+ * @param {boolean} [opts.force=false] — generate even if the week is not complete
  * @returns {{ listId: number, itemCount: number, needsBuyCount: number, totalEstPrice: number }}
  */
 function generateForWeek(repos, weekYear, { force = false } = {}) {
   if (!force && !repos.mealPlans.isWeekComplete(weekYear)) {
     const err = new Error(
-      'Uken er ikke komplett \u2014 alle 7 dager m\u00e5 ha et valg (middag, away, skipped eller removed)'
+      'Week is not complete \u2014 all 7 days must have a choice (dinner, away, skipped or removed)'
     );
     err.code = 'WEEK_NOT_COMPLETE';
     throw err;
@@ -323,17 +326,17 @@ function generateForWeek(repos, weekYear, { force = false } = {}) {
 }
 
 // ============================================================
-// Public: les handleliste (bakoverkompatibel)
+// Public: read shopping list (backward compatible)
 // ============================================================
 
 /**
- * Bakoverkompatibel lesing av handleliste som et legacy-objekt med
- * { categories, totalEstPrice }. Bruker:
- *   1. Aktiv DB-liste hvis den finnes (persistert via generateForWeek)
- *   2. On-demand beregning ellers (uten persistens)
+ * Backward-compatible read of the shopping list as a legacy object with
+ * { categories, totalEstPrice }. Uses:
+ *   1. Active DB list if it exists (persisted via generateForWeek)
+ *   2. On-demand computation otherwise (no persistence)
  *
- * Dette lar eksisterende GET /api/shopping/current og sunday-push fungere
- * uendret selv før brukeren har generert en "ekte" liste.
+ * This lets existing GET /api/shopping/current and sunday-push work
+ * unchanged even before the user has generated a "real" list.
  */
 function buildShoppingList(repos, weekYear) {
   const active = repos.shoppingLists?.getActive ? repos.shoppingLists.getActive(weekYear) : null;
@@ -346,14 +349,14 @@ function buildShoppingList(repos, weekYear) {
 }
 
 /**
- * Formater en persistent shopping_list som legacy-objektet som UI-et
- * allerede forstår. Gruppér items på category.
+ * Format a persistent shopping_list as the legacy object the UI already
+ * understands. Group items by category.
  */
 function legacyViewFromActiveList(list) {
   const catMap = {};
   let totalEstPrice = 0;
   for (const it of list.items) {
-    if (it.pantryHas && !it.needsBuy) continue; // gjemmes i legacy-visning
+    if (it.pantryHas && !it.needsBuy) continue; // hidden in legacy view
     const cat = it.category || 'T\u00f8rrvarer & annet';
     if (!catMap[cat]) catMap[cat] = [];
     catMap[cat].push({

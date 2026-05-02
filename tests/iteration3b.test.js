@@ -252,7 +252,7 @@ describe('Shopping routes', () => {
       body: { weekYear: wk },
     });
     assert.equal(res.status, 400);
-    assert.match(res.body.detail, /komplett/);
+    assert.match(res.body.detail, /complete/);
   });
 
   test('POST /api/shopping/generate med force → 200 og listId', async () => {

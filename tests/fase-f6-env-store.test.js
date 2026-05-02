@@ -27,58 +27,58 @@ const envStore = require('../server/services/env-store.service');
 
 describe('Fase F6 — env-store sanitize', () => {
   test('avviser newline', () => {
-    assert.throws(() => envStore.sanitize('foo\nbar'), /ugyldige tegn/);
+    assert.throws(() => envStore.sanitize('foo\nbar'), /invalid characters/);
   });
 
-  test('avviser carriage return', () => {
-    assert.throws(() => envStore.sanitize('foo\rbar'), /ugyldige tegn/);
+  test('rejects carriage return', () => {
+    assert.throws(() => envStore.sanitize('foo\rbar'), /invalid characters/);
   });
 
-  test('avviser null byte', () => {
-    assert.throws(() => envStore.sanitize('foo\0bar'), /ugyldige tegn/);
+  test('rejects null byte', () => {
+    assert.throws(() => envStore.sanitize('foo\0bar'), /invalid characters/);
   });
 
-  test('avviser control chars', () => {
-    assert.throws(() => envStore.sanitize('foo\x1bbar'), /ugyldige tegn/);
+  test('rejects control chars', () => {
+    assert.throws(() => envStore.sanitize('foo\x1bbar'), /invalid characters/);
   });
 
-  test('avviser dobbelt-quote', () => {
-    assert.throws(() => envStore.sanitize('foo"bar'), /anførselstegn/);
+  test('rejects double-quote', () => {
+    assert.throws(() => envStore.sanitize('foo"bar'), /double-quote/);
   });
 
-  test('avviser tom streng', () => {
-    assert.throws(() => envStore.sanitize(''), /tom/);
+  test('rejects empty string', () => {
+    assert.throws(() => envStore.sanitize(''), /empty/);
   });
 
-  test('avviser for lang verdi', () => {
-    assert.throws(() => envStore.sanitize('a'.repeat(501)), /for lang/);
+  test('rejects too long value', () => {
+    assert.throws(() => envStore.sanitize('a'.repeat(501)), /too long/);
   });
 
-  test('aksepterer normal verdi', () => {
+  test('accepts normal value', () => {
     assert.equal(envStore.sanitize('sk-1234567890abcdef'), 'sk-1234567890abcdef');
   });
 });
 
 describe('Fase F6 — env-store whitelist', () => {
-  test('avviser ukjent nøkkel', async () => {
-    await assert.rejects(envStore.write('SECRET_THING', 'hax'), /Ukjent nøkkel/);
+  test('rejects unknown key', async () => {
+    await assert.rejects(envStore.write('SECRET_THING', 'hax'), /Unknown key/);
   });
 
-  test('avviser ugyldig format for OPENAI_API_KEY', async () => {
-    await assert.rejects(envStore.write('OPENAI_API_KEY', 'notanopenaikey'), /Ugyldig format/);
+  test('rejects invalid format for OPENAI_API_KEY', async () => {
+    await assert.rejects(envStore.write('OPENAI_API_KEY', 'notanopenaikey'), /Invalid format/);
   });
 
-  test('avviser ugyldig format for LLM_BACKEND', async () => {
-    await assert.rejects(envStore.write('LLM_BACKEND', 'gemini'), /Ugyldig format/);
+  test('rejects invalid format for LLM_BACKEND', async () => {
+    await assert.rejects(envStore.write('LLM_BACKEND', 'gemini'), /Invalid format/);
   });
 
-  test('aksepterer gyldig LLM_BACKEND', async () => {
+  test('accepts valid LLM_BACKEND', async () => {
     const r = await envStore.write('LLM_BACKEND', 'openai');
     assert.equal(r.ok, true);
     assert.equal(r.requiresRestart, false);
   });
 
-  test('aksepterer gyldig OPENAI_API_KEY', async () => {
+  test('accepts valid OPENAI_API_KEY', async () => {
     const r = await envStore.write('OPENAI_API_KEY', 'sk-test1234567890abcdefghij');
     assert.equal(r.ok, true);
     assert.ok(r.masked.endsWith('ghij'));

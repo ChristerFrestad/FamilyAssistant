@@ -5,9 +5,9 @@
 // sprints just have to fill in the destinations.
 //
 // Buttons:
-//   - "Legg til måltid"        -> /meals
-//   - "Nytt gjøremål"          -> /family
-//   - "Legg til på handleliste"-> /shopping
+//   - "Add meal"               -> /meals
+//   - "New chore"              -> /family
+//   - "Add to shopping list"   -> /shopping
 //
 // All three labels live in dashboard:actions.* — no hard-coded
 // strings here. The container is keyboard-accessible (semantic

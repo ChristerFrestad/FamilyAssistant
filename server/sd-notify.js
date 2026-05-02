@@ -1,10 +1,10 @@
-// systemd sd_notify-støtte (M2.2)
+// systemd sd_notify support (M2.2)
 //
 // systemd setter NOTIFY_SOCKET i environment til en Unix socket (AF_UNIX)
-// når service har Type=notify. Vi kan da sende READY=1, WATCHDOG=1 og
+// when the service has Type=notify. We can then send READY=1, WATCHDOG=1 and
 // STATUS=<tekst> som datagrammer.
 //
-// Pure-Node implementasjon — ingen ekstern avhengighet. Fungerer kun på
+// Pure-Node implementation — no external dependency. Works only on
 // Linux (Windows har ingen NOTIFY_SOCKET, alle kall blir no-ops).
 //
 // Bruk:
@@ -20,7 +20,7 @@ const NOTIFY_SOCKET = process.env.NOTIFY_SOCKET || '';
 const WATCHDOG_USEC = Number(process.env.WATCHDOG_USEC || 0);
 
 // Hvis socket-pathen starter med '@' er det en abstract-namespace socket
-// (Linux-spesifikt) — prefiks med null-byte før send.
+// (Linux-specific) — prefix with null-byte before send.
 function socketAddress() {
   if (!NOTIFY_SOCKET) return null;
   if (NOTIFY_SOCKET.startsWith('@')) return '\u0000' + NOTIFY_SOCKET.slice(1);
@@ -31,12 +31,12 @@ function notify(message) {
   const addr = socketAddress();
   if (!addr) return false;
 
-  // Bruk unix-dgram? Node har ingen innebygd, så vi bruker net.createConnection
+  // Use unix-dgram? Node has none built-in, so we use net.createConnection
   // med AF_UNIX SOCK_DGRAM — dette krever dgram.createSocket som _ikke_
-  // støtter unix. Løsning: bruk et eksternt kommando? Nei — bruk fs tricks?
+  // supports unix. Solution: use an external command? No — use fs tricks?
   //
-  // Enkleste portable løsning: spawn `systemd-notify` binary.
-  // systemd-notify finnes på alle systemer der NOTIFY_SOCKET er satt.
+  // Simplest portable solution: spawn `systemd-notify` binary.
+  // systemd-notify exists on all systems where NOTIFY_SOCKET is set.
   try {
     const { spawnSync } = require('child_process');
     const result = spawnSync('systemd-notify', [message], {
@@ -82,7 +82,7 @@ function reloading() {
 // ============================================================
 //
 // Hvis systemd service har WatchdogSec=N settes WATCHDOG_USEC til N*1e6.
-// Vi må sende WATCHDOG=1 oftere enn halvparten av intervallet,
+// We must send WATCHDOG=1 more often than half the interval,
 // ellers restarter systemd prosessen.
 
 let watchdogTimer = null;

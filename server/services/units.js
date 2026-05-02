@@ -1,16 +1,17 @@
 // @ts-check
 /**
- * Fase F2 – Units-validator og pantry-ratio-beregning.
+ * Phase F2 — Units validator and pantry ratio calculation.
  *
- * Whitelist av enheter som støttes i pantry/progress-bar.
- * Alt annet avvises med klar feilmelding.
+ * Whitelist of units supported in pantry/progress-bar.
+ * Anything else is rejected with a clear error message.
  */
 
 /** @type {readonly string[]} */
 const ALLOWED_UNITS = ['g', 'kg', 'ml', 'dl', 'l', 'stk'];
 
 /** @type {Record<string, string>} */
-// Konvertering av kompatible enhetspar (ved ratio-beregning må qty og total ha samme enhet)
+// Conversion of compatible unit pairs (for ratio calculation qty and
+// total must share the same unit)
 const UNIT_ALIASES = {
   gr: 'g',
   gram: 'g',
@@ -22,12 +23,12 @@ const UNIT_ALIASES = {
   pcs: 'stk',
 };
 
-const LOW_THRESHOLD = 0.15; // Under 15% = lav beholdning
+const LOW_THRESHOLD = 0.15; // Below 15% = low stock
 
 /**
- * Normaliser enhet-streng via aliases-mapping.
+ * Normalise a unit string via the aliases mapping.
  * @param {unknown} unit
- * @returns {string} Normalisert enhet, eller 'stk' som fallback
+ * @returns {string} Normalised unit, or 'stk' as fallback
  */
 function normalizeUnit(unit) {
   if (!unit || typeof unit !== 'string') return 'stk';
@@ -36,22 +37,22 @@ function normalizeUnit(unit) {
 }
 
 /**
- * Validerer enhet mot whitelist. Kaster Error ved ugyldig.
+ * Validate a unit against the whitelist. Throws on invalid.
  * @param {unknown} unit
- * @returns {string} Gyldig normalisert enhet
- * @throws {Error} Hvis enheten ikke er i ALLOWED_UNITS
+ * @returns {string} Valid normalised unit
+ * @throws {Error} If the unit is not in ALLOWED_UNITS
  */
 function validateUnit(unit) {
   const norm = normalizeUnit(unit);
   if (!ALLOWED_UNITS.includes(norm)) {
-    throw new Error(`Ugyldig enhet '${String(unit)}'. Tillatt: ${ALLOWED_UNITS.join(', ')}`);
+    throw new Error(`Invalid unit '${String(unit)}'. Allowed: ${ALLOWED_UNITS.join(', ')}`);
   }
   return norm;
 }
 
 /**
  * @param {unknown} unit
- * @returns {boolean} True hvis enheten validerer uten å kaste
+ * @returns {boolean} True if the unit validates without throwing
  */
 function isAllowedUnit(unit) {
   try {
@@ -63,10 +64,10 @@ function isAllowedUnit(unit) {
 }
 
 /**
- * Beregn forhold mellom gjenstående og total (0-1 clamped).
+ * Compute the ratio between remaining and total (0-1 clamped).
  * @param {number|string} qty
  * @param {number|string} total
- * @returns {number|null} null hvis total mangler eller er 0
+ * @returns {number|null} null if total is missing or zero
  */
 function calculateRatio(qty, total) {
   const q = parseFloat(String(qty));
@@ -76,11 +77,12 @@ function calculateRatio(qty, total) {
 }
 
 /**
- * Sjekker om varen er under lav-terskel (default 15%).
+ * Check whether the item is below the low-stock threshold (default 15%).
  * @param {number|string} qty
  * @param {number|string} total
  * @param {number} [threshold=0.15]
- * @returns {boolean|null} null = ingen total satt, false = over terskel, true = under terskel
+ * @returns {boolean|null} null = no total set, false = above threshold,
+ *     true = below threshold
  */
 function isLowStock(qty, total, threshold = LOW_THRESHOLD) {
   const ratio = calculateRatio(qty, total);

@@ -3,9 +3,9 @@
 // UX-flow (Christer-confirmed for pilot):
 //   1. If the current user is owner of a family → button is disabled
 //      with an inline hint "Du må overføre eierskap først". Backend
-//      would 403 anyway; we forhåndssjekker for kjapp UX.
+//      would 403 anyway; we pre-check client-side for snappy UX.
 //   2. Otherwise → button is enabled. On click, native window.confirm
-//      asks for explicit consent ("Du har 30 dager på å angre").
+//      asks for explicit consent ("You have 30 days to undo").
 //   3. On confirm → onDelete handler from useSettingsData fires.
 //      On success the parent (Settings.tsx) navigates to /v2/login.
 //   4. On failure the parent's userFacingError toast surfaces.
@@ -32,7 +32,7 @@ export interface DeleteAccountButtonProps {
   /**
    * When true the button is disabled because the current user is the
    * owner of a family with other members and must transfer ownership
-   * first. Backend would 403; we forhåndssjekker.
+   * first. Backend would 403; we pre-check client-side.
    */
   ownerBlocked?: boolean;
   /** Optional confirm-handler override for testability (defaults to window.confirm). */

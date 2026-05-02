@@ -18,7 +18,7 @@ const assert = require('node:assert/strict');
 
 const { createBreaker, CircuitOpenError } = require('../server/services/circuit-breaker');
 
-describe('Uke6 · Chaos: breaker går til OPEN etter feil-threshold', () => {
+describe('Week6 · Chaos: breaker goes to OPEN after failure threshold', () => {
   test('CLOSED → OPEN etter failureThreshold konsekutive feil', async () => {
     const stateChanges = [];
     const breaker = createBreaker({

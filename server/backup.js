@@ -1,21 +1,23 @@
-// Automatisk SQLite-backup via VACUUM INTO
-// - Daglig backup kl. 03:00
-// - Beholder siste 14 backups, sletter eldre
-// - Atomisk: VACUUM INTO gir en konsistent snapshot selv mens DB skrives til
-// - M2.1: Off-site sync via rsync eller ren fil-kopi hvis BACKUP_REMOTE_PATH er satt.
-//   BACKUP_REMOTE_PATH kan være:
-//     - /mnt/nas/familieassistenten            → fs.copyFile til mount
-//     - rsync://host/module/path               → rsync daemon-mode
+// Automatic SQLite backup via VACUUM INTO
+// - Daily backup at 03:00
+// - Keeps the last 14 backups, deletes older ones
+// - Atomic: VACUUM INTO gives a consistent snapshot even while the DB is
+//   being written to
+// - M2.1: Off-site sync via rsync or plain file copy if BACKUP_REMOTE_PATH
+//   is set. BACKUP_REMOTE_PATH can be:
+//     - /mnt/nas/familyassistant               → fs.copyFile to mount
+//     - rsync://host/module/path               → rsync daemon mode
 //     - user@host:/remote/path                 → rsync over SSH
-//   Feiler remote aldri serverens oppstart eller hovedbackupen — bare logges.
+//   Remote failure never affects server startup or the main backup —
+//   only logged.
 
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-// BACKUP_DIR kan overrides via env (Dockerfile setter /app/data/backups).
-// Må stemme med resolveringen i db.js slik at /ready og backup-scheduler
-// leser/skriver samme katalog.
+// BACKUP_DIR can be overridden via env (Dockerfile sets /app/data/backups).
+// Must match the resolution in db.js so /ready and the backup scheduler
+// read/write the same directory.
 const BACKUP_DIR =
   process.env.BACKUP_DIR ||
   path.join(
@@ -28,7 +30,7 @@ const KEEP_DAYS = 14;
 const REMOTE_PATH = process.env.BACKUP_REMOTE_PATH || '';
 const REMOTE_TIMEOUT_MS = Number(process.env.BACKUP_REMOTE_TIMEOUT_MS || 60_000);
 
-// Lazy-load for å unngå sirkulær avhengighet ved testing
+// Lazy-load to avoid circular dependency during testing
 let _alerting = null;
 function alerting() {
   if (!_alerting) _alerting = require('./alerting');
@@ -46,7 +48,7 @@ function ensureBackupDir() {
 
 function backupNow(db) {
   if (!db || typeof db.prepare !== 'function') {
-    log('Kan ikke ta backup \u2014 db-referanse mangler');
+    log('Cannot take backup \u2014 db reference missing');
     return null;
   }
   ensureBackupDir();
@@ -67,13 +69,13 @@ function backupNow(db) {
     );
     pruneOldBackups();
 
-    // M2.1: off-site sync — feil logges men blokkerer ikke lokal backup
+    // M2.1: off-site sync — errors are logged but do not block local backup
     if (REMOTE_PATH) {
       syncToRemote(target).catch((err) => {
         log(`\u2717 Off-site sync feilet: ${err.message}`);
-        // M4.3: varsle operator om off-site backup feiler
+        // M4.3: notify operator when off-site backup fails
         alerting()
-          .warning('Off-site backup feilet', {
+          .warning('Off-site backup failed', {
             detail: err.message,
             context: { remote: REMOTE_PATH.replace(/:.*@/, ':***@') },
             key: 'backup_remote_failed',
@@ -85,9 +87,9 @@ function backupNow(db) {
     return target;
   } catch (err) {
     log(`\u2717 Backup feilet: ${err.message}`);
-    // M4.3: varsle operator — kritisk siden det betyr ingen recovery-point
+    // M4.3: notify operator — critical because it means no recovery point
     alerting()
-      .critical('Lokal backup feilet', {
+      .critical('Local backup failed', {
         detail: err.message,
         key: 'backup_local_failed',
       })
@@ -101,7 +103,7 @@ function backupNow(db) {
 // ============================================================
 
 /**
- * Klassifiser remote-path-typen.
+ * Classify the remote-path type.
  * - "/mnt/nas/dir" eller "C:\\nas\\dir" → 'mount' (fs.copyFile)
  * - "user@host:/path" → 'ssh' (rsync over ssh)
  * - "rsync://host/module" → 'rsync' (rsync daemon)
@@ -118,12 +120,12 @@ async function syncToRemote(localFile) {
   const startedAt = Date.now();
 
   if (kind === 'mount') {
-    // Ren filkopi til mount-punkt. Caller sikrer at mount er mounted.
+    // Plain file copy to the mount point. Caller ensures mount is mounted.
     if (!fs.existsSync(REMOTE_PATH)) {
-      throw new Error(`Remote mount finnes ikke: ${REMOTE_PATH}`);
+      throw new Error(`Remote mount does not exist: ${REMOTE_PATH}`);
     }
     if (!fs.statSync(REMOTE_PATH).isDirectory()) {
-      throw new Error(`Remote mount er ikke en mappe: ${REMOTE_PATH}`);
+      throw new Error(`Remote mount is not a directory: ${REMOTE_PATH}`);
     }
     const target = path.join(REMOTE_PATH, path.basename(localFile));
     const tmp = target + '.tmp';
@@ -134,11 +136,11 @@ async function syncToRemote(localFile) {
     return target;
   }
 
-  // ssh eller rsync daemon — bruk rsync-kommandoen
+  // ssh or rsync daemon — use the rsync command
   return new Promise((resolve, reject) => {
     const args = ['-a', '--timeout=30', '--partial', localFile, REMOTE_PATH];
-    // Tving strict host key checking off er FARLIG — vi krever at admin har
-    // konfigurert kjente hosts på forhånd (first-use, ssh-keyscan).
+    // Forcing strict host key checking off is DANGEROUS — we require admin to have
+    // configured known hosts in advance (first-use, ssh-keyscan).
     const proc = spawn('rsync', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stderr = '';
@@ -146,20 +148,20 @@ async function syncToRemote(localFile) {
       stderr += d.toString();
     });
     proc.stdout.on('data', () => {
-      /* suge */
+      /* drain */
     });
 
     const killTimer = setTimeout(() => {
       try {
         proc.kill('SIGKILL');
       } catch {}
-      reject(new Error(`rsync timeout etter ${REMOTE_TIMEOUT_MS} ms`));
+      reject(new Error(`rsync timeout after ${REMOTE_TIMEOUT_MS} ms`));
     }, REMOTE_TIMEOUT_MS);
 
     proc.on('error', (err) => {
       clearTimeout(killTimer);
       if (err.code === 'ENOENT') {
-        reject(new Error('rsync er ikke installert — `sudo apt install rsync`'));
+        reject(new Error('rsync is not installed — `sudo apt install rsync`'));
       } else {
         reject(err);
       }
@@ -193,14 +195,14 @@ function pruneOldBackups() {
     const toRemove = files.slice(KEEP_DAYS);
     for (const f of toRemove) {
       fs.unlinkSync(f.full);
-      log(`Slettet gammel backup: ${f.file}`);
+      log(`Deleted old backup: ${f.file}`);
     }
   } catch (err) {
-    log(`Prune feilet: ${err.message}`);
+    log(`Prune failed: ${err.message}`);
   }
 }
 
-// Schedule daglig backup kl. 03:00
+// Schedule daily backup at 03:00
 let backupTimer = null;
 function scheduleDailyBackup(db) {
   function nextRunMs() {
@@ -218,7 +220,7 @@ function scheduleDailyBackup(db) {
   }
 
   const ms = nextRunMs();
-  log(`Daglig backup planlagt om ${Math.round(ms / 3600000)} timer (03:00)`);
+  log(`Daily backup scheduled in ${Math.round(ms / 3600000)} hours (03:00)`);
   backupTimer = setTimeout(runAndReschedule, ms);
   backupTimer.unref?.();
 }

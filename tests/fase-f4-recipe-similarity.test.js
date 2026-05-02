@@ -70,11 +70,11 @@ describe('Fase F4 — computeSimilarity', () => {
     assert.ok(Math.abs(r.score - 0.7) < 0.01);
   });
 
-  test('reasons inneholder kontekst', () => {
+  test('reasons contain context', () => {
     const b = { ...a, id: 2 };
     const r = sim.computeSimilarity(a, b);
     assert.ok(r.reasons.length > 0);
-    assert.ok(r.reasons.some((x) => /felles ingredienser|overlapp/.test(x)));
+    assert.ok(r.reasons.some((x) => /shared ingredients|overlap/.test(x)));
   });
 });
 

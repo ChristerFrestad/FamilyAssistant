@@ -12,12 +12,12 @@
  * Exit codes:
  *   0 = OK
  *   1 = coverage under terskel
- *   2 = klarte ikke å parse output
+ *   2 = failed to parse output
  */
 
 'use strict';
 
-// Terskler (baseline satt 2026-04-10). Økes gradvis etter uke 3-4 når frontend splittes.
+// Thresholds (baseline set 2026-04-10). Raised gradually after week 3-4 when frontend splits.
 const THRESHOLDS = {
   lines: 80.0,
   branches: 68.0,
@@ -35,7 +35,7 @@ process.stdin.on('end', () => {
   // ℹ all files    |  83.26 |  71.15 |  75.83 |
   const match = buf.match(/all files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
   if (!match) {
-    console.error('\n[coverage-gate] FEIL: klarte ikke å parse "all files"-raden fra test-output.');
+    console.error('\n[coverage-gate] ERROR: failed to parse the "all files" row from test output.');
     process.exit(2);
   }
   const [, lines, branches, functions] = match.map(Number);

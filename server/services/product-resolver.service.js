@@ -1,21 +1,21 @@
-// Product resolver (Iterasjon 3a — minimal variant)
+// Product resolver (Iteration 3a — minimal variant)
 //
-// Ansvar: Gitt et "behov" (EAN, eller navn + hint), finn den stabile
-// Kassal-SKU-en som matcher best. Persistér både SKU-en i kassal_products
-// og resolution-koblingen i product_resolutions, slik at neste gang samme
-// behov dukker opp kan vi svare uten API-kall.
+// Responsibility: given a "need" (EAN, or name + hint), find the stable
+// Kassal SKU that matches best. Persist both the SKU in kassal_products
+// and the resolution link in product_resolutions so that next time the
+// same need shows up we can answer without an API call.
 //
-// Designvalg:
-//   - EAN-path er alltid raskest og har høyest confidence (1.0). Prøv
-//     alltid først hvis EAN er oppgitt.
-//   - Cache-first på productKey: hvis times_confirmed ≥ 1 for en
-//     tidligere resolution, bruk den uten nytt Kassal-kall.
-//   - Scoring for navn-søk er deterministisk og reproducerbar. Ingen LLM
-//     i hot path i 3a. LLM-rerank kommer i 3c.
-//   - Hele servicen er null-safe: manglende API-nøkkel eller nedetid
-//     returnerer null, aldri kaster.
+// Design choices:
+//   - EAN path is always fastest and has highest confidence (1.0). Try
+//     it first whenever EAN is provided.
+//   - Cache-first on productKey: if times_confirmed ≥ 1 for a previous
+//     resolution, use it without another Kassal call.
+//   - Scoring for name search is deterministic and reproducible. No LLM
+//     in the hot path in 3a. LLM-rerank comes in 3c.
+//   - The whole service is null-safe: a missing API key or downtime
+//     returns null, never throws.
 //
-// Referanser:
+// References:
 //   - server/services/kassal-client.service.js (HTTP + cache)
 //   - server/repositories.js (kassalProducts, productResolutions)
 
@@ -31,7 +31,7 @@ function normalize(text) {
 }
 
 /**
- * Del navn i "betydningsfulle" ord (≥3 tegn, ikke stop-ord).
+ * Split name into "significant" words (≥3 chars, not stop-words).
  */
 const STOP_WORDS = new Set([
   'og',
@@ -57,7 +57,7 @@ function tokenize(text) {
 }
 
 /**
- * Overlap mellom to ordsett (Jaccard-lik uten normalisering på lengde).
+ * Overlap between two word sets (Jaccard-like without length normalisation).
  */
 function wordOverlap(candidateTokens, queryTokens) {
   if (queryTokens.length === 0 || candidateTokens.length === 0) return 0;
@@ -68,16 +68,16 @@ function wordOverlap(candidateTokens, queryTokens) {
 }
 
 /**
- * Nærhet mellom to pakkestørrelser i gram-ekvivalenter.
- * Returnerer 0–1 der 1 = eksakt match.
+ * Proximity between two pack sizes in gram equivalents.
+ * Returns 0–1 where 1 = exact match.
  */
 function packSizeProximity(candidateSize, candidateUnit, targetQty, targetUnit) {
-  if (!candidateSize || !targetQty) return 0.5; // nøytral hvis vi ikke vet
+  if (!candidateSize || !targetQty) return 0.5; // neutral when unknown
   const candG = toGrams(candidateSize, candidateUnit);
   const targG = toGrams(targetQty, targetUnit);
   if (!candG || !targG) return 0.5;
   const ratio = Math.min(candG, targG) / Math.max(candG, targG);
-  return ratio; // 1.0 eksakt, 0.5 halvparten, osv.
+  return ratio; // 1.0 exact, 0.5 half, etc.
 }
 
 function toGrams(size, unit) {
@@ -85,19 +85,19 @@ function toGrams(size, unit) {
   if (!Number.isFinite(size)) return null;
   if (u === 'kg') return size * 1000;
   if (u === 'g' || u === 'gram') return size;
-  if (u === 'l' || u === 'liter') return size * 1000; // antar 1:1 for væske
+  if (u === 'l' || u === 'liter') return size * 1000; // assume 1:1 for liquids
   if (u === 'ml') return size;
-  if (u === 'stk') return null; // ikke sammenlignbart
+  if (u === 'stk') return null; // not comparable
   return null;
 }
 
 // ============================================================
-// Kjede-ekstraksjon (Migration 013)
+// Chain extraction (Migration 013)
 // ============================================================
 
 /**
- * Norske dagligvarekjeder, sortert lengste navn først for å unngå
- * at f.eks. "Extra" matcher før "Coop Extra".
+ * Norwegian grocery chains, sorted longest name first to avoid e.g.
+ * "Extra" matching before "Coop Extra".
  */
 const KNOWN_CHAINS = [
   'Coop Extra',
@@ -117,11 +117,11 @@ const KNOWN_CHAINS = [
 ];
 
 /**
- * Ekstraher kjedenavn fra et butikknavn.
- *   "Kiwi Vågsbygd" → "Kiwi"
+ * Extract the chain name from a store name.
+ *   "Kiwi Vagsbygd" -> "Kiwi"  (example with Norwegian-place name)
  *   "Rema 1000 Lund" → "Rema 1000"
- *   "Coop Extra Sørdal" → "Coop Extra"
- *   null / ukjent → null
+ *   "Coop Extra Sordal" -> "Coop Extra"  (example with Norwegian-place name)
+ *   null / unknown → null
  */
 function extractChain(storeName) {
   if (!storeName) return null;
@@ -133,8 +133,8 @@ function extractChain(storeName) {
 }
 
 /**
- * Additiv boost for kjede-preferanse. Brukes som tiebreaker i scoring.
- * Foretrukket kjede: +0.15, sekundærkjede: +0.07, annet: 0.
+ * Additive boost for chain preference. Used as a tiebreaker in scoring.
+ * Preferred chain: +0.15, secondary chain: +0.07, other: 0.
  */
 function chainBoost(candidate, preferredChain, secondaryChain) {
   if (!preferredChain && !secondaryChain) return 0;
@@ -148,14 +148,14 @@ function chainBoost(candidate, preferredChain, secondaryChain) {
 }
 
 /**
- * Beregn en samlet score 0–1+ for en Kassal-kandidat gitt et behov.
- * Vekter:
- *   - 0.50 ordoverlapp i navn
- *   - 0.25 merkehint treff
- *   - 0.20 pakkestørrelse-nærhet
- *   - 0.05 priskjennskap (har current_price)
- *   - +0.15 foretrukket kjede (additiv bonus)
- *   - +0.07 sekundærkjede (additiv bonus)
+ * Compute a combined score 0–1+ for a Kassal candidate given a need.
+ * Weights:
+ *   - 0.50 word overlap in name
+ *   - 0.25 brand-hint match
+ *   - 0.20 pack-size proximity
+ *   - 0.05 price knowledge (has current_price)
+ *   - +0.15 preferred chain (additive bonus)
+ *   - +0.07 secondary chain (additive bonus)
  */
 function scoreCandidate(candidate, { name, brandHint, qty, unit }, chainPrefs = {}) {
   const queryTokens = tokenize(name);
@@ -170,7 +170,7 @@ function scoreCandidate(candidate, { name, brandHint, qty, unit }, chainPrefs = 
     const cb = normalize(candidate.brand);
     if (cb === bh || cb.includes(bh) || bh.includes(cb)) brandMatch = 1;
   } else if (!brandHint) {
-    brandMatch = 0.5; // ingen hint å sjekke mot
+    brandMatch = 0.5; // no hint to check against
   }
 
   const prox = packSizeProximity(
@@ -187,12 +187,12 @@ function scoreCandidate(candidate, { name, brandHint, qty, unit }, chainPrefs = 
 }
 
 // ============================================================
-// Persistens-hjelp
+// Persistence helpers
 // ============================================================
 
 /**
- * Map et Kassal-produkt-objekt til vårt kassalProducts-skjema og upsert.
- * Returnerer { kassalProductRowId, kassalId }.
+ * Map a Kassal product object to our kassalProducts schema and upsert.
+ * Returns { kassalProductRowId, kassalId }.
  */
 function persistKassalProduct(repos, rawProduct, { captureSource = 'lookup' } = {}) {
   if (!rawProduct || (!rawProduct.id && !rawProduct.kassal_id)) return null;
@@ -217,17 +217,17 @@ function persistKassalProduct(repos, rawProduct, { captureSource = 'lookup' } = 
 }
 
 /**
- * Normaliser Kassal-respons til en liste med produkt-kandidater.
- * Kassal sine varianter kan være et objekt eller en array, og kan ligge
- * i body.data eller body.products. Vi har allerede unpacket i klienten,
- * men håndterer begge her for sikkerhets skyld.
+ * Normalise the Kassal response to a list of product candidates.
+ * Kassal's variants can be an object or an array, and can live in
+ * body.data or body.products. We already unpack in the client, but we
+ * handle both here for safety.
  */
 function asProductArray(raw) {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
   if (Array.isArray(raw.data)) return raw.data;
   if (Array.isArray(raw.products)) return raw.products;
-  if (raw.id || raw.kassal_id || raw.ean) return [raw]; // enkelt-produkt
+  if (raw.id || raw.kassal_id || raw.ean) return [raw]; // single product
   return [];
 }
 
@@ -236,14 +236,14 @@ function asProductArray(raw) {
 // ============================================================
 
 /**
- * Resolve via EAN (strekkode). Alltid confidence 1.0 ved treff.
+ * Resolve via EAN (barcode). Always confidence 1.0 on a hit.
  *
  * @returns {Promise<object|null>} { kassalProductRowId, kassalId, confidence, resolvedVia, candidates }
  */
 async function resolveByEan(repos, ean, { productKey = null, captureSource = 'lookup' } = {}) {
   if (!ean) return null;
 
-  // 1. Sjekk vår egen katalog først — unngå API-kall hvis vi allerede har sett
+  // 1. Check our own catalog first — avoid the API call if we have seen it before
   const existing = repos.kassalProducts.getByEan(ean);
   if (existing) {
     const resolutionId = repos.productResolutions.upsertSeen({
@@ -263,7 +263,7 @@ async function resolveByEan(repos, ean, { productKey = null, captureSource = 'lo
     };
   }
 
-  // 2. Hent fra Kassal
+  // 2. Fetch from Kassal
   const raw = await kassalClient.getByEan(repos, ean);
   if (!raw) return null;
 
@@ -292,16 +292,16 @@ async function resolveByEan(repos, ean, { productKey = null, captureSource = 'lo
 }
 
 /**
- * Resolve via navn + hint. Brukes for OCR-linjer og ingredienser.
+ * Resolve via name + hint. Used for OCR lines and ingredients.
  *
  * @param {Object} repos
  * @param {Object} need
- * @param {string} need.name         — ingrediensnavn eller kvitteringslinje
- * @param {number} [need.qty]        — mengde fra kvittering/ingrediens
+ * @param {string} need.name         — ingredient name or receipt line
+ * @param {number} [need.qty]        — quantity from receipt/ingredient
  * @param {string} [need.unit]       — 'g','kg','l','ml','stk'
- * @param {string} [need.brandHint]  — f.eks. 'First Price', 'Tine'
- * @param {string} [need.productKey] — hvis vi kjenner vårt eget produkt-nøkkel
- * @param {string} [need.ean]        — hvis OCR fant strekkode
+ * @param {string} [need.brandHint]  — e.g. 'First Price', 'Tine'
+ * @param {string} [need.productKey] — if we know our own product key
+ * @param {string} [need.ean]        — if OCR found a barcode
  * @param {string} [captureSource]
  * @returns {Promise<object|null>}
  */
@@ -317,7 +317,7 @@ async function resolveByLine(repos, need, { captureSource = 'lookup', chainPrefs
     if (viaEan) return viaEan;
   }
 
-  // Fast path 2: Memo — tidligere confirmed resolution for denne productKey
+  // Fast path 2: Memo — previously confirmed resolution for this productKey
   if (need.productKey) {
     const memo = repos.productResolutions.bestForProductKey(need.productKey);
     if (memo && (memo.times_confirmed >= 1 || memo.user_locked)) {
@@ -333,27 +333,27 @@ async function resolveByLine(repos, need, { captureSource = 'lookup', chainPrefs
     }
   }
 
-  // Slow path: Kassal-søk
+  // Slow path: Kassal search
   const searchQuery = [need.brandHint, need.name].filter(Boolean).join(' ');
   const raw = await kassalClient.searchByName(repos, searchQuery);
   const products = asProductArray(raw);
   if (products.length === 0) return null;
 
-  // Score og velg
+  // Score and pick
   const scored = products
     .map((p) => ({ p, score: scoreCandidate(p, need, chainPrefs) }))
     .sort((a, b) => b.score - a.score);
 
-  // Hvis beste treff er for svakt, returner kandidater men ingen autoritativ match
+  // If the best hit is too weak, return candidates but no authoritative match
   const best = scored[0];
   const MIN_AUTO_CONFIDENCE = 0.3;
 
   if (best.score < MIN_AUTO_CONFIDENCE) {
     logger.debug(
       { name: need.name, bestScore: best.score, count: products.length },
-      'resolver: for svakt treff, returnerer kandidater kun'
+      'resolver: hit too weak, returning candidates only'
     );
-    // Persistér topp-3 som candidates i resolution_candidates_json-format
+    // Persist top-3 as candidates in resolution_candidates_json format
     const candidates = scored
       .slice(0, 3)
       .map((s) => persistAndDescribe(repos, s.p, s.score, captureSource));
@@ -368,7 +368,7 @@ async function resolveByLine(repos, need, { captureSource = 'lookup', chainPrefs
     };
   }
 
-  // Persistér beste match + topp-3 som kandidater for UI-valg
+  // Persist best match + top-3 as candidates for UI selection
   const bestPersisted = persistKassalProduct(repos, best.p, { captureSource });
   if (!bestPersisted) return null;
 
@@ -395,8 +395,8 @@ async function resolveByLine(repos, need, { captureSource = 'lookup', chainPrefs
 }
 
 /**
- * Persistér en kandidat i kassal_products og returnér et beskrivelse-objekt
- * (for å kunne lagres i receipt_items.resolution_candidates_json).
+ * Persist a candidate in kassal_products and return a description object
+ * (so it can be stored in receipt_items.resolution_candidates_json).
  */
 function persistAndDescribe(repos, rawProduct, score, captureSource) {
   const persisted = persistKassalProduct(repos, rawProduct, { captureSource });
@@ -418,14 +418,14 @@ function persistAndDescribe(repos, rawProduct, score, captureSource) {
 module.exports = {
   resolveByEan,
   resolveByLine,
-  // Eksponert for testing
+  // Exposed for testing
   scoreCandidate,
   tokenize,
   wordOverlap,
   packSizeProximity,
   persistKassalProduct,
   asProductArray,
-  // Kjede-preferanser (Migration 013)
+  // Chain preferences (Migration 013)
   extractChain,
   chainBoost,
   KNOWN_CHAINS,

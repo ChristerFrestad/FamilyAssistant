@@ -87,5 +87,5 @@ Run 'npm run audit:prod' 'npm audit'
 Write-Host ''
 Write-Host '───────────────────────────────────────────────────────────────'
 Write-Host '✓ ALL LOCAL CI GATES PASSED' -ForegroundColor Green
-Write-Host "  Ready to commit. Push only when Christer explicitly says 'nå kan vi pushe'."
+Write-Host "  Ready to commit. Push only when Christer explicitly says 'nå kan vi pushe' (Christer's literal Norwegian trigger phrase)."
 Write-Host '───────────────────────────────────────────────────────────────'

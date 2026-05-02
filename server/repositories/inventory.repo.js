@@ -69,7 +69,7 @@ function createInventoryRepos(db) {
         return { qtyRemaining: packSize, unit, purchaseCount: 1, expiresEst, lastPurchased: now };
       }
 
-      // Oppdater: inkrementer mengde, oppdater snittdager mellom kjøp
+      // Update: increment quantity, refresh average days between purchases
       let avg = existing.avgDaysBetweenPurchase;
       if (existing.lastPurchased) {
         const days = Math.max(
@@ -104,9 +104,9 @@ function createInventoryRepos(db) {
       ).run(amount, familyId, productKey);
     },
     /**
-     * Legg til eller oppdater inventory uten å markere det som et kjøp.
+     * Add to or update inventory without marking it as a purchase.
      * Brukes av manual-add og kvittering-confirm — disse bestemmer selv
-     * expires_est og unngår purchase_count-økning når det ikke passer
+     * expires_est and avoids incrementing purchase_count when it does not apply
      * (f.eks. ved ren korrigering).
      *
      * Returnerer { prev, next } slik at kalleren kan beregne qty_delta

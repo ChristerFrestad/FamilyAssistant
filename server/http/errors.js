@@ -1,6 +1,6 @@
 // @ts-check
 // RFC 7807 Problem Details (https://tools.ietf.org/html/rfc7807)
-// Ensartet feilformat på alle endepunkter.
+// Uniform error format across all endpoints.
 //
 // Response body:
 //   {
@@ -46,7 +46,7 @@ class HttpError extends Error {
   }
 
   /**
-   * @param {string} instance - Request-path som utløste feilen
+   * @param {string} instance - Request path that triggered the error
    * @returns {ProblemDetails & Record<string, any>}
    */
   toProblem(instance) {
@@ -61,7 +61,7 @@ class HttpError extends Error {
   }
 }
 
-// Standard feil-konstruktører
+// Standard error constructors
 const errors = {
   /** @param {string} [detail] @param {object} [extras] */
   badRequest: (detail, extras) =>

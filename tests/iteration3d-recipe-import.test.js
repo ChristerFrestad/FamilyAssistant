@@ -140,13 +140,13 @@ describe('recipe-import: importFromText', () => {
     }
   });
 
-  test('for kort tekst → error', async () => {
+  test('too short text → error', async () => {
     const r = await require('../server/services/recipe-import.service').importFromText(
       server.repos,
       { text: 'kort' }
     );
     assert.ok(r.error);
-    assert.ok(r.error.includes('for kort'));
+    assert.ok(r.error.toLowerCase().includes('too short'));
   });
 
   test('LLM returnerer ikke-JSON → error', async () => {
@@ -164,7 +164,7 @@ describe('recipe-import: importFromText', () => {
     }
   });
 
-  test('LLM returnerer ingen ingredienser → error', async () => {
+  test('LLM returns no ingredients → error', async () => {
     const restore = setupLlmMock({
       name: 'Tom rett',
       category: 'rask',
@@ -179,7 +179,7 @@ describe('recipe-import: importFromText', () => {
         }
       );
       assert.ok(r.error);
-      assert.ok(r.error.includes('ingredienser'));
+      assert.ok(r.error.toLowerCase().includes('ingredients'));
     } finally {
       restore();
     }
@@ -246,14 +246,14 @@ describe('recipe-import: importFromImage', () => {
     assert.ok(r.error.toLowerCase().includes('ocr'));
   });
 
-  test('ugyldig mime → error', async () => {
+  test('invalid mime → error', async () => {
     const r = await importService.importFromImage(server.repos, {
       buffer: Buffer.from([1, 2, 3]),
       mime: 'application/pdf',
       ocrAdapter: async () => ({ text: 'noe' }),
     });
     assert.ok(r.error);
-    assert.ok(r.error.includes('Ugyldig bildetype'));
+    assert.ok(r.error.includes('Invalid image type'));
   });
 
   test('tom buffer → error', async () => {

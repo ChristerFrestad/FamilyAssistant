@@ -71,7 +71,7 @@ function createMealRepos(db, tryParseJson) {
       );
     },
     /**
-     * En uke er "komplett" når alle 7 dager har tatt et eksplisitt valg:
+     * A week is "complete" when all 7 days have made an explicit choice:
      * - recipe_id satt (planned/cooked), eller
      * - status IN ('away','skipped','removed')
      * Dager med recipe_id=NULL og status='planned' regnes som "ikke avklart".

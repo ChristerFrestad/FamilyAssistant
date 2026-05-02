@@ -1,5 +1,5 @@
-// Cron-system for Familieassistenten (Fase 1: bruker repositories)
-// Bruker ingen eksterne avhengigheter \u2014 ren Node.js setTimeout.
+// Cron system for FamilyAssistant (Phase 1: uses repositories)
+// No external dependencies \u2014 plain Node.js setTimeout.
 
 const { getWeekYear } = require('./seed');
 const { generateSundayDraft } = require('./services/meal-planning.service');
@@ -28,13 +28,13 @@ function msUntilNext(dayOfWeek, hour, minute = 0) {
   return target.getTime() - now.getTime();
 }
 
-// === Jobb 1: S\u00f8ndagspush kl. 14:00 ===
+// === Job 1: Sunday push at 14:00 ===
 function sundayPushJob(repos) {
   const nextWeekDate = new Date(Date.now() + 7 * 86400000);
   const nextWk = getWeekYear(nextWeekDate);
 
   if (repos.mealPlans.exists(nextWk)) {
-    log(`S\u00f8ndagspush: Uke ${nextWk} har allerede en plan \u2014 hopper over`);
+    log(`Sunday push: week ${nextWk} already has a plan \u2014 skipping`);
     return;
   }
 
@@ -42,13 +42,13 @@ function sundayPushJob(repos) {
   repos.sundayDrafts.save(draft.weekYear, draft.meals);
 
   const names = draft.meals.map((s) => repos.recipes.getById(s.recipeId)?.name || '?').join(', ');
-  log(`S\u00f8ndagspush: Generert forslag for ${draft.weekYear} \u2014 ${names}`);
+  log(`Sunday push: generated suggestion for ${draft.weekYear} \u2014 ${names}`);
   repos.notifications.insert('sunday_push', `Forslag til ukemeny for ${draft.weekYear} er klart`, {
     weekYear: draft.weekYear,
   });
 }
 
-// === Jobb 2: Holdbarhetsvarsler (daglig kl. 08:00) ===
+// === Job 2: Shelf-life warnings (daily at 08:00) ===
 function shelfLifeCheckJob(repos) {
   const today = new Date().toISOString().split('T')[0];
   const inventoryMap = repos.inventory.getAll();
@@ -81,13 +81,13 @@ function shelfLifeCheckJob(repos) {
       `${warnings.length} varer utl\u00f8per snart: ${summary}`,
       { date: today, warnings }
     );
-    log(`Holdbarhet: ${warnings.length} varer utl\u00f8per snart: ${summary}`);
+    log(`Shelf-life: ${warnings.length} items expiring soon: ${summary}`);
   } else {
-    log('Holdbarhet: Alt OK');
+    log('Shelf-life: all OK');
   }
 }
 
-// === Jobb 3: Inventory depletion (daglig kl. 22:00) ===
+// === Job 3: Inventory depletion (daily at 22:00) ===
 function dailyDepletionJob(repos) {
   const wk = getWeekYear();
   const dayOfWeek = (new Date().getDay() + 6) % 7;
@@ -95,18 +95,18 @@ function dailyDepletionJob(repos) {
   const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
 
   if (!todaySlot || todaySlot.status === 'away' || todaySlot.status === 'skipped') {
-    log('Depletion: Ingen middag i dag \u2014 hopper over');
+    log('Depletion: no dinner today \u2014 skipping');
     return;
   }
 
   const recipe = repos.recipes.getById(todaySlot.recipeId);
   if (!recipe) {
-    log(`Depletion: Fant ikke oppskrift ${todaySlot.recipeId}`);
+    log(`Depletion: recipe ${todaySlot.recipeId} not found`);
     return;
   }
 
-  // Reduser inventory for oppskriftsingredienser
-  // (Ingen ytre tx \u2014 hver operasjon er idempotent og reduceDaily har sin egen)
+  // Reduce inventory for the recipe ingredients
+  // (No outer tx \u2014 every operation is idempotent and reduceDaily has its own)
   const depleted = [];
   for (const ing of recipe.ingredients || []) {
     const key = ing.productKey || (ing.name || '').toLowerCase();
@@ -119,31 +119,31 @@ function dailyDepletionJob(repos) {
   repos.consumables.reduceDaily(recipe.equipment || []);
 
   if (depleted.length > 0) {
-    log(`Depletion: Middagen "${recipe.name}" brukte: ${depleted.join(', ')}`);
+    log(`Depletion: dinner "${recipe.name}" used: ${depleted.join(', ')}`);
   }
 }
 
-// === Jobb 4: Husarbeid-generering (mandager kl. 07:00) ===
+// === Job 4: Chore generation (Mondays at 07:00) ===
 function weeklyChoresJob(repos) {
   const wk = getWeekYear();
   if (repos.choreSchedules.exists(wk)) {
-    log(`Husarbeid: Uke ${wk} har allerede en plan`);
+    log(`Chores: week ${wk} already has a plan`);
     return;
   }
   repos.choreSchedules.seedDefault(wk);
-  log(`Husarbeid: Opprettet plan for uke ${wk}`);
+  log(`Chores: created plan for week ${wk}`);
 }
 
-// === Jobb 5: LLM-cache cleanup (daglig kl. 04:00) ===
+// === Job 5: LLM cache cleanup (daily at 04:00) ===
 function llmCacheCleanupJob(repos) {
   const removed = repos.llmCache.cleanup();
-  if (removed > 0) log(`LLM-cache: Fjernet ${removed} utl\u00f8pte entries`);
+  if (removed > 0) log(`LLM cache: removed ${removed} expired entries`);
 }
 
-// === Jobb 6: Pantry expired cleanup (daglig kl. 08:05 — rett etter holdbarhetsvarsel) ===
+// === Job 6: Pantry expired cleanup (daily at 08:05 — just after shelf-life warning) ===
 function pantryExpiredJob(repos) {
   const removed = removeExpired(repos);
-  if (removed > 0) log(`Pantry: Fjernet ${removed} utl\u00f8pte varer fra inventar`);
+  if (removed > 0) log(`Pantry: removed ${removed} expired items from inventory`);
 }
 
 // === Jobb 7: CPI-indeksering av prisreferanser (m\u00e5nedlig — 1. i m\u00e5neden kl. 05:00) ===
@@ -153,19 +153,19 @@ function priceCpiIndexingJob(repos) {
   if (now.getDate() !== 1) return;
   try {
     const n = applyCpiIndexing(repos);
-    log(`Pris-CPI: Oppdaterte ${n} prisreferanser`);
+    log(`Price CPI: updated ${n} price references`);
   } catch (err) {
-    log(`Pris-CPI FEIL: ${err.message}`);
+    log(`Price CPI ERROR: ${err.message}`);
   }
 }
 
-// === Jobb 8: Shopping-list enrichment (hvert 10. minutt) ===
-// Plukker opp lister som står på enrichment_status='pending' eller 'partial'
-// og kjører dem videre gjennom product-resolver + Kassal. Sekvensiell per
-// liste for å dele rate-limit-budsjettet. Feil svelges per liste.
+// === Job 8: Shopping list enrichment (every 10 minutes) ===
+// Picks up lists with enrichment_status='pending' or 'partial' and runs
+// them through product-resolver + Kassal. Sequential per list to share
+// the rate-limit budget. Errors are swallowed per list.
 function shoppingEnrichmentJob(repos) {
-  // enrichPendingLists er async — vi venter ikke på den inni cron-callbacken
-  // for å ikke blokkere reschedule. Feil går til log.
+  // enrichPendingLists is async — we don't await it inside the cron
+  // callback so reschedule isn't blocked. Errors go to the log.
   enrichPendingLists(repos, { maxLists: 3, delayMs: 1100 })
     .then((results) => {
       if (results.length === 0) return;
@@ -174,14 +174,14 @@ function shoppingEnrichmentJob(repos) {
         .join(' ');
       log(`Enrichment: ${summary}`);
     })
-    .catch((err) => log(`Enrichment FEIL: ${err.message}`));
+    .catch((err) => log(`Enrichment ERROR: ${err.message}`));
 }
 
 // === Scheduler ===
 
 function logCronError(name, err) {
-  log(`FEIL i ${name}: ${err.message}\n${err.stack}`);
-  logger.error({ err: { message: err.message, stack: err.stack }, job: name }, 'cron job feilet');
+  log(`ERROR in ${name}: ${err.message}\n${err.stack}`);
+  logger.error({ err: { message: err.message, stack: err.stack }, job: name }, 'cron job failed');
 }
 
 function addTimer(t) {
@@ -201,13 +201,13 @@ function scheduleJob(name, dayOfWeek, hour, minute, jobFn, repos) {
     }
     if (cronStopped) return;
     const ms = msUntilNext(dayOfWeek, hour, minute);
-    log(`${name}: Neste kjøring om ${Math.round(ms / 3600000)} timer`);
+    log(`${name}: next run in ${Math.round(ms / 3600000)} hours`);
     const t = setTimeout(runAndReschedule, ms);
     addTimer(t);
   }
   const ms = msUntilNext(dayOfWeek, hour, minute);
   log(
-    `${name}: Planlagt om ${Math.round(ms / 3600000)} timer (${new Date(Date.now() + ms).toLocaleString('no-NO')})`
+    `${name}: scheduled in ${Math.round(ms / 3600000)} hours (${new Date(Date.now() + ms).toLocaleString('no-NO')})`
   );
   const t = setTimeout(runAndReschedule, ms);
   addTimer(t);
@@ -229,13 +229,13 @@ function scheduleDailyJob(name, hour, minute, jobFn, repos) {
   target.setHours(hour, minute, 0, 0);
   let ms = target.getTime() - now.getTime();
   if (ms < 0) ms += 24 * 3600000;
-  log(`${name}: Planlagt om ${Math.round(ms / 3600000)} timer`);
+  log(`${name}: scheduled in ${Math.round(ms / 3600000)} hours`);
   const t = setTimeout(runAndReschedule, ms);
   addTimer(t);
 }
 
-// Interval-basert scheduler for hyppige jobber (f.eks. enrichment hvert 10 min).
-// Første kjøring er etter intervalMs (ikke umiddelbart) for å la serveren varme opp.
+// Interval-based scheduler for frequent jobs (e.g. enrichment every 10 min).
+// First run is after intervalMs (not immediate) to let the server warm up.
 function scheduleIntervalJob(name, intervalMs, jobFn, repos) {
   function runAndReschedule() {
     try {
@@ -247,19 +247,19 @@ function scheduleIntervalJob(name, intervalMs, jobFn, repos) {
     const t = setTimeout(runAndReschedule, intervalMs);
     addTimer(t);
   }
-  log(`${name}: Planlagt hvert ${Math.round(intervalMs / 60000)}. minutt`);
+  log(`${name}: scheduled every ${Math.round(intervalMs / 60000)} minutes`);
   const t = setTimeout(runAndReschedule, intervalMs);
   addTimer(t);
 }
 
-// === Fase F7: Synk av oppskriftskilder ===
+// === Phase F7: Sync of recipe sources ===
 async function recipeSourcesSyncJob(repos) {
   try {
     const recipeSourcesService = require('./services/recipe-sources.service');
     const result = await recipeSourcesService.syncAllEnabled(repos);
-    log(`Recipe-sources sync: ${result.synced || 0}/${result.total || 0} synket`);
+    log(`Recipe-sources sync: ${result.synced || 0}/${result.total || 0} synced`);
   } catch (err) {
-    log(`FEIL i recipe-sources sync: ${err.message}`);
+    log(`ERROR in recipe-sources sync: ${err.message}`);
   }
 }
 
@@ -270,55 +270,55 @@ function gdprPurgeJob(repos) {
       log(`GDPR: hard-deleted ${res.purged} soft-deleted user(s)`);
     }
   } catch (err) {
-    log(`FEIL i GDPR-purge: ${err.message}`);
+    log(`ERROR in GDPR purge: ${err.message}`);
   }
 }
 
 function sessionCleanupJob(repos) {
   try {
     const n = repos?.auth?.cleanupExpired?.();
-    if (n > 0) log(`Sessions: ryddet ${n} utløpte`);
+    if (n > 0) log(`Sessions: cleaned up ${n} expired`);
   } catch (err) {
-    log(`FEIL i session-cleanup: ${err.message}`);
+    log(`ERROR in session cleanup: ${err.message}`);
   }
 }
 
 function magicLinkCleanupJob(repos) {
   try {
     const n = repos?.auth?.cleanupExpiredMagicLinks?.();
-    if (n > 0) log(`Magic-link-tokens: ryddet ${n} utløpte`);
+    if (n > 0) log(`Magic-link tokens: cleaned up ${n} expired`);
   } catch (err) {
-    log(`FEIL i magic-link-cleanup: ${err.message}`);
+    log(`ERROR in magic-link cleanup: ${err.message}`);
   }
 }
 
 function startCronJobs(repos) {
   if (!repos) {
-    log('ADVARSEL: startCronJobs kalt uten repos \u2014 cron-jobber er deaktivert');
+    log('WARNING: startCronJobs called without repos \u2014 cron jobs are disabled');
     return;
   }
-  log('=== Starter cron-jobber ===');
-  scheduleJob('S\u00f8ndagspush', 0, 14, 0, sundayPushJob, repos);
-  scheduleJob('Husarbeidplan', 1, 7, 0, weeklyChoresJob, repos);
-  scheduleDailyJob('Holdbarhet', 8, 0, shelfLifeCheckJob, repos);
+  log('=== Starting cron jobs ===');
+  scheduleJob('Sunday-push', 0, 14, 0, sundayPushJob, repos);
+  scheduleJob('Chore-plan', 1, 7, 0, weeklyChoresJob, repos);
+  scheduleDailyJob('Shelf-life', 8, 0, shelfLifeCheckJob, repos);
   scheduleDailyJob('Pantry-expired', 8, 5, pantryExpiredJob, repos);
   scheduleDailyJob('Depletion', 22, 0, dailyDepletionJob, repos);
   scheduleDailyJob('LLM-cache-cleanup', 4, 0, llmCacheCleanupJob, repos);
-  scheduleDailyJob('Pris-CPI-indeksering', 5, 0, priceCpiIndexingJob, repos);
+  scheduleDailyJob('Price-CPI-indexing', 5, 0, priceCpiIndexingJob, repos);
   scheduleDailyJob('GDPR-soft-delete-purge', 3, 30, gdprPurgeJob, repos);
   scheduleDailyJob('Session-cleanup', 4, 10, sessionCleanupJob, repos);
   scheduleDailyJob('Magic-link-cleanup', 4, 15, magicLinkCleanupJob, repos);
   scheduleIntervalJob('Shopping-enrichment', 10 * 60000, shoppingEnrichmentJob, repos);
-  // Fase F7: synk oppskriftskilder hver 6. time
+  // Phase F7: sync recipe sources every 6 hours
   scheduleIntervalJob('Recipe-sources-sync', 6 * 60 * 60 * 1000, recipeSourcesSyncJob, repos);
-  log('=== Alle cron-jobber planlagt ===');
+  log('=== All cron jobs scheduled ===');
 }
 
 function stopCronJobs() {
   cronStopped = true;
   for (const t of activeTimers) clearTimeout(t);
   activeTimers.clear();
-  log('=== Cron-jobber stoppet ===');
+  log('=== Cron jobs stopped ===');
 }
 
 module.exports = {
