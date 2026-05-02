@@ -154,24 +154,75 @@ function resolvePantryInput(repos, query) {
  */
 function resolveOrCreate(repos, query) {
   const suggestions = resolvePantryInput(repos, query);
+  let result;
   if (suggestions.length === 0) {
     // Fallback: slugify directly
     const key = slugifyProductKey(query);
-    return { productKey: key, name: query, source: 'ny' };
+    result = { productKey: key, name: query, source: 'ny' };
+  } else {
+    const best = suggestions[0];
+    result = {
+      productKey: best.productKey,
+      name: best.name,
+      source: best.source,
+      category: best.category,
+      unit: best.unit,
+      packSize: best.packSize,
+    };
   }
-  const best = suggestions[0];
-  return {
-    productKey: best.productKey,
-    name: best.name,
-    source: best.source,
-    category: best.category,
-    unit: best.unit,
-    packSize: best.packSize,
-  };
+
+  // Make sure a products row exists for the resolved key so downstream
+  // pantry display falls back to the user's original text instead of the
+  // slug. Without this, GET /api/pantry shows e.g. "okologisk-romme"
+  // because the pantry view reads product_name from the catalog, and
+  // manual items never produced a catalog entry.
+  ensureProductRow(repos, result.productKey, query);
+
+  return result;
+}
+
+/**
+ * Insert a minimal products row for `productKey` using `originalName`
+ * as product_name when the catalog does not already know the key. No-op
+ * when the row already exists, so seed/Kassal-imported names are never
+ * overwritten by slug-collision.
+ */
+function ensureProductRow(repos, productKey, originalName) {
+  if (!productKey) return;
+  if (typeof originalName !== 'string') return;
+  const trimmed = originalName.trim();
+  if (!trimmed) return;
+  if (!repos?.products || typeof repos.products.upsert !== 'function') return;
+  if (typeof repos.products.getByKey !== 'function') return;
+  try {
+    const existing = repos.products.getByKey(productKey);
+    if (existing) return;
+    repos.products.upsert({
+      key: productKey,
+      productName: trimmed,
+      // Long-shelf default — the resolver does not know the actual
+      // category. Pantry display only reads product_name + key from
+      // this row; category is used by other features (filters,
+      // shopping list grouping) where 'Tørrvarer & annet' is the
+      // safe catch-all bucket.
+      category: 'Tørrvarer & annet',
+      packSize: 1,
+      unit: 'stk',
+      estPrice: null,
+      shelfDays: null,
+      store: null,
+      ean: null,
+      dairyRule: null,
+    });
+  } catch {
+    // Robust against repo/DB errors — pantry display will fall back
+    // to the slug, which is the pre-fix behaviour.
+  }
 }
 
 module.exports = {
   resolvePantryInput,
   resolveOrCreate,
+  ensureProductRow,
   MAX_RESULTS,
 };
