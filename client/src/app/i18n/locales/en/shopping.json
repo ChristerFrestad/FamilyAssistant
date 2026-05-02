@@ -69,5 +69,8 @@
   },
   "placeholder": {
     "description": "Coming in Phase 2C — shopping list with categories, pantry integration, and undo flow."
+  },
+  "badge": {
+    "fromPantry": "Suggested from pantry"
   }
 }

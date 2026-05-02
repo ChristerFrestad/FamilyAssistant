@@ -34,6 +34,7 @@ const {
 const { ensureCurrentWeek } = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
+const pantryDeduction = require('./services/pantry-deduction.service');
 const { createShelfLifeLearner } = require('./services/shelf-life-learner.service');
 const priceReferenceService = require('./services/price-reference.service');
 const receiptService = require('./services/receipt.service');
@@ -515,6 +516,93 @@ function registerRoutes(router, { repos, serverState }) {
       ctx.json({ ok: true, missing, weekYear: wk });
     }
   );
+
+  // ----------------------------------------------------------------
+  // Sprint 6 — Meal-cooked smart-coupling
+  //
+  // POST /api/meals/:id/mark-eaten
+  //   Set meal_plans.status='cooked' and return ingredient deduction
+  //   suggestions for the cook-dialog to render. Cook is committed
+  //   even if the user later picks "Skip trekk" — the two states are
+  //   independent.
+  //
+  // POST /api/meals/:id/apply-deduction
+  //   Apply user-confirmed deductions. Each item lands as a
+  //   pantry.service.correctQty call which writes inventory_log
+  //   (reason='correction', notes='meal_deduction:<mealId>') and
+  //   re-runs the low-stock trigger naturally.
+  //
+  // POST /api/meals/:id/unmark-eaten
+  //   Roll status back to 'planned'. Used by the dialog Cancel
+  //   action so an accidental tap can be undone before any pantry
+  //   mutation lands.
+  // ----------------------------------------------------------------
+
+  router.post('/api/meals/:id/mark-eaten', requireRole('adult'), (ctx) => {
+    const mealId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
+    const slot = repos.mealPlans.getById(mealId);
+    if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
+    if (!slot.recipeId) {
+      throw errors.badRequest('Cannot mark cooked: no recipe on this slot', {
+        code: 'NO_RECIPE',
+      });
+    }
+    if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed') {
+      throw errors.badRequest('Cannot mark cooked: slot is in a non-cookable state', {
+        code: 'WRONG_STATUS',
+      });
+    }
+
+    const alreadyCooked = slot.status === 'cooked';
+    if (!alreadyCooked) {
+      repos.mealPlans.setStatusById(mealId, 'cooked');
+      invalidate('meals', 'today');
+    }
+    const suggestions = pantryDeduction.buildSuggestions(repos, slot);
+    ctx.json({
+      mealId,
+      recipeId: slot.recipeId,
+      alreadyCooked,
+      suggestions,
+    });
+  });
+
+  router.post(
+    '/api/meals/:id/apply-deduction',
+    requireRole('adult'),
+    validateBody(schemas.mealApplyDeductionBody),
+    (ctx) => {
+      const mealId = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
+      const slot = repos.mealPlans.getById(mealId);
+      if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
+      if (slot.status !== 'cooked') {
+        throw errors.badRequest('Apply-deduction requires status=cooked', {
+          code: 'NOT_COOKED',
+        });
+      }
+
+      const items = Array.isArray(ctx.body?.items) ? ctx.body.items : [];
+      const result = pantryDeduction.applyDeduction(repos, mealId, items);
+      invalidate('inventory', 'shopping', 'today');
+      ctx.json({ ok: true, mealId, ...result });
+    }
+  );
+
+  router.post('/api/meals/:id/unmark-eaten', requireRole('adult'), (ctx) => {
+    const mealId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
+    const slot = repos.mealPlans.getById(mealId);
+    if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
+    if (slot.status !== 'cooked') {
+      ctx.json({ ok: true, alreadyPlanned: true });
+      return;
+    }
+    repos.mealPlans.setStatusById(mealId, 'planned');
+    invalidate('meals', 'today');
+    ctx.json({ ok: true });
+  });
 
   // ============================================================
   // RECIPES

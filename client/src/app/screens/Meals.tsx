@@ -26,15 +26,17 @@
 // would only matter if any element were role-gated, and read-only
 // view is open to every role.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { DayStrip } from '../components/meals/DayStrip';
 import { MealHero } from '../components/meals/MealHero';
+import { MarkCookedDialog } from '../components/meals/MarkCookedDialog';
 import { RecipeIngredients } from '../components/meals/RecipeIngredients';
 import { WeekList } from '../components/meals/WeekList';
 import { useMealsData, computeScale, type FamilyFetchState } from '../meals/useMealsData';
+import { usePantryDeduction } from '../meals/usePantryDeduction';
 import type { MealSlot } from '../meals/mealsApi';
 
 const PLACEHOLDER_DISMISS_MS = 3000;
@@ -55,6 +57,25 @@ export function Meals(): JSX.Element {
       setPlaceholderKey((current) => (current === kind ? null : current));
     }, PLACEHOLDER_DISMISS_MS);
   }, []);
+
+  // Sprint 6 — meal-cooked dialog. After confirm/skip/cancel we refetch
+  // meals so the hero re-renders with the new status.
+  const deduction = usePantryDeduction(retry);
+  const handleMarkCooked = useCallback(
+    (mealId: number) => {
+      void deduction.open(mealId);
+    },
+    [deduction]
+  );
+
+  // Auto-dismiss the result toast inside the dialog after a short
+  // window so a successful confirm/skip closes itself rather than
+  // leaving the user staring at the dialog.
+  useEffect(() => {
+    if (!deduction.state.resultMessage) return undefined;
+    const timer = setTimeout(() => deduction.close(), PLACEHOLDER_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [deduction.state.resultMessage, deduction]);
 
   const shortDayLabels = [0, 1, 2, 3, 4, 5, 6].map((i) => t(`meals:daysShort.${i}`));
   const longDayLabels = [0, 1, 2, 3, 4, 5, 6].map((i) => t(`meals:daysLong.${i}`));
@@ -124,6 +145,7 @@ export function Meals(): JSX.Element {
           dayStripAria={t('meals:dayStripAria')}
           onSelectDay={selectDay}
           onPlaceholderAction={showPlaceholder}
+          onMarkCooked={handleMarkCooked}
           placeholderStatus={
             placeholderKey === 'swap'
               ? t('meals:placeholders.swapStatus')
@@ -142,6 +164,27 @@ export function Meals(): JSX.Element {
           weekEmptyBody={t('meals:empty.weekBody')}
         />
       ) : null}
+
+      <MarkCookedDialog
+        state={{
+          ...deduction.state,
+          // Translate the symbolic resultMessage into the localised
+          // string here so the dialog itself stays presentation-only.
+          resultMessage:
+            deduction.state.resultMessage === 'applied'
+              ? t('meals:cookedDialog.successApplied')
+              : deduction.state.resultMessage === 'skipped'
+                ? t('meals:cookedDialog.successSkipped')
+                : null,
+          error: deduction.state.error !== null ? t('meals:cookedDialog.errorLoad') : null,
+          applyError:
+            deduction.state.applyError !== null ? t('meals:cookedDialog.errorApply') : null,
+        }}
+        onConfirm={deduction.confirm}
+        onSkip={deduction.skip}
+        onCancel={deduction.cancel}
+        onClose={deduction.close}
+      />
     </section>
   );
 }
@@ -162,6 +205,7 @@ interface MealsContentProps {
   dayStripAria: string;
   onSelectDay: (index: number) => void;
   onPlaceholderAction: (kind: 'swap' | 'plan') => void;
+  onMarkCooked: (mealId: number) => void;
   placeholderStatus: string | null;
   weekListLabels: {
     heading: string;
@@ -184,6 +228,7 @@ function MealsContent({
   dayStripAria,
   onSelectDay,
   onPlaceholderAction,
+  onMarkCooked,
   placeholderStatus,
   weekListLabels,
   family,
@@ -220,6 +265,7 @@ function MealsContent({
         dayLabel={longDayLabels[selectedDayIndex] ?? ''}
         isToday={selectedDayIndex === todayIndex}
         onPlaceholderAction={onPlaceholderAction}
+        onMarkCooked={onMarkCooked}
         placeholderStatus={placeholderStatus}
       />
 

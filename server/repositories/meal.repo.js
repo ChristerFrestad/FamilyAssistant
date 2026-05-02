@@ -51,6 +51,37 @@ function createMealRepos(db, tryParseJson) {
       `
       ).run(status, familyId, weekYear, dayOfWeek);
     },
+    /**
+     * Sprint 6 — fetch a single meal_plan row by primary key. The
+     * mark-cooked endpoint receives meal_plans.id from the client and
+     * needs to resolve the slot before computing pantry suggestions.
+     * Family-scoped to the current context, so a stranger meal id is
+     * indistinguishable from "not found".
+     */
+    getById(mealId) {
+      const familyId = getFamilyId();
+      return db
+        .prepare(
+          `
+        SELECT id, week_year as weekYear, day_of_week as dayOfWeek,
+               meal_type as mealType, recipe_id as recipeId, status, notes
+        FROM meal_plans
+        WHERE family_id = ? AND id = ?
+      `
+        )
+        .get(familyId, mealId);
+    },
+    /**
+     * Sprint 6 — flip status by id. Used by mark-cooked + unmark-cooked
+     * so the UI does not have to resolve weekYear+dayOfWeek client-side.
+     */
+    setStatusById(mealId, status) {
+      const familyId = getFamilyId();
+      db.prepare(
+        `UPDATE meal_plans SET status = ?
+         WHERE family_id = ? AND id = ?`
+      ).run(status, familyId, mealId);
+    },
     swapDays(weekYear, dayA, dayB) {
       const plan = mealPlans.getWeek(weekYear);
       const slotA = plan.find((p) => p.dayOfWeek === dayA);

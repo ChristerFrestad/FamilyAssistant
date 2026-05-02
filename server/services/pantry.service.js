@@ -15,6 +15,7 @@
 
 const { logger } = require('../logger');
 const units = require('./units');
+const seed = require('../seed');
 
 // ============================================================
 // Shelf-life estimation
@@ -237,32 +238,44 @@ function checkAndTriggerLowStock(repos, productKey, qty, total) {
     if (!repos.shoppingLists || typeof repos.shoppingLists.getActive !== 'function') {
       return { triggered: false, reason: 'no-shopping-list-repo' };
     }
-    const active = repos.shoppingLists.getActive();
+    // shopping.repo.js getActive(weekYear) requires the current
+    // ISO week-year. Earlier code called it without the argument,
+    // which silently returned null and made the auto-add path
+    // a no-op. Resolve weekYear from the same helper that
+    // ensureCurrentWeek uses so the trigger fires for the active week.
+    const weekYear = seed.getWeekYear();
+    const active = repos.shoppingLists.getActive(weekYear);
     if (!active) return { triggered: false, reason: 'no-active-list' };
 
-    // Check whether the item is already on the list
-    const existingItems = repos.shoppingLists.getItems(active.id) || [];
+    // Check whether the item is already on the list AND still
+    // unbought. A row in 'bought' state is historic — the user has
+    // already acquired the item and it's now in pantry; if pantry
+    // drops back into low-stock territory, we want to re-add it.
+    // Only an active (unbought) row should suppress the auto-add.
+    const existingItems = active.items || [];
     const alreadyThere = existingItems.some(
-      (i) => i.productKey === productKey || i.product_key === productKey
+      (i) =>
+        (i.productKey === productKey || i.product_key === productKey) && !i.boughtAt && !i.bought_at
     );
     if (alreadyThere) return { triggered: false, reason: 'already-on-list' };
 
-    // Add it
+    // Add it. shopping.repo.addItem uses positional (listId, opts) —
+    // the previous single-object call was a latent bug that swallowed
+    // every low-stock add. The 'auto:low-stock' notes marker lets the
+    // shopping UI render a "Suggested from pantry" badge without any
+    // schema changes.
     if (typeof repos.shoppingLists.addItem === 'function') {
       const product = repos.products.getByKey(productKey);
-      repos.shoppingLists.addItem({
-        listId: active.id,
-        productKey,
-        ingredientName: product?.product_name || productKey,
-        quantity: 1,
+      repos.shoppingLists.addItem(active.id, {
+        name: product?.product_name || productKey,
+        qty: 1,
         unit: product?.unit || 'stk',
         category: product?.category || null,
-        source: 'low-stock-trigger',
-        needsBuy: 1,
-        pantryHas: 0,
+        notes: 'auto:low-stock',
+        productKey,
       });
       logger.info(
-        { productKey, qty, total, ratio: qty / total },
+        { productKey, qty, total, ratio: qty / total, listId: active.id },
         'pantry: low-stock → added to shopping list'
       );
       return { triggered: true, listId: active.id };

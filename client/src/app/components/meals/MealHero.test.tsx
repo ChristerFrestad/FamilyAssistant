@@ -11,6 +11,7 @@ import type { MealSlot } from '../../meals/mealsApi';
 
 function makeSlot(overrides: Partial<MealSlot> = {}): MealSlot {
   return {
+    id: 42,
     dayOfWeek: 0,
     dayName: 'mandag',
     recipeId: 1,

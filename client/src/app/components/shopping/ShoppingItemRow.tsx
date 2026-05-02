@@ -150,6 +150,14 @@ export function ShoppingItemRow({
             )}
           </div>
         )}
+        {item.notes === 'auto:low-stock' ? (
+          <div
+            className="mt-0.5 inline-flex items-center rounded-pill border border-mint px-2 py-0.5 font-body text-meta text-mint-deep"
+            data-testid={`shopping-item-from-pantry-${item.id}`}
+          >
+            {t('shopping:badge.fromPantry')}
+          </div>
+        ) : null}
       </div>
 
       {renderedPrice && (
