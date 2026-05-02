@@ -1,40 +1,42 @@
-// Kassal.app HTTP-klient (Iterasjon 3a)
+// Kassal.app HTTP client (Iteration 3a)
 //
-// Ansvar:
-//   1. HTTP mot Kassal.app API med Bearer auth
-//   2. Token bucket rate limit (55/min, 5 margin under 60/min grensen)
-//   3. Response-cache via kassal_cache-tabellen med variabel TTL
-//   4. Circuit breaker: stopp midlertidig etter 3 påfølgende feil
-//   5. Stale-if-error: returner utløpt cache hvis fetch feiler
+// Responsibilities:
+//   1. HTTP against Kassal.app API with Bearer auth
+//   2. Token bucket rate limit (55/min, 5 margin under the 60/min limit)
+//   3. Response cache via the kassal_cache table with variable TTL
+//   4. Circuit breaker: stop temporarily after 3 consecutive failures
+//   5. Stale-if-error: return expired cache if fetch fails
 //
-// Designvalg:
-//   - Null-fallback: hvis KASSAL_API_KEY mangler, returneres null umiddelbart
-//     uten å logge feil. Hele systemet må fungere uten API-nøkkel.
-//   - Klienten gjør ingen persisting til kassal_products — det er resolverens
-//     oppgave. Klienten er ren transport + cache.
-//   - Rate-limiter-state er in-memory. Ved restart mister vi token-telleren,
-//     men 55-token-budsjettet fylles opp uansett igjen innen 60s. Persistens
-//     via state_snapshots er overkill for iterasjon 3a.
-//   - Fetch-timeout: 8s per request. Kassal er vanligvis <500ms.
-//   - Circuit breaker: åpner etter 3 påfølgende feil, resetter etter 5 min.
+// Design choices:
+//   - Null fallback: if KASSAL_API_KEY is missing, null is returned
+//     immediately without logging an error. The whole system must work
+//     without an API key.
+//   - The client does no persisting to kassal_products — that is the
+//     resolver's job. The client is pure transport + cache.
+//   - Rate-limiter state is in-memory. After a restart we lose the token
+//     counter, but the 55-token budget fills up again within 60s anyway.
+//     Persistence via state_snapshots is overkill for iteration 3a.
+//   - Fetch timeout: 8s per request. Kassal is usually <500ms.
+//   - Circuit breaker: opens after 3 consecutive failures, resets after
+//     5 minutes.
 
 const { logger } = require('../logger');
 
 // ============================================================
-// Konfig
+// Config
 // ============================================================
 
 const KASSAL_BASE_URL = 'https://kassal.app/api/v1';
 const KASSAL_TIMEOUT_MS = 8000;
 
-// Rate limit: 55 tokens/min (margin 5 under Kassal sin 60/min).
+// Rate limit: 55 tokens/min (margin 5 under Kassal's 60/min).
 const BUCKET_CAPACITY = 55;
 const REFILL_TOKENS_PER_MS = 55 / 60000;
 
-// Cache-TTL i timer (valgt så priser rekker å endres før ny hent):
-//   - search: 24t — søkeresultater endres når butikker oppdaterer priser
-//   - ean:     7 * 24 = 168t — EAN mapper endres ikke
-//   - id:     30 * 24 = 720t — Kassal ID er stabil
+// Cache TTL in hours (chosen so prices have time to change before refetch):
+//   - search: 24h — search results change when stores update prices
+//   - ean:    7 * 24 = 168h — EAN mappings do not change
+//   - id:    30 * 24 = 720h — Kassal id is stable
 const TTL_HOURS = {
   search: 24,
   ean: 168,
@@ -46,7 +48,7 @@ const CIRCUIT_ERROR_THRESHOLD = 3;
 const CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000;
 
 // ============================================================
-// State (modul-skop)
+// State (module scope)
 // ============================================================
 
 let tokens = BUCKET_CAPACITY;
@@ -55,7 +57,7 @@ let consecutiveErrors = 0;
 let circuitOpenUntil = 0;
 
 /**
- * Reset all client state — for tester.
+ * Reset all client state — for tests.
  */
 function resetState() {
   tokens = BUCKET_CAPACITY;
@@ -93,13 +95,13 @@ function recordFailure() {
     circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
     logger.warn(
       { consecutiveErrors, cooldownMinutes: CIRCUIT_COOLDOWN_MS / 60000 },
-      'kassal: circuit breaker åpnet'
+      'kassal: circuit breaker opened'
     );
   }
 }
 
 // ============================================================
-// Cache-hjelpere
+// Cache helpers
 // ============================================================
 
 function normalizeSearchKey(query) {
@@ -117,9 +119,9 @@ function isFresh(expiresAtIso) {
 }
 
 /**
- * Les cache hvis mulig. Returnerer { hit, row } der hit=true kun for fersk cache.
- * Returnerer row (kan være stale) uansett slik at kallere kan bruke
- * stale-if-error-fallback.
+ * Read cache if possible. Returns { hit, row } where hit=true only for a
+ * fresh cache. Returns row (may be stale) regardless so callers can use
+ * the stale-if-error fallback.
  */
 function readCache(repos, cacheKey) {
   const row = repos.kassalCache.get(cacheKey);
@@ -128,12 +130,12 @@ function readCache(repos, cacheKey) {
     repos.kassalCache.bumpHit(row.id);
     return { hit: true, row, parsed: JSON.parse(row.responseJson) };
   }
-  // Stale rad beholdes som fallback
+  // Stale row is kept as a fallback
   return { hit: false, row, parsed: JSON.parse(row.responseJson) };
 }
 
 // ============================================================
-// Lav-nivå fetch
+// Low-level fetch
 // ============================================================
 
 async function fetchWithTimeout(url, { apiKey, timeoutMs = KASSAL_TIMEOUT_MS }) {
@@ -156,15 +158,15 @@ async function fetchWithTimeout(url, { apiKey, timeoutMs = KASSAL_TIMEOUT_MS }) 
 }
 
 /**
- * Kjernefunksjon: cache → rate-limit → fetch → cache write → stale-fallback.
+ * Core function: cache → rate-limit → fetch → cache write → stale fallback.
  *
  * @param {Object} opts
  * @param {Object} opts.repos
- * @param {string} opts.cacheKey    — normalisert key (f.eks. 'search:kjottdeig')
+ * @param {string} opts.cacheKey    — normalised key (e.g. 'search:kjottdeig')
  * @param {string} opts.endpoint    — 'search' | 'ean' | 'id'
- * @param {string} opts.url         — full Kassal URL å hente
- * @param {string} [opts.apiKey]    — auth; default KASSAL_API_KEY env
- * @returns {Promise<object|null>}  — parsed JSON eller null
+ * @param {string} opts.url         — full Kassal URL to fetch
+ * @param {string} [opts.apiKey]    — auth; defaults to KASSAL_API_KEY env
+ * @returns {Promise<object|null>}  — parsed JSON or null
  */
 async function cachedFetch({
   repos,
@@ -173,17 +175,17 @@ async function cachedFetch({
   url,
   apiKey = process.env.KASSAL_API_KEY,
 }) {
-  // 1. Null-fallback: ingen API-nøkkel → hele integrasjonen er av
+  // 1. Null fallback: no API key → the whole integration is off
   if (!apiKey) return null;
 
   // 2. Cache hit?
   const cached = readCache(repos, cacheKey);
   if (cached.hit) return cached.parsed;
 
-  // 3. Circuit breaker åpen → returner stale hvis mulig
+  // 3. Circuit breaker open → return stale if possible
   if (isCircuitOpen()) {
     if (cached.parsed) {
-      logger.debug({ cacheKey }, 'kassal: circuit open, serverer stale');
+      logger.debug({ cacheKey }, 'kassal: circuit open, serving stale');
       return cached.parsed;
     }
     return null;
@@ -191,7 +193,7 @@ async function cachedFetch({
 
   // 4. Token bucket
   if (!takeToken()) {
-    logger.warn({ cacheKey }, 'kassal: rate limit nådd');
+    logger.warn({ cacheKey }, 'kassal: rate limit reached');
     if (cached.parsed) return cached.parsed; // stale-if-overrate
     return null;
   }
@@ -200,21 +202,22 @@ async function cachedFetch({
   try {
     const res = await fetchWithTimeout(url, { apiKey });
     if (!res.ok) {
-      // 429 teller som failure og gir circuit breaker et dytt
+      // 429 counts as a failure and pushes the circuit breaker
       if (res.status === 429) {
-        logger.warn({ cacheKey }, 'kassal: 429 fra server');
+        logger.warn({ cacheKey }, 'kassal: 429 from server');
         recordFailure();
       } else if (res.status >= 500) {
         recordFailure();
       } else {
-        // 4xx (ikke 429): klientfeil, ikke åpne circuit
+        // 4xx (not 429): client error, do not open circuit
         logger.warn({ status: res.status, cacheKey }, 'kassal: 4xx');
       }
       return cached.parsed || null;
     }
     const body = await res.json();
     recordSuccess();
-    // Cache-write: lagres alltid, selv tomme svar, så vi ikke bomber igjen
+    // Cache write: always stored, even empty responses, so we don't hit
+    // again
     repos.kassalCache.put({
       cacheKey,
       endpoint,
@@ -223,7 +226,7 @@ async function cachedFetch({
     });
     return body;
   } catch (err) {
-    logger.warn({ err: err.message, cacheKey }, 'kassal: fetch feilet');
+    logger.warn({ err: err.message, cacheKey }, 'kassal: fetch failed');
     recordFailure();
     return cached.parsed || null;
   }
@@ -234,7 +237,7 @@ async function cachedFetch({
 // ============================================================
 
 /**
- * Søk etter produkter. Returnerer Kassal sin data-array eller null.
+ * Search for products. Returns Kassal's data array or null.
  */
 async function searchByName(repos, query, { size = 10 } = {}) {
   const norm = normalizeSearchKey(query);
@@ -247,12 +250,12 @@ async function searchByName(repos, query, { size = 10 } = {}) {
     url,
   });
   if (!body) return null;
-  // Kassal returnerer { data: [...], ... } — noen endpoints pakker i `products`
+  // Kassal returns { data: [...], ... } — some endpoints wrap in `products`
   return body.data || body.products || body || null;
 }
 
 /**
- * Oppslag på EAN/strekkode. Returnerer Kassal-objekt eller null.
+ * Look up by EAN/barcode. Returns the Kassal object or null.
  */
 async function getByEan(repos, ean) {
   if (!ean) return null;
@@ -270,7 +273,7 @@ async function getByEan(repos, ean) {
 }
 
 /**
- * Oppslag på Kassal produkt-id. Returnerer objektet eller null.
+ * Look up by Kassal product id. Returns the object or null.
  */
 async function getById(repos, kassalId) {
   if (!kassalId) return null;
@@ -287,7 +290,7 @@ async function getById(repos, kassalId) {
 }
 
 /**
- * Diagnostikk: nåværende token-nivå og circuit state.
+ * Diagnostics: current token level and circuit state.
  */
 function getStatus() {
   refillTokens();
@@ -306,7 +309,7 @@ module.exports = {
   getByEan,
   getById,
   getStatus,
-  // Eksponert for testing / intern bruk
+  // Exposed for testing / internal use
   resetState,
   normalizeSearchKey,
   takeToken,

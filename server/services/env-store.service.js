@@ -1,18 +1,18 @@
 /**
- * Fase F6 — .env-skriving med trelags-forsvar.
+ * Phase F6 — .env writing with three-layer defense.
  *
- * Sikkerhet:
- *   1. WHITELIST — kun 6 kjente nøkler kan skrives
- *   2. FORMAT-VALIDATOR — hver nøkkel har eget regex for format
- *   3. SANITIZE — avvis newlines, null-bytes, control chars, shell-metategn i
- *                  sensitive posisjoner, maks 500 tegn
- *   4. FIL-LOCK — forenklet process-intern mutex (single-instance server)
- *   5. ATOMIC WRITE — skriv til .env.tmp → rename
- *   6. BACKUP — kopier til .env.bak før hver skriving
+ * Security:
+ *   1. WHITELIST — only 6 known keys may be written
+ *   2. FORMAT VALIDATOR — each key has its own regex for format
+ *   3. SANITIZE — reject newlines, null-bytes, control chars, shell
+ *                  meta-chars in sensitive positions, max 500 chars
+ *   4. FILE LOCK — simplified process-local mutex (single-instance server)
+ *   5. ATOMIC WRITE — write to .env.tmp → rename
+ *   6. BACKUP — copy to .env.bak before each write
  *
- * Config-reload:
- *   Hybrid — inline for keys som leses per-request, restart-required for
- *   keys som bindes ved modul-init (OLLAMA_URL).
+ * Config reload:
+ *   Hybrid — inline for keys read per-request, restart-required for keys
+ *   bound at module init (OLLAMA_URL).
  */
 
 const fs = require('fs');
@@ -31,7 +31,7 @@ const WHITELIST = [
   'LLM_BACKEND',
 ];
 
-// Hvilke keys kan reloades inline uten server-restart
+// Which keys can be reloaded inline without a server restart
 const INLINE_RELOAD_KEYS = [
   'KASSAL_API_KEY',
   'OPENAI_API_KEY',
@@ -49,7 +49,7 @@ const FORMAT_VALIDATORS = {
   LLM_BACKEND: /^(anthropic|openai|xai|ollama|none|disabled)$/,
 };
 
-// Process-intern mutex for samtidig skrive-beskyttelse
+// Process-local mutex for concurrent-write protection
 let writeLock = false;
 const waitingWrites = [];
 
@@ -81,26 +81,26 @@ const FORBIDDEN_CHARS = /[\n\r\0\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 
 function sanitize(value) {
   if (typeof value !== 'string') {
-    throw new Error('Verdi må være en streng');
+    throw new Error('Value must be a string');
   }
   if (value.length === 0) {
-    throw new Error('Verdi kan ikke være tom');
+    throw new Error('Value cannot be empty');
   }
   if (value.length > 500) {
-    throw new Error('Verdi er for lang (maks 500 tegn)');
+    throw new Error('Value is too long (max 500 chars)');
   }
   if (FORBIDDEN_CHARS.test(value)) {
-    throw new Error('Verdi inneholder ugyldige tegn (newlines, null-bytes eller control chars)');
+    throw new Error('Value contains invalid characters (newlines, null-bytes or control chars)');
   }
-  // Ikke tillat dobbelt-quote i verdi — ville bryte kvoting
+  // Disallow double-quote in value — would break quoting
   if (value.includes('"')) {
-    throw new Error('Verdi kan ikke inneholde anførselstegn');
+    throw new Error('Value cannot contain double-quote characters');
   }
   return value;
 }
 
 // ============================================================
-// Maskering for lesing
+// Masking for read
 // ============================================================
 
 function mask(value) {
@@ -111,7 +111,7 @@ function mask(value) {
 }
 
 // ============================================================
-// Read (maskert)
+// Read (masked)
 // ============================================================
 
 function parseEnvFile(content) {
@@ -142,7 +142,7 @@ function readMasked() {
   try {
     content = fs.readFileSync(ENV_PATH, 'utf8');
   } catch {
-    // Fil finnes ikke → returner null for alle whitelisted
+    // File does not exist → return null for all whitelisted
     for (const key of WHITELIST) result[key] = null;
     return result;
   }
@@ -160,12 +160,12 @@ function readMasked() {
 
 async function write(key, value) {
   if (!WHITELIST.includes(key)) {
-    throw new Error(`Ukjent nøkkel '${key}'. Tillatt: ${WHITELIST.join(', ')}`);
+    throw new Error(`Unknown key '${key}'. Allowed: ${WHITELIST.join(', ')}`);
   }
   const clean = sanitize(value);
   const validator = FORMAT_VALIDATORS[key];
   if (validator && !validator.test(clean)) {
-    throw new Error(`Ugyldig format for ${key}`);
+    throw new Error(`Invalid format for ${key}`);
   }
 
   await acquireLock();
@@ -175,16 +175,16 @@ async function write(key, value) {
       try {
         fs.copyFileSync(ENV_PATH, BACKUP_PATH);
       } catch {
-        // Ikke fatal — fortsett
+        // Not fatal — continue
       }
     }
 
-    // Les eksisterende innhold
+    // Read existing content
     let content = '';
     try {
       content = fs.readFileSync(ENV_PATH, 'utf8');
     } catch {
-      /* tom fil */
+      /* empty file */
     }
 
     const lines = content ? content.split(/\r?\n/) : [];
@@ -193,7 +193,7 @@ async function write(key, value) {
     if (idx >= 0) {
       lines[idx] = newLine;
     } else {
-      // Hvis siste linje er tom, erstatt den, ellers append
+      // If the last line is empty, replace it; otherwise append
       if (lines.length > 0 && lines[lines.length - 1] === '') {
         lines[lines.length - 1] = newLine;
         lines.push('');
@@ -202,12 +202,12 @@ async function write(key, value) {
       }
     }
 
-    // Atomic write: skriv til tmp, deretter rename
+    // Atomic write: write to tmp, then rename
     const newContent = lines.join('\n');
     fs.writeFileSync(TMP_PATH, newContent, { mode: 0o600 });
     fs.renameSync(TMP_PATH, ENV_PATH);
 
-    // Inline update av process.env hvis reloadable
+    // Inline update of process.env if reloadable
     const requiresRestart = !INLINE_RELOAD_KEYS.includes(key);
     if (!requiresRestart) {
       process.env[key] = clean;
@@ -220,7 +220,7 @@ async function write(key, value) {
       requiresRestart,
     };
   } finally {
-    // Rydd opp tmp hvis den fortsatt finnes (skal ikke skje etter rename)
+    // Clean up tmp if it still exists (should not happen after rename)
     try {
       if (fs.existsSync(TMP_PATH)) fs.unlinkSync(TMP_PATH);
     } catch {}
@@ -233,8 +233,8 @@ async function write(key, value) {
 // ============================================================
 
 /**
- * Kjører en live-health-check mot den gitte integrasjonen.
- * Returnerer {ok, latencyMs, error}.
+ * Runs a live health-check against the given integration.
+ * Returns {ok, latencyMs, error}.
  */
 async function testIntegration(name) {
   const start = Date.now();
@@ -242,8 +242,8 @@ async function testIntegration(name) {
     switch (name) {
       case 'kassal': {
         const key = process.env.KASSAL_API_KEY;
-        if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
-        // Lettvekts-sjekk: HEAD/GET mot et Kassal-endpoint
+        if (!key) return { ok: false, error: 'No API key set' };
+        // Lightweight check: HEAD/GET against a Kassal endpoint
         const url = 'https://kassal.app/api/v1/products?search=melk&size=1';
         const r = await fetchWithTimeout(
           url,
@@ -255,7 +255,7 @@ async function testIntegration(name) {
       }
       case 'openai': {
         const key = process.env.OPENAI_API_KEY;
-        if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
+        if (!key) return { ok: false, error: 'No API key set' };
         const r = await fetchWithTimeout(
           'https://api.openai.com/v1/models',
           {
@@ -268,8 +268,8 @@ async function testIntegration(name) {
       }
       case 'anthropic': {
         const key = process.env.ANTHROPIC_API_KEY;
-        if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
-        // Anthropic krever POST for chat, men vi kan bruke et minimalt probe
+        if (!key) return { ok: false, error: 'No API key set' };
+        // Anthropic requires POST for chat, but we can use a minimal probe
         const r = await fetchWithTimeout(
           'https://api.anthropic.com/v1/messages',
           {
@@ -292,7 +292,7 @@ async function testIntegration(name) {
       }
       case 'xai': {
         const key = process.env.XAI_API_KEY;
-        if (!key) return { ok: false, error: 'Ingen API-nøkkel satt' };
+        if (!key) return { ok: false, error: 'No API key set' };
         const r = await fetchWithTimeout(
           'https://api.x.ai/v1/models',
           {
@@ -310,10 +310,10 @@ async function testIntegration(name) {
         return { ok: false, latencyMs: Date.now() - start, error: `HTTP ${r.status}` };
       }
       default:
-        return { ok: false, error: `Ukjent integrasjon: ${name}` };
+        return { ok: false, error: `Unknown integration: ${name}` };
     }
   } catch (err) {
-    return { ok: false, latencyMs: Date.now() - start, error: err.message || 'Ukjent feil' };
+    return { ok: false, latencyMs: Date.now() - start, error: err.message || 'Unknown error' };
   }
 }
 

@@ -1,13 +1,13 @@
-// Meal planning service: swap-forslag, holdbarhetsjekker, søndagspush-generering
+// Meal planning service: swap suggestions, shelf-life checks, Sunday-push generation
 //
-// Modus for forslag (lagret i family_profile.preferences.suggestionMode):
-//   - 'default'    — dagens adferd (altSuggestionMap-rekkefølge / tilfeldig).
-//   - 'maksimer'   — pantry-first scoring: velger oppskrifter med flest
-//                    ingredienser allerede på lager.
-//   - 'balansert'  — samme som 'maksimer', men med urgency-bonus for
-//                    ingredienser som matcher pantry-varer nær utløp.
+// Suggestion modes (stored in family_profile.preferences.suggestionMode):
+//   - 'default'    — current behavior (altSuggestionMap order / random).
+//   - 'maksimer'   — pantry-first scoring: pick recipes with the most
+//                    ingredients already in stock.
+//   - 'balansert'  — same as 'maksimer' but with an urgency bonus for
+//                    ingredients that match pantry items near expiry.
 //
-// Scoring-logikken ligger i pantry-coverage.service.js.
+// The scoring logic lives in pantry-coverage.service.js.
 
 const { altSuggestionMap, getWeekYear } = require('../seed');
 const {
@@ -56,9 +56,9 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
   })();
   const mode = resolveMode(repos);
 
-  // Pantry-first modus: utvid kandidatpoolen til ALLE oppskrifter i samme
-  // kategori som dagens måltid (hvis kategori er kjent). Faller tilbake til
-  // hele biblioteket hvis kategorien ikke er satt eller poolen er tom.
+  // Pantry-first mode: expand the candidate pool to ALL recipes in the
+  // same category as today's meal (if the category is known). Falls back
+  // to the entire library if the category is not set or the pool is empty.
   if (mode === 'maksimer' || mode === 'balansert') {
     const currentSlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
     const currentRecipe = currentSlot
@@ -73,7 +73,7 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
         (!targetCategory || r.category === targetCategory)
     );
     if (pool.length === 0) {
-      // Fallback: samme filter uten kategori-krav
+      // Fallback: same filter without category requirement
       pool = allRecipes.filter((r) => !currentRecipeIds.includes(r.id) && isRecipeSafe(r, profile));
     }
 
@@ -92,7 +92,7 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
     }));
   }
 
-  // Default: behold dagens adferd (altSuggestionMap + enkel homeCount-annotering).
+  // Default: keep current behavior (altSuggestionMap + simple homeCount annotation).
   const altIds = altSuggestionMap[dayOfWeek] || [];
   const suggestions = [];
 
@@ -192,13 +192,13 @@ function generateSundayDraft(repos) {
   })();
   const mode = resolveMode(repos);
 
-  // Oppskrifter som ikke er brukt nylig OG som er trygge for profilen.
+  // Recipes that have not been used recently AND are safe for the profile.
   const freshSafe = all.filter((r) => !allRecent.includes(r.id) && isRecipeSafe(r, profile));
   const rask = freshSafe.filter((r) => r.category === 'rask');
   const comfort = freshSafe.filter((r) => r.category === 'comfort');
   const helg = freshSafe.filter((r) => r.category === 'helg');
 
-  // Fallback-pooler (når fresh er tom) — inkluderer kun trygge.
+  // Fallback pools (when fresh is empty) — only include safe ones.
   const allSafe = all.filter((r) => isRecipeSafe(r, profile));
   const allRask = allSafe.filter((r) => r.category === 'rask');
   const allComfort = allSafe.filter((r) => r.category === 'comfort');
@@ -206,7 +206,7 @@ function generateSundayDraft(repos) {
 
   const usedIds = new Set();
 
-  // 'default' bruker tilfeldig-plukk (uendret adferd).
+  // 'default' uses random picking (unchanged behavior).
   function pickRandom(arr, fallback) {
     let src = arr.filter((r) => !usedIds.has(r.id));
     if (src.length === 0) src = fallback.filter((r) => !usedIds.has(r.id));
@@ -217,8 +217,8 @@ function generateSundayDraft(repos) {
     return chosen;
   }
 
-  // 'maksimer'/'balansert' bruker pantry-scoring, og trekker fra "simulert"
-  // pantry mellom valg for å ikke dobbelt-telle samme vare.
+  // 'maksimer'/'balansert' use pantry scoring, subtracting from a
+  // "simulated" pantry between picks so the same item is not double-counted.
   let simulatedPantry = repos.inventory.getAll();
 
   function pickPantryFirst(arr, fallback) {
@@ -251,25 +251,25 @@ function generateSundayDraft(repos) {
 }
 
 /**
- * "Hva kan jeg lage nå?" — returnerer topp-5 oppskrifter i en valgt
- * kategori, rangert etter pantry-dekning (og utløps-bonus i 'balansert').
+ * "What can I cook now?" — returns the top-5 recipes in a chosen
+ * category, ranked by pantry coverage (and expiry bonus in 'balansert').
  *
- * Respekterer brukervalgt modus; hvis modus = 'default' faller vi tilbake
- * til 'maksimer' for DENNE funksjonen (knappen er eksplisitt pantry-fokusert).
+ * Respects the user-selected mode; if mode = 'default' we fall back to
+ * 'maksimer' for THIS function (the button is explicitly pantry-focused).
  *
- * Returnerer også `currentDayOfWeek` og `remainingDays` slik at frontend
- * kan la brukeren velge hvilken dag oppskriften skal legges på.
+ * Also returns `currentDayOfWeek` and `remainingDays` so the frontend can
+ * let the user pick which day to plan the recipe for.
  *
  * @param {object} repos
  * @param {{ category: 'rask'|'comfort'|'helg' }} opts
  */
 function generatePantryRestOfWeek(repos, { category }) {
   if (!['rask', 'comfort', 'helg'].includes(category)) {
-    throw new Error(`Ugyldig kategori: ${category}`);
+    throw new Error(`Invalid category: ${category}`);
   }
 
   const weekYear = getWeekYear();
-  const todayDow = (new Date().getDay() + 6) % 7; // ISO: mandag = 0
+  const todayDow = (new Date().getDay() + 6) % 7; // ISO: Monday = 0
   const plan = repos.mealPlans.getWeek(weekYear);
   const usedIds = new Set(plan.map((p) => p.recipeId).filter(Boolean));
   const remainingDays = [];
@@ -322,11 +322,11 @@ function generatePantryRestOfWeek(repos, { category }) {
 }
 
 /**
- * Aggregerer ingredienser som mangler (stillNeed > 0) for resten av uka
- * basert på nåværende meal-plan. Gjenbruker samme regneformel som
+ * Aggregate ingredients that are missing (stillNeed > 0) for the rest of
+ * the week based on the current meal plan. Reuses the same formula as
  * shopping-list.service.js (totalQty − inventory.qtyRemaining).
  *
- * Returnerer: [{ name, productKey, qty, unit, category, stillNeed }]
+ * Returns: [{ name, productKey, qty, unit, category, stillNeed }]
  */
 function computeMissingForRestOfWeek(repos, weekYear) {
   const plan = repos.mealPlans.getWeek(weekYear);

@@ -269,14 +269,14 @@ describe('M2.1 · Backup syncToRemote (mount)', () => {
     delete require.cache[backupPath];
   });
 
-  test('mount-path: feiler hvis dst ikke finnes', async () => {
+  test('mount-path: fails when dst does not exist', async () => {
     const backupPath = require.resolve('../server/backup');
     delete require.cache[backupPath];
     process.env.BACKUP_REMOTE_PATH = '/nonexistent/path-that-should-not-exist-' + Date.now();
     const { _syncToRemote } = require('../server/backup');
 
     const src = path.join(tmpSrc, 'test.db');
-    await assert.rejects(_syncToRemote(src), /finnes ikke/);
+    await assert.rejects(_syncToRemote(src), /does not exist/);
 
     delete process.env.BACKUP_REMOTE_PATH;
     delete require.cache[backupPath];

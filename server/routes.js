@@ -62,9 +62,10 @@ const DAY_NAMES = [
 ];
 
 /**
- * Autogenerer handleliste hvis uken nettopp ble komplett og det ikke
- * finnes en aktiv liste fra før. Kalles fra meal-rutene etter mutasjoner.
- * Feil svelges slik at selve meal-oppdateringen ikke feiler pga. handleliste.
+ * Auto-generate a shopping list when the week just became complete and
+ * no active list exists. Called from the meal routes after mutations.
+ * Errors are swallowed so the meal update itself does not fail because
+ * of shopping-list issues.
  */
 function maybeAutogenerateShoppingList(repos, weekYear) {
   try {
@@ -72,8 +73,8 @@ function maybeAutogenerateShoppingList(repos, weekYear) {
     if (repos.shoppingLists.getActive(weekYear)) return null;
     const result = generateForWeek(repos, weekYear, { force: false });
     invalidate('shopping');
-    // Fase B: kick off bakgrunns-berikelse — ingen await, ingen throw.
-    // Hvis KASSAL_API_KEY mangler markerer enrichList lista som done noop.
+    // Phase B: kick off background enrichment — no await, no throw.
+    // If KASSAL_API_KEY is missing, enrichList marks the list as done noop.
     if (result && result.listId) {
       enrichInBackground(repos, result.listId);
     }
@@ -84,9 +85,9 @@ function maybeAutogenerateShoppingList(repos, weekYear) {
 }
 
 /**
- * SBOM-6: audit-log helper. Wrapper en handler og logger til audit_log etter
- * vellykket respons. Skal kun brukes på destruktive operasjoner (DELETE,
- * overskrivende PUT/PATCH på sensitive ressurser).
+ * SBOM-6: audit-log helper. Wraps a handler and logs to audit_log after
+ * a successful response. Should only be used on destructive operations
+ * (DELETE, overwriting PUT/PATCH on sensitive resources).
  *
  * @param {object} repos
  * @param {object} spec  { entityType, getEntityId?, getBefore?, getAfter?, metadata? }
@@ -94,19 +95,19 @@ function maybeAutogenerateShoppingList(repos, weekYear) {
  */
 function withAudit(repos, spec, handler) {
   return (ctx) => {
-    // Snapshot "before" før handleren kjører (hvis spec tilbyr getBefore)
+    // Snapshot "before" before the handler runs (if spec provides getBefore)
     let before = null;
     try {
       if (typeof spec.getBefore === 'function') before = spec.getBefore(ctx, repos);
     } catch {
-      /* stille: audit skal ikke blokkere */
+      /* silent: audit must not block */
     }
 
-    // Kjør handler — kast feil videre slik at http/server.js fanger
+    // Run handler — rethrow so http/server.js can catch
     handler(ctx);
 
-    // Registrer audit-hendelse etter at handleren har returnert uten throw.
-    // Dette sikrer at mislykkede operasjoner ikke genererer audit-støy.
+    // Record audit event after the handler returned without throw.
+    // This ensures failed operations do not generate audit noise.
     try {
       const entityId = typeof spec.getEntityId === 'function' ? spec.getEntityId(ctx) : null;
       let after = null;
@@ -124,7 +125,7 @@ function withAudit(repos, spec, handler) {
         metadata: typeof spec.metadata === 'function' ? spec.metadata(ctx) : spec.metadata,
       });
     } catch {
-      /* stille: audit-feil må aldri påvirke responsen */
+      /* silent: audit errors must never affect the response */
     }
   };
 }
@@ -263,10 +264,10 @@ function registerRoutes(router, { repos, serverState }) {
         if (dbSizeBytes > 500 * 1024 * 1024) warnings.push('db_size_over_500mb');
       }
     } catch {
-      /* stille */
+      /* silent */
     }
 
-    // Disk-space (statfs finnes bare på Linux med Node ≥18.15, så wrap i try)
+    // Disk-space (statfs is Linux-only on Node ≥18.15, so wrap in try)
     try {
       const fs = require('fs');
       if (fs.statfsSync) {
@@ -575,8 +576,8 @@ function registerRoutes(router, { repos, serverState }) {
   }
 
   router.get('/api/recipes', (ctx) => {
-    // Fase F7: støtter ?source=mine|ai|all|imported
-    // Filtrerer på recipes.source_type (enum), ikke recipes.source (fritt tekst)
+    // Phase F7: supports ?source=mine|ai|all|imported
+    // Filters on recipes.source_type (enum), not recipes.source (free text)
     const source = ctx.query.source;
     const all = repos.recipes.getAll();
     let filtered = all;
@@ -632,7 +633,7 @@ function registerRoutes(router, { repos, serverState }) {
     const body = ctx.body || {};
     const recipe = body.recipe || { ingredients: body.ingredients || [] };
     if (!Array.isArray(recipe.ingredients)) {
-      throw errors.badRequest('recipe.ingredients må være en array');
+      throw errors.badRequest('recipe.ingredients must be an array');
     }
     const recipeFilter = require('./services/recipe-filter.service');
     const baseCtx = buildFilterContext();
@@ -665,27 +666,27 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   /**
-   * GET /api/recipes/:id/similar — Fase F4.
-   * Returnerer topp-N lignende oppskrifter basert på:
-   *   - Ingredient Jaccard-similarity (vekt 0.6)
-   *   - Kategori-match (0.3)
-   *   - Servings-proximity (0.1)
+   * GET /api/recipes/:id/similar — Phase F4.
+   * Returns top-N similar recipes based on:
+   *   - Ingredient Jaccard similarity (weight 0.6)
+   *   - Category match (0.3)
+   *   - Servings proximity (0.1)
    */
   router.get('/api/recipes/:id/similar', (ctx) => {
     const recipeSimilarity = require('./services/recipe-similarity.service');
     const id = parseInt(ctx.params.id, 10);
-    if (!Number.isFinite(id)) throw errors.badRequest('Ugyldig recipe id');
+    if (!Number.isFinite(id)) throw errors.badRequest('Invalid recipe id');
     const limit = Math.min(parseInt(ctx.query.limit, 10) || 5, 20);
     const similar = recipeSimilarity.findSimilar(repos, id, limit);
     ctx.json({ similar, count: similar.length });
   });
 
-  // Recipe import — tekst (Fase D).
+  // Recipe import — text (Phase D).
   //
-  // Bilde-import går via /api/recipes/import/image (eget endepunkt) fordi
-  // den globale body-parseren auto-parser JSON og ikke støtter binær.
-  // For bilder kaller frontend førts et base64-JSON-endepunkt, eller så
-  // kjøres importFromImage direkte fra en framtidig multipart-rute.
+  // Image import goes through /api/recipes/import/image (separate endpoint)
+  // because the global body parser auto-parses JSON and does not support
+  // binary. For images the frontend first calls a base64-JSON endpoint, or
+  // importFromImage is invoked directly from a future multipart route.
   router.post(
     '/api/recipes/import',
     requireRole('adult'),
@@ -694,10 +695,11 @@ function registerRoutes(router, { repos, serverState }) {
       const result = await recipeImportService.importFromText(repos, ctx.body);
       if (result.error) throw errors.badRequest(result.error);
       invalidate('recipes');
-      // Uke 9 SAF-2: kjør deterministisk allergi-sjekk på importert oppskrift
-      // FØR respons returneres. Frontend viser advarsel når safeForProfile=false.
-      // Selve oppskriften lagres fortsatt (brukeren kan selv velge å beholde
-      // den), men flagget stopper "usikker accept".
+      // Week 9 SAF-2: run deterministic allergy check on the imported recipe
+      // BEFORE the response is returned. Frontend shows a warning when
+      // safeForProfile=false.
+      // The recipe is still saved (the user may choose to keep it), but
+      // the flag prevents an "unsafe accept".
       if (result.recipe) {
         // B7 / D7 — per-member filter with legacy fields preserved.
         const recipeFilter = require('./services/recipe-filter.service');
@@ -724,19 +726,19 @@ function registerRoutes(router, { repos, serverState }) {
     }
   );
 
-  // Recipe image-import. Bildet sendes som base64-string inni JSON-body:
-  //   { imageBase64: "<base64>", mime: "image/png", title?: "..." }
-  // Dette unngår binær-parser-problemet og holder ruten kompatibel med
-  // den globale JSON-body-parseren.
+  // Recipe image import. The image is sent as a base64 string inside the
+  // JSON body: { imageBase64: "<base64>", mime: "image/png", title?: "..." }
+  // This avoids the binary-parser problem and keeps the route compatible
+  // with the global JSON body parser.
   router.post('/api/recipes/import/image', requireRole('adult'), async (ctx) => {
     const body = ctx.body || {};
     if (typeof body.imageBase64 !== 'string' || body.imageBase64.length < 20) {
-      throw errors.badRequest('imageBase64 er påkrevd og må være en base64-kodet streng');
+      throw errors.badRequest('imageBase64 is required and must be a base64-encoded string');
     }
     const mime = typeof body.mime === 'string' ? body.mime.toLowerCase() : '';
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowed.includes(mime)) {
-      throw errors.badRequest(`Ugyldig mime: ${mime}. Støttet: ${allowed.join(', ')}`);
+      throw errors.badRequest(`Invalid mime: ${mime}. Allowed: ${allowed.join(', ')}`);
     }
     let buffer;
     try {
@@ -840,19 +842,20 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   /**
-   * GET /api/shopping/list/current — aktiv handleliste for nåværende uke.
-   * Returnerer samme format som /list/:id. Oppretter ikke ny — returnerer
-   * 404 hvis ingen aktiv liste finnes for uken.
+   * GET /api/shopping/list/current — active shopping list for the current
+   * week. Returns the same shape as /list/:id. Does not create one —
+   * returns a 404 if no active list exists for the week.
    *
-   * MERK: må registreres FØR /api/shopping/list/:id siden routeren matcher
-   * i registreringsrekkefølge og :id ville ellers fanget 'current'.
+   * NOTE: must be registered BEFORE /api/shopping/list/:id since the
+   * router matches in registration order and :id would otherwise capture
+   * 'current'.
    */
   router.get('/api/shopping/list/current', (ctx) => {
     const wk = ensureCurrentWeek(repos);
     const list = repos.shoppingLists.getActive(wk);
     if (!list) {
-      // Ingen aktiv persistent liste — returner tomt skall slik at UI kan
-      // vise "Ingen handleliste generert ennå" uten å kaste feil.
+      // No active persistent list — return an empty shell so the UI can
+      // show "No shopping list generated yet" without throwing.
       ctx.json({
         id: null,
         weekYear: wk,
@@ -864,8 +867,8 @@ function registerRoutes(router, { repos, serverState }) {
       });
       return;
     }
-    // Gruppe items etter kategori for rask UI-rendering (samme form som
-    // /api/shopping/current legacy-ruta).
+    // Group items by category for fast UI rendering (same shape as the
+    // /api/shopping/current legacy route).
     const categoriesMap = new Map();
     let total = 0;
     for (const it of list.items) {
@@ -874,7 +877,7 @@ function registerRoutes(router, { repos, serverState }) {
       // action; checkedOff is true when bought_at is set.
       // Items without a category fall under the 'other' enum-key — the
       // frontend localises that bucket header through i18n. Pre-existing
-      // seed items carry their norske kategori-strings (Frukt & grønt,
+      // seed items carry their Norwegian category strings (Frukt & grønt,
       // Meieri, ...) and pass through unchanged; that broader migration
       // is tracked in design-gaps.md.
       const cat = it.category || 'other';
@@ -924,16 +927,17 @@ function registerRoutes(router, { repos, serverState }) {
    */
   router.get('/api/shopping/list/:id', (ctx) => {
     const id = parseInt(ctx.params.id, 10);
-    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Ugyldig id');
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
     const list = repos.shoppingLists.getById(id);
-    if (!list) throw errors.notFound(`Handleliste ${id} ikke funnet`);
+    if (!list) throw errors.notFound(`Shopping list ${id} not found`);
     ctx.json({ list });
   });
 
   /**
-   * PUT /api/shopping/items/:id/bought — merk item som kjøpt. Oppdaterer
-   * pantry via inventory.addPurchase + inventory_log (reason='shopping_bought'),
-   * og hvis item har en resolution → productResolutions.incrementConfirmed.
+   * PUT /api/shopping/items/:id/bought — mark item as bought. Updates
+   * pantry via inventory.addPurchase + inventory_log
+   * (reason='shopping_bought'), and if the item has a resolution →
+   * productResolutions.incrementConfirmed.
    */
   router.put(
     '/api/shopping/items/:id/bought',
@@ -941,9 +945,9 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.shoppingItemBoughtBody),
     (ctx) => {
       const itemId = parseInt(ctx.params.id, 10);
-      if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+      if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
       const parent = repos.shoppingLists.getItemWithList(itemId);
-      if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+      if (!parent) throw errors.notFound(`Item ${itemId} not found`);
       const { item } = parent;
       if (item.boughtAt) {
         ctx.json({ ok: true, alreadyBought: true });
@@ -1027,9 +1031,9 @@ function registerRoutes(router, { repos, serverState }) {
    */
   router.put('/api/shopping/items/:id/unbought', requireRole('adult'), (ctx) => {
     const itemId = parseInt(ctx.params.id, 10);
-    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
     const parent = repos.shoppingLists.getItemWithList(itemId);
-    if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
     repos.shoppingLists.markItemUnbought(itemId);
     invalidate('shopping', 'today');
     ctx.json({ ok: true });
@@ -1045,9 +1049,9 @@ function registerRoutes(router, { repos, serverState }) {
    */
   router.delete('/api/shopping/items/:id', requireRole('adult'), (ctx) => {
     const itemId = parseInt(ctx.params.id, 10);
-    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
     const parent = repos.shoppingLists.getItemWithList(itemId);
-    if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
     repos.shoppingLists.removeItem(itemId);
     invalidate('shopping', 'today');
     ctx.json({ ok: true });
@@ -1068,7 +1072,7 @@ function registerRoutes(router, { repos, serverState }) {
       const wk = ensureCurrentWeek(repos);
       const list = repos.shoppingLists.getActive(wk);
       if (!list) {
-        throw errors.badRequest('Ingen aktiv handleliste — generer fra ukens måltider først', {
+        throw errors.badRequest("No active shopping list — generate from this week's meals first", {
           code: 'NO_ACTIVE_LIST',
         });
       }
@@ -1116,10 +1120,10 @@ function registerRoutes(router, { repos, serverState }) {
    */
   router.put('/api/shopping/items/:id/has-home', requireRole('adult'), (ctx) => {
     const itemId = parseInt(ctx.params.id, 10);
-    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
 
     const parent = repos.shoppingLists.getItemWithList(itemId);
-    if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
     const item = parent.item;
     const productKey = item.productKey;
     if (!productKey) {
@@ -1191,21 +1195,21 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.shoppingItemExpiryBody),
     (ctx) => {
       const itemId = parseInt(ctx.params.id, 10);
-      if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+      if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
 
       const parent = repos.shoppingLists.getItemWithList(itemId);
-      if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+      if (!parent) throw errors.notFound(`Item ${itemId} not found`);
       const item = parent.item;
       const productKey = item.productKey;
       if (!productKey) throw errors.badRequest('Varen har ingen pantry-kobling');
       if (!item.boughtAt) {
-        throw errors.badRequest('Varen må være markert som kjøpt før du kan sette utløpsdato');
+        throw errors.badRequest('Item must be marked as bought before setting expiry date');
       }
 
       const expiresAt = ctx.body.expiresAt;
       const purchasedAt = String(item.boughtAt).slice(0, 10); // bought_at = ISO datetime
       if (expiresAt < purchasedAt) {
-        throw errors.badRequest('Utløpsdato kan ikke være før kjøpsdato');
+        throw errors.badRequest('Expiry date cannot be before purchase date');
       }
 
       try {
@@ -1244,10 +1248,10 @@ function registerRoutes(router, { repos, serverState }) {
 
       const purchasedAt = ctx.body.purchasedAt || inv.lastPurchased;
       if (!purchasedAt) {
-        throw errors.badRequest('Mangler kjøpsdato — send purchasedAt eller sett last_purchased');
+        throw errors.badRequest('Missing purchase date — send purchasedAt or set last_purchased');
       }
       if (expiresAt < purchasedAt) {
-        throw errors.badRequest('Utløpsdato kan ikke være før kjøpsdato');
+        throw errors.badRequest('Expiry date cannot be before purchase date');
       }
 
       try {
@@ -1272,11 +1276,12 @@ function registerRoutes(router, { repos, serverState }) {
 
   /**
    * GET /api/products/:productKey/shelf-life — summary used by pantry UI
-   * to show "Lært: Nd (X kjøp)" badges and surface which value is in effect.
+   * to show learned-shelf-life badges (e.g. "Lært: Nd (X kjøp)") and
+   * surface which value is in effect.
    */
   router.get('/api/products/:productKey/shelf-life', (ctx) => {
     const productKey = String(ctx.params.productKey || '').trim();
-    if (!productKey) throw errors.badRequest('productKey mangler');
+    if (!productKey) throw errors.badRequest('productKey is required');
     const product = repos.products.getByKey(productKey);
     if (!product) throw errors.notFound(`Produkt ${productKey} ikke funnet`);
     ctx.json(shelfLifeLearner.summarizeProduct(productKey, product));
@@ -1288,28 +1293,29 @@ function registerRoutes(router, { repos, serverState }) {
    */
   router.put('/api/shopping/items/:id/unpantry', requireRole('adult'), (ctx) => {
     const itemId = parseInt(ctx.params.id, 10);
-    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Ugyldig id');
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
     const parent = repos.shoppingLists.getItemWithList(itemId);
-    if (!parent) throw errors.notFound(`Item ${itemId} ikke funnet`);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
     repos.shoppingLists.markItemUnpantry(itemId);
     invalidate('shopping');
     ctx.json({ ok: true });
   });
 
   /**
-   * POST /api/shopping/list/:id/enrich — manuell retry av Kassal-berikelse.
-   * Brukes når en tidligere kjøring stoppet på 'partial' (rate limit/circuit)
-   * eller 'failed'. Returnerer 202 umiddelbart og kjører enricheren i bakgrunn.
-   * For 'done'/'running' er dette no-op (idempotens håndteres av enrichList).
+   * POST /api/shopping/list/:id/enrich — manual retry of Kassal enrichment.
+   * Used when a previous run stopped on 'partial' (rate limit/circuit) or
+   * 'failed'. Returns 202 immediately and runs the enricher in the
+   * background. For 'done'/'running' this is no-op (idempotency is handled
+   * by enrichList).
    */
   router.post('/api/shopping/list/:id/enrich', requireRole('adult'), (ctx) => {
     const id = parseInt(ctx.params.id, 10);
-    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Ugyldig id');
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
     const list = repos.shoppingLists.getById(id);
-    if (!list) throw errors.notFound(`Handleliste ${id} ikke funnet`);
-    // Hvis lista står på 'partial' eller 'failed' må vi resette til 'pending'
-    // først slik at enrichList ikke bailer på 'already_done'-sjekk. 'pending'
-    // og 'partial' slippes gjennom av enricheren allerede.
+    if (!list) throw errors.notFound(`Shopping list ${id} not found`);
+    // If the list is on 'partial' or 'failed' we must reset to 'pending'
+    // first so enrichList doesn't bail on the 'already_done' check.
+    // 'pending' and 'partial' are already passed through by the enricher.
     if (list.enrichmentStatus === 'failed') {
       repos.shoppingLists.setEnrichmentStatus(id, 'pending', {});
     }
@@ -1318,13 +1324,13 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   /**
-   * POST /api/shopping/list/:id/done — lukk handlelista manuelt.
+   * POST /api/shopping/list/:id/done — close the shopping list manually.
    */
   router.post('/api/shopping/list/:id/done', requireRole('adult'), (ctx) => {
     const id = parseInt(ctx.params.id, 10);
-    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Ugyldig id');
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
     const list = repos.shoppingLists.getById(id);
-    if (!list) throw errors.notFound(`Handleliste ${id} ikke funnet`);
+    if (!list) throw errors.notFound(`Shopping list ${id} not found`);
     repos.shoppingLists.markDone(id);
     invalidate('shopping');
     ctx.json({ ok: true });
@@ -1470,13 +1476,13 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   // ============================================================
-  // PANTRY (Iterasjon 1 — manuell add + korrigering + log)
+  // PANTRY (Iteration 1 — manual add + correction + log)
   // ============================================================
 
   /**
-   * GET /api/pantry/suggest?q= — fase F, autocomplete for pantry-add.
-   * Kombinerer katalog-søk (repos.products) + pantry-historikk.
-   * Returnerer alltid en "ny"-rad nederst når ingen eksakt match finnes.
+   * GET /api/pantry/suggest?q= — phase F, autocomplete for pantry add.
+   * Combines catalog search (repos.products) + pantry history.
+   * Always returns a "new" row at the bottom when no exact match exists.
    */
   router.get('/api/pantry/suggest', (ctx) => {
     const q = (ctx.query.q || '').trim();
@@ -1516,7 +1522,7 @@ function registerRoutes(router, { repos, serverState }) {
         expiresEst: inv.expiresEst || null,
         lastPurchased: inv.lastPurchased || null,
         // PR A.2 — learned shelf-life metadata so pantry UI can show a
-        // "Lært: Nd (X kjøp)" badge. shelfDaysLearned stays null until
+        // learned-days badge. shelfDaysLearned stays null until
         // sampleCount crosses MIN_SAMPLES_TO_TRUST.
         shelfDaysLearned: p?.shelfDaysLearned ?? null,
         shelfDaysSampleCount: p?.shelfDaysSampleCount ?? 0,
@@ -1545,7 +1551,7 @@ function registerRoutes(router, { repos, serverState }) {
       },
       (ctx) => {
         const productKey = ctx.params.productKey;
-        if (!productKey) throw errors.badRequest('productKey er påkrevd');
+        if (!productKey) throw errors.badRequest('productKey is required');
         const existing = repos.inventory.getByKey(productKey);
         if (!existing) throw errors.notFound(`Pantry-vare '${productKey}' ikke funnet`);
         try {
@@ -1656,10 +1662,10 @@ function registerRoutes(router, { repos, serverState }) {
     const envStore = require('./services/env-store.service');
     const { key, value } = ctx.body || {};
     if (!key || typeof key !== 'string') {
-      throw errors.badRequest('key er påkrevd');
+      throw errors.badRequest('key is required');
     }
     if (value === undefined || value === null) {
-      throw errors.badRequest('value er påkrevd');
+      throw errors.badRequest('value is required');
     }
     try {
       const result = await envStore.write(key, String(value));
@@ -1690,11 +1696,11 @@ function registerRoutes(router, { repos, serverState }) {
     }
     const { url, type, label } = ctx.body || {};
     if (!url || typeof url !== 'string') {
-      throw errors.badRequest('url er påkrevd');
+      throw errors.badRequest('url is required');
     }
     // Enkel URL-validering
     if (!/^https?:\/\//i.test(url)) {
-      throw errors.badRequest('url må begynne med http:// eller https://');
+      throw errors.badRequest('url must start with http:// or https://');
     }
     const recipeSourcesService = require('./services/recipe-sources.service');
     const detectedType = type || recipeSourcesService.detectType(url);
@@ -1726,7 +1732,7 @@ function registerRoutes(router, { repos, serverState }) {
         },
       },
       (ctx) => {
-        if (!repos.recipeSources) throw errors.notFound('ikke støttet');
+        if (!repos.recipeSources) throw errors.notFound('not supported');
         const id = requirePositiveInt(ctx.params.id);
         repos.recipeSources.delete(id);
         ctx.json({ ok: true });
@@ -1735,7 +1741,7 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   router.post('/api/sources/:id/sync', requireRole('adult'), async (ctx) => {
-    if (!repos.recipeSources) throw errors.notFound('ikke støttet');
+    if (!repos.recipeSources) throw errors.notFound('not supported');
     const id = requirePositiveInt(ctx.params.id);
     const recipeSourcesService = require('./services/recipe-sources.service');
     const result = await recipeSourcesService.syncSource(repos, id);
@@ -1770,11 +1776,11 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   router.get('/api/profile/defaults', (ctx) => {
-    // Returner anbefalte filterforslag basert på familieprofil
+    // Return recommended filter suggestions based on the family profile
     const profile = repos.familyProfile.get();
     const suggestions = [];
 
-    // Allergi-basert: hvis laktose er i allergier → foreslå "Laktosefri"
+    // Allergy-based: if lactose is in allergies → suggest "Lactose-free"
     for (const allergy of profile.allergies || []) {
       const lower = String(allergy).toLowerCase();
       if (lower.includes('laktose')) suggestions.push('laktosefri');
@@ -1782,7 +1788,7 @@ function registerRoutes(router, { repos, serverState }) {
       if (lower.includes('nøtt') || lower.includes('nott')) suggestions.push('nottefri');
     }
 
-    // Preferanse-basert
+    // Preference-based
     if (profile.preferences?.vegetarian) suggestions.push('vegetar');
     if (profile.preferences?.quickMeals) suggestions.push('rask');
     if (profile.preferences?.familyFriendly) suggestions.push('barnevennlig');
@@ -1802,10 +1808,10 @@ function registerRoutes(router, { repos, serverState }) {
   router.post('/api/profile/filter-usage', (ctx) => {
     const { filterId, action } = ctx.body || {};
     if (!filterId || typeof filterId !== 'string') {
-      throw errors.badRequest('filterId er påkrevd');
+      throw errors.badRequest('filterId is required');
     }
     if (!['enabled', 'disabled'].includes(action)) {
-      throw errors.badRequest('action må være "enabled" eller "disabled"');
+      throw errors.badRequest('action must be "enabled" or "disabled"');
     }
     repos.filterUsage.recordUsage(filterId, action);
     ctx.json({ ok: true });
@@ -1818,7 +1824,7 @@ function registerRoutes(router, { repos, serverState }) {
     const productKey = ctx.query.productKey;
     const ean = ctx.query.ean;
     if (!productKey && !ean) {
-      throw errors.badRequest('productKey eller ean må oppgis');
+      throw errors.badRequest('productKey or ean must be provided');
     }
     const result = priceReferenceService.lookupPrice(repos, productKey, { ean });
     if (!result) {
@@ -1830,7 +1836,7 @@ function registerRoutes(router, { repos, serverState }) {
 
   router.get('/api/prices/search', (ctx) => {
     const q = ctx.query.q || '';
-    if (!q || q.length < 1) throw errors.badRequest('q er påkrevd');
+    if (!q || q.length < 1) throw errors.badRequest('q is required');
     if (q.length > 500) throw errors.badRequest('q max 500 tegn');
     const results = repos.priceReferences.search(q, 20);
     ctx.json({ query: q, results });
@@ -1841,16 +1847,16 @@ function registerRoutes(router, { repos, serverState }) {
   });
 
   // ============================================================
-  // RECEIPTS (Iterasjon 2 — kvittering-ingest)
+  // RECEIPTS (Iteration 2 — receipt ingest)
   // ============================================================
-  // Upload tar rå binær (image/*, application/pdf) via request body.
-  // MIME må oppgis via Content-Type.
+  // Upload accepts raw binary (image/*, application/pdf) via the request
+  // body. MIME must be provided via Content-Type.
   router.post('/api/receipts/upload', requireRole('adult'), async (ctx) => {
     const contentType = ctx.req.headers['content-type'] || 'application/octet-stream';
     const mimeType = contentType.split(';')[0].trim();
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
     if (!allowed.includes(mimeType)) {
-      throw errors.badRequest(`Ugyldig MIME-type: ${mimeType}. Støttet: ${allowed.join(', ')}`);
+      throw errors.badRequest(`Invalid MIME type: ${mimeType}. Allowed: ${allowed.join(', ')}`);
     }
 
     const MAX = 10 * 1024 * 1024;
@@ -1904,9 +1910,9 @@ function registerRoutes(router, { repos, serverState }) {
     (ctx) => {
       const { receiptId, items } = ctx.body;
       const receipt = repos.receipts.getById(receiptId);
-      if (!receipt) throw errors.notFound(`Receipt ${receiptId} ikke funnet`);
+      if (!receipt) throw errors.notFound(`Receipt ${receiptId} not found`);
 
-      // Valgfritt: bruker har gjort redigeringer før confirm
+      // Optional: user has made edits before confirm
       if (Array.isArray(items)) {
         for (const edit of items) {
           const { id, ...fields } = edit;
@@ -2048,23 +2054,23 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   // ============================================================
-  // SYSTEM STATUS (brukes av Settings → Om-panelet)
+  // SYSTEM STATUS (used by Settings → About panel)
   // ============================================================
   router.get('/api/status', (ctx) => {
-    let driver = 'ukjent';
+    let driver = 'unknown';
     let migrationCount = 0;
     try {
-      // Prøv å avgjøre backend ved å se etter better-sqlite3-spesifikk metode
+      // Try to determine backend by looking for a better-sqlite3-specific method
       driver = repos._db && typeof repos._db.name === 'string' ? 'better-sqlite3' : 'sql.js';
     } catch {
-      /* stille */
+      /* silent */
     }
     try {
       migrationCount = repos._db.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get().c;
     } catch {
-      /* tabellen finnes kanskje ikke ennå */
+      /* table may not exist yet */
     }
-    // M2.3: eksponer circuit-breaker-tilstand for observability
+    // M2.3: expose circuit-breaker state for observability
     let breakers = null;
     try {
       breakers = require('./services/circuit-breaker').snapshotAll();
@@ -2149,7 +2155,7 @@ function registerRoutes(router, { repos, serverState }) {
     try {
       pruned = repos.llmCache.cleanup();
     } catch (err) {
-      throw errors.internal('LLM cache cleanup feilet: ' + err.message);
+      throw errors.internal('LLM cache cleanup failed: ' + err.message);
     }
     const stats = repos.llmCache.stats();
     ctx.json({
@@ -2158,7 +2164,7 @@ function registerRoutes(router, { repos, serverState }) {
       pruned,
       entriesAfter: stats.entries,
       totalHits: stats.totalHits,
-      note: 'Cleanup fjerner kun utløpte entries. Aktiv varming krever reell LLM-tilgang.',
+      note: 'Cleanup only removes expired entries. Active warming requires real LLM access.',
     });
   });
 
@@ -2301,9 +2307,9 @@ function registerRoutes(router, { repos, serverState }) {
         /* fall through to LLM on repo error */
       }
 
-      // Persistert LLM-cache: samme oppskrift-spørsmål returnerer samme svar i 7 dager.
-      // Cache-key er bumpet til recipe-v2: slik at gamle hallusinerte URL-er
-      // fra pre-fix-cache ikke lenger treffes.
+      // Persistent LLM cache: the same recipe query returns the same answer
+      // for 7 days. Cache-key is bumped to recipe-v2: so old hallucinated
+      // URLs from the pre-fix cache are no longer hit.
       const key = crypto
         .createHash('sha256')
         .update(`recipe-v2:${OLLAMA_MODEL}:${query.toLowerCase().trim()}`)
@@ -2314,7 +2320,7 @@ function registerRoutes(router, { repos, serverState }) {
         try {
           return ctx.json({ ...JSON.parse(hit.response), source: 'llm' });
         } catch {
-          /* falle gjennom til regenerering */
+          /* fall through to regeneration */
         }
       }
       const result = await suggestRecipeFromText(query);
@@ -2331,14 +2337,14 @@ function registerRoutes(router, { repos, serverState }) {
     }
   );
 
-  // Generer med LLM og lagre oppskriften i familiens bibliotek i ett kall.
-  // Brukes av "Bytt middag" når brukeren aksepterer en AI-generert oppskrift:
-  // meal_plans.recipe_id er FK til recipes, så vi må persistere før swap.
+  // Generate with LLM and save the recipe in the family library in one call.
+  // Used by "Swap dinner" when the user accepts an AI-generated recipe:
+  // meal_plans.recipe_id is FK to recipes, so we must persist before swap.
   router.post('/api/recipes/from-llm', requireRole('adult'), async (ctx) => {
     const query = String(ctx.body?.query || '').trim();
     if (!query) throw errors.badRequest('Missing query');
 
-    // Hvis biblioteket allerede har en match, gjenbruk den.
+    // If the library already has a match, reuse it.
     const existing = repos.recipes.findByName(query);
     if (existing) {
       return ctx.json({ ok: true, recipeId: existing.id, source: 'library', recipe: existing });
@@ -2474,7 +2480,7 @@ function registerRoutes(router, { repos, serverState }) {
     ctx.json({
       entries,
       count: entries.length,
-      note: 'Append-only log. Hashes er sha256 av JSON-serialisert før/etter.',
+      note: 'Append-only log. Hashes are sha256 of JSON-serialised before/after.',
     });
   });
 

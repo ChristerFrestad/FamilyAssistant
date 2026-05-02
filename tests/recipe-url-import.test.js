@@ -96,7 +96,7 @@ test('assertSupportedUrl blocks Pinterest', () => {
 });
 
 test('assertSupportedUrl blocks private IP ranges (SSRF guard)', () => {
-  assert.throws(() => assertSupportedUrl('http://192.168.1.1/recipe'), /offentlig/i);
+  assert.throws(() => assertSupportedUrl('http://192.168.1.1/recipe'), /public/i);
 });
 
 test('assertSupportedUrl rejects non-http schemes', () => {

@@ -1,19 +1,19 @@
-// Alert-webhook (M4.3)
+// Alert webhook (M4.3)
 //
-// Sender varsler til en HTTP-webhook når ting går galt:
+// Sends alerts to an HTTP webhook when things go wrong:
 //   - uncaughtException / unhandledRejection
-//   - backup feilet
-//   - circuit breaker åpnet mot kritisk backend
-//   - /ready returnerer 503 i > 5 minutter sammenhengende
+//   - backup failed
+//   - circuit breaker opened against critical backend
+//   - /ready returns 503 for more than 5 continuous minutes
 //
-// Format er generisk JSON — kompatibel med Discord/Slack/ntfy/custom.
-// Webhook settes via ALERT_WEBHOOK env. Hvis ikke satt er alle funksjoner
-// no-ops.
+// Format is generic JSON — compatible with Discord/Slack/ntfy/custom.
+// Webhook is set via the ALERT_WEBHOOK env. When not set, all functions
+// are no-ops.
 //
-// Throttling: samme "key" sender maks 1 alert per 15 min for å unngå
-// storm ved flapping. Nøkler som er forskjellige telles hver for seg.
+// Throttling: the same "key" sends at most 1 alert per 15 min to avoid
+// a storm during flapping. Different keys are counted separately.
 //
-// Null avhengigheter — ren node:http(s).
+// Zero dependencies — plain node:http(s).
 
 const http = require('http');
 const https = require('https');
@@ -36,7 +36,7 @@ function shouldThrottle(key) {
   const last = lastSent.get(key);
   if (last && now - last < THROTTLE_MS) return true;
   lastSent.set(key, now);
-  // Rydd gamle nøkler
+  // Drop old keys
   if (lastSent.size > 100) {
     const cutoff = now - THROTTLE_MS * 2;
     for (const [k, t] of lastSent.entries()) {
@@ -47,14 +47,14 @@ function shouldThrottle(key) {
 }
 
 /**
- * Send et alert. Returnerer Promise som resolver uansett — aldri kaster.
+ * Send an alert. Returns a Promise that resolves regardless — never throws.
  *
  * @param {Object} opts
  * @param {string} opts.level - 'warning' | 'critical' | 'fatal'
- * @param {string} opts.title - kort tittel
- * @param {string} [opts.detail] - lengre beskrivelse
- * @param {Object} [opts.context] - ekstra metadata (JSON-serialiserbart)
- * @param {string} [opts.key] - throttle-nøkkel (default = level+title)
+ * @param {string} opts.title - short title
+ * @param {string} [opts.detail] - longer description
+ * @param {Object} [opts.context] - extra metadata (JSON-serialisable)
+ * @param {string} [opts.key] - throttle key (default = level+title)
  */
 async function send({ level = 'warning', title, detail = '', context = {}, key = null } = {}) {
   if (!WEBHOOK_URL || !title) return { sent: false, reason: 'disabled_or_no_title' };
@@ -65,16 +65,16 @@ async function send({ level = 'warning', title, detail = '', context = {}, key =
     return { sent: false, reason: 'throttled' };
   }
 
-  // Truncate context — trim string-verdier så hele payload-en holder seg
-  // under MAX_PAYLOAD_BYTES. Hvis context ikke kan serialiseres, dropper vi
-  // det og legger en liten markør i stedet.
+  // Truncate context — trim string values so the full payload stays
+  // below MAX_PAYLOAD_BYTES. If context cannot be serialised we drop
+  // it and replace it with a small marker.
   let safeContext;
   try {
     const raw = JSON.stringify(context);
     if (raw.length <= MAX_PAYLOAD_BYTES) {
       safeContext = context;
     } else {
-      // Trim hver strengverdi til noe håndterbart
+      // Trim each string value to something manageable
       safeContext = {};
       for (const [k, v] of Object.entries(context || {})) {
         if (typeof v === 'string') {
@@ -90,7 +90,7 @@ async function send({ level = 'warning', title, detail = '', context = {}, key =
           }
         }
       }
-      // Hvis det fortsatt er for stort, dropp alt
+      // If it's still too large, drop everything
       if (JSON.stringify(safeContext).length > MAX_PAYLOAD_BYTES) {
         safeContext = { _note: 'context_too_large_dropped' };
       }
@@ -114,7 +114,7 @@ async function send({ level = 'warning', title, detail = '', context = {}, key =
     try {
       parsed = new URL(WEBHOOK_URL);
     } catch {
-      logger.warn({ WEBHOOK_URL }, 'alert: ugyldig ALERT_WEBHOOK URL');
+      logger.warn({ WEBHOOK_URL }, 'alert: invalid ALERT_WEBHOOK URL');
       resolve({ sent: false, reason: 'bad_url' });
       return;
     }
@@ -137,17 +137,17 @@ async function send({ level = 'warning', title, detail = '', context = {}, key =
       res.on('data', () => {});
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          logger.info({ level, title, status: res.statusCode }, 'alert sendt');
+          logger.info({ level, title, status: res.statusCode }, 'alert sent');
           resolve({ sent: true, status: res.statusCode });
         } else {
-          logger.warn({ level, title, status: res.statusCode }, 'alert: webhook svarte med feil');
+          logger.warn({ level, title, status: res.statusCode }, 'alert: webhook returned an error');
           resolve({ sent: false, reason: `status_${res.statusCode}` });
         }
       });
     });
 
     req.on('error', (err) => {
-      logger.warn({ err: err.message, title }, 'alert: nettverksfeil');
+      logger.warn({ err: err.message, title }, 'alert: network error');
       resolve({ sent: false, reason: err.message });
     });
 
@@ -172,7 +172,7 @@ function fatal(title, opts = {}) {
   return send({ ...opts, level: 'fatal', title });
 }
 
-// Test-helper: reset throttle og (optional) inject webhook URL
+// Test helper: reset throttle and (optional) inject webhook URL
 function _resetThrottle() {
   lastSent.clear();
 }

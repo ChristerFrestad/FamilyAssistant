@@ -239,10 +239,10 @@ describe('meal-planning — generatePantryRestOfWeek (direct)', () => {
     }
   });
 
-  test('ugyldig kategori kaster feil', () => {
+  test('invalid category throws', () => {
     assert.throws(
       () => mealPlanning.generatePantryRestOfWeek(ctx.repos, { category: 'ugyldig' }),
-      /Ugyldig kategori/
+      /Invalid category/
     );
   });
 

@@ -23,9 +23,9 @@ const BLOCKED_HOST_SUFFIXES = [
 ];
 
 const BLOCKED_HOST_MSGS = {
-  instagram: 'Instagram-lenker krever innlogging og kan ikke importeres automatisk.',
-  pinterest: 'Pinterest-lenker krever API-token og kan ikke importeres automatisk.',
-  tiktok: 'TikTok-lenker kan ikke importeres automatisk.',
+  instagram: 'Instagram links require login and cannot be imported automatically.',
+  pinterest: 'Pinterest links require an API token and cannot be imported automatically.',
+  tiktok: 'TikTok links cannot be imported automatically.',
 };
 
 function assertSupportedUrl(raw) {
@@ -33,10 +33,10 @@ function assertSupportedUrl(raw) {
   try {
     u = new URL(raw);
   } catch {
-    throw new Error('Ugyldig URL.');
+    throw new Error('Invalid URL.');
   }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-    throw new Error('URL må begynne med http:// eller https://');
+    throw new Error('URL must start with http:// or https://');
   }
   const host = u.hostname.toLowerCase();
   for (const bad of BLOCKED_HOST_SUFFIXES) {
@@ -51,7 +51,7 @@ function assertSupportedUrl(raw) {
   }
   // Block private/loopback ranges as a simple SSRF guard.
   if (/^(127\.|10\.|192\.168\.|169\.254\.|0\.|::1$|localhost$)/i.test(host)) {
-    throw new Error('URL må peke til en offentlig nettside.');
+    throw new Error('URL must point to a public website.');
   }
   return u;
 }
@@ -70,15 +70,15 @@ async function fetchHtml(url) {
       redirect: 'follow',
     });
     if (!res.ok) {
-      throw new Error(`Kilden svarte med HTTP ${res.status}.`);
+      throw new Error(`Source responded with HTTP ${res.status}.`);
     }
     const ct = (res.headers.get('content-type') || '').toLowerCase();
     if (ct && !ct.includes('html')) {
-      throw new Error(`Kilden returnerte ${ct || 'ukjent type'}, ikke HTML.`);
+      throw new Error(`Source returned ${ct || 'unknown type'}, not HTML.`);
     }
     const buf = await res.arrayBuffer();
     if (buf.byteLength > MAX_HTML_BYTES) {
-      throw new Error('Siden er for stor til å lese (> 2 MB).');
+      throw new Error('Page is too large to read (> 2 MB).');
     }
     return new TextDecoder('utf-8').decode(buf);
   } finally {
@@ -168,7 +168,7 @@ function textOf(val) {
 function parseIngredientLine(line) {
   const s = String(line || '').trim();
   if (!s) return null;
-  // Pattern: "400 g laks", "1 dl fløte", "2 ts olje"
+  // Pattern: "400 g laks", "1 dl fløte", "2 ts olje" (Norwegian-style examples)
   const m = /^(\d+(?:[.,]\d+)?)\s*([a-zA-ZøåæÅÆØ]+)\s+(.+)$/.exec(s);
   if (m) {
     const qty = Number(m[1].replace(',', '.'));
@@ -202,7 +202,7 @@ function inferCategory(recipe) {
 }
 
 function mapRecipeNode(node, urlObj) {
-  const name = textOf(node.name) || 'Importert oppskrift';
+  const name = textOf(node.name) || 'Imported recipe';
   const prepTime = parseIsoDuration(node.totalTime) || parseIsoDuration(node.cookTime);
   const servingsRaw = node.recipeYield;
   const servings = (() => {
@@ -241,11 +241,11 @@ async function importRecipeFromUrl(rawUrl) {
   const html = await fetchHtml(urlObj);
   const jsonLd = extractJsonLd(html);
   if (jsonLd.length === 0) {
-    throw new Error('Fant ingen strukturerte oppskriftsdata (JSON-LD) på siden.');
+    throw new Error('No structured recipe data (JSON-LD) found on the page.');
   }
   const recipeNode = findRecipeNode(jsonLd);
   if (!recipeNode) {
-    throw new Error('Siden har JSON-LD, men ingen Recipe-node.');
+    throw new Error('Page has JSON-LD but no Recipe node.');
   }
   return mapRecipeNode(recipeNode, urlObj);
 }

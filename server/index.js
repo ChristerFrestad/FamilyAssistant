@@ -75,7 +75,7 @@ let stopWatchdog = null;
 // ============================================================
 
 async function startServer() {
-  logger.info('Starter Familieassistenten...');
+  logger.info('Starting FamilyAssistant...');
 
   // Phase 22: loud signal when the server is in bootstrap mode so
   // operators can tell at a glance whether the setup wizard will pick
@@ -93,35 +93,35 @@ async function startServer() {
   // or @sentry/node is not installed.
   sentry.initSentry(config, logger);
 
-  // 1. Initialiser database
+  // 1. Initialise database
   dbHandle = await initDB();
   serverState.driver = dbHandle.driver;
   repos = createRepositories(dbHandle.db);
 
-  // 2. Seed og sikre current week
+  // 2. Seed and ensure current week
   try {
     seedIfEmpty(repos);
   } catch (e) {
-    throw new Error(`Seed feilet — DB kan være korrupt: ${e.message}`, { cause: e });
+    throw new Error(`Seed failed — DB may be corrupt: ${e.message}`, { cause: e });
   }
   ensureCurrentWeek(repos);
 
-  // 2b. Hydratiser persistert state (metrics) fra forrige run
+  // 2b. Hydrate persisted state (metrics) from previous run
   try {
     stateSnapshot.restoreAll(repos);
   } catch (e) {
-    logger.warn({ err: e.message }, 'state-snapshot restore feilet');
+    logger.warn({ err: e.message }, 'state-snapshot restore failed');
   }
 
-  // 3. Bygg router + registrer ruter
+  // 3. Build router + register routes
   const router = createRouter();
   registerRoutes(router, { repos, serverState });
 
-  // 4. Lag HTTP-server med authentication middleware
+  // 4. Build HTTP server with authentication middleware
   const authenticate = createAuthenticate(repos);
   server = createServer(router, { authenticate });
 
-  // 5. Start lytting
+  // 5. Start listening
   await new Promise((resolve) => {
     server.listen(config.PORT, '0.0.0.0', resolve);
   });
@@ -150,25 +150,25 @@ async function startServer() {
   stopRateLimitCleanup = startRateLimitCleanup();
   stopStateSnapshot = stateSnapshot.startSnapshotScheduler(repos);
 
-  // 7. Sjekk LLM/STT-tilgjengelighet (ikke-blokkerende)
+  // 7. Check LLM/STT availability (non-blocking)
   isLLMAvailable()
     .then((status) => {
       if (status.available) {
-        logger.info({ backend: status.backend, models: status.models }, 'LLM tilgjengelig');
+        logger.info({ backend: status.backend, models: status.models }, 'LLM available');
       } else {
-        logger.warn({ backend: status.backend }, 'LLM ikke tilgjengelig — chat er deaktivert');
+        logger.warn({ backend: status.backend }, 'LLM not available — chat is disabled');
       }
     })
-    .catch((err) => logger.warn({ err: err.message }, 'LLM tilgjengelighetssjekk feilet'));
+    .catch((err) => logger.warn({ err: err.message }, 'LLM availability check failed'));
   isSTTAvailable()
     .then((status) => {
       if (status.available) {
-        logger.info({ backend: status.backend }, 'STT tilgjengelig');
+        logger.info({ backend: status.backend }, 'STT available');
       } else {
-        logger.info('STT ikke installert — bruker nettleser Web Speech API');
+        logger.info('STT not installed — using browser Web Speech API');
       }
     })
-    .catch((err) => logger.warn({ err: err.message }, 'STT tilgjengelighetssjekk feilet'));
+    .catch((err) => logger.warn({ err: err.message }, 'STT availability check failed'));
 }
 
 // ============================================================
@@ -180,10 +180,10 @@ async function gracefulShutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   serverState.ready = false;
-  logger.info({ signal }, 'Starter graceful shutdown');
+  logger.info({ signal }, 'Starting graceful shutdown');
 
-  // M2.2: si ifra til systemd at vi er på vei ned — ellers kan systemd tolke
-  // en lang shutdown som at prosessen har hengt og SIGKILLe den.
+  // M2.2: notify systemd that we are shutting down — otherwise systemd may
+  // interpret a long shutdown as a hung process and SIGKILL it.
   try {
     sdNotify.stopping();
   } catch {}
@@ -193,40 +193,40 @@ async function gracefulShutdown(signal) {
 
   if (server) {
     server.close((err) => {
-      if (err) logger.error({ err }, 'Feil ved HTTP server close');
-      else logger.info('HTTP-server lukket');
+      if (err) logger.error({ err }, 'Error during HTTP server close');
+      else logger.info('HTTP server closed');
     });
   }
 
   try {
     stopCronJobs();
   } catch (e) {
-    logger.error({ err: e }, 'Cron stop feilet');
+    logger.error({ err: e }, 'Cron stop failed');
   }
   try {
     stopBackupScheduler();
   } catch (e) {
-    logger.error({ err: e }, 'Backup stop feilet');
+    logger.error({ err: e }, 'Backup stop failed');
   }
   try {
     stopRateLimitCleanup?.();
   } catch (e) {
-    logger.error({ err: e }, 'RL cleanup stop feilet');
+    logger.error({ err: e }, 'RL cleanup stop failed');
   }
   try {
     stopStateSnapshot?.();
   } catch (e) {
-    logger.error({ err: e }, 'State-snapshot stop feilet');
+    logger.error({ err: e }, 'State-snapshot stop failed');
   }
 
-  // Persister in-memory state (metrics) før DB stenger
+  // Persist in-memory state (metrics) before DB closes
   try {
     if (repos) stateSnapshot.snapshotAll(repos);
   } catch (e) {
     logger.warn({ err: e.message }, 'State-snapshot ved shutdown feilet');
   }
 
-  // Flush eventuelle pending writes (sql.js adapter) før backup
+  // Flush any pending writes (sql.js adapter) before backup
   try {
     if (dbHandle?.db?.flush) dbHandle.db.flush();
   } catch (e) {

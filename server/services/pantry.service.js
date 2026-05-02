@@ -1,28 +1,29 @@
-// Pantry service (Iterasjon 1 + Fase F2)
+// Pantry service (Iteration 1 + Phase F2)
 //
-// Ansvar:
-//   1. Legge til varer i pantry manuelt med auto-beregnet holdbarhet
-//   2. Justere mengde (korrigering) med audit-log
-//   3. Fjerne utløpte varer med audit-log
-//   4. (F2) Lagre total_size og trigge lav-beholdning til handleliste
+// Responsibilities:
+//   1. Add items to pantry manually with auto-computed shelf life
+//   2. Adjust quantity (correction) with audit-log
+//   3. Remove expired items with audit-log
+//   4. (F2) Persist total_size and trigger low-stock to shopping list
 //
-// Alle endringer skriver en inventory_log-rad slik at vi kan svare på
-// "hvorfor er det mel her?" og "hva har forsvunnet fra pantry uten at
-// vi har kjøpt det på nytt?".
+// Every change writes an inventory_log row so we can answer "why is
+// there flour here?" and "what disappeared from pantry without us buying
+// it again?".
 //
-// Service er stateless — tar repos som parameter og returnerer objekt.
+// The service is stateless — it takes repos as a parameter and returns
+// an object.
 
 const { logger } = require('../logger');
 const units = require('./units');
 
 // ============================================================
-// Holdbarhet-estimering
+// Shelf-life estimation
 // ============================================================
 
 /**
- * Heuristikk for auto-beregnet holdbarhet når brukeren ikke oppgir
- * en eksplisitt expires-dato. Primærkilde er products.shelf_days hvis
- * produktet eksisterer. Fallback er kategori-heuristikk.
+ * Heuristic for auto-computed shelf life when the user does not provide
+ * an explicit expires date. Primary source is products.shelf_days if
+ * the product exists. Fallback is category heuristic.
  */
 const CATEGORY_SHELF_DAYS = {
   'Kjøtt & fisk': 3,
@@ -40,7 +41,7 @@ function estimateShelfDays(product, overrideCategory = null) {
   if (product?.shelfDays) return product.shelfDays;
   const cat = overrideCategory || product?.category;
   if (cat && CATEGORY_SHELF_DAYS[cat]) return CATEGORY_SHELF_DAYS[cat];
-  return 14; // sikker default
+  return 14; // safe default
 }
 
 function calculateExpiresEst(product, providedDays, overrideCategory) {
@@ -53,17 +54,17 @@ function calculateExpiresEst(product, providedDays, overrideCategory) {
 // ============================================================
 
 /**
- * Legg til en vare i pantry manuelt. Brukes av "legg til i pantry"-UI
- * og av LLM-tool-call (add_to_pantry).
+ * Add an item to pantry manually. Used by the "add to pantry" UI and
+ * by LLM tool-call (add_to_pantry).
  *
  * @param {Object} repos
  * @param {Object} opts
  * @param {string} opts.productKey
  * @param {number} opts.qty
  * @param {string} [opts.unit]
- * @param {number} [opts.shelfDays]     — overstyr beregnet holdbarhet
- * @param {string} [opts.expiresEst]    — overstyr med eksplisitt dato
- * @param {string} [opts.category]      — fallback hvis produktet er ukjent
+ * @param {number} [opts.shelfDays]     — override computed shelf life
+ * @param {string} [opts.expiresEst]    — override with explicit date
+ * @param {string} [opts.category]      — fallback if product is unknown
  * @param {string} [opts.notes]
  * @param {string} [opts.reason='manual'] — 'manual' | 'initial_seed' | 'correction'
  */
@@ -81,10 +82,10 @@ function addToPantry(repos, opts) {
   } = opts;
 
   if (!productKey || !Number.isFinite(qty) || qty <= 0) {
-    throw new Error('productKey og positiv qty er påkrevd');
+    throw new Error('productKey and positive qty are required');
   }
 
-  // Fase F2: valider enhet hvis oppgitt. Hvis ikke oppgitt, bruk product.unit eller 'stk'.
+  // Phase F2: validate unit if provided. If not provided, use product.unit or 'stk'.
   let resolvedUnit;
   if (unit) {
     try {
@@ -97,7 +98,7 @@ function addToPantry(repos, opts) {
   const product = repos.products.getByKey(productKey) || null;
   if (!resolvedUnit) {
     resolvedUnit = product?.unit || 'stk';
-    // Hvis product.unit er et ugyldig format, fall tilbake til 'stk'
+    // If product.unit is an invalid format, fall back to 'stk'
     if (!units.isAllowedUnit(resolvedUnit)) resolvedUnit = 'stk';
   }
   const expiresEst = explicitExpires || calculateExpiresEst(product, shelfDays, category);
@@ -109,7 +110,7 @@ function addToPantry(repos, opts) {
       expiresEst,
       incrementPurchaseCount: reason === 'manual',
     });
-    // Fase F2: hvis total er oppgitt, lagre den. Ellers behold eksisterende total.
+    // Phase F2: if total is provided, store it. Otherwise keep existing total.
     if (Number.isFinite(total) && total > 0) {
       repos.inventory.setTotalSize(productKey, total);
     }
@@ -142,15 +143,15 @@ function addToPantry(repos, opts) {
 }
 
 /**
- * Korriger mengde (kan være positiv eller negativ). Skriver alltid
- * audit-logg med reason='correction'.
+ * Correct quantity (may be positive or negative). Always writes an
+ * audit log with reason='correction'.
  */
 function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
   if (!productKey || !Number.isFinite(newQty) || newQty < 0) {
-    throw new Error('productKey og non-negativ newQty er påkrevd');
+    throw new Error('productKey and non-negative newQty are required');
   }
 
-  // Fase F2: valider newUnit hvis oppgitt
+  // Phase F2: validate newUnit if provided
   let resolvedUnit = null;
   if (newUnit) {
     try {
@@ -185,7 +186,7 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
         )
         .run(newQty, resolvedUnit || '', resolvedUnit || '', productKey);
     }
-    // Fase F2: oppdater total_size hvis oppgitt
+    // Phase F2: update total_size if provided
     if (Number.isFinite(newTotal) && newTotal > 0) {
       repos.inventory.setTotalSize(productKey, newTotal);
     }
@@ -204,7 +205,7 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
     'pantry: correction'
   );
 
-  // Fase F2: sjekk lav-beholdning og trigger auto-add til handleliste
+  // Phase F2: check low-stock and trigger auto-add to shopping list
   const afterState = repos.inventory.getByKey(productKey);
   const total = afterState?.totalSize;
   const lowResult = checkAndTriggerLowStock(repos, productKey, newQty, total);
@@ -221,17 +222,17 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
 }
 
 /**
- * Fase F2 – Lav-beholdning-sjekk.
+ * Phase F2 — low-stock check.
  *
- * Hvis qty/total < LOW_THRESHOLD og varen ikke allerede er på aktiv
- * handleliste, legg den til. Returnerer en liten rapport for audit.
+ * If qty/total < LOW_THRESHOLD and the item is not already on the active
+ * shopping list, add it. Returns a small report for audit.
  */
 function checkAndTriggerLowStock(repos, productKey, qty, total) {
   if (!Number.isFinite(total) || total <= 0) return { triggered: false, reason: 'no-total' };
   const isLow = units.isLowStock(qty, total);
   if (!isLow) return { triggered: false, reason: 'above-threshold' };
 
-  // Finn aktiv handleliste
+  // Find active shopping list
   try {
     if (!repos.shoppingLists || typeof repos.shoppingLists.getActive !== 'function') {
       return { triggered: false, reason: 'no-shopping-list-repo' };
@@ -239,14 +240,14 @@ function checkAndTriggerLowStock(repos, productKey, qty, total) {
     const active = repos.shoppingLists.getActive();
     if (!active) return { triggered: false, reason: 'no-active-list' };
 
-    // Sjekk om varen allerede er på listen
+    // Check whether the item is already on the list
     const existingItems = repos.shoppingLists.getItems(active.id) || [];
     const alreadyThere = existingItems.some(
       (i) => i.productKey === productKey || i.product_key === productKey
     );
     if (alreadyThere) return { triggered: false, reason: 'already-on-list' };
 
-    // Legg til
+    // Add it
     if (typeof repos.shoppingLists.addItem === 'function') {
       const product = repos.products.getByKey(productKey);
       repos.shoppingLists.addItem({
@@ -262,21 +263,21 @@ function checkAndTriggerLowStock(repos, productKey, qty, total) {
       });
       logger.info(
         { productKey, qty, total, ratio: qty / total },
-        'pantry: lav-beholdning → lagt til handleliste'
+        'pantry: low-stock → added to shopping list'
       );
       return { triggered: true, listId: active.id };
     }
     return { triggered: false, reason: 'no-addItem-method' };
   } catch (err) {
-    logger.warn({ err: err.message, productKey }, 'pantry: lav-beholdning-trigger feilet');
+    logger.warn({ err: err.message, productKey }, 'pantry: low-stock trigger failed');
     return { triggered: false, reason: 'error', error: err.message };
   }
 }
 
 /**
- * Fjern utløpte varer: sett qty_remaining=0 for alle med expires_est < dagens dato.
- * Skriver inventory_log med reason='shelf_life_expired'.
- * Returnerer antall fjernet.
+ * Remove expired items: set qty_remaining=0 for all with expires_est <
+ * today's date. Writes inventory_log with reason='shelf_life_expired'.
+ * Returns the number removed.
  */
 function removeExpired(repos) {
   const todayStr = new Date().toISOString().slice(0, 10);
