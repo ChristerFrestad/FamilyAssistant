@@ -247,11 +247,15 @@ function checkAndTriggerLowStock(repos, productKey, qty, total) {
     const active = repos.shoppingLists.getActive(weekYear);
     if (!active) return { triggered: false, reason: 'no-active-list' };
 
-    // Check whether the item is already on the list. _getItems wraps
-    // the items into an enriched shape with productKey on top level.
+    // Check whether the item is already on the list AND still
+    // unbought. A row in 'bought' state is historic — the user has
+    // already acquired the item and it's now in pantry; if pantry
+    // drops back into low-stock territory, we want to re-add it.
+    // Only an active (unbought) row should suppress the auto-add.
     const existingItems = active.items || [];
     const alreadyThere = existingItems.some(
-      (i) => i.productKey === productKey || i.product_key === productKey
+      (i) =>
+        (i.productKey === productKey || i.product_key === productKey) && !i.boughtAt && !i.bought_at
     );
     if (alreadyThere) return { triggered: false, reason: 'already-on-list' };
 
