@@ -45,6 +45,27 @@ const mealsStatusBody = z.object({
   status: mealStatus,
 });
 
+/**
+ * Sprint 6 — meal-cooked deduction body. Used by
+ * POST /api/meals/:id/apply-deduction. Each entry is one ingredient
+ * the user kept in the dialog with a (possibly edited) amount.
+ */
+const mealApplyDeductionBody = z
+  .object({
+    items: z
+      .array(
+        z
+          .object({
+            productKey: z.string().min(1).max(100),
+            amountToDeduct: z.number().nonnegative().max(100000),
+          })
+          .strict()
+      )
+      .max(50)
+      .default([]),
+  })
+  .strict();
+
 const mealsReorderBody = z.object({
   weekYear: weekYear.optional(),
   fromDay: dayOfWeek,
@@ -430,6 +451,7 @@ module.exports = {
   mealsSwapBody,
   mealsStatusBody,
   mealsReorderBody,
+  mealApplyDeductionBody,
   pantrySuggestionBody,
   pantrySuggestionAcceptBody,
   shoppingCheckBody,
