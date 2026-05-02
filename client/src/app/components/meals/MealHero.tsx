@@ -6,14 +6,11 @@
 //                             if present (some users plan a meal but
 //                             then mark themselves away).
 //   2. status === 'skipped'→ "Hopp over"-panel.
-//   3. recipe === null     → empty-state panel with placeholder CTA.
+//   3. recipe === null     → empty-state panel with "Planlegg middag"
+//                             CTA that opens the recipe picker.
 //   4. recipe present      → full hero with category-tag, prep-time,
-//                             title, "Bytt middag" placeholder action,
-//                             "Open source" link if recipe.url is set.
-//
-// Pure render. Placeholder actions invoke onPlaceholderAction so the
-// parent (Meals.tsx) can surface inline "kommer i Sprint 5"-status
-// the same way Family.tsx does for edit/invite.
+//                             title, "Marker tilberedt", "Bytt middag"
+//                             (opens picker), "Open source" link.
 
 import { useTranslation } from 'react-i18next';
 import { Card } from '../layout/Card';
@@ -34,13 +31,16 @@ export interface MealHeroProps {
   /** Whether this hero is for "today" — surfaces a small "I dag"-marker. */
   isToday: boolean;
   /**
-   * Fired when the user activates the placeholder action (swap/plan).
-   * The parent decides the inline status surface; this component only
-   * announces intent.
+   * Sprint 6 — fires when the user taps "Planlegg middag" on an
+   * empty slot. Parent opens the recipe picker dialog for the slot's
+   * dayOfWeek.
    */
-  onPlaceholderAction: (kind: 'swap' | 'plan') => void;
-  /** Inline placeholder status text, if the parent has one to show. */
-  placeholderStatus?: string | null;
+  onPlan?: (dayOfWeek: number) => void;
+  /**
+   * Sprint 6 — fires when the user taps "Bytt middag". Parent opens
+   * the same picker dialog with the current recipe id pre-marked.
+   */
+  onSwap?: (dayOfWeek: number, currentRecipeId: number) => void;
   /**
    * Sprint 6 — fires when the user taps "Marker tilberedt". Optional
    * so existing tests that do not exercise the cook-flow can keep
@@ -53,8 +53,8 @@ export function MealHero({
   slot,
   dayLabel,
   isToday,
-  onPlaceholderAction,
-  placeholderStatus,
+  onPlan,
+  onSwap,
   onMarkCooked,
 }: MealHeroProps): JSX.Element {
   const { t } = useTranslation('meals');
@@ -100,21 +100,12 @@ export function MealHero({
         <Button
           type="button"
           variant="primary"
-          onClick={() => onPlaceholderAction('plan')}
+          onClick={() => onPlan?.(slot.dayOfWeek)}
+          disabled={onPlan == null}
           data-testid="meal-hero-plan-button"
         >
           {t('actions.plan')}
         </Button>
-        {placeholderStatus ? (
-          <p
-            className="mt-2 font-body text-meta text-text-3"
-            role="status"
-            aria-live="polite"
-            data-testid="meal-hero-placeholder-status"
-          >
-            {placeholderStatus}
-          </p>
-        ) : null}
       </Card>
     );
   }
@@ -156,7 +147,8 @@ export function MealHero({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => onPlaceholderAction('swap')}
+          onClick={() => onSwap?.(slot.dayOfWeek, recipe.id)}
+          disabled={onSwap == null}
           data-testid="meal-hero-swap-button"
         >
           {t('actions.swap')}
@@ -173,16 +165,6 @@ export function MealHero({
           </a>
         ) : null}
       </div>
-      {placeholderStatus ? (
-        <p
-          className="mt-3 font-body text-meta text-text-3"
-          role="status"
-          aria-live="polite"
-          data-testid="meal-hero-placeholder-status"
-        >
-          {placeholderStatus}
-        </p>
-      ) : null}
     </Card>
   );
 }

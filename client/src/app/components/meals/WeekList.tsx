@@ -27,6 +27,12 @@ export interface WeekListProps {
   /** Localised section heading (h3). */
   sectionLabel: string;
   onSelect: (index: number) => void;
+  /**
+   * Sprint 6 — when supplied, clicking an empty-state row also opens
+   * the recipe picker for that day. Without it, clicking an empty
+   * row just navigates (legacy behaviour).
+   */
+  onSelectEmpty?: (dayOfWeek: number) => void;
 }
 
 export function WeekList({
@@ -40,6 +46,7 @@ export function WeekList({
   todayLabel,
   sectionLabel,
   onSelect,
+  onSelectEmpty,
 }: WeekListProps): JSX.Element {
   return (
     <section aria-labelledby="week-list-heading" className="flex flex-col gap-2">
@@ -57,11 +64,16 @@ export function WeekList({
             slot.status !== 'away' &&
             slot.status !== 'skipped' &&
             slot.recipe.prepTime !== null;
+          const isEmpty =
+            slot.recipe === null && slot.status !== 'away' && slot.status !== 'skipped';
           return (
             <li key={slot.dayOfWeek}>
               <button
                 type="button"
-                onClick={() => onSelect(idx)}
+                onClick={() => {
+                  onSelect(idx);
+                  if (isEmpty && onSelectEmpty) onSelectEmpty(slot.dayOfWeek);
+                }}
                 aria-pressed={isSelected}
                 aria-current={isToday ? 'date' : undefined}
                 data-testid={`week-list-row-${slot.dayOfWeek}`}

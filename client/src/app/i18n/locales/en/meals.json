@@ -75,9 +75,25 @@
   "errors": {
     "loadFailed": "Could not load the meal plan."
   },
-  "placeholders": {
-    "swapStatus": "Swap flow arrives in Sprint 5.",
-    "planStatus": "Planning flow arrives in Sprint 5."
+  "picker": {
+    "titlePlan": "Plan meal",
+    "titleSwap": "Swap meal",
+    "descriptionPlan": "Pick a recipe for this day.",
+    "descriptionSwap": "Pick a new recipe to swap to.",
+    "searchPlaceholder": "Search recipes",
+    "filterCategoryAria": "Filter by category",
+    "loading": "Loading recipes …",
+    "noRecipes": "No recipes registered yet.",
+    "noResults": "No matches for \"{{query}}\".",
+    "listAria": "Available recipes",
+    "currentBadge": "Selected",
+    "blockedByAllergy": "Blocked (allergy)",
+    "blockedByDiet": "Blocked (diet)",
+    "dislikeWarning": "Contains a disliked ingredient",
+    "select": "Select",
+    "cancel": "Cancel",
+    "errorLoad": "Could not load recipes.",
+    "errorApply": "Could not save the selection. Try again."
   },
   "placeholder": {
     "description": "Coming in Phase 2C — week menu, recipes, and swap flow."

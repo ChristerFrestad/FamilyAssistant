@@ -258,11 +258,16 @@ describe('Meals — recipe ingredients and scaling', () => {
   });
 });
 
-describe('Meals — placeholder actions', () => {
-  test('swap button shows inline placeholder status', async () => {
+describe('Meals — picker integration', () => {
+  test('swap button on a recipe slot opens the recipe picker dialog', async () => {
     mockFetchByPath({
       '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
+      '/api/recipes': () =>
+        jsonResponse(200, {
+          recipes: [{ id: 99, name: 'Pizza', category: 'rask', prepTime: '15 min', servings: 2 }],
+          filter: { ignoreDietTags: false, activeDietTags: [] },
+        }),
     });
     mountMeals();
     await waitFor(() => {
@@ -273,16 +278,22 @@ describe('Meals — placeholder actions', () => {
       expect(screen.getByTestId('meal-hero-swap-button')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('meal-hero-swap-button'));
-    expect(screen.getByTestId('meal-hero-placeholder-status')).toHaveTextContent(
-      /Bytt-flyt kommer i Sprint 5/
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-picker')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('recipe-picker-row-99')).toBeInTheDocument();
   });
 
-  test('plan button on empty hero shows planning placeholder status', async () => {
+  test('plan button on empty hero opens the recipe picker dialog', async () => {
     mockFetchByPath({
       '/api/meals/current': () =>
         jsonResponse(200, makeMealsPayload([{ recipeId: null, recipe: null }])),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
+      '/api/recipes': () =>
+        jsonResponse(200, {
+          recipes: [{ id: 7, name: 'Tacos', category: 'rask', prepTime: '20 min', servings: 2 }],
+          filter: { ignoreDietTags: false, activeDietTags: [] },
+        }),
     });
     mountMeals();
     await waitFor(() => {
@@ -293,9 +304,10 @@ describe('Meals — placeholder actions', () => {
       expect(screen.getByTestId('meal-hero-plan-button')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('meal-hero-plan-button'));
-    expect(screen.getByTestId('meal-hero-placeholder-status')).toHaveTextContent(
-      /Planleggings-flyt kommer i Sprint 5/
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-picker')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('recipe-picker-row-7')).toBeInTheDocument();
   });
 });
 

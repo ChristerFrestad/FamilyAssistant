@@ -34,14 +34,7 @@ function makeSlot(overrides: Partial<MealSlot> = {}): MealSlot {
 
 describe('MealHero — recipe state', () => {
   test('renders category badge, prep time, name, and open-source link', () => {
-    render(
-      <MealHero
-        slot={makeSlot()}
-        dayLabel="Mandag"
-        isToday={false}
-        onPlaceholderAction={() => undefined}
-      />
-    );
+    render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} />);
     expect(screen.getByTestId('meal-hero-recipe')).toBeInTheDocument();
     expect(screen.getByTestId('meal-hero-category')).toBeInTheDocument();
     expect(screen.getByTestId('meal-hero-prep-time')).toHaveTextContent('25 min');
@@ -65,34 +58,23 @@ describe('MealHero — recipe state', () => {
         })}
         dayLabel="Mandag"
         isToday={false}
-        onPlaceholderAction={() => undefined}
       />
     );
     expect(screen.queryByTestId('meal-hero-source-link')).toBeNull();
   });
 
-  test('swap button calls onPlaceholderAction with "swap"', () => {
+  test('swap button calls onSwap with dayOfWeek and current recipe id', () => {
     const handler = vi.fn();
-    render(
-      <MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onPlaceholderAction={handler} />
-    );
+    render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onSwap={handler} />);
     fireEvent.click(screen.getByTestId('meal-hero-swap-button'));
-    expect(handler).toHaveBeenCalledWith('swap');
+    expect(handler).toHaveBeenCalledWith(0, 1);
   });
 
-  test('renders placeholder status when provided', () => {
-    render(
-      <MealHero
-        slot={makeSlot()}
-        dayLabel="Mandag"
-        isToday={false}
-        onPlaceholderAction={() => undefined}
-        placeholderStatus="Kommer i Sprint 5"
-      />
-    );
-    expect(screen.getByTestId('meal-hero-placeholder-status')).toHaveTextContent(
-      'Kommer i Sprint 5'
-    );
+  test('mark-cooked button fires onMarkCooked with slot id', () => {
+    const handler = vi.fn();
+    render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onMarkCooked={handler} />);
+    fireEvent.click(screen.getByTestId('meal-hero-mark-cooked-button'));
+    expect(handler).toHaveBeenCalledWith(42);
   });
 });
 
@@ -103,41 +85,43 @@ describe('MealHero — empty state', () => {
         slot={makeSlot({ recipe: null, recipeId: null })}
         dayLabel="Mandag"
         isToday={false}
-        onPlaceholderAction={() => undefined}
       />
     );
     expect(screen.getByTestId('meal-hero-empty')).toBeInTheDocument();
     expect(screen.getByTestId('meal-hero-plan-button')).toBeInTheDocument();
   });
 
-  test('plan button triggers placeholder action with "plan"', () => {
+  test('plan button calls onPlan with dayOfWeek', () => {
     const handler = vi.fn();
     render(
       <MealHero
         slot={makeSlot({ recipe: null, recipeId: null })}
         dayLabel="Mandag"
         isToday={false}
-        onPlaceholderAction={handler}
+        onPlan={handler}
       />
     );
     fireEvent.click(screen.getByTestId('meal-hero-plan-button'));
-    expect(handler).toHaveBeenCalledWith('plan');
+    expect(handler).toHaveBeenCalledWith(0);
+  });
+
+  test('plan button is disabled when no onPlan handler is supplied', () => {
+    render(
+      <MealHero
+        slot={makeSlot({ recipe: null, recipeId: null })}
+        dayLabel="Mandag"
+        isToday={false}
+      />
+    );
+    expect(screen.getByTestId('meal-hero-plan-button')).toBeDisabled();
   });
 });
 
 describe('MealHero — status branches', () => {
   test('away status replaces hero body with away copy', () => {
-    render(
-      <MealHero
-        slot={makeSlot({ status: 'away' })}
-        dayLabel="Søndag"
-        isToday={false}
-        onPlaceholderAction={() => undefined}
-      />
-    );
+    render(<MealHero slot={makeSlot({ status: 'away' })} dayLabel="Søndag" isToday={false} />);
     expect(screen.getByTestId('meal-hero-away')).toBeInTheDocument();
     expect(screen.getByTestId('meal-hero-away-recipe-meta')).toBeInTheDocument();
-    // Recipe controls should not show in away state
     expect(screen.queryByTestId('meal-hero-swap-button')).toBeNull();
   });
 
@@ -147,21 +131,13 @@ describe('MealHero — status branches', () => {
         slot={makeSlot({ status: 'away', recipe: null, recipeId: null })}
         dayLabel="Søndag"
         isToday={false}
-        onPlaceholderAction={() => undefined}
       />
     );
     expect(screen.queryByTestId('meal-hero-away-recipe-meta')).toBeNull();
   });
 
   test('skipped status renders skipped panel', () => {
-    render(
-      <MealHero
-        slot={makeSlot({ status: 'skipped' })}
-        dayLabel="Tirsdag"
-        isToday={false}
-        onPlaceholderAction={() => undefined}
-      />
-    );
+    render(<MealHero slot={makeSlot({ status: 'skipped' })} dayLabel="Tirsdag" isToday={false} />);
     expect(screen.getByTestId('meal-hero-skipped')).toBeInTheDocument();
   });
 });
