@@ -158,9 +158,9 @@ function renderMeal(meal: NonNullable<TodayResponse['meal']>): JSX.Element {
   }
   return (
     <div className="flex flex-col">
-      <span className="font-body text-body text-text-1 line-clamp-2">{meal.recipe.title}</span>
-      {typeof meal.recipe.cookTime === 'number' ? (
-        <span className="font-body text-meta text-text-3">{meal.recipe.cookTime} min</span>
+      <span className="font-body text-body text-text-1 line-clamp-2">{meal.recipe.name}</span>
+      {meal.recipe.prepTime ? (
+        <span className="font-body text-meta text-text-3">{meal.recipe.prepTime}</span>
       ) : null}
     </div>
   );
