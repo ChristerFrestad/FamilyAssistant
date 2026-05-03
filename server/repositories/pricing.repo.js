@@ -37,18 +37,24 @@ function createPricingRepos(db) {
       c.autoAdd = !!c.autoAdd;
       return c;
     },
+    /**
+     * Insert seed consumables for the current family. Does NOT pass a
+     * caller-supplied id — the INSERT OR REPLACE pattern that did so
+     * was a multi-tenant footgun (family 2 seeding with seed-id=1
+     * would REPLACE family 1's row on the same global id). With
+     * AUTOINCREMENT each family gets its own id-range.
+     */
     upsertMany(list) {
       const familyId = getFamilyId();
       const ins = db.prepare(`
-        INSERT OR REPLACE INTO consumables (
-          id, family_id, product_key, name, pack_name, category, depletion_model, depletion_rate, depletion_unit,
+        INSERT INTO consumables (
+          family_id, product_key, name, pack_name, category, depletion_model, depletion_rate, depletion_unit,
           current_qty, unit, pack_size, pack_unit, est_price, reorder_threshold, auto_add, store, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const tx = db.transaction(() => {
         for (const c of list) {
           ins.run(
-            c.id,
             familyId,
             c.productKey ?? null,
             c.name,

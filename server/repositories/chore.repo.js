@@ -12,16 +12,26 @@ function createChoreRepos(db) {
         )
         .all(familyId);
     },
+    /**
+     * Insert seed chores for the current family. Does NOT pass a
+     * caller-supplied id — the INSERT OR REPLACE pattern that did so
+     * was a multi-tenant footgun (family 2 seeding with seed-id=1
+     * would REPLACE family 1's row on the same global id). With
+     * AUTOINCREMENT each family gets its own id-range.
+     *
+     * Caller is expected to gate this behind a "is the table empty
+     * for this family?"-check so re-seeding doesn't duplicate. The
+     * helper is idempotent at the call-site level, not internally.
+     */
     upsertMany(choreList) {
       const familyId = getFamilyId();
       const ins = db.prepare(`
-        INSERT OR REPLACE INTO chores (id, family_id, task, details, frequency, default_day, icon, active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO chores (family_id, task, details, frequency, default_day, icon, active)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
       const tx = db.transaction(() => {
         for (const c of choreList) {
           ins.run(
-            c.id,
             familyId,
             c.task,
             c.details ?? null,
