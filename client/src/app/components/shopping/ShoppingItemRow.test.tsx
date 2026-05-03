@@ -264,4 +264,225 @@ describe('ShoppingItemRow', () => {
     );
     expect(screen.queryByText(/Til /)).toBeNull();
   });
+
+  // ---------------------------------------------------------------
+  // Pack-aware display (pilot 2026-05-03)
+  // ---------------------------------------------------------------
+  describe('pack-aware display', () => {
+    test('renders "1 pakke (500 g)" when pack data is set', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 100,
+            name: 'Kyllingfilet',
+            sourceType: 'meal_ingredient',
+            qty: 220,
+            unit: 'g',
+            packSize: 500,
+            packUnit: 'g',
+            packCount: 1,
+            estPrice: 89,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByText('Kyllingfilet')).toBeInTheDocument();
+      expect(screen.getByTestId('shopping-item-pack-line-100')).toHaveTextContent(
+        '1 pakke (500 g)'
+      );
+      expect(screen.getByTestId('shopping-item-you-need-100')).toHaveTextContent(
+        'Du trenger 220 g'
+      );
+      expect(screen.getByText('89 kr')).toBeInTheDocument();
+    });
+
+    test('pluralises "pakker" when packCount >= 2', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 101,
+            name: 'Kjøttdeig',
+            sourceType: 'meal_ingredient',
+            qty: 750,
+            unit: 'g',
+            packSize: 500,
+            packUnit: 'g',
+            packCount: 2,
+            estPrice: 130,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-101')).toHaveTextContent(
+        '2 pakker (500 g)'
+      );
+      expect(screen.getByTestId('shopping-item-you-need-101')).toHaveTextContent(
+        'Du trenger 750 g'
+      );
+    });
+
+    test('strips floating-point artifacts on qty', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 102,
+            name: 'Kyllingfilet',
+            sourceType: 'meal_ingredient',
+            qty: 220.00000000000003,
+            unit: 'g',
+            packSize: 500,
+            packUnit: 'g',
+            packCount: 1,
+            estPrice: 89,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-you-need-102')).toHaveTextContent(
+        'Du trenger 220 g'
+      );
+    });
+
+    test('promotes ≥1000 g to kg in pack-line', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 103,
+            name: 'Mel',
+            sourceType: 'meal_ingredient',
+            qty: 600,
+            unit: 'g',
+            packSize: 1500,
+            packUnit: 'g',
+            packCount: 1,
+            estPrice: 30,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-103')).toHaveTextContent(
+        '1 pakke (1.5 kg)'
+      );
+    });
+
+    test('collapses "1 pakke (1 stk)" to "1 stk" for unit-sized counts', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 104,
+            name: 'Lime',
+            sourceType: 'meal_ingredient',
+            qty: 1,
+            unit: 'stk',
+            packSize: 1,
+            packUnit: 'stk',
+            packCount: 1,
+            estPrice: 8,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-104')).toHaveTextContent('1 stk');
+      // qty equals pack_size → no "you need" line.
+      expect(screen.queryByTestId('shopping-item-you-need-104')).toBeNull();
+    });
+
+    test('hides "you need" when qty equals pack_size', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 105,
+            name: 'Pasta',
+            sourceType: 'meal_ingredient',
+            qty: 500,
+            unit: 'g',
+            packSize: 500,
+            packUnit: 'g',
+            packCount: 1,
+            estPrice: 24,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-105')).toHaveTextContent(
+        '1 pakke (500 g)'
+      );
+      expect(screen.queryByTestId('shopping-item-you-need-105')).toBeNull();
+    });
+
+    test('falls back to plain qty for manual rows with no pack data', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 106,
+            name: 'Bananer',
+            sourceType: 'manual',
+            qty: 3,
+            unit: 'stk',
+            packSize: null,
+            packUnit: null,
+            packCount: null,
+            estPrice: null,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-106')).toHaveTextContent('3 stk');
+      expect(screen.queryByTestId('shopping-item-you-need-106')).toBeNull();
+    });
+
+    test('hides "you need" for consumable rows even when pack data is set', () => {
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 107,
+            name: 'Tannkrem',
+            sourceType: 'consumable',
+            qty: null,
+            unit: 'stk',
+            packSize: 1,
+            packUnit: 'pk',
+            packCount: 1,
+            estPrice: 35,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.queryByTestId('shopping-item-you-need-107')).toBeNull();
+    });
+
+    test('hides pack-line entirely when packCount=0 and no qty (pantry already covers)', () => {
+      // Real-world: backend sets needs_buy=0 on these rows so they don't
+      // even reach the row, but the row should still survive cleanly if
+      // a stray one slips through.
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 108,
+            name: 'Salt',
+            sourceType: 'meal_ingredient',
+            qty: 5,
+            unit: 'g',
+            packSize: 500,
+            packUnit: 'g',
+            packCount: 0,
+            estPrice: 0,
+            pantryHas: true,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      // packCount=0 → hasUsablePackInfo=false → fall back to plain qty.
+      expect(screen.getByTestId('shopping-item-pack-line-108')).toHaveTextContent('5 g');
+    });
+  });
 });

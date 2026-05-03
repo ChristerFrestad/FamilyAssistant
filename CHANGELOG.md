@@ -6,6 +6,42 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Shopping list pack-aware display (pilot pack UI, 2026-05-03)
+
+**Pilot polish.** The shopping row used to render only the recipe-aggregated
+quantity ("Kyllingfilet 220 g · 89 kr"), which made it hard to translate
+into a real-world shopping action ("how many do I grab from the shelf?").
+Backend already populates `pack_size`, `pack_unit`, `pack_count`, and
+`est_price` on every meal_ingredient row — the row component just wasn't
+using them.
+
+This PR turns the row into a pack-aware view without any backend or
+data-model change. The full Kassal-API integration (live prices, SKU
+catalog) remains deferred to post-pilot — see
+`docs/workflow/post-pilot-roadmap.md`.
+
+**Added**
+
+- `client/src/app/shopping/packDisplay.ts`: pure helpers
+  (`formatNumberForUnit`, `normaliseQtyForDisplay`, `formatQtyWithUnit`,
+  `hasUsablePackInfo`, `shouldShowYouNeedLine`) with floating-point
+  rounding, unit promotion (≥1000 g → kg), and edge-case predicates.
+  26 unit tests.
+- New i18n keys for both languages: `shopping.item.packCount` (plural),
+  `shopping.item.packCountUnit` (collapses "1 pakke (1 stk)" → "1 stk"),
+  `shopping.item.youNeed`.
+
+**Changed**
+
+- `ShoppingItemRow.tsx`: renders three lines for recipe-driven rows
+  with pack data — name / "1 pakke (500 g) · Til Pasta" / "Du trenger
+  220 g". Falls back gracefully to legacy "qty unit" when pack data
+  is missing (manual / extra rows). Hides the "you need" sub-line
+  when the recipe consumes a full pack.
+- ShoppingItemRow tests: 9 new pack-display cases covering
+  pluralisation, floating-point cleanup, kg-promotion, the
+  unit-collapse rule, and per-source-type variants.
+
 ### Shopping list smart-merge auto-generation + manual regenerate CTA (2026-05-03)
 
 **Pilot blocker fix.** Christer planned dinners via the picker but the

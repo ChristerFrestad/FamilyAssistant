@@ -248,3 +248,63 @@ Når pilot exiter, prioriter dem etter hvilken Christer treffer i sin
 daglige flow mer smertefullt. Pakkestørrelse-awareness vinner
 sannsynligvis på handlelistens nøyaktighet alene; pantry-aware
 suggestions vinner på "reduserer matsvinn"-framing for marketing.
+
+### Kassal-aktivering med live-priser (lagt til 2026-05-03)
+
+**Status etter pilot-pakke-display-PR:** Frontend viser nå pakke-info
+(antall pakker, pakkestørrelse, "du trenger X")-format basert på
+internal `products`-tabellen og dens hardkodede seed-priser fra april
+2026. Den fulle Kassal-infrastrukturen er bygget men aldri aktivert:
+
+- `kassal_products` (SKU-katalog), `product_resolutions`,
+  `kassal_cache` — alle 0 rader på Christer's DB
+- `KASSAL_API_KEY` ikke satt
+- `shopping-list-enricher.service.js` returnerer `done`-noop ved
+  hver kjøring fordi API-key mangler
+- `kassal-client.service.js` (token bucket 55 RPM, circuit breaker,
+  cache TTL) er klar til å kjøre
+
+**Hva som mangler for å gå live:**
+
+1. Christer setter `KASSAL_API_KEY` via:
+   - `.env.local` (lokal utvikling), eller
+   - Bootstrap-flow / env-store (produksjon på Portainer)
+2. Verifiser API-key via `env-store.testIntegration('kassal')`-helper
+3. Trigger initial enrichment for eksisterende lister:
+   `POST /api/shopping/list/:id/enrich`
+4. Frontend må håndtere `enrichment_status`:
+   - `pending` / `running`: vis "Henter priser..." subtle indikator
+   - `partial`: vis "Noen priser mangler — prøv igjen"-CTA
+   - `failed`: vis "Kunne ikke hente priser fra Kassal" + retry
+   - `done`: ingen ekstra UX, items er enriched
+5. Når enricher fanger Kassal-data, skriver den til
+   `shopping_list_items`:
+   - `kassal_product_id` peker til SKU
+   - `est_price` oppdateres med faktisk Kassal-pris
+   - `pack_size` evt. oppdateres hvis Kassal har annen størrelse
+     enn intern seed
+6. UI viser oppdatert pris automatisk siden ShoppingItemRow allerede
+   leser `estPrice` fra responsen
+7. Optional polish: vis butikk-logo (Kassal returnerer
+   `last_seen_store`), brand-info, image_url
+
+**Estimat:** 1-2 dager.
+
+**Risiko-vurdering:**
+- Kassal-API kan ha endret seg siden migration 006 (2026-04). Test
+  mot live API før du stoler på shape.
+- Rate limit 55/60 = 0.91 req/sec. Christer's 40 meal-ingredient-rader
+  → ~44 sek for første enrichment. Akseptabelt.
+- Stale-if-error fallback gjør at degradert API ikke krasjer flow.
+
+**Hvorfor ikke nå:** pilot 14-17. mai er for nær. Pakke-display-PR
+løser kjerne-bekymringen (synliggjør pakke vs recipe-mengde) uten å
+introdusere ekstern avhengighet under pilot. Kassal-live-priser kan
+kobles på etter pilot uten breaking changes — datamodellen og
+enricher-flyten er allerede der.
+
+**Filer involvert (forventet endring):**
+- `server/services/env-store.service.js` (Kassal-key-validering finnes)
+- `client/src/app/screens/Shopping.tsx` (enrichment-status UI)
+- `client/src/app/components/shopping/EnrichmentStatusBadge.tsx` (ny)
+- `client/src/app/i18n/locales/{no,en}/shopping.json` (status-keys)
