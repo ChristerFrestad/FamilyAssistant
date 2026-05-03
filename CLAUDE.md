@@ -1223,3 +1223,69 @@ kort – men den skal fortsatt finnes i `docs/analyses/`.
 Hvis Claude noen gang føler press om å hoppe over analyse: ikke hopp.
 Si i stedet "denne oppgaven trenger grundigere analyse enn vanlig, her
 er hvorfor" og fortsett grundig.
+
+---
+
+## DEL 14: MULTI-TENANT TESTING REQUIREMENTS (2026-05-03)
+
+Etter pre-pilot multi-tenant-audit (PR #90, #91) ble flere bugs
+oppdaget som ikke var dekket av eksisterende test-suite. For å
+forhindre regresjon er denne regelen obligatorisk for alle
+fremtidige PR-er.
+
+### 14.1 Når regelen utløses
+
+Hver feature-PR som introduserer en eller flere av disse:
+
+**a. Ny tabell med `family_id`-felt**
+- Cross-tenant-isolation-test obligatorisk.
+- Test må verifisere at family A ikke kan se family B sine rader,
+  hverken via direkte SQL eller via endpoint.
+
+**b. Ny endpoint som tar/returnerer per-family data**
+- Cross-tenant-isolation-test obligatorisk.
+- Test må verifisere at endpoint filtrerer på `getFamilyId()`.
+- Test må verifisere at family A ikke kan se eller manipulere
+  family B sine data.
+
+**c. Ny seed-data som kjører ved oppstart eller onboarding**
+- Per-family-vs-global-vurdering må dokumenteres i ANALYSE.
+- Hvis per-family: idempotent + family-scoped seed-funksjon
+  (mønster: `seedFamilyDefaults` i
+  `server/services/seed.service.js`).
+- Hvis global (eks. produktkatalog, oppskrift-mal): eksplisitt
+  begrunnet i ANALYSE hvorfor det ikke skal være per-family.
+
+**d. Endring i onboarding-flow**
+- Onboarding-isolation-test obligatorisk.
+- Test må verifisere at ny familie får eget data, ikke deler med
+  eksisterende familier.
+- Test må verifisere ingen orphan-FKs (kobling mot andre familiers
+  rader).
+
+### 14.2 Konsekvens
+
+- PR kan ikke merges uten relevante tester.
+- Ved code-review: eksplisitt sjekkpunkt **"Multi-tenant verifisert?"**
+  i PR-beskrivelse.
+- Eksisterende test-mønster: se `tests/multi-tenant-isolation.test.js`,
+  `tests/multi-tenant-onboarding.test.js`,
+  `tests/tenant-isolation.test.js`.
+
+### 14.3 Hvorfor dette ble innført
+
+PR #90 multi-tenant-audit avdekket at seed-data fra første server-
+oppstart blir låst til family 1 fordi `seedIfEmpty()` kjører uten
+aktiv family-context. Nye familier som onboarder etterpå starter
+helt tomme. PR #91 fix-en dekket flow-en, men eksisterende familier
+har orphan-data fra pre-fix-tilstanden.
+
+Denne regelen sørger for at:
+- Nye `family_id`-tabeller får isolation-tester fra dag 1.
+- Nye endpoints får cross-tenant-tester før merge.
+- Seed-flyter som ikke følger per-family-mønster fanges i review.
+- Onboarding-flyter testes for orphan-FK-risiko.
+
+Pre-pilot-audit-rapporten
+(`docs/analyses/2026-05-03-pre-pilot-comprehensive-audit.md`)
+dokumenterer hele bakgrunnen.
