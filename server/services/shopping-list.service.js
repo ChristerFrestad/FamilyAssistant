@@ -284,23 +284,111 @@ function computeShoppingListForWeek(repos, weekYear) {
 }
 
 // ============================================================
+// Smart-merge helpers (2026-05-03)
+// ============================================================
+
+/**
+ * Stable identity for deduplication between an existing item and a
+ * freshly-computed one. Items match when source_type, product_key, and
+ * unit all line up. Falls back to lowercased ingredient name when
+ * product_key is null. Matching across source_types is intentionally
+ * disabled — manual rows and meal_ingredient rows are user-owned vs
+ * recipe-owned and should not collapse into each other.
+ */
+function itemFingerprint(item) {
+  const sourceType = item.sourceType || 'meal_ingredient';
+  const key = item.productKey || (item.ingredientName || '').toLowerCase().trim();
+  const unit = (item.unit || '').toLowerCase();
+  return `${sourceType}|${key}|${unit}`;
+}
+
+/**
+ * Decide which existing items to preserve across a regenerate.
+ *
+ * Preserved:
+ *   - Any item with bought_at set (the user has done shopping work).
+ *   - Any item with sourceType in {'manual','extra'} (user-added).
+ * Dropped:
+ *   - Unbought meal_ingredient and consumable rows from the previous
+ *     generation. The fresh compute path will re-emit them with
+ *     up-to-date qty/pantry coverage.
+ */
+function pickPreservedItems(existingItems) {
+  if (!Array.isArray(existingItems)) return [];
+  return existingItems.filter((it) => {
+    if (it.boughtAt) return true;
+    if (it.sourceType === 'manual' || it.sourceType === 'extra') return true;
+    return false;
+  });
+}
+
+/**
+ * Map an existing shopping_list_items row (camelCase as returned by
+ * `_getItems`) into the row-shape `createActive` expects, while keeping
+ * the bought-state metadata in a `_carry` field so the merge caller
+ * can re-stamp it on the freshly-inserted row.
+ */
+function preservedItemToFlat(it) {
+  return {
+    sourceType: it.sourceType,
+    sourceRef: it.sourceRef || null,
+    ingredientName: it.ingredientName,
+    ingredientNameNo: it.ingredientNameNo || null,
+    productKey: it.productKey || null,
+    qty: it.qty ?? null,
+    unit: it.unit || null,
+    brandHint: it.brandHint || null,
+    category: it.category || null,
+    packSize: it.packSize ?? null,
+    packUnit: it.packUnit || null,
+    packCount: it.packCount ?? null,
+    estPrice: it.estPrice ?? null,
+    pantryHas: !!it.pantryHas,
+    pantryQty: it.pantryQty ?? null,
+    needsBuy: !!it.needsBuy,
+    mealsJson: it.mealsJson || null,
+    dairyNote: it.dairyNote || null,
+    notes: it.notes || null,
+    _carry: {
+      boughtAt: it.boughtAt || null,
+      boughtQty: it.boughtQty ?? null,
+    },
+  };
+}
+
+// ============================================================
 // Public: generate persistent shopping list for a week
 // ============================================================
 
 /**
  * Generate (or regenerate) a shopping list for a week and persist it.
  *
- * Behaves idempotently: previous 'active' for the same week is moved to
- * 'superseded' before the new 'active' is created (enforced by the
- * partial unique index + shoppingLists.createActive).
+ * Modes:
+ *   - 'merge'   (default, 2026-05-03): preserve any item the user has
+ *                interacted with (bought rows + manual/extra rows).
+ *                Compute new meal-ingredient + consumable rows from
+ *                the current meal plan. Dedupe new vs preserved by
+ *                (sourceType, productKey/name, unit) so the user
+ *                never sees a duplicate of something they already
+ *                bought. Idempotent.
+ *   - 'replace' (legacy pre-2026-05-03 behavior): wipe everything
+ *                and emit a fresh list. Bought-state and manual rows
+ *                are lost.
+ *
+ * The previous 'active' for the same week is moved to 'superseded' in
+ * either mode (enforced inside `shoppingLists.createActive`'s
+ * transaction).
  *
  * @param {Object} repos
  * @param {string} weekYear
  * @param {Object} [opts]
  * @param {boolean} [opts.force=false] — generate even if the week is not complete
- * @returns {{ listId: number, itemCount: number, needsBuyCount: number, totalEstPrice: number }}
+ * @param {'merge'|'replace'} [opts.mode='merge']
+ * @returns {{ listId: number, itemCount: number, needsBuyCount: number,
+ *             totalEstPrice: number, weekYear: string,
+ *             preservedCount: number, addedCount: number }}
  */
-function generateForWeek(repos, weekYear, { force = false } = {}) {
+function generateForWeek(repos, weekYear, { force = false, mode = 'merge' } = {}) {
   if (!force && !repos.mealPlans.isWeekComplete(weekYear)) {
     const err = new Error(
       'Week is not complete \u2014 all 7 days must have a choice (dinner, away, skipped or removed)'
@@ -309,19 +397,76 @@ function generateForWeek(repos, weekYear, { force = false } = {}) {
     throw err;
   }
 
-  const { flatItems, legacy } = computeShoppingListForWeek(repos, weekYear);
-  const { listId, itemCount, needsBuyCount } = repos.shoppingLists.createActive(
-    weekYear,
-    flatItems,
-    { totalEstPrice: legacy.totalEstPrice }
-  );
+  const { flatItems: computed, legacy } = computeShoppingListForWeek(repos, weekYear);
+
+  if (mode === 'replace') {
+    const { listId, itemCount, needsBuyCount } = repos.shoppingLists.createActive(
+      weekYear,
+      computed,
+      { totalEstPrice: legacy.totalEstPrice }
+    );
+    return {
+      listId,
+      itemCount,
+      needsBuyCount,
+      totalEstPrice: legacy.totalEstPrice,
+      weekYear,
+      preservedCount: 0,
+      addedCount: itemCount,
+    };
+  }
+
+  // mode === 'merge' (default from 2026-05-03)
+  const existing = repos.shoppingLists.getActive ? repos.shoppingLists.getActive(weekYear) : null;
+  const preserved = pickPreservedItems(existing ? existing.items : []);
+  const preservedFlat = preserved.map(preservedItemToFlat);
+
+  // Dedupe: any computed item whose fingerprint matches a preserved
+  // row is dropped. The preserved row already represents that
+  // ingredient with the user's bought-state or manual-intent intact.
+  const preservedKeys = new Set(preservedFlat.map(itemFingerprint));
+  const newItems = computed.filter((it) => !preservedKeys.has(itemFingerprint(it)));
+
+  const merged = [...preservedFlat, ...newItems];
+  const carryOver = preservedFlat
+    .map((it, idx) => ({ idx, carry: it._carry }))
+    .filter((x) => x.carry && (x.carry.boughtAt || x.carry.boughtQty != null));
+
+  // Strip the internal `_carry` field before passing to createActive.
+  const cleanMerged = merged.map(({ _carry: _ignored, ...rest }) => rest);
+
+  const result = repos.shoppingLists.createActive(weekYear, cleanMerged, {
+    totalEstPrice: legacy.totalEstPrice,
+  });
+
+  // Re-apply bought-state on the freshly-inserted rows. Preserved
+  // items occupied the first N positions of `cleanMerged`, and
+  // createActive inserts in iteration order, so their new rowids are
+  // the first N items in the new list.
+  if (carryOver.length > 0) {
+    const fresh = repos.shoppingLists.getById ? repos.shoppingLists.getById(result.listId) : null;
+    if (fresh && Array.isArray(fresh.items) && fresh.items.length >= preservedFlat.length) {
+      for (const co of carryOver) {
+        const targetItem = fresh.items[co.idx];
+        if (!targetItem) continue;
+        if (typeof repos.shoppingLists.markItemBought === 'function' && co.carry.boughtAt) {
+          // markItemBought stamps a fresh datetime('now'). The exact
+          // historical timestamp is not preserved \u2014 the UI shows
+          // "checked-off" rather than the time, so this is acceptable.
+          repos.shoppingLists.markItemBought(targetItem.id, co.carry.boughtQty);
+        }
+      }
+    }
+  }
 
   return {
-    listId,
-    itemCount,
-    needsBuyCount,
+    listId: result.listId,
+    itemCount: result.itemCount,
+    needsBuyCount: result.needsBuyCount,
     totalEstPrice: legacy.totalEstPrice,
     weekYear,
+    preservedCount: preservedFlat.length,
+    addedCount: newItems.length,
   };
 }
 

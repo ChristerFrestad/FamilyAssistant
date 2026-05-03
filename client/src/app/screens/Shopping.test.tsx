@@ -384,6 +384,89 @@ describe('Shopping screen — Generate from meals', () => {
   });
 });
 
+describe('Shopping screen — always-visible regenerate CTA (smart-merge)', () => {
+  test('regenerate row shows when an active list exists with items', async () => {
+    mockFetchByPath({
+      '/api/shopping/list/current': () => jsonResponse(200, FULL_LIST),
+    });
+    mountShopping();
+    await waitFor(() => expect(screen.getByTestId('shopping-regenerate-cta')).toBeInTheDocument());
+  });
+
+  test('regenerate row hidden when no active list (EmptyState owns the CTA)', async () => {
+    mockFetchByPath({
+      '/api/shopping/list/current': () => jsonResponse(200, EMPTY_SHELL),
+    });
+    mountShopping();
+    await waitFor(() => expect(screen.getByTestId('shopping-empty-no-list')).toBeInTheDocument());
+    expect(screen.queryByTestId('shopping-regenerate-cta')).toBeNull();
+  });
+
+  test('clicking the CTA opens the confirmation dialog', async () => {
+    mockFetchByPath({
+      '/api/shopping/list/current': () => jsonResponse(200, FULL_LIST),
+    });
+    mountShopping();
+    await waitFor(() => expect(screen.getByTestId('shopping-regenerate-cta')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByTestId('shopping-regenerate-cta'));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('regenerate-dialog-confirm')).toBeInTheDocument();
+  });
+
+  test('confirming the dialog fires POST /api/shopping/generate', async () => {
+    let generateCalled = false;
+    let generateInit: RequestInit | undefined;
+    mockFetchByPath({
+      '/api/shopping/list/current': () => jsonResponse(200, FULL_LIST),
+      '/api/shopping/generate': (init) => {
+        generateCalled = true;
+        generateInit = init;
+        return jsonResponse(200, {
+          ok: true,
+          listId: 99,
+          itemCount: 5,
+          needsBuyCount: 5,
+          preservedCount: 1,
+          addedCount: 4,
+        });
+      },
+    });
+    mountShopping();
+    await waitFor(() => expect(screen.getByTestId('shopping-regenerate-cta')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByTestId('shopping-regenerate-cta'));
+    await userEvent.click(screen.getByTestId('regenerate-dialog-confirm'));
+
+    await waitFor(() => expect(generateCalled).toBe(true));
+    // The frontend's generateFromMeals helper sends an empty body; we
+    // do not need to assert on `mode` because the backend defaults it
+    // to 'merge'. The end-to-end behavior is covered by the backend
+    // tests in tests/shopping-smart-merge.test.js.
+    expect(generateInit?.method).toBe('POST');
+  });
+
+  test('cancelling the dialog does NOT fire generate', async () => {
+    let generateCalled = false;
+    mockFetchByPath({
+      '/api/shopping/list/current': () => jsonResponse(200, FULL_LIST),
+      '/api/shopping/generate': () => {
+        generateCalled = true;
+        return jsonResponse(200, { ok: true });
+      },
+    });
+    mountShopping();
+    await waitFor(() => expect(screen.getByTestId('shopping-regenerate-cta')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByTestId('shopping-regenerate-cta'));
+    await userEvent.click(screen.getByTestId('regenerate-dialog-cancel'));
+
+    // Dialog closes without firing the network call.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(generateCalled).toBe(false);
+  });
+});
+
 describe('Shopping screen — Pantry sub-view (Phase 2E)', () => {
   function mountAt(initialPath: string) {
     return render(

@@ -63,16 +63,20 @@ const DAY_NAMES = [
 ];
 
 /**
- * Auto-generate a shopping list when the week just became complete and
- * no active list exists. Called from the meal routes after mutations.
- * Errors are swallowed so the meal update itself does not fail because
- * of shopping-list issues.
+ * Auto-merge the shopping list when the week is complete. Called from
+ * the meal routes after mutations.
+ *
+ * Smart-merge preserves any items the user has interacted with (bought
+ * rows + manual/extra rows) and adds fresh meal-ingredient rows from
+ * the current meal plan. This is safe to run on every meal swap: an
+ * existing active list is no longer a blocker the way it was pre-
+ * 2026-05-03 (PR shopping-smart-merge). Errors are swallowed so the
+ * meal update itself does not fail because of shopping-list issues.
  */
 function maybeAutogenerateShoppingList(repos, weekYear) {
   try {
     if (!repos.mealPlans.isWeekComplete(weekYear)) return null;
-    if (repos.shoppingLists.getActive(weekYear)) return null;
-    const result = generateForWeek(repos, weekYear, { force: false });
+    const result = generateForWeek(repos, weekYear, { force: false, mode: 'merge' });
     invalidate('shopping');
     // Phase B: kick off background enrichment — no await, no throw.
     // If KASSAL_API_KEY is missing, enrichList marks the list as done noop.
@@ -900,10 +904,19 @@ function registerRoutes(router, { repos, serverState }) {
   // ---- Persistent shopping list (Iterasjon 3b fase A) --------------
 
   /**
-   * POST /api/shopping/generate — generer (eller regenerer) persistent
-   * handleliste for en uke. Body: { weekYear?, force? }.
-   * Feiler med 400 WEEK_NOT_COMPLETE hvis uken ikke er komplett og
-   * force ikke er satt.
+   * POST /api/shopping/generate — generate (or regenerate) the active
+   * shopping list for a week.
+   *
+   * Body: { weekYear?, force?, mode? }
+   *   - mode='merge' (default): smart-merge preserves bought items
+   *     and manual/extra rows, then adds fresh meal-ingredient rows
+   *     from the current meal plan. The frontend "Regenerate from
+   *     this week's meals" CTA uses this mode.
+   *   - mode='replace': wipe and regenerate from scratch.
+   *   - force=true: allow even when the week is not complete.
+   *
+   * Fails with 400 WEEK_NOT_COMPLETE if the week is incomplete and
+   * force is not set.
    */
   router.post(
     '/api/shopping/generate',
@@ -913,9 +926,12 @@ function registerRoutes(router, { repos, serverState }) {
       const wk = ctx.body.weekYear || ensureCurrentWeek(repos);
       if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
       try {
-        const result = generateForWeek(repos, wk, { force: !!ctx.body.force });
+        const result = generateForWeek(repos, wk, {
+          force: !!ctx.body.force,
+          mode: ctx.body.mode || 'merge',
+        });
         invalidate('shopping');
-        // Fase B: bakgrunns-berikelse starter umiddelbart, rater seg selv.
+        // Phase B: background enrichment kicks off immediately, self-rate-limited.
         if (result && result.listId) {
           enrichInBackground(repos, result.listId);
         }

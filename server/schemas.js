@@ -111,6 +111,9 @@ const shoppingGenerateBody = z
   .object({
     weekYear: weekYear.optional(),
     force: z.boolean().optional(),
+    // 'merge' (default): preserve bought + manual rows, add fresh
+    // meal-ingredients. 'replace': wipe and regenerate from scratch.
+    mode: z.enum(['merge', 'replace']).optional(),
   })
   .strict();
 

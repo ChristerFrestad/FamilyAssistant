@@ -1,6 +1,6 @@
 # Post-pilot roadmap
 
-Sist oppdatert: 2026-04-30
+Sist oppdatert: 2026-05-03
 
 Ideer som skal vurderes etter pilot er stabilisert. **Ikke implementer
 før pilot-launch.** Dette dokumentet er parkering for fremtidige
@@ -165,3 +165,86 @@ Disse finnes allerede og dekker ulike pieces av roadmap-en uten ny migrering:
 
 Ingen endringer foretas i denne PR-en. Migrering planlegges separat
 post-pilot.
+
+---
+
+## High-priority differensiatorer (lagt til 2026-05-03)
+
+To features som Christer identifiserte under pilot-test og som er
+sterke differensiatorer mot konkurrenter. Begge er **post-pilot** —
+ikke implementer før pilot er stabilisert. Logget her så de ikke faller
+gjennom sprekkene.
+
+### Product packaging awareness
+
+**Problem.** Recipes spesifiserer ingredienser i gram eller stykk
+("330 g kjøttdeig"), men butikker selger ferdigpakker
+("500 g pakke pulled pork"). Handlelisten viser i dag den recipe-
+aggregerte mengden, som ikke oversetter rent til "ta én av disse fra
+hylla". Pantry-tracking har det motsatte problemet — brukeren kjøper
+500 g, oppskriften bruker 330 g, og vi har ingen plass å lande de
+170 g restmengden.
+
+**Outcome.** Handlelista leses som en virkelig handleliste ("1 pakke
+kjøttdeig 400 g"), pantry tracker rest-mengde per pakke, og måltids-
+trekk konsumerer fra riktig pakke først.
+
+**Skisse.**
+- Product-tabellen får `pack_size_g` og `pack_unit` (eller gjenbruk
+  eksisterende `kassal_products`-berikelse når den finnes).
+- Handleliste-rendering konverterer recipe-aggregert qty til N pakker
+  (`ceil(needed / pack_size)`) og viser pakke-nivå-rader.
+- Pantry tracker to qty-akser: antall pakker + restmengde i åpen
+  pakke.
+- Måltids-trekk foretrekker åpen pakke til den er tom, så åpner neste.
+
+**Avhengigheter.** Enten Kassal-API-berikelsen vi allerede har
+(autoritativ kilde for ekte pakkestørrelser) ELLER en manuell
+produkt-katalog-feature for brukere uten API-tilgang.
+
+**Estimat.** 2–3 uker. Schema-endringen er liten, men rendering- og
+trekk-logikken berører hver pantry/shopping-touchpoint.
+
+### Pantry-aware recipe suggestions
+
+**Problem.** Dagens picker er "browse alle oppskrifter etter kategori".
+Det er ingen signal som drar brukeren mot oppskrifter som bruker det
+som allerede ligger i pantry. Det betyr matsvinn (ingredienser som
+eldes uten bruk) og missed opportunities ("du har laks i kjøleskapet —
+her er tre oppskrifter som bruker det").
+
+**Outcome.** "Plan from pantry"-modus der pickeren, dag for dag,
+rangerer oppskrifter etter hvor mye av deres ingrediens-liste som
+allerede er på lager. Tom kjøleskap → eksisterende browser. Fullt
+kjøleskap → en plan som tømmer det.
+
+**Skisse.**
+- Backend har allerede pantry-coverage-scoring inni
+  `shopping-list.service.computeShoppingListForWeek` (vet pantry-has
+  vs still-need per ingrediens). Løft ut til en per-recipe coverage-
+  helper.
+- Frontend picker får ny mode-toggle: "Browse" (dagens) vs "Fra
+  pantry" (ny).
+- "Fra pantry"-modus rendrer samme oppskrifts-cards men sortert etter
+  coverage % desc, med en liten "bruker 6/8 ingredienser du har"-
+  badge.
+- Optional: en "fyll uka fra pantry"-knapp som velger de syv høyest-
+  scorende oppskriftene (med lett constraint: ingen oppskrift to
+  ganger på rad, miks kategorier).
+
+**Avhengigheter.** Ingen — pantry-scoring eksisterer. UX trenger
+et par design-runder for å føles riktig.
+
+**Estimat.** 1–2 uker.
+
+### Triage
+
+Begge er post-pilot. Pilot-exit-kriteriet er "Christer kan planlegge
+måltider, generere handleliste, markere tilberedt, og pantry tracker
+det som brukes" — begge feature-ene over sitter på toppen av denne
+loopen.
+
+Når pilot exiter, prioriter dem etter hvilken Christer treffer i sin
+daglige flow mer smertefullt. Pakkestørrelse-awareness vinner
+sannsynligvis på handlelistens nøyaktighet alene; pantry-aware
+suggestions vinner på "reduserer matsvinn"-framing for marketing.
