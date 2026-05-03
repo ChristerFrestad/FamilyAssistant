@@ -75,9 +75,25 @@
   "errors": {
     "loadFailed": "Kunne ikke hente måltidsplanen."
   },
-  "placeholders": {
-    "swapStatus": "Bytt-flyt kommer i Sprint 5.",
-    "planStatus": "Planleggings-flyt kommer i Sprint 5."
+  "picker": {
+    "titlePlan": "Planlegg middag",
+    "titleSwap": "Bytt middag",
+    "descriptionPlan": "Velg en oppskrift for denne dagen.",
+    "descriptionSwap": "Velg en ny oppskrift for å bytte.",
+    "searchPlaceholder": "Søk etter oppskrift",
+    "filterCategoryAria": "Filtrer på kategori",
+    "loading": "Henter oppskrifter …",
+    "noRecipes": "Ingen oppskrifter er registrert ennå.",
+    "noResults": "Ingen treff for «{{query}}».",
+    "listAria": "Tilgjengelige oppskrifter",
+    "currentBadge": "Valgt",
+    "blockedByAllergy": "Blokkert (allergi)",
+    "blockedByDiet": "Blokkert (kosthold)",
+    "dislikeWarning": "Inneholder mislikt ingrediens",
+    "select": "Velg",
+    "cancel": "Avbryt",
+    "errorLoad": "Kunne ikke hente oppskrifter.",
+    "errorApply": "Kunne ikke lagre valget. Prøv igjen."
   },
   "placeholder": {
     "description": "Kommer i Fase 2C — ukemeny, oppskrifter og swap-flyt."

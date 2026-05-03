@@ -1,9 +1,8 @@
-// Phase 2C Meals screen — third real screen in the v2 SPA after
-// Dashboard and Family. Read-only by design: viewing the week,
-// the selected day's recipe, and scaled ingredients. All
-// mutating actions (swap, plan, status) sit behind placeholder
-// buttons that surface a "kommer i Sprint 5"-style status the
-// same way Family's edit/invite buttons do.
+// Meals screen — third real screen in the v2 SPA after Dashboard and
+// Family. Sprint 6 turns the placeholder swap/plan-buttons into real
+// actions: tapping "Planlegg middag" or "Bytt middag" opens a recipe
+// picker that calls PUT /api/meals/swap. "Marker tilberedt" opens the
+// pantry-deduction dialog (smart-coupling, PR #88).
 //
 // Layout:
 //   1. Header  — "Ukens meny" + "Uke {weekYear}" subtitle
@@ -15,48 +14,33 @@
 // State:
 //   - useMealsData() owns fetch + selected-day; we read `family`
 //     to compute the ingredient scale via computeScale().
+//   - useRecipePicker() owns the picker dialog state and the swap
+//     mutation.
+//   - usePantryDeduction() owns the mark-cooked dialog flow.
 //   - Loading → skeleton (DayStrip + hero placeholders).
 //   - Meal-plan fetch error → full error-card with retry.
-//   - Family fetch error or pending → ingredients still render
-//     but at scale=1 (the screen is meal-plan-driven, not family-
-//     driven).
-//
-// We do NOT touch AuthContext here — the route is already gated
-// by AuthGuard in App.tsx. Passing user.role into the children
-// would only matter if any element were role-gated, and read-only
-// view is open to every role.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { DayStrip } from '../components/meals/DayStrip';
 import { MealHero } from '../components/meals/MealHero';
 import { MarkCookedDialog } from '../components/meals/MarkCookedDialog';
+import { RecipePickerDialog } from '../components/meals/RecipePickerDialog';
 import { RecipeIngredients } from '../components/meals/RecipeIngredients';
 import { WeekList } from '../components/meals/WeekList';
 import { useMealsData, computeScale, type FamilyFetchState } from '../meals/useMealsData';
 import { usePantryDeduction } from '../meals/usePantryDeduction';
+import { useRecipePicker } from '../meals/useRecipePicker';
 import type { MealSlot } from '../meals/mealsApi';
 
-const PLACEHOLDER_DISMISS_MS = 3000;
+const RESULT_DISMISS_MS = 3000;
 
 export function Meals(): JSX.Element {
   const { t } = useTranslation(['meals', 'common']);
   const { meals, isLoading, error, family, selectedDayIndex, todayIndex, selectDay, retry } =
     useMealsData();
-
-  // Inline placeholder status for swap/plan buttons. Single piece of
-  // state — only one placeholder is visible at a time, matching the
-  // natural focus flow.
-  const [placeholderKey, setPlaceholderKey] = useState<'swap' | 'plan' | null>(null);
-
-  const showPlaceholder = useCallback((kind: 'swap' | 'plan') => {
-    setPlaceholderKey(kind);
-    setTimeout(() => {
-      setPlaceholderKey((current) => (current === kind ? null : current));
-    }, PLACEHOLDER_DISMISS_MS);
-  }, []);
 
   // Sprint 6 — meal-cooked dialog. After confirm/skip/cancel we refetch
   // meals so the hero re-renders with the new status.
@@ -73,9 +57,26 @@ export function Meals(): JSX.Element {
   // leaving the user staring at the dialog.
   useEffect(() => {
     if (!deduction.state.resultMessage) return undefined;
-    const timer = setTimeout(() => deduction.close(), PLACEHOLDER_DISMISS_MS);
+    const timer = setTimeout(() => deduction.close(), RESULT_DISMISS_MS);
     return () => clearTimeout(timer);
   }, [deduction.state.resultMessage, deduction]);
+
+  // Sprint 6 — recipe picker dialog. Opens for plan (empty slot) and
+  // swap (existing recipe) flows. Refetches meals after a successful
+  // swap so the hero updates immediately.
+  const picker = useRecipePicker(meals?.weekYear ?? null, retry);
+  const handlePlan = useCallback(
+    (dayOfWeek: number) => {
+      void picker.openForPlan(dayOfWeek);
+    },
+    [picker]
+  );
+  const handleSwap = useCallback(
+    (dayOfWeek: number, currentRecipeId: number) => {
+      void picker.openForSwap(dayOfWeek, currentRecipeId);
+    },
+    [picker]
+  );
 
   const shortDayLabels = [0, 1, 2, 3, 4, 5, 6].map((i) => t(`meals:daysShort.${i}`));
   const longDayLabels = [0, 1, 2, 3, 4, 5, 6].map((i) => t(`meals:daysLong.${i}`));
@@ -144,15 +145,9 @@ export function Meals(): JSX.Element {
           todayLabel={todayLabel}
           dayStripAria={t('meals:dayStripAria')}
           onSelectDay={selectDay}
-          onPlaceholderAction={showPlaceholder}
+          onPlan={handlePlan}
+          onSwap={handleSwap}
           onMarkCooked={handleMarkCooked}
-          placeholderStatus={
-            placeholderKey === 'swap'
-              ? t('meals:placeholders.swapStatus')
-              : placeholderKey === 'plan'
-                ? t('meals:placeholders.planStatus')
-                : null
-          }
           weekListLabels={{
             heading: t('meals:weekList.heading'),
             emptyRow: t('meals:weekList.emptyRow'),
@@ -168,8 +163,6 @@ export function Meals(): JSX.Element {
       <MarkCookedDialog
         state={{
           ...deduction.state,
-          // Translate the symbolic resultMessage into the localised
-          // string here so the dialog itself stays presentation-only.
           resultMessage:
             deduction.state.resultMessage === 'applied'
               ? t('meals:cookedDialog.successApplied')
@@ -184,6 +177,20 @@ export function Meals(): JSX.Element {
         onSkip={deduction.skip}
         onCancel={deduction.cancel}
         onClose={deduction.close}
+      />
+
+      <RecipePickerDialog
+        open={picker.state.open}
+        mode={picker.state.mode}
+        dayOfWeek={picker.state.dayOfWeek}
+        recipes={picker.state.recipes}
+        loading={picker.state.loading}
+        error={picker.state.error !== null ? t('meals:picker.errorLoad') : null}
+        applying={picker.state.applying}
+        applyError={picker.state.applyError !== null ? t('meals:picker.errorApply') : null}
+        currentRecipeId={picker.state.currentRecipeId}
+        onSelect={picker.select}
+        onClose={picker.close}
       />
     </section>
   );
@@ -204,9 +211,9 @@ interface MealsContentProps {
   todayLabel: string;
   dayStripAria: string;
   onSelectDay: (index: number) => void;
-  onPlaceholderAction: (kind: 'swap' | 'plan') => void;
+  onPlan: (dayOfWeek: number) => void;
+  onSwap: (dayOfWeek: number, currentRecipeId: number) => void;
   onMarkCooked: (mealId: number) => void;
-  placeholderStatus: string | null;
   weekListLabels: {
     heading: string;
     emptyRow: string;
@@ -227,9 +234,9 @@ function MealsContent({
   todayLabel,
   dayStripAria,
   onSelectDay,
-  onPlaceholderAction,
+  onPlan,
+  onSwap,
   onMarkCooked,
-  placeholderStatus,
   weekListLabels,
   family,
   weekEmptyTitle,
@@ -264,9 +271,9 @@ function MealsContent({
         slot={selectedSlot}
         dayLabel={longDayLabels[selectedDayIndex] ?? ''}
         isToday={selectedDayIndex === todayIndex}
-        onPlaceholderAction={onPlaceholderAction}
+        onPlan={onPlan}
+        onSwap={onSwap}
         onMarkCooked={onMarkCooked}
-        placeholderStatus={placeholderStatus}
       />
 
       {selectedSlot.recipe !== null &&
@@ -297,6 +304,7 @@ function MealsContent({
           todayLabel={todayLabel}
           sectionLabel={weekListLabels.heading}
           onSelect={onSelectDay}
+          onSelectEmpty={onPlan}
         />
       )}
     </div>
