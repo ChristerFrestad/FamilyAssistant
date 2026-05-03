@@ -54,6 +54,20 @@ function recipeTooltip(meals: string[] | null | undefined): string | undefined {
 }
 
 /**
+ * Build a unit-translator for `formatQtyWithUnit`. Looks up
+ * `shopping.units.<rawUnit>` via i18next; falls back to the raw unit
+ * when no translation exists (universal units like 'g', 'kg' look the
+ * same on both languages anyway). Lower-cased + trimmed lookup.
+ */
+function makeUnitFormatter(t: ReturnType<typeof useTranslation>['t']) {
+  return (rawUnit: string): string => {
+    if (!rawUnit) return '';
+    const key = rawUnit.toLowerCase().trim();
+    return t(`shopping:units.${key}`, { defaultValue: rawUnit });
+  };
+}
+
+/**
  * Build the pack-info line shown under the row name. Three shapes
  * depending on what backend gives us (pilot 2026-05-03):
  *
@@ -63,10 +77,17 @@ function recipeTooltip(meals: string[] | null | undefined): string | undefined {
  *   2. No pack data, but qty is set: fall back to "qty unit" (legacy
  *      shape) — manual + extra rows land here.
  *   3. Nothing: empty string. Caller hides the meta row entirely.
+ *
+ * Units are localised via `unitFormatter` so English shoppers see
+ * "1 pack (500 g)" / "1 pcs" instead of the Norwegian "stk" / "pakke".
  */
-function packDisplayLine(item: ShoppingItem, t: ReturnType<typeof useTranslation>['t']): string {
+function packDisplayLine(
+  item: ShoppingItem,
+  t: ReturnType<typeof useTranslation>['t'],
+  unitFormatter: (raw: string) => string
+): string {
   if (!hasUsablePackInfo(item)) {
-    return formatQtyWithUnit(item.qty ?? null, item.unit ?? null);
+    return formatQtyWithUnit(item.qty ?? null, item.unit ?? null, { unitFormatter });
   }
   const count = item.packCount as number;
   const packSize = item.packSize as number;
@@ -76,10 +97,10 @@ function packDisplayLine(item: ShoppingItem, t: ReturnType<typeof useTranslation
   // pack is the unit itself adds no information.
   const isCountUnit = ['stk', 'pk', 'fedd', 'boks', 'pose'].includes(packUnit.toLowerCase().trim());
   if (isCountUnit && packSize === 1) {
-    return t('shopping:item.packCountUnit', { count, unit: packUnit });
+    return t('shopping:item.packCountUnit', { count, unit: unitFormatter(packUnit) });
   }
 
-  const packSizeStr = formatQtyWithUnit(packSize, packUnit);
+  const packSizeStr = formatQtyWithUnit(packSize, packUnit, { unitFormatter });
   return t('shopping:item.packCount', { count, packSize: packSizeStr });
 }
 
@@ -112,7 +133,8 @@ export function ShoppingItemRow({
   const displayName: string =
     item.name || item.ingredientNameNo || item.ingredientName || t('shopping:item.unknown');
   const checked = !!item.checkedOff;
-  const packLine = packDisplayLine(item, t);
+  const unitFormatter = makeUnitFormatter(t);
+  const packLine = packDisplayLine(item, t, unitFormatter);
   const meta = recipeLabel(item.mealsJson, t);
   const metaTip = recipeTooltip(item.mealsJson);
   const showPrice = typeof item.estPrice === 'number' && item.estPrice > 0;
@@ -126,7 +148,9 @@ export function ShoppingItemRow({
   // pantry framing the pilot wants to highlight.
   const showYouNeed = shouldShowYouNeedLine(item, item.sourceType);
   const youNeedText = showYouNeed
-    ? t('shopping:item.youNeed', { qty: formatQtyWithUnit(item.qty ?? null, item.unit ?? null) })
+    ? t('shopping:item.youNeed', {
+        qty: formatQtyWithUnit(item.qty ?? null, item.unit ?? null, { unitFormatter }),
+      })
     : null;
 
   return (

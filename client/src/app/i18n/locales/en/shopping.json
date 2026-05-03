@@ -47,13 +47,34 @@
   },
   "categories": {
     "other": "Other",
-    "produce": "Produce",
+    "produce": "Fruit & vegetables",
     "meat": "Meat & fish",
     "dairy": "Dairy",
     "pantry": "Pantry",
     "frozen": "Frozen",
     "beverage": "Beverages",
-    "household": "Household"
+    "household": "Household",
+    "bakery": "Bread & baking",
+    "children": "Children",
+    "personal_care": "Personal care",
+    "kitchen": "Kitchen",
+    "dry_goods": "Dry goods & other"
+  },
+  "units": {
+    "stk": "pcs",
+    "ss": "tbsp",
+    "ts": "tsp",
+    "fedd": "clove",
+    "pk": "pkg",
+    "boks": "can",
+    "pose": "bag",
+    "klyper": "pinch",
+    "g": "g",
+    "kg": "kg",
+    "ml": "ml",
+    "cl": "cl",
+    "dl": "dl",
+    "l": "l"
   },
   "item": {
     "checkAria": "Mark {{name}} as bought",

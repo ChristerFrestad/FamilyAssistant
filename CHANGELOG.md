@@ -6,6 +6,52 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Shopping list — translate categories and units to English (2026-05-03)
+
+**Pilot polish.** After the pack-display work landed, English-locale users
+still saw Norwegian category labels ("Kjøtt & fisk") and Norwegian unit
+abbreviations ("stk", "ss", "ts", "fedd") on the shopping list. The
+backend stores categories as Norwegian strings for seed/recipe-derived
+rows, and the pack-display formatters returned raw unit strings without
+i18n. Both surfaces are now localised.
+
+**Strategy** (hybrid, per Christer's spec):
+- UI text, categories, units → translate
+- Product names, meal titles → stay Norwegian (concrete items the
+  English-speaking user still buys in Norway)
+
+**Changed**
+
+- `CategoryGroup.tsx`: extends `KNOWN_CATEGORY_KEYS` with `bakery`,
+  `children`, `personal_care`, `kitchen`, `dry_goods` and adds a
+  `NORWEGIAN_CATEGORY_TO_KEY` map ("Kjøtt & fisk" → `meat`,
+  "Tørrvarer & annet" → `dry_goods`, etc.) so the backend's Norwegian
+  seed-data category strings translate cleanly. Truly unknown
+  categories still fall through verbatim as a defensive escape hatch.
+- `packDisplay.ts` `formatQtyWithUnit` now accepts an optional
+  `unitFormatter` callback so the helper stays free of React/i18n
+  imports while letting the component layer translate units. Default
+  behavior (no formatter) is unchanged.
+- `ShoppingItemRow.tsx`: builds a `unitFormatter` from `t()`,
+  threads it through both the pack-display line and the "Du trenger"
+  sub-line. Uses `t('shopping:units.<unit>', { defaultValue: unit })`
+  so universal units (g, kg, ml, l) pass through unchanged on both
+  languages while Norwegian-specific units (stk, ss, ts, fedd, pk)
+  flip to their English counterparts.
+
+**Added**
+
+- New i18n keys for both languages:
+  - `shopping.categories.bakery`, `.children`, `.personal_care`,
+    `.kitchen`, `.dry_goods`
+  - `shopping.units.{stk,ss,ts,fedd,pk,boks,pose,klyper,g,kg,ml,cl,dl,l}`
+  - English: pcs / tbsp / tsp / clove / pkg / can / bag / pinch
+  - Norwegian: pass-through for native units; universal units identical
+- 4 new CategoryGroup tests (Norwegian-string mapping, English
+  translation, defensive passthrough) and 5 new ShoppingItemRow
+  tests (unit translation across "stk", "ss", "ts", "fedd", and the
+  universal g/kg pass-through case).
+
 ### Shopping list pack-aware display (pilot pack UI, 2026-05-03)
 
 **Pilot polish.** The shopping row used to render only the recipe-aggregated
