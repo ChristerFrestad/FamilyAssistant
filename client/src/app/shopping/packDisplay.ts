@@ -101,15 +101,33 @@ export function normaliseQtyForDisplay(
 }
 
 /**
- * Format a (qty, unit) tuple for display. Returns the empty string
- * when both inputs are null/empty.
+ * Optional translator for unit labels (g/kg/ml/l/stk/ss/ts/fedd/pk/...).
+ * The component layer passes a callback that wraps i18next's `t()` so
+ * this module stays free of React/i18n imports.
+ *
+ * Falls back to the unit string itself when no translator is provided
+ * — keeps the helpers easy to test and preserves legacy behavior for
+ * any caller that does not need localisation.
  */
-export function formatQtyWithUnit(qty: number | null, unit: string | null): string {
+export type UnitFormatter = (rawUnit: string) => string;
+
+/**
+ * Format a (qty, unit) tuple for display. Returns the empty string
+ * when both inputs are null/empty. Pass `unitFormatter` to localise
+ * the unit (e.g., "stk" → "pcs" on English).
+ */
+export function formatQtyWithUnit(
+  qty: number | null,
+  unit: string | null,
+  options: { unitFormatter?: UnitFormatter } = {}
+): string {
+  const fmt = options.unitFormatter;
   if (qty == null && !unit) return '';
-  if (qty == null) return unit || '';
+  if (qty == null) return fmt ? fmt(unit || '') : unit || '';
   const norm = normaliseQtyForDisplay(qty, unit);
   const num = formatNumberForUnit(norm.value, norm.unit);
-  return num && norm.unit ? `${num} ${norm.unit}` : num || norm.unit;
+  const finalUnit = fmt ? fmt(norm.unit) : norm.unit;
+  return num && finalUnit ? `${num} ${finalUnit}` : num || finalUnit;
 }
 
 /**

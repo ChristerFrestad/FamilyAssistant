@@ -2,9 +2,15 @@
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { test, expect, describe, vi } from 'vitest';
+import { test, expect, describe, vi, afterEach } from 'vitest';
 import { ShoppingItemRow } from './ShoppingItemRow';
 import type { ShoppingItem } from '../../shopping/shoppingApi';
+import i18n from '../../i18n/config';
+
+afterEach(() => {
+  // Restore default language so language-bytte tests below don't leak.
+  i18n.changeLanguage('no');
+});
 
 function makeItem(over: Partial<ShoppingItem>): ShoppingItem {
   return {
@@ -457,6 +463,186 @@ describe('ShoppingItemRow', () => {
         />
       );
       expect(screen.queryByTestId('shopping-item-you-need-107')).toBeNull();
+    });
+
+    test('translates units to English when language is en', async () => {
+      await i18n.changeLanguage('en');
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 200,
+            name: 'Kyllingfilet',
+            sourceType: 'meal_ingredient',
+            qty: 220,
+            unit: 'g',
+            packSize: 500,
+            packUnit: 'g',
+            packCount: 1,
+            estPrice: 89,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      // 'g' is universal, so the pack line still reads "1 pack (500 g)"
+      // — but the i18n template ("1 pack" vs "1 pakke") flips. Asserting
+      // on the localised template proves the translation pipeline works.
+      expect(screen.getByTestId('shopping-item-pack-line-200')).toHaveTextContent('1 pack (500 g)');
+      expect(screen.getByTestId('shopping-item-you-need-200')).toHaveTextContent('You need 220 g');
+    });
+
+    test('translates Norwegian unit "stk" to "pcs" on English', async () => {
+      await i18n.changeLanguage('en');
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 201,
+            name: 'Lime',
+            sourceType: 'meal_ingredient',
+            qty: 3,
+            unit: 'stk',
+            packSize: 1,
+            packUnit: 'stk',
+            packCount: 3,
+            estPrice: 24,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      // packCountUnit collapses to "3 pcs" (was "3 stk" on Norwegian).
+      expect(screen.getByTestId('shopping-item-pack-line-201')).toHaveTextContent('3 pcs');
+    });
+
+    test('translates "ss" to "tbsp" and "ts" to "tsp" on English', async () => {
+      await i18n.changeLanguage('en');
+      const { rerender } = render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 202,
+            name: 'Olivenolje',
+            sourceType: 'manual',
+            qty: 2,
+            unit: 'ss',
+            packSize: null,
+            packUnit: null,
+            packCount: null,
+            estPrice: null,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-202')).toHaveTextContent('2 tbsp');
+
+      rerender(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 203,
+            name: 'Salt',
+            sourceType: 'manual',
+            qty: 1,
+            unit: 'ts',
+            packSize: null,
+            packUnit: null,
+            packCount: null,
+            estPrice: null,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-203')).toHaveTextContent('1 tsp');
+    });
+
+    test('translates "fedd" to "clove" on English', async () => {
+      await i18n.changeLanguage('en');
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 204,
+            name: 'Hvitløk',
+            sourceType: 'meal_ingredient',
+            qty: 4,
+            unit: 'fedd',
+            packSize: 1,
+            packUnit: 'fedd',
+            packCount: 4,
+            estPrice: 5,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-204')).toHaveTextContent('4 clove');
+    });
+
+    test('keeps Norwegian unit labels on Norwegian locale', () => {
+      // No language change — default test locale is 'no'.
+      render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 205,
+            name: 'Hvitløk',
+            sourceType: 'meal_ingredient',
+            qty: 4,
+            unit: 'fedd',
+            packSize: 1,
+            packUnit: 'fedd',
+            packCount: 4,
+            estPrice: 5,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-205')).toHaveTextContent('4 fedd');
+    });
+
+    test('keeps universal units (g, kg, ml, l) unchanged across languages', async () => {
+      await i18n.changeLanguage('en');
+      const { rerender } = render(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 206,
+            name: 'Mel',
+            sourceType: 'meal_ingredient',
+            qty: 1500,
+            unit: 'g',
+            packSize: 1500,
+            packUnit: 'g',
+            packCount: 1,
+            estPrice: 30,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-206')).toHaveTextContent(
+        '1 pack (1.5 kg)'
+      );
+
+      await i18n.changeLanguage('no');
+      rerender(
+        <ShoppingItemRow
+          item={makeItem({
+            id: 207,
+            name: 'Mel',
+            sourceType: 'meal_ingredient',
+            qty: 1500,
+            unit: 'g',
+            packSize: 1500,
+            packUnit: 'g',
+            packCount: 1,
+            estPrice: 30,
+          })}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      );
+      expect(screen.getByTestId('shopping-item-pack-line-207')).toHaveTextContent(
+        '1 pakke (1.5 kg)'
+      );
     });
 
     test('hides pack-line entirely when packCount=0 and no qty (pantry already covers)', () => {

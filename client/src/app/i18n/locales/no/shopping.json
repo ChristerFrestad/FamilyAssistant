@@ -47,13 +47,34 @@
   },
   "categories": {
     "other": "Annet",
-    "produce": "Frukt og grønt",
-    "meat": "Kjøtt og fisk",
+    "produce": "Frukt & grønt",
+    "meat": "Kjøtt & fisk",
     "dairy": "Meieri",
     "pantry": "Tørrvarer",
     "frozen": "Frossen",
-    "beverage": "Drikke",
-    "household": "Husholdning"
+    "beverage": "Drikkevarer",
+    "household": "Husholdning",
+    "bakery": "Brød & bakst",
+    "children": "Barn",
+    "personal_care": "Personlig pleie",
+    "kitchen": "Kjøkken",
+    "dry_goods": "Tørrvarer & annet"
+  },
+  "units": {
+    "stk": "stk",
+    "ss": "ss",
+    "ts": "ts",
+    "fedd": "fedd",
+    "pk": "pk",
+    "boks": "boks",
+    "pose": "pose",
+    "klyper": "klyper",
+    "g": "g",
+    "kg": "kg",
+    "ml": "ml",
+    "cl": "cl",
+    "dl": "dl",
+    "l": "l"
   },
   "item": {
     "checkAria": "Marker {{name}} som kjøpt",

@@ -173,8 +173,8 @@ describe('CategoryGroup', () => {
     expect(screen.getByRole('heading', { name: 'Meieri', level: 3 })).toBeInTheDocument();
   });
 
-  test('passes through unknown category strings unchanged (seed-data compat)', () => {
-    render(
+  test('translates Norwegian seed-category strings via NORWEGIAN_CATEGORY_TO_KEY', () => {
+    const { rerender } = render(
       <CategoryGroup
         category="Frukt & grønt"
         items={[makeItem({ id: 1 })]}
@@ -182,7 +182,93 @@ describe('CategoryGroup', () => {
         onDelete={() => {}}
       />
     );
+    // No-op on Norwegian (key 'produce' → 'Frukt & grønt')
     expect(screen.getByRole('heading', { name: 'Frukt & grønt', level: 3 })).toBeInTheDocument();
+
+    // Other Norwegian seed-data strings exercise the rest of the map
+    rerender(
+      <CategoryGroup
+        category="Kjøtt & fisk"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Kjøtt & fisk', level: 3 })).toBeInTheDocument();
+
+    rerender(
+      <CategoryGroup
+        category="Tørrvarer & annet"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Tørrvarer & annet', level: 3 })
+    ).toBeInTheDocument();
+  });
+
+  test('Norwegian seed-category strings translate to English on language switch', async () => {
+    await i18n.changeLanguage('en');
+    const { rerender } = render(
+      <CategoryGroup
+        category="Kjøtt & fisk"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Meat & fish', level: 3 })).toBeInTheDocument();
+
+    rerender(
+      <CategoryGroup
+        category="Tørrvarer & annet"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Dry goods & other', level: 3 })
+    ).toBeInTheDocument();
+
+    rerender(
+      <CategoryGroup
+        category="Personlig pleie"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Personal care', level: 3 })).toBeInTheDocument();
+
+    rerender(
+      <CategoryGroup
+        category="Brød & bakst"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'Bread & baking', level: 3 })).toBeInTheDocument();
+  });
+
+  test('passes through truly unknown category strings unchanged (defensive)', () => {
+    // Categories that are neither enum-keys nor in the Norwegian map
+    // fall through verbatim. This keeps a forward-compatible escape
+    // hatch if backend later emits a new category we have not mapped.
+    render(
+      <CategoryGroup
+        category="Helt ukjent kategori"
+        items={[makeItem({ id: 1 })]}
+        onToggle={() => {}}
+        onDelete={() => {}}
+      />
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Helt ukjent kategori', level: 3 })
+    ).toBeInTheDocument();
   });
 
   test('skips bought items in remaining-price total', () => {

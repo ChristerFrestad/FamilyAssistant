@@ -31,11 +31,10 @@ function categoryAccent(name: string): BadgeVariant {
 }
 
 // Known enum-keys that get localised display text. Manual items default
-// to 'other' on the backend; future migration of seed-data categories
-// (currently Norwegian strings like 'Frukt & grønt') is tracked in
-// design-gaps.md and would expand this set. Anything not in the set
-// passes through unchanged so existing seed-data renders without
-// regression while we migrate gradually.
+// to 'other' on the backend; seed-data + recipe-derived rows still arrive
+// as Norwegian strings ('Kjøtt & fisk', 'Meieri', ...). The Norwegian
+// strings are mapped to enum keys via NORWEGIAN_CATEGORY_TO_KEY below
+// so they pick up the same i18n translations.
 const KNOWN_CATEGORY_KEYS = new Set([
   'other',
   'produce',
@@ -45,10 +44,38 @@ const KNOWN_CATEGORY_KEYS = new Set([
   'frozen',
   'beverage',
   'household',
+  // Added 2026-05-03 to cover Norwegian seed-data categories without
+  // requiring a backend migration. When the seed-data category strings
+  // are eventually replaced with enum-keys (see design-gaps.md), the
+  // Norwegian-to-key map can shrink and these keys keep working.
+  'bakery',
+  'children',
+  'personal_care',
+  'kitchen',
+  'dry_goods',
 ]);
 
-function isKnownCategoryKey(key: string): boolean {
-  return KNOWN_CATEGORY_KEYS.has(key);
+// Maps Norwegian category strings used by seed.products[].category and
+// shopping-list.service.CATEGORY_ORDER to enum keys for i18n. The
+// backend has not migrated to enum-keys yet (tracked in design-gaps.md);
+// this map lets the English UI show "Meat & fish" etc. without a
+// migration.
+const NORWEGIAN_CATEGORY_TO_KEY: Record<string, string> = {
+  'Kjøtt & fisk': 'meat',
+  Meieri: 'dairy',
+  'Frukt & grønt': 'produce',
+  'Brød & bakst': 'bakery',
+  'Tørrvarer & annet': 'dry_goods',
+  Drikkevarer: 'beverage',
+  Husholdning: 'household',
+  Barn: 'children',
+  'Personlig pleie': 'personal_care',
+  Kjøkken: 'kitchen',
+};
+
+function resolveCategoryKey(input: string): string | null {
+  if (KNOWN_CATEGORY_KEYS.has(input)) return input;
+  return NORWEGIAN_CATEGORY_TO_KEY[input] ?? null;
 }
 
 export function CategoryGroup({
@@ -60,9 +87,8 @@ export function CategoryGroup({
 }: CategoryGroupProps): JSX.Element {
   const { t } = useTranslation(['shopping']);
   const accent = useMemo(() => categoryAccent(category), [category]);
-  const displayCategory = isKnownCategoryKey(category)
-    ? t(`shopping:categories.${category}`)
-    : category;
+  const resolvedKey = resolveCategoryKey(category);
+  const displayCategory = resolvedKey ? t(`shopping:categories.${resolvedKey}`) : category;
 
   let remaining = 0;
   let remainingPriceSum = 0;
