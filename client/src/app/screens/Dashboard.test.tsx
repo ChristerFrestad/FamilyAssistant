@@ -73,7 +73,7 @@ const TODAY_DATA = {
     recipeId: 12,
     status: 'planned',
     notes: null,
-    recipe: { id: 12, title: 'Pasta carbonara', cookTime: 30, servings: 4 },
+    recipe: { id: 12, name: 'Pasta carbonara', category: 'rask', prepTime: '30 min', servings: 4 },
   },
   chores: [
     {

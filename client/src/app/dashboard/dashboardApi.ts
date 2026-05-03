@@ -28,11 +28,17 @@ export interface TodayMeal {
   recipeId: number | null;
   status: string;
   notes: string | null;
+  // Backend returns rows from the `recipes` table (see
+  // server/repositories/recipe.repo.js getById) — fields use the
+  // SQL column names (name, category) plus aliased prepTime /
+  // sourceType. We mirror that here so consumers can read the
+  // response without an extra mapping layer.
   recipe: {
     id: number;
-    title: string;
-    cookTime?: number;
-    servings?: number;
+    name: string;
+    category?: string | null;
+    prepTime?: string | null;
+    servings?: number | null;
   } | null;
 }
 
