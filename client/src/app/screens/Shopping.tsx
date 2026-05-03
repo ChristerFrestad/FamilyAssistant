@@ -38,6 +38,7 @@ import { ShoppingHeader } from '../components/shopping/ShoppingHeader';
 import { CategoryGroup } from '../components/shopping/CategoryGroup';
 import { QuickAddInput } from '../components/shopping/QuickAddInput';
 import { EmptyState } from '../components/shopping/EmptyState';
+import { RegenerateDialog } from '../components/shopping/RegenerateDialog';
 import { useShoppingData } from '../shopping/useShoppingData';
 import { PantryView } from '../components/pantry/PantryView';
 import { ShoppingViewToggle, readShoppingView } from '../components/pantry/ShoppingViewToggle';
@@ -80,6 +81,11 @@ function ShoppingListView(): JSX.Element {
   } = useShoppingData();
 
   const [generating, setGenerating] = useState(false);
+  // Confirmation dialog for the always-visible regenerate CTA. The
+  // EmptyState CTA (no-list variant) skips the dialog because there is
+  // nothing to lose; this one opens it because the user may have manual
+  // or bought items the merge will preserve, and they deserve a heads-up.
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
 
   // Currency formatter. Uses Intl per i18n.language to avoid hardcoded
   // separators (CLAUDE.md DEL 7.11). Norwegian uses NOK; en-US falls
@@ -113,6 +119,22 @@ function ShoppingListView(): JSX.Element {
     }
   };
 
+  // Handler for the always-visible regenerate CTA. Opens the
+  // confirmation dialog when an active list exists; otherwise behaves
+  // like the EmptyState CTA and goes straight through.
+  const handleRegenerateClick = (): void => {
+    if (hasActiveList) {
+      setRegenerateDialogOpen(true);
+    } else {
+      void handleGenerate();
+    }
+  };
+
+  const handleRegenerateConfirm = async (): Promise<void> => {
+    setRegenerateDialogOpen(false);
+    await handleGenerate();
+  };
+
   const isWeekIncomplete = userFacingError?.code === 'WEEK_NOT_COMPLETE';
 
   return (
@@ -127,6 +149,26 @@ function ShoppingListView(): JSX.Element {
         formatPrice={formatPrice}
         isEmpty={!hasActiveList || flatItems.length === 0}
       />
+
+      {/* Always-visible regenerate CTA. Hidden during loading/error and
+          while WEEK_NOT_COMPLETE is surfaced (that error renders its own
+          "open meals" CTA). For the no-list state the EmptyState
+          component already has the CTA, so we hide it here too — a
+          single CTA per state keeps the affordance unambiguous. */}
+      {!isLoading && error === null && !isWeekIncomplete && hasActiveList ? (
+        <div className="flex justify-end" data-testid="shopping-regenerate-row">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleRegenerateClick}
+            loading={generating}
+            data-testid="shopping-regenerate-cta"
+          >
+            {t('shopping:actions.regenerate')}
+          </Button>
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div
@@ -225,6 +267,13 @@ function ShoppingListView(): JSX.Element {
       <Link to="/meals" className="sr-only" aria-hidden="true" tabIndex={-1}>
         {t('shopping:actions.openMeals')}
       </Link>
+
+      <RegenerateDialog
+        open={regenerateDialogOpen}
+        onClose={() => setRegenerateDialogOpen(false)}
+        onConfirm={handleRegenerateConfirm}
+        loading={generating}
+      />
     </section>
   );
 }

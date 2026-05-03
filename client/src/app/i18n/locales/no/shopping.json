@@ -10,9 +10,21 @@
     "unmark": "Angre",
     "deleteBought": "Slett kjøpte",
     "generateFromMeals": "Generer fra ukens middager",
+    "regenerate": "Generer fra ukens middager",
     "openMeals": "Gå til ukens middager",
     "retry": "Prøv igjen",
     "dismissError": "Lukk"
+  },
+  "regenerateDialog": {
+    "title": "Generer handlelista på nytt?",
+    "description": "Vi tar med dine kjøpte varer og det du har lagt til manuelt. Nye ingredienser fra ukens middager legges til.",
+    "confirm": "Generer",
+    "cancel": "Avbryt"
+  },
+  "regenerate": {
+    "successPreserved_one": "Handlelista er oppdatert. {{preservedCount}} vare beholdt.",
+    "successPreserved_other": "Handlelista er oppdatert. {{preservedCount}} varer beholdt.",
+    "successFresh": "Handlelista er oppdatert."
   },
   "empty": {
     "default": "Handlelisten er tom",

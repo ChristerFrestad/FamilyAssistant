@@ -6,6 +6,55 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Shopping list smart-merge auto-generation + manual regenerate CTA (2026-05-03)
+
+**Pilot blocker fix.** Christer planned dinners via the picker but the
+shopping list never picked up the ingredients. Diagnosis: the
+auto-trigger in `routes.js maybeAutogenerateShoppingList` bailed out
+when an active list already existed — even when that list was stale
+relative to the current meal plan.
+
+**Added**
+
+- `server/services/shopping-list.service.js`: smart-merge mode for
+  `generateForWeek`. Preserves any item the user has interacted
+  with (rows with `bought_at` set + manual/extra rows) and adds
+  fresh meal-ingredient + consumable rows from the current meal
+  plan. Dedupes by `(sourceType, productKey/name, unit)` so the
+  user never sees a duplicate of something they already bought.
+  Idempotent.
+- `server/routes.js`: `POST /api/shopping/generate` accepts a new
+  `mode` field (`'merge'` default, `'replace'` for the legacy
+  wipe behavior). Body schema updated.
+- `server/routes.js maybeAutogenerateShoppingList` now uses merge-mode
+  on every meal swap. The pre-existing-active-list early-return
+  was removed — that gate is the bug we're fixing.
+- `client/src/app/components/shopping/RegenerateDialog.tsx`: new
+  confirmation dialog for the regenerate CTA.
+- `client/src/app/screens/Shopping.tsx`: always-visible
+  "Generer fra ukens middager" CTA above the list when an active
+  list exists. Opens the new dialog before firing the API call.
+  EmptyState's existing CTA stays — a single CTA per state keeps
+  the affordance unambiguous.
+- `client/src/app/i18n/locales/{no,en}/shopping.json`:
+  `actions.regenerate`, `regenerateDialog.{title,description,
+  confirm,cancel}`, `regenerate.success*` keys for both languages.
+- `docs/DOMAIN_MODEL.md`: BR-003 documents the smart-merge
+  preservation contract.
+- `docs/workflow/post-pilot-roadmap.md`: two new post-pilot
+  features Christer flagged during pilot — product packaging
+  awareness and pantry-aware recipe suggestions. Logged here so
+  they don't disappear into chat history; not implemented in this
+  PR.
+- `tests/shopping-smart-merge.test.js`: 9 backend tests covering
+  preserved bought rows, preserved manual rows, dedup against
+  bought, replace-mode wipe, auto-trigger via PUT /api/meals/swap,
+  and the new `mode` field on the generate endpoint.
+- `RegenerateDialog.test.tsx` + Shopping screen integration tests
+  (5 new) covering CTA visibility states, dialog open/cancel/
+  confirm flows, and that confirm fires the API call while
+  cancel does not.
+
 ### Hotfix — migration 024 startup blocker (2026-05-03)
 
 **Critical:** Backend startup failed for any DB that had pre-existing rows

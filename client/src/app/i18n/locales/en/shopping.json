@@ -10,9 +10,21 @@
     "unmark": "Undo",
     "deleteBought": "Delete bought items",
     "generateFromMeals": "Generate from this week's meals",
+    "regenerate": "Generate from this week's meals",
     "openMeals": "Open this week's meals",
     "retry": "Try again",
     "dismissError": "Dismiss"
+  },
+  "regenerateDialog": {
+    "title": "Regenerate shopping list?",
+    "description": "We keep your bought items and anything you added manually. New ingredients from this week's meals are added.",
+    "confirm": "Regenerate",
+    "cancel": "Cancel"
+  },
+  "regenerate": {
+    "successPreserved_one": "Shopping list updated. {{preservedCount}} item kept.",
+    "successPreserved_other": "Shopping list updated. {{preservedCount}} items kept.",
+    "successFresh": "Shopping list updated."
   },
   "empty": {
     "default": "Shopping list is empty",
