@@ -63,7 +63,12 @@
     "recipeOne": "Til {{name}}",
     "recipeMany_one": "Til {{count}} måltid",
     "recipeMany_other": "Til {{count}} måltider",
-    "unknown": "Ukjent vare"
+    "unknown": "Ukjent vare",
+    "packCount_one": "{{count}} pakke ({{packSize}})",
+    "packCount_other": "{{count}} pakker ({{packSize}})",
+    "packCountUnit_one": "{{count}} {{unit}}",
+    "packCountUnit_other": "{{count}} {{unit}}",
+    "youNeed": "Du trenger {{qty}}"
   },
   "quickAdd": {
     "placeholder": "Hva trenger du?",

@@ -14,6 +14,11 @@
 
 import { useTranslation } from 'react-i18next';
 import type { ShoppingItem } from '../../shopping/shoppingApi';
+import {
+  formatQtyWithUnit,
+  hasUsablePackInfo,
+  shouldShowYouNeedLine,
+} from '../../shopping/packDisplay';
 
 export interface ShoppingItemRowProps {
   item: ShoppingItem;
@@ -48,11 +53,34 @@ function recipeTooltip(meals: string[] | null | undefined): string | undefined {
   return list.join(', ');
 }
 
-function formatQty(qty: number | null, unit: string | null): string {
-  if (qty == null && !unit) return '';
-  if (qty != null && unit) return `${qty} ${unit}`;
-  if (qty != null) return String(qty);
-  return unit || '';
+/**
+ * Build the pack-info line shown under the row name. Three shapes
+ * depending on what backend gives us (pilot 2026-05-03):
+ *
+ *   1. Useful pack data: "1 pakke (500 g)" or "2 pakker (1.5 kg)" — also
+ *      collapses to "3 stk" when pack_size === 1 and pack_unit is a
+ *      count unit (no value in saying "3 pakker (1 stk)").
+ *   2. No pack data, but qty is set: fall back to "qty unit" (legacy
+ *      shape) — manual + extra rows land here.
+ *   3. Nothing: empty string. Caller hides the meta row entirely.
+ */
+function packDisplayLine(item: ShoppingItem, t: ReturnType<typeof useTranslation>['t']): string {
+  if (!hasUsablePackInfo(item)) {
+    return formatQtyWithUnit(item.qty ?? null, item.unit ?? null);
+  }
+  const count = item.packCount as number;
+  const packSize = item.packSize as number;
+  const packUnit = item.packUnit as string;
+
+  // Collapse "1 pakke (1 stk)" to "1 stk" — saying "pack" when the
+  // pack is the unit itself adds no information.
+  const isCountUnit = ['stk', 'pk', 'fedd', 'boks', 'pose'].includes(packUnit.toLowerCase().trim());
+  if (isCountUnit && packSize === 1) {
+    return t('shopping:item.packCountUnit', { count, unit: packUnit });
+  }
+
+  const packSizeStr = formatQtyWithUnit(packSize, packUnit);
+  return t('shopping:item.packCount', { count, packSize: packSizeStr });
 }
 
 const ROW_BASE = [
@@ -84,7 +112,7 @@ export function ShoppingItemRow({
   const displayName: string =
     item.name || item.ingredientNameNo || item.ingredientName || t('shopping:item.unknown');
   const checked = !!item.checkedOff;
-  const qtyText = formatQty(item.qty ?? null, item.unit ?? null);
+  const packLine = packDisplayLine(item, t);
   const meta = recipeLabel(item.mealsJson, t);
   const metaTip = recipeTooltip(item.mealsJson);
   const showPrice = typeof item.estPrice === 'number' && item.estPrice > 0;
@@ -92,6 +120,13 @@ export function ShoppingItemRow({
     ? formatPrice
       ? formatPrice(item.estPrice as number)
       : `${item.estPrice} kr`
+    : null;
+  // "You need X" sub-line — only when the recipe consumes less than a
+  // full pack and the row is recipe-driven. Surfaces the leftover-as-
+  // pantry framing the pilot wants to highlight.
+  const showYouNeed = shouldShowYouNeedLine(item, item.sourceType);
+  const youNeedText = showYouNeed
+    ? t('shopping:item.youNeed', { qty: formatQtyWithUnit(item.qty ?? null, item.unit ?? null) })
     : null;
 
   return (
@@ -139,15 +174,26 @@ export function ShoppingItemRow({
         >
           {displayName}
         </div>
-        {(qtyText || meta) && (
-          <div className="flex items-center gap-1.5 truncate font-body text-meta text-text-3">
-            {qtyText && <span>{qtyText}</span>}
-            {qtyText && meta && <span aria-hidden="true">·</span>}
+        {(packLine || meta) && (
+          <div
+            className="flex items-center gap-1.5 truncate font-body text-meta text-text-3"
+            data-testid={`shopping-item-pack-line-${item.id}`}
+          >
+            {packLine && <span>{packLine}</span>}
+            {packLine && meta && <span aria-hidden="true">·</span>}
             {meta && (
               <span className="italic" title={metaTip}>
                 {meta}
               </span>
             )}
+          </div>
+        )}
+        {youNeedText && (
+          <div
+            className="font-body text-meta text-text-3"
+            data-testid={`shopping-item-you-need-${item.id}`}
+          >
+            {youNeedText}
           </div>
         )}
         {item.notes === 'auto:low-stock' ? (

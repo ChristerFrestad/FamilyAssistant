@@ -63,7 +63,12 @@
     "recipeOne": "For {{name}}",
     "recipeMany_one": "For {{count}} meal",
     "recipeMany_other": "For {{count}} meals",
-    "unknown": "Unknown item"
+    "unknown": "Unknown item",
+    "packCount_one": "{{count}} pack ({{packSize}})",
+    "packCount_other": "{{count}} packs ({{packSize}})",
+    "packCountUnit_one": "{{count}} {{unit}}",
+    "packCountUnit_other": "{{count}} {{unit}}",
+    "youNeed": "You need {{qty}}"
   },
   "quickAdd": {
     "placeholder": "What do you need?",
