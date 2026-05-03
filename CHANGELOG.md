@@ -6,6 +6,43 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Hotfix — migration 024 startup blocker (2026-05-03)
+
+**Critical:** Backend startup failed for any DB that had pre-existing rows
+in `meal_plans` referencing `recipes.id`. Migration 024 rebuilds the
+`recipes` table; with `PRAGMA foreign_keys = ON`, SQLite blocks `DROP TABLE
+recipes` whenever another table holds an incoming FK reference, even when
+the rebuild dance immediately recreates the table with the same IDs.
+
+**Fixed**
+
+- `server/migrations/index.js` now toggles `PRAGMA foreign_keys = OFF`
+  around each migration transaction (per SQLite's
+  [official ALTER guidance](https://sqlite.org/lang_altertable.html#otheralter))
+  and runs `PRAGMA foreign_key_check` inside the transaction before
+  committing. Genuine orphan-row data bugs still abort with rollback;
+  table rebuilds with intact data succeed. The pragma is restored to ON
+  in a `finally` block so a crashed migration cannot leave the DB
+  unprotected.
+- New regression suite `tests/migration-runner-fk-aware.test.js` covers
+  the parent-rebuild-with-incoming-FK case, the orphan-detection path,
+  and idempotency.
+
+**Added**
+
+- `scripts/diagnose-orphans.js` — read-only diagnostic that inspects a
+  given DB for FK violations, family-id orphans, and per-table row
+  counts. Useful for pre-deploy verification on user databases.
+
+**Why this matters**
+
+Before this fix, anyone with `meal_plans` rows in their DB could not
+upgrade past migration 023 — backend startup ran migrations
+automatically, which threw, which prevented the repair script
+(`scripts/repair-orphan-family-seed.js`) from even being able to
+connect. After this fix, migrations apply cleanly; the repair script
+runs against a healthy schema.
+
 ### Sprint 6 finalize — smart-coupling Pantry · Meals · Shopping (2026-05-02)
 
 **Closes the core value-chain for pilot.** Cooking a meal now leads
