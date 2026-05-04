@@ -28,6 +28,7 @@ const PUBLIC_PATHS = new Set([
   '/ready',
   '/metrics',
   '/privacy.html',
+  '/privacy-en.html',
   '/terms.html',
   '/login.html',
   '/invite.html',

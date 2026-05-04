@@ -20,6 +20,7 @@ const { PUBLIC_PATHS } = require('../server/auth/middleware');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const PRIVACY = fs.readFileSync(path.join(PUBLIC, 'privacy.html'), 'utf8');
+const PRIVACY_EN = fs.readFileSync(path.join(PUBLIC, 'privacy-en.html'), 'utf8');
 const TERMS = fs.readFileSync(path.join(PUBLIC, 'terms.html'), 'utf8');
 const INDEX = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 const LOGIN = fs.readFileSync(path.join(PUBLIC, 'login.html'), 'utf8');
@@ -40,6 +41,26 @@ describe('Phase 16 · Statisk innhold', () => {
     assert.ok(/<h2>.*Hvilke data/i.test(PRIVACY));
     assert.ok(/<h2>.*Tredjeparts-prosessorer/i.test(PRIVACY));
     assert.ok(/<h2>.*Dine rettigheter/i.test(PRIVACY));
+  });
+
+  test('privacy.html har language-toggle til engelsk versjon', () => {
+    assert.ok(/href=["']\/privacy-en\.html["']/.test(PRIVACY));
+  });
+
+  test('privacy.html har ikke lenger Backblaze B2 eller Google OAuth som aktive prosessorer', () => {
+    assert.ok(!/<td>Backblaze B2<\/td>/.test(PRIVACY));
+    assert.ok(!/<td>Google OAuth<\/td>/.test(PRIVACY));
+  });
+
+  test('privacy-en.html finnes og har English seksjoner', () => {
+    assert.ok(PRIVACY_EN.includes('<h1>Privacy Policy</h1>'));
+    assert.ok(/<h2>.*What data we collect/i.test(PRIVACY_EN));
+    assert.ok(/<h2>.*Third-party processors/i.test(PRIVACY_EN));
+    assert.ok(/<h2>.*Your rights/i.test(PRIVACY_EN));
+  });
+
+  test('privacy-en.html har language-toggle tilbake til norsk', () => {
+    assert.ok(/href=["']\/privacy\.html["']/.test(PRIVACY_EN));
   });
 });
 
@@ -68,6 +89,10 @@ describe('Phase 16 · PUBLIC_PATHS middleware', () => {
     assert.ok(PUBLIC_PATHS.has('/privacy.html'));
     assert.ok(PUBLIC_PATHS.has('/terms.html'));
   });
+
+  test('PUBLIC_PATHS inkluderer /privacy-en.html (engelsk versjon)', () => {
+    assert.ok(PUBLIC_PATHS.has('/privacy-en.html'));
+  });
 });
 
 describe('Phase 16 · Live server serves static pages anonymously', () => {
@@ -83,6 +108,12 @@ describe('Phase 16 · Live server serves static pages anonymously', () => {
     const r = await request(server.baseUrl, 'GET', '/privacy.html');
     assert.strictEqual(r.status, 200);
     assert.match(String(r.raw), /<h1>Personvernerklæring<\/h1>/);
+  });
+
+  test('GET /privacy-en.html → 200 uten auth', async () => {
+    const r = await request(server.baseUrl, 'GET', '/privacy-en.html');
+    assert.strictEqual(r.status, 200);
+    assert.match(String(r.raw), /<h1>Privacy Policy<\/h1>/);
   });
 
   test('GET /terms.html → 200 uten auth', async () => {
