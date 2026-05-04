@@ -129,3 +129,39 @@ detail. It is NOT a real audit entry. Real entries start in the
   `../app/App` produced zero ESLint output. Probes were deleted
   immediately after verification (the `__isolation_probe.ts`
   filename is gitignored from Phase 1b.1 as a safety net).
+
+### 2026-05-04 09:30 (CEST) — eslint.config.mjs
+
+- **Commit SHA:** see `git log --grep="exclude built bundle"` on
+  `chore/eslint-config-public-bundle`. SHA-independent pattern as
+  in earlier entries.
+- **File edited:** `eslint.config.mjs`
+- **Authorizing prompt (verbatim short quote):**
+  > "PR A1: ESLint config fix... Legg til public/v2/** i
+  > eslint.config.mjs ignores"
+- **Why this change was needed:** `npm run lint` produced 342
+  problems (341 errors, 1 warning). 326 errors came from the
+  Vite-built bundle `public/v2/assets/main-Dx0p-2Q5.js` (browser
+  globals like `window`, `document`, `fetch` flagged as undefined
+  because the file matches no `files`-block and falls back to
+  default `js.configs.recommended`). The remaining ~15 false
+  positives came from Christer's transient root-level diagnostic
+  scripts `db-check.js` and `db-pantry-check.js` (CommonJS
+  globals `require`, `console` flagged for the same reason).
+  Both categories are noise — the bundle is generated output and
+  the diagnostic scripts are ad-hoc tools that change between
+  sessions. Drowning the developer in 341 false positives
+  obscures the single real warning in `ErrorBoundary.tsx`.
+- **What changed (one-line summary):** Added two glob entries to
+  the existing top-level `ignores` array in `eslint.config.mjs`:
+  `public/v2/**` (covers the entire built v2 bundle, hash-stable)
+  and `db-*.js` (covers root-level diagnostic scripts now and in
+  the future).
+- **Reverse-change risk:** Low. The change is purely additive to
+  the `ignores` array — it removes lint coverage from generated
+  bundle output and ad-hoc diagnostic scripts that should not
+  have been linted in the first place. No `files`-blocks are
+  changed, so all real source code (`server/**`, `scripts/**`,
+  `tests/**`, `client/src/**`, `public/sw.js`) continues to be
+  linted exactly as before. Reverting is one-line; no follow-on
+  cleanup needed.

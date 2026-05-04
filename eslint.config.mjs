@@ -17,7 +17,9 @@ export default [
       'coverage/**',
       'public/index.html',
       'public/dist/**',
+      'public/v2/**',
       '.claude/**',
+      'db-*.js',
     ],
   },
 
