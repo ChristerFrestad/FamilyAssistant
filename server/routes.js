@@ -252,6 +252,51 @@ function registerRoutes(router, { repos, serverState }) {
     });
   });
 
+  // Admin-only detailed health snapshot. Combines /health, /ready and
+  // a few extras useful for the post-pilot admin UI without exposing
+  // them to the public probe. Returns 403 for non-admin users.
+  router.get('/health/detailed', (ctx) => {
+    if (!ctx.user || !ctx.user.is_admin) {
+      throw errors.forbidden('Admin role required.');
+    }
+    let migrationCount = 0;
+    let activeUsers24h = 0;
+    let kassalApiKeyConfigured = false;
+    try {
+      migrationCount = repos._db.prepare('SELECT COUNT(*) AS cnt FROM schema_migrations').get().cnt;
+    } catch {
+      /* table may not exist on first boot */
+    }
+    try {
+      activeUsers24h = repos._db
+        .prepare(
+          `SELECT COUNT(DISTINCT user_id) AS cnt FROM sessions
+             WHERE last_seen_at >= datetime('now', '-24 hours')`
+        )
+        .get().cnt;
+    } catch {
+      /* sessions table may have schema variance */
+    }
+    try {
+      kassalApiKeyConfigured = !!process.env.KASSAL_API_KEY;
+    } catch {
+      /* ignore */
+    }
+    ctx.json({
+      status: 'ok',
+      version: require('../package.json').version,
+      nodeEnv: process.env.NODE_ENV || 'production',
+      uptimeSec: Math.round((Date.now() - serverState.startedAt) / 1000),
+      memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      pid: process.pid,
+      migrationCount,
+      activeUsers24h,
+      kassalApiKeyConfigured,
+      pilotMode: !!process.env.PILOT_MODE,
+      magicLinkConsole: !!process.env.MAGIC_LINK_CONSOLE,
+    });
+  });
+
   router.get('/ready', (ctx) => {
     // M4.2: utvidet ready-sjekk med dependency + kapasitet-signaler
     const checks = { server: serverState.ready, repos: repos !== null };
