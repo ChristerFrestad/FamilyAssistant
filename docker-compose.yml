@@ -95,6 +95,27 @@ services:
       # Absolute URL the server uses when building e.g. magic-link verify
       # URLs. Leave empty for LAN-only pilot deploys (URLs stay relative).
       APP_URL: ${APP_URL:-}
+      # Sprint 7 / pilot 13–17 May 2026. Pre-auth password gate (Christer
+      # sets PILOT_MODE=true and PILOT_PASSWORD in Portainer for the
+      # pilot window; both unset post-pilot to disable the gate). See
+      # docs/analyses/2026-05-04-pilot-password-protection.md.
+      PILOT_MODE: ${PILOT_MODE:-false}
+      PILOT_PASSWORD: ${PILOT_PASSWORD:-}
+      # Admin bootstrap. When set, the user whose email matches becomes
+      # admin (is_admin=1) on first onboarding. Unset → first user wins.
+      # See docs/analyses/2026-05-04-admin-role-bootstrap.md.
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-}
+      # Email delivery via Resend. Required for magic-link in production.
+      # When unset (or MAGIC_LINK_CONSOLE=true), magic-links print to the
+      # container log instead.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+      # Kassal price-comparison. Optional opt-in; when unset the enricher
+      # runs in no-op mode. Activates post-pilot per audit § C3.
+      KASSAL_API_KEY: ${KASSAL_API_KEY:-}
+      # White-label override (Hverdagsplanleggeren for Christer's pilot).
+      # Defaults to "FamilyAssistant" if unset.
+      APP_NAME: ${APP_NAME:-FamilyAssistant}
     # Resource limits — sized for an RPi5 4 GB host.
     deploy:
       resources:
