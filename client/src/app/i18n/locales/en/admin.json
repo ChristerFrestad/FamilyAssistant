@@ -1,0 +1,11 @@
+{
+  "section": {
+    "title": "Admin",
+    "description": "You are administrator of this app",
+    "openPanel": "Open admin panel"
+  },
+  "panel": {
+    "title": "Admin panel",
+    "comingSoon": "More functionality coming post-pilot"
+  }
+}

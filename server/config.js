@@ -80,6 +80,13 @@ const envSchema = z.object({
   PILOT_COOKIE_NAME: z.string().default('fa_pilot'),
   PILOT_COOKIE_TTL_DAYS: z.coerce.number().int().positive().default(30),
 
+  // Admin bootstrap (Sprint 7). When set, the user whose email matches
+  // becomes admin (is_admin=1) on first onboarding. If left unset, the
+  // first user to onboard is auto-promoted. Either path runs exactly
+  // once — see server/services/admin-bootstrap.service.js and the
+  // app_setup table (migration 027).
+  APP_ADMIN_EMAIL: z.string().optional(),
+
   // LLM
   LLM_BACKEND: z.enum(['ollama', 'llamacpp']).default('ollama'),
   OLLAMA_HOST: z.string().default('http://localhost:11434'),

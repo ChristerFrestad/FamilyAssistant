@@ -28,6 +28,7 @@ const {
 const { isEmailConfigured } = require('../services/email.service');
 const pilotPasswordService = require('../services/pilot-password.service');
 const { getClientIp } = require('../http/security');
+const adminBootstrap = require('../services/admin-bootstrap.service');
 
 const OAUTH_STATE_COOKIE = 'fa_oauth_state';
 const OAUTH_STATE_TTL_SECONDS = 600; // 10 minutes
@@ -206,7 +207,38 @@ function handleMe(ctx) {
       // user belongs in the onboarding flow or in the main app.
       onboardingCompleted: !!ctx.user.onboarding_completed,
       synthetic: !!ctx.user._synthetic,
+      isAdmin: !!ctx.user.is_admin,
     },
+  };
+}
+
+// ============================================================
+// Admin endpoints (skeleton — full UI lands post-pilot)
+// ============================================================
+
+function handleAdminMe(ctx) {
+  if (!ctx.user || !ctx.user.is_admin) {
+    throw errors.forbidden('Admin role required.');
+  }
+  return {
+    isAdmin: true,
+    userId: ctx.user.id,
+    email: ctx.user.email,
+    promotedAt: ctx.user.promoted_at || null,
+    promotedByUserId: ctx.user.promoted_by_user_id || null,
+  };
+}
+
+function handleAdminSetup(ctx, repos) {
+  if (!ctx.user || !ctx.user.is_admin) {
+    throw errors.forbidden('Admin role required.');
+  }
+  const setup = adminBootstrap.getAppSetup(repos._db);
+  return {
+    bootstrapped: setup !== null,
+    method: setup?.bootstrap_method || null,
+    adminUserId: setup?.admin_user_id || null,
+    bootstrappedAt: setup?.bootstrapped_at || null,
   };
 }
 
@@ -323,8 +355,19 @@ function handleOnboardingComplete(ctx, repos) {
           }).slice(0, 2000)
         );
 
+      // 6. Admin bootstrap. If APP_ADMIN_EMAIL matches the onboarding
+      //    email (or the env-var is unset and no admin exists yet),
+      //    flip is_admin=1 and persist the app_setup row. Idempotent:
+      //    once the bootstrap row exists this is a no-op for every
+      //    subsequent onboarding.
+      const adminDecision = adminBootstrap.bootstrapAdminIfNeeded({
+        db: repos._db,
+        userId,
+        userEmail: ctx.user.email,
+      });
+
       const updatedUser = repos.auth.findById(userId);
-      result = { newFamily, member, updatedUser };
+      result = { newFamily, member, updatedUser, adminDecision };
     });
     tx();
   } catch (err) {
@@ -556,6 +599,8 @@ function registerAuthRoutes(router, { repos }) {
   router.delete('/api/auth/sessions/:id', (ctx) => handleDeleteSession(ctx, repos));
   router.get('/api/pilot/status', (ctx) => handlePilotStatus(ctx));
   router.post('/api/auth/pilot-password', (ctx) => handlePilotPassword(ctx, repos));
+  router.get('/api/admin/me', (ctx) => handleAdminMe(ctx));
+  router.get('/api/admin/setup', (ctx) => handleAdminSetup(ctx, repos));
 }
 
 module.exports = {

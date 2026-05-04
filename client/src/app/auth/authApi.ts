@@ -40,6 +40,7 @@ export interface AuthUser {
   profileMemberId: number | null;
   onboardingCompleted: boolean;
   synthetic: boolean;
+  isAdmin?: boolean;
 }
 
 export interface MeResponse {
