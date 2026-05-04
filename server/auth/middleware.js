@@ -87,7 +87,26 @@ function constantTimeEquals(a, b) {
 }
 
 function isPublicPath(pathname) {
-  return PUBLIC_PATHS.has(pathname);
+  if (PUBLIC_PATHS.has(pathname)) return true;
+  // V2 React SPA shell + static assets are ALWAYS public — frontend
+  // Guards (PilotGuard, AuthGuard, OnboardingGuard) handle auth state
+  // once the bundle loads. Without this, a deploy with AUTH_TOKEN set
+  // (any prod deploy) would 401 the bundle before the gate can render
+  // and lock every visitor out of the app.
+  if (pathname === '/v2' || pathname === '/v2/' || pathname === '/v2/index.html') {
+    return true;
+  }
+  if (pathname.startsWith('/v2/assets/')) return true;
+  // Pilot-gate bootstrap endpoints. These must reach their handlers
+  // without the auth chain rejecting them — they are how the gate
+  // becomes solvable for an anonymous visitor in the first place.
+  // The handlers themselves enforce rate-limit + password validation.
+  // When PILOT_MODE=false these endpoints still respond cleanly:
+  // /api/pilot/status returns { pilotMode: false } and
+  // /api/auth/pilot-password returns 503 pilot_disabled.
+  if (pathname === '/api/pilot/status') return true;
+  if (pathname === '/api/auth/pilot-password') return true;
+  return false;
 }
 
 function isPilotGateBypassPath(pathname) {
