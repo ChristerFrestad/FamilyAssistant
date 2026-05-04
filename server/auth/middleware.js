@@ -38,6 +38,22 @@ const PUBLIC_PATHS = new Set([
   '/setup.html',
 ]);
 
+// Sprint 7 / pre-pilot — paths that bypass the pilot-password gate.
+// These are the paths a visitor needs to reach BEFORE entering the
+// pilot password (the gate page itself, the status check that tells
+// the React app whether the gate is needed, the password submission
+// endpoint, and the public legal pages). All other paths require a
+// valid pilot cookie when PILOT_MODE=true.
+const PILOT_GATE_BYPASS_PATHS = new Set([
+  '/api/pilot/status',
+  '/api/auth/pilot-password',
+  '/health',
+  '/ready',
+  '/privacy.html',
+  '/privacy-en.html',
+  '/terms.html',
+]);
+
 // Paths that never require authentication but DO try to resolve the user if a
 // cookie/token is present. Handlers here can behave differently for
 // logged-in vs anonymous visitors (e.g. /api/auth/me returns the current user
@@ -74,6 +90,44 @@ function isPublicPath(pathname) {
   return PUBLIC_PATHS.has(pathname);
 }
 
+function isPilotGateBypassPath(pathname) {
+  if (PILOT_GATE_BYPASS_PATHS.has(pathname)) return true;
+  // The v2 React app's static assets must load so the gate UI can
+  // render. /v2/index.html (the entry HTML) and /v2/assets/* (the
+  // built bundle + fonts) need to be reachable before the gate is
+  // satisfied. The gate's HTTP response will short-circuit
+  // /api/* calls until the cookie is set.
+  if (pathname === '/v2/' || pathname === '/v2/index.html') return true;
+  if (pathname.startsWith('/v2/assets/')) return true;
+  return false;
+}
+
+function isPilotAuthenticated(req) {
+  const pilotPasswordService = require('../services/pilot-password.service');
+  if (!pilotPasswordService.isPilotEnabled()) return true;
+  const cookies = parseCookies(req.headers.cookie);
+  const value = cookies[config.PILOT_COOKIE_NAME];
+  return pilotPasswordService.isPilotCookieValid(value);
+}
+
+function enforcePilotGate(ctx) {
+  const pilotPasswordService = require('../services/pilot-password.service');
+  if (!pilotPasswordService.isPilotEnabled()) return;
+  if (isPilotGateBypassPath(ctx.pathname)) return;
+  if (isPilotAuthenticated(ctx.req)) return;
+  // For API calls return JSON 403 so the React client can show the
+  // gate without trying to parse an HTML response.
+  if (ctx.pathname.startsWith('/api/')) {
+    throw errors.forbidden('Pilot password required.');
+  }
+  // For HTML / asset paths outside /v2/ (legacy SPA pages, etc.) the
+  // simplest behaviour is to redirect into the v2 app where the gate
+  // component renders. The gate runs before any React route and
+  // covers the full visible surface.
+  ctx.res.writeHead(302, { Location: '/v2/' });
+  ctx.res.end();
+}
+
 function isSoftAuthPath(pathname) {
   if (SOFT_AUTH_PATHS_EXACT.has(pathname)) return true;
   for (const prefix of SOFT_AUTH_PATH_PREFIXES) {
@@ -99,6 +153,12 @@ function attachSessionUser(ctx, user, sessionId) {
 
 function createAuthenticate(repos) {
   return function authenticate(ctx) {
+    // Pilot gate runs FIRST. If PILOT_MODE is on and the visitor has
+    // not entered the password, this short-circuits the response so
+    // the rest of the auth chain never sees the request.
+    enforcePilotGate(ctx);
+    if (ctx.res.writableEnded) return;
+
     if (isPublicPath(ctx.pathname)) return;
 
     const soft = isSoftAuthPath(ctx.pathname);
@@ -188,7 +248,11 @@ module.exports = {
   hasRole,
   isPublicPath,
   isSoftAuthPath,
+  isPilotGateBypassPath,
+  isPilotAuthenticated,
+  enforcePilotGate,
   PUBLIC_PATHS,
+  PILOT_GATE_BYPASS_PATHS,
   SOFT_AUTH_PATH_PREFIXES,
   SOFT_AUTH_PATHS_EXACT,
   LOCAL_USER,

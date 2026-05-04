@@ -28,6 +28,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { OnboardingGuard } from './components/auth/OnboardingGuard';
+import { PilotGuard } from './components/auth/PilotGuard';
 import { OnboardingProvider } from './auth/OnboardingContext';
 import { ThemeProvider } from './theme/ThemeContext';
 import { AppShell } from './components/layout/AppShell';
@@ -49,7 +50,9 @@ import { UserProfile } from './screens/auth/UserProfile';
 export default function App(): JSX.Element {
   return (
     <ThemeProvider>
-      <AppRoutes />
+      <PilotGuard>
+        <AppRoutes />
+      </PilotGuard>
     </ThemeProvider>
   );
 }

@@ -26,6 +26,8 @@ const {
   redirectTargetForUser,
 } = require('./magic-link');
 const { isEmailConfigured } = require('../services/email.service');
+const pilotPasswordService = require('../services/pilot-password.service');
+const { getClientIp } = require('../http/security');
 
 const OAUTH_STATE_COOKIE = 'fa_oauth_state';
 const OAUTH_STATE_TTL_SECONDS = 600; // 10 minutes
@@ -448,6 +450,90 @@ async function handlePilotLogin(ctx, repos) {
 }
 
 // ============================================================
+// Pilot password gate (Sprint 7 / pre-pilot)
+// ============================================================
+
+function readPilotCookie(req) {
+  const cookies = parseCookies(req.headers.cookie);
+  return cookies[config.PILOT_COOKIE_NAME] || null;
+}
+
+function setPilotCookie(res, value, maxAgeSeconds) {
+  appendSetCookie(
+    res,
+    serializeCookie(config.PILOT_COOKIE_NAME, value, {
+      maxAge: maxAgeSeconds,
+      httpOnly: true,
+      secure: config.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      path: '/',
+    })
+  );
+}
+
+function handlePilotStatus(ctx) {
+  const enabled = pilotPasswordService.isPilotEnabled();
+  const cookie = readPilotCookie(ctx.req);
+  const authenticated = enabled ? pilotPasswordService.isPilotCookieValid(cookie) : true;
+  ctx.res.writeHead(200, { 'Content-Type': 'application/json' });
+  ctx.res.end(
+    JSON.stringify({
+      pilotMode: enabled,
+      pilotAuthenticated: authenticated,
+    })
+  );
+}
+
+function handlePilotPassword(ctx, repos) {
+  const ip = getClientIp(ctx.req);
+  const userAgent = ctx.req.headers['user-agent'] || null;
+  const password = ctx.body?.password;
+
+  const result = pilotPasswordService.verifyPassword({
+    ip,
+    userAgent,
+    password,
+    repos,
+  });
+
+  if (result.ok) {
+    setPilotCookie(ctx.res, result.cookieValue, result.cookieMaxAgeSeconds);
+    ctx.res.writeHead(200, { 'Content-Type': 'application/json' });
+    ctx.res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (result.code === 'rate_limited') {
+    const retryAfter = Math.ceil((result.retryAfterMs || 0) / 1000);
+    ctx.res.setHeader('Retry-After', String(retryAfter));
+    ctx.res.writeHead(429, { 'Content-Type': 'application/json' });
+    ctx.res.end(
+      JSON.stringify({
+        ok: false,
+        code: 'rate_limited',
+        retryAfterSeconds: retryAfter,
+      })
+    );
+    return;
+  }
+
+  if (result.code === 'pilot_disabled') {
+    ctx.res.writeHead(503, { 'Content-Type': 'application/json' });
+    ctx.res.end(JSON.stringify({ ok: false, code: 'pilot_disabled' }));
+    return;
+  }
+
+  ctx.res.writeHead(401, { 'Content-Type': 'application/json' });
+  ctx.res.end(
+    JSON.stringify({
+      ok: false,
+      code: 'wrong_password',
+      attemptsRemaining: result.attemptsRemaining,
+    })
+  );
+}
+
+// ============================================================
 // Registration
 // ============================================================
 
@@ -468,6 +554,8 @@ function registerAuthRoutes(router, { repos }) {
   router.post('/api/auth/logout-all', (ctx) => handleLogoutAll(ctx, repos));
   router.get('/api/auth/sessions', (ctx) => handleListSessions(ctx, repos));
   router.delete('/api/auth/sessions/:id', (ctx) => handleDeleteSession(ctx, repos));
+  router.get('/api/pilot/status', (ctx) => handlePilotStatus(ctx));
+  router.post('/api/auth/pilot-password', (ctx) => handlePilotPassword(ctx, repos));
 }
 
 module.exports = {
