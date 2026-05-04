@@ -149,19 +149,19 @@ export function Settings(): JSX.Element {
               label={t('settings:family.timezone.label')}
               description={t('settings:family.timezone.description')}
               disabled
-              badge={t('settings:badge.sprint6')}
+              badge={t('settings:badge.postPilot')}
             />
             <SettingsRow
               label={t('settings:family.mealTimes.label')}
               description={t('settings:family.mealTimes.description')}
               disabled
-              badge={t('settings:badge.sprint7')}
+              badge={t('settings:badge.postPilot')}
             />
             <SettingsRow
               label={t('settings:family.gamification.label')}
               description={t('settings:family.gamification.description')}
               disabled
-              badge={t('settings:badge.sprint6')}
+              badge={t('settings:badge.postPilot')}
             />
           </SettingsSection>
 
@@ -176,7 +176,7 @@ export function Settings(): JSX.Element {
               label={t('settings:user.pushNotifications.label')}
               description={t('settings:user.pushNotifications.description')}
               disabled
-              badge={t('settings:badge.requiresResend')}
+              badge={t('settings:badge.postPilot')}
             />
           </SettingsSection>
 

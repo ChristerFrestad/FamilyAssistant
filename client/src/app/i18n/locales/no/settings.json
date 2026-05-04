@@ -16,7 +16,8 @@
   "badge": {
     "sprint6": "Kommer i Sprint 6",
     "sprint7": "Kommer i Sprint 7",
-    "requiresResend": "Krever Resend (Sprint 7)"
+    "requiresResend": "Krever Resend (Sprint 7)",
+    "postPilot": "Kommer post-pilot"
   },
   "system": {
     "language": {

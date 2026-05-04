@@ -16,7 +16,8 @@
   "badge": {
     "sprint6": "Coming in Sprint 6",
     "sprint7": "Coming in Sprint 7",
-    "requiresResend": "Requires Resend (Sprint 7)"
+    "requiresResend": "Requires Resend (Sprint 7)",
+    "postPilot": "Coming post-pilot"
   },
   "system": {
     "language": {

@@ -146,7 +146,7 @@ describe('Settings — sections', () => {
     expect(screen.getByRole('heading', { name: 'Konto' })).toBeInTheDocument();
   });
 
-  test('renders disabled rows with sprint badges', async () => {
+  test('renders disabled rows with realistic badges (post-pilot + Resend gate)', async () => {
     mockFetchByPath({
       '/api/family': () => jsonResponse(200, FAMILY_PAYLOAD),
     });
@@ -154,10 +154,15 @@ describe('Settings — sections', () => {
     await waitFor(() => expect(screen.queryByTestId('settings-skeleton')).toBeNull());
     const badges = screen.getAllByTestId('settings-row-badge');
     expect(badges.length).toBeGreaterThan(0);
-    // Expect at least one Sprint 6 and one Sprint 7 badge.
     const texts = badges.map((b) => b.textContent ?? '');
-    expect(texts.some((t) => t.includes('Sprint 6'))).toBe(true);
-    expect(texts.some((t) => t.includes('Sprint 7'))).toBe(true);
+    // Post-pilot badge for features deferred until after pilot launch:
+    // timezone, mealTimes, gamification, pushNotifications.
+    expect(texts.some((t) => t.includes('post-pilot'))).toBe(true);
+    // emailNotifications keeps the Resend-gate badge — it activates in
+    // Sprint 7 once Christer wires RESEND_API_KEY.
+    expect(texts.some((t) => t.includes('Resend'))).toBe(true);
+    // Old Sprint 6/7 badges are gone for these specific rows.
+    expect(texts.every((t) => !/Sprint [67]/.test(t) || t.includes('Resend'))).toBe(true);
   });
 
   test('renders version footer', async () => {
