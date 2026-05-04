@@ -177,6 +177,38 @@ node scripts/cleanup-orphan-family-1.js            # execute
 
 ## Troubleshooting
 
+### `/v2/` viser legacy v1-frontend (Chat / Ukesmeny / Handletur)
+
+**Symptom:** Bruker går til `/v2/` og forventer `PilotPasswordGate`,
+men ser i stedet legacy-frontend med "Familieassistenten"-logo og
+sidebar (Chat, Ukesmeny, I dag, Handletur, Husarbeid, Kontrollrommet).
+
+**Verifisering:**
+```bash
+docker exec familieassistenten ls -la /app/public/v2/
+```
+Hvis output er `No such file or directory` → bundle mangler i imaget.
+
+**Rotårsak (fixed 2026-05-04 i fix/dockerfile-build-v2-frontend):**
+v2 React-bundle (`public/v2/`) er `.gitignored` i kilde, og tidligere
+Dockerfile-versjoner kjørte ikke `npm run build:client`. Image shipped
+til GHCR hadde tom `public/v2/`-mappe; `tryServeV2App()` falt tilbake
+til legacy SPA-handler som serverer `public/index.html` (v1).
+
+**Fix:** `Dockerfile` har nå en `frontend-builder`-stage som kjører
+`npm run build:client` under image-build. Backend-builder kopierer
+bundle inn via `COPY --from=frontend-builder /build/public/v2`.
+
+**Hvis du fortsatt ser symptomet:**
+1. Verifiser at imaget er bygget etter commit `<post-fix-sha>` —
+   sjekk `docker inspect familieassistenten | grep org.opencontainers.image.revision`
+2. `docker compose pull` for å hente fersk image fra `:main`
+3. `docker compose up -d --force-recreate familieassistenten`
+4. Verifiser: `docker exec familieassistenten ls /app/public/v2/`
+   skal vise `index.html` + `assets/`
+5. Test: `curl -s http://localhost:7777/v2/ | grep 'main-.*\.js'`
+   skal returnere en `<script>`-tag som peker på en hashet bundle-fil
+
 ### "401 Unauthorized" i endeløs loop på første deploy
 
 **Symptom:** Container starter (healthcheck grønn, alle migrasjoner kjører), men:

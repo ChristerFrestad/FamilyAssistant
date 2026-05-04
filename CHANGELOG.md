@@ -6,6 +6,91 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed — V2 frontend bundle not built in Docker image (2026-05-04, CRITICAL)
+
+**Symptom:** After PR #114 fixed the pilot-gate lockout in
+`server/auth/middleware.js`, a deploy to RPi5 still showed the
+legacy v1 frontend (Chat / Ukesmeny / Handletur / Husarbeid /
+Kontrollrommet) when visitors hit `/v2/`. The expected
+`PilotPasswordGate` from the v2 React app never rendered.
+
+Verification on the running RPi5 container:
+
+```
+$ docker exec familieassistenten ls -la /app/public/v2/
+ls: cannot access '/app/public/v2/': No such file or directory
+```
+
+**Root cause:** Three things conspired to ship images with no v2
+bundle:
+
+1. `public/v2/` is gitignored (`.gitignore:67`) — comment says
+   *"CI rebuilds it before serving"*.
+2. `Dockerfile` does NOT run `npm run build:client`. It copies
+   `public/` (without v2/, since v2 is gitignored and absent from
+   git checkout) and never invokes Vite.
+3. `.github/workflows/docker.yml` does NOT build the frontend
+   either — it expected the Dockerfile to handle it.
+
+The result was an image where `/app/public/v2/` did not exist.
+`server/http/server.js` `tryServeV2App()` checks `fs.existsSync`
+and returns false when the directory is missing, falling through
+to `tryServeSpaFallback()` which serves the legacy v1
+`public/index.html` instead. The fallback was designed for the
+pre-v2 era and is correct in principle — but it silently masked
+the missing-bundle bug.
+
+This is the SECOND of two bugs found on the first pilot deploy.
+The first (PR #114, pilot-gate auth-middleware lockout) was
+fixed correctly but the fix had no effect because the bundle
+was never reachable in the first place.
+
+**Fix:** Added a new `frontend-builder` stage to `Dockerfile`
+that runs `npm run build:client` and produces
+`/build/public/v2/`. The existing backend `builder` stage now
+copies the bundle in via `COPY --from=frontend-builder
+/build/public/v2 ./public/v2`. Stage 2 (runtime) is unchanged —
+it already copies `public/` from the backend builder, which now
+includes the v2 bundle.
+
+The new stage uses full `npm ci` (not `--omit=dev`) because
+Vite, `@vitejs/plugin-react`, `tailwindcss`, etc. live in
+`devDependencies`. None of those packages reach the runtime
+image — only the built bundle does.
+
+`.github/workflows/docker.yml` triggers updated to include
+`client/**` so frontend-only changes correctly trigger an image
+rebuild. A new verification step now builds the amd64 image to
+the local Docker daemon and `ls`-checks `/app/public/v2/` is
+populated, failing the build if the bundle is missing. Output
+appears in the workflow Step Summary so operators can confirm
+visually before deploying.
+
+**Build-time impact:**
+
+- Frontend stage adds ~60-90 sec on CI (Vite build with QEMU
+  arm64 emulation). Local amd64 build is ~5 sec.
+- Image size +~1.5-2 MB (bundle + sourcemaps + fonts).
+- Layer cache: separate stage means frontend-only changes
+  don't rebuild backend deps and vice versa. Net build time
+  for typical PRs unchanged.
+
+**DEL 3 Steg 3b approval:** Christer explicitly approved the
+Dockerfile change on 2026-05-04 after diagnosis was confirmed
+on the production RPi5 container.
+
+**Operator action after merge:**
+
+1. CI builds new `:main` + `:sha-XXX` images on GHCR
+2. Pull in Portainer: `docker compose pull` then `up -d
+   --force-recreate familieassistenten`
+3. Verify: `docker exec familieassistenten ls /app/public/v2/`
+   should now show `index.html` and `assets/`
+4. Visit `/v2/` — `PilotPasswordGate` should render
+
+Tracking:
+[`docs/analyses/2026-05-04-v2-bundle-not-in-image.md`](docs/analyses/2026-05-04-v2-bundle-not-in-image.md).
+
 ### Fixed — Pilot-gate lockout regression (2026-05-04, CRITICAL)
 
 **Symptom:** First production-style deploy to RPi5 (with `AUTH_TOKEN`,

@@ -23,6 +23,7 @@ on:
       - 'package-lock.json'
       - 'server/**'
       - 'public/**'
+      - 'client/**'
       - 'scripts/load-baseline.js'
       - '.github/workflows/docker.yml'
   pull_request:
@@ -32,6 +33,7 @@ on:
       - '.dockerignore'
       - 'package.json'
       - 'package-lock.json'
+      - 'client/**'
   workflow_dispatch:
 
 permissions:
@@ -102,6 +104,55 @@ jobs:
           cache-to: type=gha,mode=max,scope=familyassistant
           provenance: mode=max
           sbom: true
+
+      # Build amd64 image into the local Docker daemon so we can introspect
+      # the resulting filesystem. Reuses the cache from the multiarch build
+      # above — the amd64 stages are already computed, this just exports them
+      # to a loadable image. Costs ~10-30 sec extra.
+      - name: Build amd64 for in-image verification
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: familyassistant:verify
+          cache-from: type=gha,scope=familyassistant
+
+      # Verify that the v2 React bundle is actually present in the image.
+      # This is the regression-guard for the 2026-05-04 incident where
+      # the production image shipped without public/v2/ (because Vite was
+      # never run in the build), causing visitors to see legacy v1 instead
+      # of the PilotPasswordGate. If frontend-builder ever stops producing
+      # the bundle, this step fails the build and prevents a broken image
+      # from reaching ghcr.io.
+      - name: Verify v2 bundle in image
+        run: |
+          set -euo pipefail
+          echo "### V2 bundle verification" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo '#### `/app/public/v2/`' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          docker run --rm --entrypoint ls familyassistant:verify -la /app/public/v2/ \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo '#### `/app/public/v2/assets/`' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          docker run --rm --entrypoint ls familyassistant:verify -la /app/public/v2/assets/ \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # Hard-fail if essentials are missing.
+          docker run --rm --entrypoint test familyassistant:verify -f /app/public/v2/index.html
+          docker run --rm --entrypoint sh familyassistant:verify -c \
+            'ls /app/public/v2/assets/main-*.js >/dev/null 2>&1 && \
+             ls /app/public/v2/assets/main-*.css >/dev/null 2>&1'
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Bundle verified — index.html + main-*.js + main-*.css present." \
+            >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
         if: success()

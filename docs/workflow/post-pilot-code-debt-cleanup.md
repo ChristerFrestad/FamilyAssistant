@@ -363,3 +363,51 @@ Pino-konfig har ikke vært gjennomgått for produksjon-deployment. Lokal dev-mod
 **Estimat:** 1–2 timer for prod-env-test-suite + audit av andre auth-paths.
 
 **Risiko:** Lav. Forbedring av test-coverage, ingen prod-endring.
+
+---
+
+### Entry 10: Vite-build i Docker vs. GitHub Actions cache (post-pilot vurdering)
+
+- **Kategori:** Build-pipeline optimization
+- **Severity:** LOW
+- **Logget:** 2026-05-04 (sammen med fix/dockerfile-build-v2-frontend)
+
+**Beskrivelse:** Frontend-bundle bygges nå i en separat Docker-stage
+(`frontend-builder`). På amd64-runners går det på ~5 sek. På arm64
+(via QEMU emulering) blir det ~60-90 sek. Multiarch CI-build for
+`docker buildx build --platform linux/amd64,linux/arm64` betaler
+denne kostnaden to ganger med mindre Docker layer cache hjelper.
+
+**Hvorfor det er valgt slik nå:**
+- Hermetisk: samme image bygger likt lokalt og i CI
+- Ingen avhengighet til CI-cache state — om cache er kald, ny
+  utvikler eller Christer kan kjøre `docker build` lokalt og få
+  identisk resultat
+- Pilot-launch-blocker: trengs en fungerende fix umiddelbart, ikke
+  en optimal pipeline
+
+**Hvorfor det kan vurderes endret post-pilot:**
+- Bygge frontend i en GitHub Actions `setup-node` + `npm ci` +
+  `npm run build:client`-stage før `docker buildx build`, og
+  COPY-e den ferdige `public/v2/` inn i Dockerfile via build-context
+- Det ville eliminert QEMU-emulering for frontend (Vite kan kun
+  bygges på samme arch som workflow-runner; bundle er platform-
+  agnostisk JS uansett)
+- Sparer ~60-90 sek per arm64-build → 2-4 min per multiarch-CI
+
+**Cleanup-handling for post-pilot:**
+1. Mål faktisk CI-build-tid med nåværende oppsett (en uke etter
+   pilot-launch, så vi har data)
+2. Hvis arm64-emulering av Vite koster >2 min per build: flytt
+   til GitHub Actions stage før Dockerfile
+3. Krever ny workflow-step + cleaning av Dockerfile (fjerne
+   frontend-builder, men beholde `COPY public ./public` antagelse)
+4. Tradeoff: hermetic build går tapt — utviklere må kjøre
+   `npm run build:client` manuelt før `docker build` lokalt
+
+**Estimat:** 2-3 timer for migrering + verifisering.
+
+**Risiko:** Middels. Endring i build-pipeline kan introdusere
+subtle "works in CI, fails locally" issues. Krever god
+dokumentasjon i `docs/runbooks/deploy-portainer.md` om at lokal
+build forutsetter forhåndsbygget bundle.
