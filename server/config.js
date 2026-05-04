@@ -65,6 +65,21 @@ const envSchema = z.object({
   // per pre-pilot-audit § C3).
   KASSAL_API_KEY: z.string().optional(),
 
+  // Pre-auth pilot password gate (Sprint 7). When PILOT_MODE=true the
+  // server requires every visitor to enter PILOT_PASSWORD before the
+  // normal magic-link auth is reachable. Sets a pilot_authenticated
+  // cookie (30 days) on success. Rate-limited to 5 attempts per IP per
+  // 10 minutes. Disabled by default; pilot deploy sets both vars in
+  // Portainer. Intended only for the 13-17 May 2026 pilot window.
+  PILOT_MODE: z.coerce.boolean().default(false),
+  PILOT_PASSWORD: z.string().optional(),
+  // Cookie name used for the pilot-gate cookie. Distinct from the
+  // session cookie because the two represent different things: the
+  // pilot cookie says "this device passed the pilot gate", the session
+  // cookie says "this device is logged in as a specific user".
+  PILOT_COOKIE_NAME: z.string().default('fa_pilot'),
+  PILOT_COOKIE_TTL_DAYS: z.coerce.number().int().positive().default(30),
+
   // LLM
   LLM_BACKEND: z.enum(['ollama', 'llamacpp']).default('ollama'),
   OLLAMA_HOST: z.string().default('http://localhost:11434'),
