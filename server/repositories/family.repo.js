@@ -323,8 +323,8 @@ function createFamilyRepo(db) {
 
   const insertInvitationStmt = db.prepare(
     `INSERT INTO family_invitations
-       (family_id, token, assigned_role, profile_member_id, invited_by, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
+       (family_id, token, assigned_role, profile_member_id, invited_by, expires_at, invited_email)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
   );
   const findInvitationByTokenStmt = db.prepare(
     `SELECT fi.*, f.name AS family_name, u.name AS inviter_name, u.email AS inviter_email
@@ -368,6 +368,7 @@ function createFamilyRepo(db) {
     profileMemberId = null,
     invitedBy,
     ttlDays = 7,
+    invitedEmail = null,
   }) {
     if (!['adult', 'child'].includes(assignedRole)) {
       throw new Error(`createInvitation: invalid role ${assignedRole}`);
@@ -376,7 +377,15 @@ function createFamilyRepo(db) {
       .toISOString()
       .replace('T', ' ')
       .slice(0, 19);
-    insertInvitationStmt.run(familyId, token, assignedRole, profileMemberId, invitedBy, expiresAt);
+    insertInvitationStmt.run(
+      familyId,
+      token,
+      assignedRole,
+      profileMemberId,
+      invitedBy,
+      expiresAt,
+      invitedEmail ? String(invitedEmail).trim().toLowerCase() : null
+    );
     return findInvitationByTokenStmt.get(token);
   }
 
