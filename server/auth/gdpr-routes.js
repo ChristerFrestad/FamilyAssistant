@@ -160,9 +160,36 @@ function handleDeleteMe(ctx, repos) {
   return { ok: true, hardDeleteAt, graceDays: SOFT_DELETE_GRACE_DAYS };
 }
 
+// Family-only export. Same payload as the family-portion of /api/me/export
+// but addressable on its own URL so the post-pilot admin UI can offer
+// "download family backup" as a distinct action from "download my user
+// data". Owner-only — non-owners can still get the same data via
+// /api/me/export, but the dedicated endpoint matches the GDPR Art. 15
+// data-portability mental model where the family is the data subject.
+function handleExportFamily(ctx, repos) {
+  if (!ctx.user || ctx.user._synthetic) {
+    throw errors.unauthorized('Login required.');
+  }
+  if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+  if (ctx.user.role !== 'owner') {
+    throw errors.forbidden('Only the family owner can export family data.');
+  }
+  const familyId = ctx.familyId;
+  let family;
+  runWithFamily(familyId, () => {
+    family = buildFamilyExport(repos, familyId);
+  });
+  return {
+    exportVersion: 1,
+    generatedAt: new Date().toISOString(),
+    family,
+  };
+}
+
 function registerGdprRoutes(router, { repos }) {
   router.get('/api/me/export', (ctx) => handleExportMe(ctx, repos));
   router.delete('/api/me', (ctx) => handleDeleteMe(ctx, repos));
+  router.get('/api/family/export', (ctx) => handleExportFamily(ctx, repos));
 }
 
 // ============================================================
