@@ -311,4 +311,55 @@ For hver REMOVE-PR:
 
 Append nye entries her med samme format som over.
 
-*(Ingen ekstra entries ennå.)*
+### Entry 8: Container-log-duplisering (rapportert 2026-05-04)
+
+- **Kategori:** F (kosmetisk operasjons-issue)
+- **Status:** Funnet under første pilot-deploy
+- **Severity:** **LOW** (logs er fortsatt lesbare; ingen funksjonell impact)
+
+**Hvor:** Christer rapporterte massive doble timestamps i container-logs på første RPi-deploy (under pilot-gate-bug diagnostikk). Ikke kjørt detaljert diagnose ennå.
+
+**Sannsynlige årsaker:**
+1. Pino + console.log blandes (server bruker pino, men noen scripts/cron-helpers kan bruke console direkte)
+2. Docker logging-driver konflikt (json-file × stdout dobbel)
+3. Caddy reverse-proxy logger separat
+4. Healthcheck-loops trigger mange identiske log-linjer
+5. better-sqlite3-driver-logs prefikser med egen `[DB ...]` timestamp som dupliserer pino's `time`-felt
+
+**Hvorfor det ikke ble bygget:**
+Pino-konfig har ikke vært gjennomgått for produksjon-deployment. Lokal dev-modus med `LOG_PRETTY=true` har vært den primære test-banen.
+
+**Hvorfor det ikke håndteres nå:**
+- Logs er lesbare (ikke error-tilstand)
+- Ingen sikkerhets- eller funksjonell impact
+- Pilot-launch er prioritet — kosmetiske log-issues kan vente
+- Christer's eksplisitte beslutning (2026-05-04 etter pilot-gate-fix): ikke håndter under denne PR-en
+
+**Cleanup-handling:** **DEFER** til post-pilot. Når addresseres:
+1. Diagnostiser presis kilde (samle 100 linjer logs fra running container, identifiser duplisering-pattern)
+2. Hvis pino-issue: rydd `LOG_PRETTY` og/eller pino transport-config
+3. Hvis better-sqlite3 prefiks: konverter til pino-strukturerte logs
+4. Hvis Docker-driver: dokumenter forventet oppførsel og evt. bytt til `local`-driver
+
+**Estimat:** 30 min – 2 timer avhengig av kilde.
+
+**Risiko:** Null for pilot. Lav for cleanup-sprint (logging-config er trygg å endre uten produksjons-impact).
+
+---
+
+### Entry 9: Pilot-gate auth-token interaksjon (oppløst 2026-05-04, kun-doc-entry)
+
+- **Kategori:** Bug-historie (allerede fikset i fix/pilot-gate-lockout)
+- **Status:** RESOLVED i CHANGELOG entry "Pilot-gate lockout regression"
+- **Severity:** N/A (fikset)
+
+**Hvorfor logget her:** Bug-en demonstrerte en test-coverage-mangel — produksjons-konfig (`AUTH_TOKEN` satt) ble aldri testet i CI. Helpers.js falls tilbake til `LOCAL_USER` når `AUTH_TOKEN` er unset. Test-kjøringen i CI bruker ikke `AUTH_TOKEN`, så middleware-flowen som triggret bug-en var aldri eksekvert i tester.
+
+**Cleanup-handling for post-pilot:**
+1. Audit hvilke andre auth-paths som kun testes uten `AUTH_TOKEN`
+2. Vurdere å introdusere et "production-env" test-suite-flag som setter `AUTH_TOKEN` for at tester skal kjøres mot den faktiske prod-stien
+3. Dokumentere i CLAUDE.md at integration-tester bør dekke begge `AUTH_TOKEN` set/unset varianter
+
+**Estimat:** 1–2 timer for prod-env-test-suite + audit av andre auth-paths.
+
+**Risiko:** Lav. Forbedring av test-coverage, ingen prod-endring.

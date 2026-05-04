@@ -6,6 +6,66 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed — Pilot-gate lockout regression (2026-05-04, CRITICAL)
+
+**Symptom:** First production-style deploy to RPi5 (with `AUTH_TOKEN`,
+`SESSION_SECRET`, `PILOT_MODE=true`, `PILOT_PASSWORD` set in Portainer)
+locked every visitor out of the app:
+
+```
+GET /            → 302 → /v2/    (pilot-gate redirect)
+GET /v2/         → 401            (authenticate: AUTH_TOKEN set, no session)
+GET /login.html  → 302 → /v2/    → 401 → loop
+```
+
+Container itself was healthy (healthcheck green, all 28 migrations
+applied), but no path led to the pilot-password form.
+
+**Root cause:** `server/auth/middleware.js` had `/v2/` and its assets
+in `PILOT_GATE_BYPASS_PATHS` (so pilot-gate let them through) but NOT
+in `PUBLIC_PATHS` (so `authenticate()` rejected them when `AUTH_TOKEN`
+was configured and there was no session). Same gap for the pilot-gate
+bootstrap endpoints `/api/pilot/status` and `/api/auth/pilot-password`.
+
+The bug never surfaced in tests because the test helper does not set
+`AUTH_TOKEN`, so the middleware fell through to the legacy
+"unauthenticated dev fallback" path that attaches `LOCAL_USER`.
+
+**Fix:** `isPublicPath()` now returns `true` for:
+
+- `/v2`, `/v2/`, `/v2/index.html` — React shell entry points
+- `/v2/assets/*` — built bundle, CSS, fonts
+- `/api/pilot/status` — frontend `PilotGuard` fetches this on mount
+- `/api/auth/pilot-password` — anonymous visitors must reach this to
+  submit the password
+
+Frontend `PilotGuard` (Sprint 7) handles auth state once the bundle
+loads — exactly as designed. Other `/api/*` paths still go through
+the full auth chain unchanged. Pilot-gate continues to enforce
+pre-auth blocking on `/api/*` for the rest of the surface.
+
+**Tested:**
+
+- New regression suite (`tests/pilot-gate-lockout-fix.test.js`,
+  20 tests) reproduces the production env (with `AUTH_TOKEN` set)
+  and verifies all anonymous flows: bundle loads, status fetches,
+  password submission, post-auth chain resumes, static legal pages
+  unchanged.
+- All existing pilot-password (PR #106) and admin-bootstrap (PR #107)
+  tests still pass.
+- Manual end-to-end verification with production-like env-vars:
+  pilot-gate → magic-link request → magic-link click → session +
+  redirect to onboarding all work.
+
+**DEL 6.1b:** Christer explicitly approved the `server/auth/middleware.js`
+edit. Change is additive (5 new conditional returns in `isPublicPath()`),
+no behavioural changes to existing code paths, no impact on
+multi-tenant isolation (CLAUDE.md DEL 14 — no new tables, endpoints,
+seeds, or onboarding-flow changes).
+
+**Operator action after merge:** Pull `:main` image in Portainer +
+restart stack. Pilot-flow now reaches the password form.
+
 ### Shopping list — translate categories and units to English (2026-05-03)
 
 **Pilot polish.** After the pack-display work landed, English-locale users

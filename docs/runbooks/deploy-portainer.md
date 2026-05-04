@@ -172,3 +172,53 @@ node scripts/cleanup-orphan-family-1.js            # execute
 - [ ] Magic-link email kommer fra `noreply@hverdagsplanleggeren.com`
 - [ ] Christer blir admin på første onboarding
 - [ ] Backup-cron kjører kl 03:00 UTC (sjekk dag etter)
+
+---
+
+## Troubleshooting
+
+### "401 Unauthorized" i endeløs loop på første deploy
+
+**Symptom:** Container starter (healthcheck grønn, alle migrasjoner kjører), men:
+- `GET /` → 302 redirect til `/v2/`
+- `GET /v2/` → 401 `{"title":"Unauthorized","instance":"/v2/"}`
+- `GET /login.html` → 302 til `/v2/` → 401
+- Bruker fast i loop, kommer aldri til pilot-passord-form
+
+**Rotårsak (fixed 2026-05-04 i fix/pilot-gate-lockout):**
+Tidligere versjoner hadde et auth-middleware-design der `/v2/`-bundle var i pilot-gate-bypass-listen MEN ikke i public-paths-listen. Med `AUTH_TOKEN` satt (alle prod-deploys) blokkerte autentiserings-kjeden bundle-en med 401 før React-app kunne laste og rendre PilotPasswordGate.
+
+**Fix:**
+`server/auth/middleware.js` `isPublicPath()` returnerer nå `true` for:
+- `/v2`, `/v2/`, `/v2/index.html`
+- `/v2/assets/*`
+- `/api/pilot/status` og `/api/auth/pilot-password`
+
+Frontend-Guards (PilotGuard → AuthGuard → OnboardingGuard) håndterer auth-state etter at bundle er lastet.
+
+**Hvis du fortsatt ser symptomet:**
+1. Verifiser at image er på `:main` eller nyere enn commit `<post-fix-sha>`
+2. `docker compose pull` for å hente fersk image
+3. `docker compose up -d --force-recreate familieassistenten`
+4. Test: `curl https://<deploy>/v2/` → må returnere 200 og HTML-bundle
+
+### Pilot-passord aksepteres ikke
+
+**Sjekk:**
+- `PILOT_PASSWORD` env-var er nøyaktig samme verdi (case-sensitive, ingen whitespace)
+- Rate-limit ikke trigget: 5 attempts per IP per 10 minutter. `docker logs familieassistenten | grep pilot_password_attempts`
+- Sjekk pilot-cookie: `document.cookie` i browser console må vise `fa_pilot=...`
+
+**Reset rate-limit:** Restart container (`docker compose restart`). In-memory state nullstilles.
+
+### Magic-link kommer ikke
+
+**Hvis `MAGIC_LINK_CONSOLE=true`:** se `docker logs familieassistenten | grep "MAGIC LINK"` for URL.
+
+**Hvis Resend skal være aktiv:** verifiser `RESEND_API_KEY` + `RESEND_FROM` er satt og `MAGIC_LINK_CONSOLE` IKKE er satt (eller er `false`).
+
+### Magic-link feiler med 403 i ny browser
+
+**Bekreftet design (ikke bug):** `/api/auth/magic-link/verify` er IKKE i pilot-gate-bypass. Brukeren må først skrive pilot-passord i samme browser, deretter klikke magic-link. Dette er pragmatisk pilot-valg — bevarer pilot-gate-formålet.
+
+Hvis brukeren forsøker å klikke magic-link i ny browser uten pilot-cookie: 403. Be brukeren først åpne app-domenet, skrive pilot-passord, deretter klikke link.
