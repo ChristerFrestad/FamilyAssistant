@@ -53,7 +53,7 @@ volumes:
 | `AUTH_TOKEN` | (la stå tom) | Bootstrap wizard genererer |
 | `BOOTSTRAP_ALLOWED` | `true` | (allerede satt i compose) |
 | `ALLOWED_ORIGINS` | `https://app.hverdagsplanleggeren.com` | CORS strict |
-| `HTTPS_TERMINATED` | `true` | Bak Cloudflare Tunnel |
+| `HTTPS_TERMINATED` | `true` (Cloudflare) / `false` (LAN) | Se "HTTPS_TERMINATED-veiledning" under |
 | `TRUST_PROXY` | `true` | For ekte client-IP |
 
 ### Optional / post-pilot
@@ -175,7 +175,64 @@ node scripts/cleanup-orphan-family-1.js            # execute
 
 ---
 
+## HTTPS_TERMINATED-veiledning
+
+Cookie-Secure-flag-håndtering er drevet av `isSecureRequest()`-helper i `server/auth/sessions.js`. Denne sjekker i rekkefølge:
+
+1. `HTTPS_TERMINATED=true` env-flagg (eksplisitt operatør-opt-in)
+2. `X-Forwarded-Proto: https` request-header (Cloudflare Tunnel + de fleste reverse-proxyer setter denne automatisk)
+3. `socket.encrypted === true` (direkte HTTPS uten proxy)
+
+Hvis ingen av disse er sant, settes IKKE `Secure`-flag på cookies — riktig for plain-HTTP-deploy fordi browsere ellers ville droppe cookien stille.
+
+### Hvilken verdi skal `HTTPS_TERMINATED` ha?
+
+| Deploy-type | Verdi | Begrunnelse |
+|---|---|---|
+| Cloudflare Tunnel + custom domain | `true` | Forsikring — appen kan vite at HTTPS termineres et eller annet sted før requesten kommer frem (Cloudflare → tunnel → app over HTTP). `X-Forwarded-Proto` settes også, men eksplisitt env-flag er mer robust ved misconfig av proxy. |
+| LAN-pilot (`http://192.168.x.y:7777`) | `false` (eller utelatt) | Bruker plain HTTP. `Secure`-flag ville fått browsere til å droppe cookies. |
+| Caddy/nginx-proxy med TLS | `true` (anbefalt) eller la `X-Forwarded-Proto` håndtere | Begge funksjoner; eksplisitt env-flag er mindre fragilt mot proxy-config-feil. |
+| Direkte HTTPS uten proxy | (uansett) | `socket.encrypted` settes automatisk. Ingen env-flag nødvendig. |
+
+### Vanlig feilkonfig: HTTPS_TERMINATED=true på HTTP-deploy
+
+Hvis Christer setter `HTTPS_TERMINATED=true` på en LAN-deploy som bruker plain HTTP, vil cookies sendes med `Secure`-flag og browsere dropper dem stille. Pilot-gate og session vil ikke virke. Symptom: `POST /api/auth/pilot-password` returnerer 200, men neste request får 403 fordi cookien ikke persisterte.
+
+**Tommelfingerregel:** Hvis URL-en starter med `http://`, sett `HTTPS_TERMINATED=false` (eller utelat). Hvis `https://`, sett `true`.
+
 ## Troubleshooting
+
+### Cookies (fa_pilot, fa_session) settes ikke i browser etter login
+
+**Symptom:**
+- `POST /api/auth/pilot-password` returnerer 200, men senere requests får 403
+- Browser `Application → Cookies → http://<deploy>` viser INGEN `fa_pilot`-cookie
+- Magic-link-onboarding feiler på tilsvarende måte (ingen `fa_session`)
+
+**Verifisering:**
+
+```bash
+# Sjekk Set-Cookie-header i response
+curl -i -X POST http://<deploy>/api/auth/pilot-password \
+  -H 'Content-Type: application/json' \
+  -d '{"password":"<ekte-passord>"}'
+```
+
+I respons-headere, se etter `Set-Cookie: fa_pilot=...; ...`:
+
+- Hvis cookien har `; Secure;` på en HTTP-deploy → mismatch, browser dropper cookien
+- Hvis cookien IKKE har `; Secure;` på en HTTPS-deploy → mindre sikker, men virker. Sett `HTTPS_TERMINATED=true`
+
+**Rotårsak (fixed 2026-05-04 i fix/cookie-secure-flag-http-deploy):**
+Tidligere versjoner satte `Secure` på alle cookies når `NODE_ENV=production`, uansett om connection var HTTP eller HTTPS. Plain-HTTP-deploys (LAN-pilot, dev-staging) fikk cookies droppet av browseren.
+
+**Fix:** `Secure`-flag settes nå basert på `isSecureRequest()`-helper som leser `HTTPS_TERMINATED` env-flag, `X-Forwarded-Proto`-header, og `socket.encrypted`. Se "HTTPS_TERMINATED-veiledning" over.
+
+**Hvis du fortsatt ser symptomet:**
+1. Verifiser image er bygd etter commit `<post-cookie-fix-sha>`
+2. Sjekk env-config — `HTTPS_TERMINATED` matcher faktisk deployment (HTTP/HTTPS)
+3. `docker compose pull && docker compose up -d --force-recreate familieassistenten`
+4. Test med curl over for å se faktisk Set-Cookie-header
 
 ### `/v2/` viser legacy v1-frontend (Chat / Ukesmeny / Handletur)
 

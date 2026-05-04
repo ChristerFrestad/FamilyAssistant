@@ -35,10 +35,20 @@ function createSessionForUser(repos, { userId, req }) {
   return id;
 }
 
+// Set-Cookie helpers below intentionally use `isSecureRequest(req)` only,
+// without an extra `|| config.NODE_ENV === 'production'` short-circuit.
+// The override looked defensive but was actively harmful: it forced the
+// `Secure` attribute on cookies in any production deploy, which made
+// browsers silently drop the cookie when the connection was plain HTTP
+// (LAN pilot, dev-staging without TLS, etc.). The 2026-05-04 cookie-flag
+// regression locked Christer's first pilot deploy out of the magic-link
+// flow because of this exact bug. `isSecureRequest()` already handles
+// the three real cases (`HTTPS_TERMINATED=true`, `x-forwarded-proto`
+// header, direct `socket.encrypted`) — trust it.
 function setSessionCookie(res, req, sessionId) {
   const cookie = serializeCookie(config.SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
-    secure: isSecureRequest(req) || config.NODE_ENV === 'production',
+    secure: isSecureRequest(req),
     sameSite: 'lax',
     path: '/',
     maxAge: config.SESSION_TTL_DAYS * 86400,
@@ -49,7 +59,7 @@ function setSessionCookie(res, req, sessionId) {
 function clearSessionCookie(res, req) {
   clearCookie(res, config.SESSION_COOKIE_NAME, {
     httpOnly: true,
-    secure: isSecureRequest(req) || config.NODE_ENV === 'production',
+    secure: isSecureRequest(req),
     sameSite: 'lax',
     path: '/',
   });

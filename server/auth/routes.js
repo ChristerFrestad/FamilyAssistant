@@ -17,7 +17,12 @@ const {
   verifyIdToken,
   redirectUriFor,
 } = require('./google');
-const { createSessionForUser, setSessionCookie, clearSessionCookie } = require('./sessions');
+const {
+  createSessionForUser,
+  setSessionCookie,
+  clearSessionCookie,
+  isSecureRequest,
+} = require('./sessions');
 const { parseCookies, serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
 const { seedFamilyDefaults } = require('../services/seed.service');
 const {
@@ -99,7 +104,12 @@ function handleGoogleStart(ctx) {
     ctx.res,
     serializeCookie(OAUTH_STATE_COOKIE, signed, {
       httpOnly: true,
-      secure: config.NODE_ENV === 'production',
+      // isSecureRequest() picks up HTTPS_TERMINATED env-flag, X-Forwarded-Proto
+      // header, or direct socket.encrypted. Hardcoding `NODE_ENV === 'production'`
+      // here would force Secure on plain-HTTP prod deploys (LAN pilot, etc.) and
+      // make the OAuth state cookie unreachable — same regression that bit the
+      // pilot-password cookie. Trust the helper.
+      secure: isSecureRequest(ctx.req),
       sameSite: 'lax',
       path: '/api/auth/google/',
       maxAge: OAUTH_STATE_TTL_SECONDS,
@@ -501,13 +511,18 @@ function readPilotCookie(req) {
   return cookies[config.PILOT_COOKIE_NAME] || null;
 }
 
-function setPilotCookie(res, value, maxAgeSeconds) {
+// `req` is required so we can decide the Secure flag from the request:
+// HTTPS_TERMINATED env-flag, X-Forwarded-Proto header, or direct
+// socket.encrypted. The previous `secure: config.NODE_ENV === 'production'`
+// formulation made browsers drop the cookie on every plain-HTTP prod
+// deploy (the 2026-05-04 LAN-pilot regression).
+function setPilotCookie(res, req, value, maxAgeSeconds) {
   appendSetCookie(
     res,
     serializeCookie(config.PILOT_COOKIE_NAME, value, {
       maxAge: maxAgeSeconds,
       httpOnly: true,
-      secure: config.NODE_ENV === 'production',
+      secure: isSecureRequest(req),
       sameSite: 'Lax',
       path: '/',
     })
@@ -540,7 +555,7 @@ function handlePilotPassword(ctx, repos) {
   });
 
   if (result.ok) {
-    setPilotCookie(ctx.res, result.cookieValue, result.cookieMaxAgeSeconds);
+    setPilotCookie(ctx.res, ctx.req, result.cookieValue, result.cookieMaxAgeSeconds);
     ctx.res.writeHead(200, { 'Content-Type': 'application/json' });
     ctx.res.end(JSON.stringify({ ok: true }));
     return;
