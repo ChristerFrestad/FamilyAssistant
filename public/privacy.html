@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Personvernerklæring — Familieassistenten</title>
+    <title>Personvernerklæring — FamilyAssistant</title>
     <style>
       body {
         font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -34,6 +34,7 @@
         border: 1px solid #e5e7eb;
         padding: 6px 10px;
         text-align: left;
+        vertical-align: top;
       }
       .note {
         background: #fef3c7;
@@ -41,90 +42,142 @@
         border-left: 4px solid #f59e0b;
         border-radius: 4px;
       }
+      .lang-toggle {
+        font-size: 0.875rem;
+        text-align: right;
+        margin-bottom: 0.5rem;
+      }
+      .gated {
+        color: #6b7280;
+        font-style: italic;
+      }
+      .meta {
+        color: #6b7280;
+        font-size: 0.875rem;
+        margin-top: 2rem;
+        border-top: 1px solid #e5e7eb;
+        padding-top: 1rem;
+      }
     </style>
   </head>
   <body>
+    <p class="lang-toggle"><strong>Norsk</strong> | <a href="/privacy-en.html">English</a></p>
     <h1>Personvernerklæring</h1>
     <p class="note">
-      Dette er et utkast for MVP. Teksten er ikke juridisk gjennomgått og bør tilpasses før bred
-      utrulling.
+      Dette er pilot-versjonen. Teksten beskriver tjenester som faktisk er aktivert i pilot, og
+      markerer valgfrie tjenester som <em>kan</em> aktiveres senere ved å sette en miljøvariabel.
+      Teksten er ikke juridisk gjennomgått og bør tilpasses før bred utrulling.
     </p>
 
     <h2>Hvem er behandlingsansvarlig</h2>
     <p>
-      Familieassistenten driftes av privat eier som selvbetjenings-tjeneste. Behandlingsansvarlig er
-      familiens eier-bruker for sin egen familie. Tjenesten lagrer data på egen sky-instans og
-      deles ikke med tredjepart uten eksplisitt samtykke.
+      FamilyAssistant driftes av privat eier som selvbetjenings-tjeneste. Behandlingsansvarlig er
+      familiens eier-bruker for sin egen familie. Tjenesten lagrer data lokalt på selvhostet
+      Raspberry Pi 5 i Norge og deles ikke med tredjepart uten eksplisitt samtykke.
     </p>
 
     <h2>Hvilke data samler vi</h2>
     <ul>
       <li>
-        <strong>Identitet</strong>: navn, epost og profilbilde fra Google OAuth, eller epost fra
-        magic-link-innlogging.
+        <strong>Identitet</strong>: epost-adressen din fra magic-link-innlogging og valgfritt et
+        visningsnavn du skriver inn under onboarding.
       </li>
       <li>
         <strong>Familie-data</strong>: medlemsroster, allergier, oppskrifter, ukesmenyer,
         handlelister, pantry-inventory, kvitteringer, kalender, gjøremål.
       </li>
       <li>
-        <strong>Teknisk</strong>: sesjons-ID (cookie), request-IDer for feilsøking, user-agent.
-        IP-adresser lagres kun som saltet hash for rate-limiting.
+        <strong>Teknisk</strong>: sesjons-ID (HttpOnly cookie), valgt språk (cookie + localStorage),
+        request-IDer for feilsøking, user-agent. IP-adresser lagres kun som saltet hash for
+        rate-limiting.
       </li>
       <li>
-        <strong>AI-nøkkel</strong>: dersom du velger en egen LLM-leverandør lagres API-nøkkelen
-        AES-256-GCM-kryptert. Nøkkelen eksponeres aldri tilbake via API.
+        <strong>AI-nøkkel (valgfri)</strong>: hvis du velger en egen LLM-leverandør, lagres
+        API-nøkkelen AES-256-GCM-kryptert. Nøkkelen eksponeres aldri tilbake via API.
       </li>
     </ul>
 
     <h2>Tredjeparts-prosessorer</h2>
+    <p>
+      Tabellen under viser tjenester som faktisk er aktivert i pilot, samt valgfrie tjenester som
+      <em>kan</em> aktiveres ved å sette en miljøvariabel. Valgfrie tjenester behandler ingen data
+      før de aktiveres.
+    </p>
     <table>
       <thead>
         <tr>
           <th>Tjeneste</th>
+          <th>Status</th>
           <th>Formål</th>
           <th>Data</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Google OAuth</td>
-          <td>Innlogging</td>
-          <td>email, navn, profilbilde (scope: openid email profile)</td>
-        </tr>
-        <tr>
           <td>Resend</td>
-          <td>Magic-link-epost</td>
+          <td>Aktiv (pilot)</td>
+          <td>Leveranse av magic-link-epost</td>
           <td>epost-adresse, engangs-token (15 min TTL)</td>
         </tr>
         <tr>
+          <td>Selvhostet Raspberry Pi 5 (SQLite)</td>
+          <td>Aktiv (pilot)</td>
+          <td>Lokal lagring av all applikasjonsdata</td>
+          <td>
+            all data fra "Hvilke data samler vi". Volum-kryptering avhenger av host-oppsettet;
+            Christers pilot-RPi har volum-kryptering aktivert
+          </td>
+        </tr>
+        <tr>
+          <td>Cloudflare Tunnel</td>
+          <td>Aktiv (pilot)</td>
+          <td>Sikker reverse-proxy fra <code>app.hverdagsplanleggeren.com</code> til selvhostet RPi</td>
+          <td>
+            HTTPS-trafikk passerer Cloudflares nettverk (eksisterende edge-lokasjoner i EU). Ingen
+            applikasjonsdata lagres permanent hos Cloudflare; tunnel-konfig er privat
+          </td>
+        </tr>
+        <tr class="gated">
           <td>Anthropic / OpenAI / xAI / Ollama</td>
-          <td>AI-funksjoner (valgfritt per familie)</td>
+          <td>Valgfri opt-in (per familie via egen API-nøkkel)</td>
+          <td>AI-funksjoner</td>
           <td>meldinger og kontekst du selv sender inn i AI-funksjoner</td>
         </tr>
-        <tr>
-          <td>Egen Docker-host (RPi5 / Portainer)</td>
-          <td>Kjøremiljø — selvhostet av tjenesteleverandøren</td>
-          <td>all applikasjonsdata; volum-kryptering avhenger av host-oppsettet</td>
+        <tr class="gated">
+          <td>Kassal API (kassal.app)</td>
+          <td>Valgfri opt-in (KASSAL_API_KEY) — planlagt aktivering post-pilot</td>
+          <td>Prissammenligning og produktoppslag for handleliste</td>
+          <td>produktnavn og strekkoder fra handlelisten din; ingen brukerdata</td>
         </tr>
-        <tr>
-          <td>Backblaze B2</td>
-          <td>Nattlig database-backup</td>
-          <td>database-fil; 7 dagers retention</td>
-        </tr>
-        <tr>
+        <tr class="gated">
           <td>Sentry</td>
-          <td>Feilmonitorering</td>
-          <td>stack traces; person-data skrubbes før sending (<code>beforeSend</code>-hook)</td>
+          <td>Valgfri opt-in (SENTRY_DSN) — ikke aktivert i pilot</td>
+          <td>Feilmonitorering for operatør</td>
+          <td>
+            stack traces; person-data skrubbes før sending (epost, request-body, cookies fjernes
+            i <code>beforeSend</code>-hook)
+          </td>
         </tr>
       </tbody>
     </table>
+
+    <h2>Cookies vi bruker</h2>
+    <ul>
+      <li>
+        <strong>Session-cookie</strong> (<code>fa_session</code>): HttpOnly, Secure, SameSite=Lax.
+        Påkrevd for innlogget tilstand. Slettes ved utlogging eller etter 30 dager uten aktivitet.
+      </li>
+      <li>
+        <strong>Språk-preferanse</strong> (<code>fa:language</code>): localStorage, ikke en cookie i
+        teknisk forstand. Husker valgt UI-språk.
+      </li>
+    </ul>
 
     <h2>Dine rettigheter</h2>
     <ul>
       <li>
         <strong>Innsyn og dataportabilitet</strong>: <code>GET /api/me/export</code> returnerer all
-        din og familiens data som JSON.
+        din og familiens data som JSON. UI-knapp finnes under Innstillinger → Konto.
       </li>
       <li>
         <strong>Rett til korrigering</strong>: alle dine egne data kan redigeres i appen. Kontakt
@@ -136,8 +189,12 @@
         <code>DELETE /api/family</code> sletter hele familien og kaskaderer alle tilknyttede rader.
       </li>
       <li>
-        <strong>Rett til begrensning</strong>: Personvern-fanen i innstillingene lar deg slå av
-        valgfri telemetri (per MVP ingen telemetri aktivert).
+        <strong>Rett til begrensning</strong>: Innstillinger-skjermen lar deg slå av valgfri
+        AI-funksjonalitet; valgfrie tjenester (Sentry, Kassal) er ikke aktivert i pilot.
+      </li>
+      <li>
+        <strong>Rett til å klage</strong>: ved bekymringer kan du klage til Datatilsynet
+        (<a href="https://www.datatilsynet.no/">datatilsynet.no</a>).
       </li>
     </ul>
 
@@ -149,5 +206,7 @@
 
     <h2>Kontakt</h2>
     <p>Bruk «Gi tilbakemelding»-knappen i appen eller kontakt familien-eieren direkte.</p>
+
+    <p class="meta">Sist oppdatert: 2026-05-04. Pilot-versjon.</p>
   </body>
 </html>
