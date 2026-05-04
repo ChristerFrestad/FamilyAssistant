@@ -10,6 +10,34 @@ const { errors } = require('../http/errors');
 const { requireRole } = require('./middleware');
 const { randomToken } = require('./crypto');
 const { config } = require('../config');
+const emailService = require('../services/email.service');
+
+// Best-effort invitation-email send. Logs the URL if Resend is not
+// wired (or fails) so the operator can copy it manually. Never throws —
+// invitation creation must succeed even if email-delivery hiccups.
+function sendInvitationEmailBestEffort({ to, url, familyName, inviterName }) {
+  try {
+    const noResend = !emailService.isEmailConfigured();
+    const subject = `You're invited to ${familyName}`;
+    const body =
+      `Hi! ${inviterName} invited you to ${familyName} on ${config.APP_NAME}. ` +
+      `Click here to accept:\n\n${url}\n\n` +
+      `This invitation expires in ${INVITE_TTL_DAYS} days.`;
+    if (noResend) {
+      console.log(`[invitation] Resend not configured; URL for ${to}: ${url}`);
+      return;
+    }
+    if (typeof emailService.sendInvitationEmail === 'function') {
+      emailService.sendInvitationEmail({ to, subject, body }).catch((err) => {
+        console.warn(`[invitation] sendInvitationEmail failed: ${err.message}`);
+      });
+    } else {
+      console.log(`[invitation] sendInvitationEmail not implemented; URL: ${url}`);
+    }
+  } catch (err) {
+    console.warn(`[invitation] best-effort send failed: ${err.message}`);
+  }
+}
 
 const INVITE_URL_PATH = '/invite/';
 const INVITE_TTL_DAYS = 7;
@@ -175,7 +203,7 @@ function handleCreateInvitation(ctx, repos) {
   if (!ctx.user || ctx.user._synthetic) {
     throw errors.forbidden('Synthetic local user cannot invite real accounts.');
   }
-  const { role, profileMemberId = null } = ctx.body || {};
+  const { role, profileMemberId = null, email = null } = ctx.body || {};
   if (!['adult', 'child'].includes(role)) {
     throw errors.badRequest('role must be "adult" or "child".');
   }
@@ -186,6 +214,13 @@ function handleCreateInvitation(ctx, repos) {
       throw errors.badRequest('profileMemberId does not belong to this family.');
     }
   }
+  // Optional email validation. Accepts either an actual email or null.
+  if (email != null && typeof email === 'string') {
+    const trimmed = email.trim();
+    if (trimmed.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      throw errors.badRequest('email is not a valid email address.');
+    }
+  }
   const token = randomToken(32);
   const invitation = repos.family.createInvitation({
     familyId: ctx.familyId,
@@ -194,7 +229,23 @@ function handleCreateInvitation(ctx, repos) {
     profileMemberId,
     invitedBy: ctx.user.id,
     ttlDays: INVITE_TTL_DAYS,
+    invitedEmail: email && typeof email === 'string' ? email.trim() : null,
   });
+
+  // Email-delivery hook (Sprint 7 PR C4). When Resend is configured we
+  // send the invitation email; otherwise the URL is logged so the
+  // operator can copy it manually. The handler does not block on email
+  // failures — if the send fails the invitation still exists and the
+  // URL is returned in the response.
+  if (invitation.invited_email) {
+    sendInvitationEmailBestEffort({
+      to: invitation.invited_email,
+      url: invitationUrlFor(token),
+      familyName: ctx.user?.family_name || 'FamilyAssistant',
+      inviterName: ctx.user?.name || ctx.user?.email || 'an existing member',
+    });
+  }
+
   return {
     ok: true,
     invitation: {
@@ -203,6 +254,7 @@ function handleCreateInvitation(ctx, repos) {
       url: invitationUrlFor(token),
       assignedRole: invitation.assigned_role,
       profileMemberId: invitation.profile_member_id,
+      invitedEmail: invitation.invited_email,
       expiresAt: invitation.expires_at,
       createdAt: invitation.created_at,
     },
