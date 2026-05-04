@@ -2706,6 +2706,44 @@ function registerRoutes(router, { repos, serverState }) {
       throw errors.notFound('openapi.yaml not found on disk');
     }
   });
+
+  // ============================================================
+  // Admin: Kassal status (PR C3)
+  // ============================================================
+  // Reports activation state of the Kassal price-comparison API. Required
+  // for the admin UI to know whether the env-gated infrastructure is
+  // wired (KASSAL_API_KEY set) or in no-op mode. Admin-only — uses
+  // ctx.user.is_admin populated by the auth middleware. When the admin
+  // role migration (026) hasn't been applied yet this falls back to
+  // false, which 403s — safe.
+  router.get('/api/admin/kassal/status', (ctx) => {
+    if (!ctx.user || !ctx.user.is_admin) {
+      throw errors.forbidden('Admin role required.');
+    }
+    const kassalClient = require('./services/kassal-client.service');
+    const enabled = !!process.env.KASSAL_API_KEY;
+    const status = kassalClient.getStatus();
+    let productCount = 0;
+    let resolutionCount = 0;
+    try {
+      productCount = repos._db.prepare('SELECT COUNT(*) AS cnt FROM kassal_products').get().cnt;
+      resolutionCount = repos._db
+        .prepare('SELECT COUNT(*) AS cnt FROM product_resolutions')
+        .get().cnt;
+    } catch {
+      // Tables may not exist on older DB versions.
+    }
+    ctx.json({
+      enabled,
+      apiKeyConfigured: status.apiKeyConfigured,
+      productCount,
+      resolutionCount,
+      tokensAvailable: status.tokensAvailable,
+      bucketCapacity: status.bucketCapacity,
+      circuitOpen: status.circuitOpen,
+      circuitOpenUntil: status.circuitOpenUntil,
+    });
+  });
 }
 
 // ============================================================

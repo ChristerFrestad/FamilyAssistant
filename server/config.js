@@ -55,6 +55,16 @@ const envSchema = z.object({
   // they are running an auth-less instance in production.
   PILOT_BYPASS_PRODUCTION_ACK: z.coerce.boolean().default(false),
 
+  // Kassal API (price comparison via kassal.app). When set, enables the
+  // shopping-list-enricher background job + product-resolver so shopping
+  // items get matched to Kassal products with current prices. The Kassal
+  // client (server/services/kassal-client.service.js) reads
+  // process.env.KASSAL_API_KEY directly at request time, so this Zod
+  // entry is documentation + validation; runtime gating happens inside
+  // the client. Left unset for pilot (Kassal activation is post-pilot
+  // per pre-pilot-audit § C3).
+  KASSAL_API_KEY: z.string().optional(),
+
   // LLM
   LLM_BACKEND: z.enum(['ollama', 'llamacpp']).default('ollama'),
   OLLAMA_HOST: z.string().default('http://localhost:11434'),
