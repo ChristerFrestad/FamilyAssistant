@@ -1,16 +1,20 @@
 # Familieassistenten — multi-stage Dockerfile
 #
-# Uke 7 av ISO/IEC 25010-planen (PORT-1, PORT-7).
+# Uke 7 av ISO/IEC 25010-planen (PORT-1, PORT-7), utvidet 2026-05-04
+# med frontend-builder for v2 React-bundle.
 #
 # Build-strategi:
-#   Stage 1: builder — node:20-bookworm-slim med toolchain for å
-#            kompilere better-sqlite3 (native C++ modul). Installer
-#            runtime-deps og kopier dist-filer.
-#   Stage 2: runtime — gcr.io/distroless/nodejs20-debian12 med kun
-#            Node-binær + app. Ingen shell, ingen apt, minimal
-#            attack surface. Distroless bilder er ~25-50 MB mindre
-#            enn alpine runtime-images og håndterer glibc korrekt
-#            for native modules.
+#   Stage 1a: frontend-builder — node:20-bookworm-slim med Vite. Bygger
+#             client/src/ til /build/public/v2/. Bundle-en er gitignored
+#             i git-checkout, så uten denne stagen ville imaget mangle
+#             v2 React-app og fallback til legacy v1.
+#   Stage 1b: builder (backend) — node:20-bookworm-slim med toolchain
+#             for å kompilere better-sqlite3 (native C++ modul).
+#             Installer runtime-deps, kopier dist-filer, og henter v2-
+#             bundle fra frontend-builder.
+#   Stage 2:  runtime — node:20-bookworm-slim med tini + gosu for
+#             entrypoint-permissions-fix. Kopier node_modules, server/,
+#             public/ (inkl. /v2/), og scripts/ fra builder.
 #
 # Multiarch: bygges med `docker buildx build --platform linux/amd64,linux/arm64`.
 # Både amd64 (x86 dev-PC) og arm64 (RPi5) er støttet.
@@ -31,7 +35,44 @@
 #     ghcr.io/christerfrestad/familieassistant:dev
 
 # ============================================================================
-# Stage 1: Builder
+# Stage 1a: Frontend builder — Vite-bygget v2 React-bundle
+# ============================================================================
+# Bygger `client/src/` (TypeScript + React) til `/build/public/v2/`. Output-
+# folderen er .gitignored i kilden — bundlen er midlertidig per build, ikke
+# noe som skal committes. Backend-builderen under (Stage 1b) plukker den opp
+# via COPY --from=frontend-builder.
+#
+# Stagen bruker full `npm ci` (ikke --omit=dev) fordi Vite, @vitejs/plugin-
+# react, tailwindcss og resten av build-toolchain bor i devDependencies. De
+# følger ikke med til runtime-imaget — det er kun stage 1b som ender opp i
+# stage 2.
+#
+# Cache-strategi: separat stage betyr at frontend-stagen kun rebuilds når
+# package-lock.json eller client/** endres. Endringer kun i server/ gjør
+# at denne stagen treffer Docker layer-cache og hopper rett til neste.
+FROM node:20-bookworm-slim AS frontend-builder
+
+WORKDIR /build
+
+# Kopier package-filer først for layer-caching
+COPY package.json package-lock.json ./
+
+# Full install inkl. devDependencies (Vite + plugins). --ignore-scripts er
+# unødvendig her fordi vi ikke trenger better-sqlite3 native-build i denne
+# stagen — kun JS-bundling.
+RUN npm ci --no-audit --no-fund --ignore-scripts
+
+# Kopier client-kildekode + public (vite trenger public/ for index.html
+# template og statiske assets som peker fra index.html).
+COPY client ./client
+COPY public ./public
+
+# Bygg v2-bundle. Output havner i /build/public/v2/ (jf. vite.config.ts:
+# `outDir: path.resolve(__dirname, '..', 'public', 'v2')`).
+RUN npm run build:client
+
+# ============================================================================
+# Stage 1b: Backend builder
 # ============================================================================
 # TODO: Pin til spesifikk SHA256 digest for reproducerbare builds:
 #   FROM node:20-bookworm-slim@sha256:<hash> AS builder
@@ -58,6 +99,11 @@ RUN npm ci --omit=dev --no-audit --no-fund
 COPY server ./server
 COPY public ./public
 COPY scripts/load-baseline.js ./scripts/load-baseline.js
+
+# Plukk opp v2-bundle bygget i stage 1a. Skriver over public/v2/ (som ikke
+# eksisterer i git-checkout fordi den er .gitignored). Etter dette steget
+# har /build/public/ alle statiske filer — både legacy v1 og bygget v2.
+COPY --from=frontend-builder /build/public/v2 ./public/v2
 
 # Valider at appen kan starte med NODE_ENV=test + dry-initialize
 # (fanger evt. require-order-feil tidlig)
