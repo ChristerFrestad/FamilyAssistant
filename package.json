@@ -49,7 +49,7 @@
     "lucide-react": "1.14.0",
     "pino": "^10.3.1",
     "react-i18next": "17.0.6",
-    "zod": "^4.3.6"
+    "zod": "^4.4.2"
   },
   "optionalDependencies": {
     "@sentry/node": "^8.0.0",
