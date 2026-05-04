@@ -29,6 +29,7 @@ import { SettingsRow } from '../components/settings/SettingsRow';
 import { InlineEditableText } from '../components/settings/InlineEditableText';
 import { DataExportButton } from '../components/settings/DataExportButton';
 import { DeleteAccountButton } from '../components/settings/DeleteAccountButton';
+import { LogoutButton } from '../components/settings/LogoutButton';
 import { useSettingsData } from '../settings/useSettingsData';
 import { useAuthContext } from '../auth/AuthContext';
 
@@ -38,7 +39,7 @@ const APP_VERSION = '1.3.0';
 export function Settings(): JSX.Element {
   const { t } = useTranslation(['settings', 'common']);
   const navigate = useNavigate();
-  const { user } = useAuthContext();
+  const { user, logout } = useAuthContext();
   const {
     family,
     isLoading,
@@ -203,6 +204,20 @@ export function Settings(): JSX.Element {
                   confirmText={t('settings:account.delete.confirmText')}
                   ownerBlocked={ownerBlocked}
                   ownerBlockedHint={t('settings:account.delete.ownerBlocked')}
+                />
+              }
+            />
+          </SettingsSection>
+
+          <SettingsSection title={t('settings:sections.session')} id="session">
+            <SettingsRow
+              label={t('settings:session.logout.label')}
+              description={t('settings:session.logout.description')}
+              control={
+                <LogoutButton
+                  onLogout={logout}
+                  label={t('settings:session.logout.button')}
+                  confirmText={t('settings:session.logout.confirmText')}
                 />
               }
             />

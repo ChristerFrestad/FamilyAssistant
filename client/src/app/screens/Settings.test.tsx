@@ -134,7 +134,7 @@ describe('Settings — loading/error states', () => {
 });
 
 describe('Settings — sections', () => {
-  test('renders all four sections (System, Family, User, Account)', async () => {
+  test('renders all five sections (System, Family, User, Account, Session)', async () => {
     mockFetchByPath({
       '/api/family': () => jsonResponse(200, FAMILY_PAYLOAD),
     });
@@ -144,6 +144,16 @@ describe('Settings — sections', () => {
     expect(screen.getByRole('heading', { name: 'Familie' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bruker' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Konto' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sesjon' })).toBeInTheDocument();
+  });
+
+  test('renders logout button in Session section', async () => {
+    mockFetchByPath({
+      '/api/family': () => jsonResponse(200, FAMILY_PAYLOAD),
+    });
+    mountSettings();
+    await waitFor(() => expect(screen.queryByTestId('settings-skeleton')).toBeNull());
+    expect(screen.getByTestId('settings-logout-button')).toBeInTheDocument();
   });
 
   test('renders disabled rows with realistic badges (post-pilot + Resend gate)', async () => {

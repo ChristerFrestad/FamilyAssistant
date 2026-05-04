@@ -8,6 +8,7 @@
     "family": "Familie",
     "user": "Bruker",
     "account": "Konto",
+    "session": "Sesjon",
     "mealTimes": "Måltids-tider",
     "gamification": "Gamification",
     "data": "Mine data",
@@ -72,6 +73,14 @@
       "button": "Slett konto",
       "confirmText": "Vil du slette kontoen din? Du har 30 dager på å angre. Etter det er all data slettet permanent.",
       "ownerBlocked": "Du må overføre eierskap eller slette familien først"
+    }
+  },
+  "session": {
+    "logout": {
+      "label": "Logg ut",
+      "description": "Avslutt sesjonen på denne enheten",
+      "button": "Logg ut",
+      "confirmText": "Vil du logge ut?"
     }
   },
   "footer": {
