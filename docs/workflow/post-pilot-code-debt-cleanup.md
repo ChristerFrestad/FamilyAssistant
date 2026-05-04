@@ -411,3 +411,91 @@ denne kostnaden to ganger med mindre Docker layer cache hjelper.
 subtle "works in CI, fails locally" issues. Krever god
 dokumentasjon i `docs/runbooks/deploy-portainer.md` om at lokal
 build forutsetter forhåndsbygget bundle.
+
+---
+
+### Entry 11: HTTPS_TERMINATED leses utenfor Zod-config (post-pilot)
+
+- **Kategori:** Config-konsistens
+- **Severity:** LOW
+- **Logget:** 2026-05-04 (sammen med fix/cookie-secure-flag-http-deploy)
+
+**Beskrivelse:** `process.env.HTTPS_TERMINATED === 'true'` leses
+direkte to steder i `server/`:
+
+- `server/auth/sessions.js:14` (i `isSecureRequest()`)
+- `server/http/security.js:252` (HSTS-header)
+
+Variabelen er IKKE i Zod-skjemaet i `server/config.js`. Det betyr:
+
+- Ingen typevalidering
+- Ingen default
+- Ingen dokumentasjon i config.js
+- Inkonsistent med resten av kodebasen (alle andre env-vars går
+  via `config.X`)
+
+**Hvorfor det ikke fikses nå:** Pilot-launch-blocker har prioritet.
+Migrering ville kreve konsis test og ville røre flere filer enn
+nødvendig for cookie-fix-en.
+
+**Cleanup-handling for post-pilot:**
+1. Legg til `HTTPS_TERMINATED: z.coerce.boolean().default(false)`
+   i Zod-skjemaet
+2. Erstatt `process.env.HTTPS_TERMINATED === 'true'` med
+   `config.HTTPS_TERMINATED` i de to bruksstedene
+3. Verifiser at eksisterende tester passerer (cookie-secure-flag
+   + sessions-tester)
+
+**Estimat:** 30-45 min.
+
+**Risiko:** Lav. Pure refactor, ingen oppførsel-endring.
+
+---
+
+### Entry 12: Pre-deploy smoke-test for cookie-flow (CLAUDE.md DEL 16)
+
+- **Kategori:** Test-coverage
+- **Severity:** MEDIUM
+- **Logget:** 2026-05-04
+
+**Beskrivelse:** Tre kritiske bugs ble funnet på første pilot-deploy
+som CI ikke fanget:
+
+1. PR #114 — pilot-gate auth-middleware lockout (AUTH_TOKEN ikke
+   testet i CI)
+2. PR #115 — v2-bundle ikke i Docker-image (Vite kjørte aldri)
+3. fix/cookie-secure-flag — Secure-flag i prod env over HTTP
+
+Alle tre var "deploy-only"-bugs som trivial unit-test-suite ikke
+adresserte. Vi mangler en pre-deploy-prosedyre som verifiserer
+ende-til-ende at en faktisk Portainer-deploy med produksjons-env
+fungerer for pilot-flowen.
+
+**Foreslått form (CLAUDE.md DEL 16):**
+
+Definer pre-deploy-sjekkliste som kjøres MANUELT av Christer eller
+automatisk av CI mot et test-image:
+
+1. Bygg Docker image fra branch
+2. Start container med produksjons-env (NODE_ENV=production,
+   AUTH_TOKEN, SESSION_SECRET, PILOT_MODE=true, PILOT_PASSWORD,
+   HTTPS_TERMINATED=false for HTTP-test)
+3. Verifiser:
+   - `GET /v2/` returnerer 200 og bundle-HTML
+   - `GET /api/pilot/status` returnerer `pilotMode: true`
+   - `POST /api/auth/pilot-password` setter `fa_pilot`-cookie UTEN
+     Secure-flag på HTTP-test
+   - Subsequent `GET /api/meals/current` med cookie passer pilot-gate
+   - Restart container med HTTPS_TERMINATED=true
+   - Verifiser at `fa_pilot`-cookie nå har Secure-flag
+
+**Cleanup-handling for post-pilot:**
+1. Skriv `scripts/pre-deploy-smoke-test.sh` som kjører ovennevnte
+2. Legg til som GitHub Actions-job som trigger på release-tags
+3. Dokumenter i CLAUDE.md DEL 16 som obligatorisk pre-deploy-step
+4. Vurder å integrere i `docker.yml`-workflow som verify-step
+   etter image-build (parallelt med eksisterende v2-bundle-verify)
+
+**Estimat:** 4-6 timer for komplett smoke-test + Actions-integrasjon.
+
+**Risiko:** Lav. Test-only, ingen prod-impact.

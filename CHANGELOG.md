@@ -6,6 +6,88 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed — Cookies dropped by browser on HTTP deploys (2026-05-04, CRITICAL)
+
+**Symptom:** After PR #114 + #115 landed, Christer redeployed to RPi5
+on plain-HTTP LAN (`http://192.168.50.123:7777`). The
+`PilotPasswordGate` rendered, the password was accepted (`POST
+/api/auth/pilot-password` → 200), but the very next request hit the
+pilot-gate again with **403 "Pilot password required."** Browser
+inspection (`Application → Cookies`) showed `fa_pilot` was not in
+the cookie jar at all.
+
+**Root cause:** Three cookies (`fa_pilot`, `fa_session`, and
+`fa_oauth_state`) were set with `secure: config.NODE_ENV ===
+'production'` in `server/auth/routes.js` and `server/auth/sessions.js`.
+For the session-cookie the formulation was even worse —
+`secure: isSecureRequest(req) || config.NODE_ENV === 'production'` —
+the `||` short-circuit made the perfectly-good `isSecureRequest()`
+helper completely irrelevant in any prod deploy.
+
+Browsers silently drop cookies whose `Secure` attribute is set when
+the connection is plain HTTP. Christer's pilot-LAN deploy ran
+`NODE_ENV=production` over HTTP, so every cookie was emitted with
+`Secure` and every browser dropped them. The pilot-gate, the magic-
+link session, and the future Google-OAuth flow were all locked out
+by the same antipattern.
+
+This is the THIRD bug found on the first pilot deploy. PR #114 fixed
+the auth-middleware lockout. PR #115 fixed the missing v2 bundle.
+This PR fixes the cookie that the lockout-fix and bundle-fix were
+supposed to enable.
+
+**Fix:** Every cookie set by the auth layer now derives the `Secure`
+flag from `isSecureRequest(req)` exclusively — the existing helper
+that checks (in order):
+
+1. `process.env.HTTPS_TERMINATED === 'true'` (operator opt-in for
+   reverse-proxy TLS terminations like Cloudflare Tunnel)
+2. `req.headers['x-forwarded-proto'] === 'https'` (set by most
+   TLS-terminating proxies — Cloudflare Tunnel sets this by default)
+3. `req.socket.encrypted === true` (direct HTTPS without proxy)
+
+Files touched:
+
+- `server/auth/sessions.js` — drop the `|| config.NODE_ENV ===
+  'production'` short-circuit from `setSessionCookie` and
+  `clearSessionCookie`
+- `server/auth/routes.js` — import `isSecureRequest`, use it for
+  both the OAuth state cookie and the pilot cookie
+  (`setPilotCookie` gains a `req` parameter)
+
+**Tested:**
+
+New regression suite `tests/cookie-secure-flag.test.js` (14 tests)
+walks the full matrix:
+
+| `HTTPS_TERMINATED` | `X-Forwarded-Proto` | `socket.encrypted` | Secure |
+|---|---|---|---|
+| `true` | (any) | (any) | yes |
+| (unset) | `https` | (any) | yes |
+| (unset) | (other/unset) | `true` | yes |
+| (unset) | (other/unset) | `false` | **no** ← LAN pilot |
+
+All four cookie set-paths (session set, session clear, pilot, OAuth-
+state) are covered. Existing tests (1407 → 1419) still pass.
+
+**DEL 6.1b approval:** Christer explicitly approved on 2026-05-04
+after diagnosis. Endring i `server/auth/sessions.js` og
+`server/auth/routes.js`.
+
+**Operator action after merge:**
+
+1. CI builds new `:main` + `:sha-XXX` images on GHCR
+2. In Portainer: pull + recreate container as usual
+3. Verify in browser:
+   - `Application → Cookies → http://<deploy>:7777`
+   - `fa_pilot` should appear after submitting the pilot password
+   - `fa_session` should appear after clicking a magic-link
+4. For Cloudflare Tunnel deploy: ensure `HTTPS_TERMINATED=true` is
+   set in Portainer (already in `docs/runbooks/deploy-portainer.md`)
+
+Tracking:
+[`docs/analyses/2026-05-04-cookie-secure-flag-fix.md`](docs/analyses/2026-05-04-cookie-secure-flag-fix.md).
+
 ### Fixed — V2 frontend bundle not built in Docker image (2026-05-04, CRITICAL)
 
 **Symptom:** After PR #114 fixed the pilot-gate lockout in
