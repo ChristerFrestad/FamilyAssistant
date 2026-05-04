@@ -39,6 +39,7 @@ import { Meals } from './screens/Meals';
 import { Shopping } from './screens/Shopping';
 import { Calendar } from './screens/Calendar';
 import { Settings } from './screens/Settings';
+import { Admin } from './screens/Admin';
 import { NotFound } from './screens/NotFound';
 import { Welcome } from './screens/auth/Welcome';
 import { Login } from './screens/auth/Login';
@@ -125,6 +126,7 @@ function AppRoutes(): JSX.Element {
                       </ErrorBoundary>
                     }
                   />
+                  <Route path="/admin" element={<Admin />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </AppShell>
