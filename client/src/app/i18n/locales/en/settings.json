@@ -8,6 +8,7 @@
     "family": "Family",
     "user": "User",
     "account": "Account",
+    "session": "Session",
     "mealTimes": "Meal times",
     "gamification": "Gamification",
     "data": "My data",
@@ -71,6 +72,14 @@
       "button": "Delete account",
       "confirmText": "Delete your account? You have 30 days to undo. After that, all data is permanently deleted.",
       "ownerBlocked": "Transfer ownership or delete the family first"
+    }
+  },
+  "session": {
+    "logout": {
+      "label": "Log out",
+      "description": "End your session on this device",
+      "button": "Log out",
+      "confirmText": "Log out?"
     }
   },
   "footer": {
