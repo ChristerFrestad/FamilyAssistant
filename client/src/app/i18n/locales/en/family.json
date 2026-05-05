@@ -44,9 +44,87 @@
   },
   "actions": {
     "invite": "Invite member",
-    "invitePlaceholder": "Invitations are coming in Sprint 5+",
     "edit": "Edit",
     "retry": "Try again"
+  },
+  "invitations": {
+    "modal": {
+      "title": "Invite a member to the family",
+      "email": "Email address",
+      "emailPlaceholder": "name@example.com",
+      "role": "Role",
+      "roleAdult": "Adult",
+      "personalMessage": "Personal message (optional)",
+      "personalMessagePlaceholder": "Add a note for the person you're inviting …",
+      "personalMessageMax": "{{count}} / 500 characters",
+      "send": "Send invitation",
+      "cancel": "Cancel",
+      "sending": "Sending …"
+    },
+    "validation": {
+      "invalidEmail": "Enter a valid email address",
+      "alreadyInvited": "This email already has a pending invitation",
+      "alreadyMember": "This email is already a member of the family",
+      "messageTooLong": "Your message is too long (max 500 characters)",
+      "generic": "Could not send invitation — try again"
+    },
+    "success": {
+      "sent": "Invitation sent to {{email}}",
+      "revoked": "Invitation revoked",
+      "resent": "Invitation sent again"
+    },
+    "pending": {
+      "title": "Pending invitations",
+      "empty": "No pending invitations",
+      "loadFailed": "Could not load invitations",
+      "columns": {
+        "email": "Email",
+        "sent": "Sent",
+        "expires": "Expires"
+      },
+      "actions": {
+        "resend": "Send again",
+        "revoke": "Revoke"
+      },
+      "confirmRevoke": "Revoke the invitation for {{email}}?",
+      "confirmResend": "Send the invitation for {{email}} again?"
+    },
+    "accept": {
+      "loading": "Loading invitation …",
+      "title": "{{inviter}} invites you to {{family}}",
+      "description": "Join to plan meals, shopping lists, and household tasks together.",
+      "personalMessageHeading": "Personal message",
+      "accept": "Accept invitation",
+      "decline": "Decline",
+      "loginRequired": "Sign in to accept",
+      "wrongEmailHeading": "Signed in with the wrong account",
+      "wrongEmailBody": "This invitation is for {{email}}. You are signed in as {{currentEmail}}. Sign out and sign in with the right account.",
+      "logoutButton": "Sign out",
+      "errorNotFoundTitle": "Invitation not found",
+      "errorNotFoundBody": "This invitation does not exist or has been replaced by a newer one.",
+      "errorExpiredTitle": "Invitation expired",
+      "errorExpiredBody": "Ask the family for a new invitation.",
+      "errorRevokedTitle": "Invitation revoked",
+      "errorRevokedBody": "Ask the family for a new invitation.",
+      "errorAlreadyUsedTitle": "Invitation already used",
+      "errorAlreadyUsedBody": "Sign in with the account that accepted this invitation, or ask for a new one.",
+      "errorGenericTitle": "Something went wrong",
+      "errorGenericBody": "We couldn't load the invitation. Please try again in a moment.",
+      "successWelcome": "Welcome to the family!",
+      "backHome": "Back to home",
+      "tryAgain": "Try again",
+      "accepting": "Accepting …"
+    },
+    "relativeTime": {
+      "now": "just now",
+      "minutesAgo": "{{count}} min ago",
+      "hoursAgo": "{{count}} h ago",
+      "daysAgo": "{{count}} d ago",
+      "inMinutes": "in {{count}} min",
+      "inHours": "in {{count}} h",
+      "inDays": "in {{count}} d",
+      "expired": "expired"
+    }
   },
   "youBadge": "You",
   "errors": {

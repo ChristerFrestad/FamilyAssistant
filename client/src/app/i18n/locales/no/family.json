@@ -44,9 +44,87 @@
   },
   "actions": {
     "invite": "Inviter medlem",
-    "invitePlaceholder": "Invitering kommer i Sprint 5+",
     "edit": "Rediger",
     "retry": "Prøv igjen"
+  },
+  "invitations": {
+    "modal": {
+      "title": "Inviter medlem til familien",
+      "email": "E-postadresse",
+      "emailPlaceholder": "navn@eksempel.no",
+      "role": "Rolle",
+      "roleAdult": "Voksen",
+      "personalMessage": "Personlig melding (valgfri)",
+      "personalMessagePlaceholder": "Skriv en hilsen til den du inviterer …",
+      "personalMessageMax": "{{count}} / 500 tegn",
+      "send": "Send invitasjon",
+      "cancel": "Avbryt",
+      "sending": "Sender …"
+    },
+    "validation": {
+      "invalidEmail": "Skriv inn en gyldig e-postadresse",
+      "alreadyInvited": "Denne e-posten er allerede invitert",
+      "alreadyMember": "Denne e-posten er allerede medlem av familien",
+      "messageTooLong": "Meldingen er for lang (maks 500 tegn)",
+      "generic": "Kunne ikke sende invitasjon — prøv igjen"
+    },
+    "success": {
+      "sent": "Invitasjon sendt til {{email}}",
+      "revoked": "Invitasjon trukket tilbake",
+      "resent": "Invitasjon sendt på nytt"
+    },
+    "pending": {
+      "title": "Pending invitasjoner",
+      "empty": "Ingen pending invitasjoner",
+      "loadFailed": "Kunne ikke hente invitasjoner",
+      "columns": {
+        "email": "E-post",
+        "sent": "Sendt",
+        "expires": "Utløper"
+      },
+      "actions": {
+        "resend": "Send på nytt",
+        "revoke": "Trekk tilbake"
+      },
+      "confirmRevoke": "Trekke tilbake invitasjonen til {{email}}?",
+      "confirmResend": "Sende invitasjonen til {{email}} på nytt?"
+    },
+    "accept": {
+      "loading": "Laster invitasjon …",
+      "title": "{{inviter}} inviterer deg til {{family}}",
+      "description": "Bli med for å planlegge måltider, handlelister og hverdagsoppgaver sammen.",
+      "personalMessageHeading": "Personlig melding",
+      "accept": "Aksepter invitasjon",
+      "decline": "Avslå",
+      "loginRequired": "Logg inn for å akseptere",
+      "wrongEmailHeading": "Logget inn med feil konto",
+      "wrongEmailBody": "Denne invitasjonen er for {{email}}. Du er logget inn som {{currentEmail}}. Logg ut og logg inn med riktig konto.",
+      "logoutButton": "Logg ut",
+      "errorNotFoundTitle": "Invitasjon ikke funnet",
+      "errorNotFoundBody": "Invitasjonen finnes ikke eller har blitt erstattet av en nyere.",
+      "errorExpiredTitle": "Invitasjonen har utløpt",
+      "errorExpiredBody": "Be om en ny invitasjon fra familien.",
+      "errorRevokedTitle": "Invitasjonen er trukket tilbake",
+      "errorRevokedBody": "Be om en ny invitasjon fra familien.",
+      "errorAlreadyUsedTitle": "Invitasjonen er allerede brukt",
+      "errorAlreadyUsedBody": "Logg inn med kontoen som aksepterte invitasjonen, eller be om en ny.",
+      "errorGenericTitle": "Noe gikk galt",
+      "errorGenericBody": "Vi kunne ikke laste invitasjonen. Prøv igjen om litt.",
+      "successWelcome": "Velkommen til familien!",
+      "backHome": "Tilbake til forsiden",
+      "tryAgain": "Prøv igjen",
+      "accepting": "Aksepterer …"
+    },
+    "relativeTime": {
+      "now": "akkurat nå",
+      "minutesAgo": "for {{count}} min siden",
+      "hoursAgo": "for {{count}} timer siden",
+      "daysAgo": "for {{count}} dager siden",
+      "inMinutes": "om {{count}} min",
+      "inHours": "om {{count}} timer",
+      "inDays": "om {{count}} dager",
+      "expired": "utløpt"
+    }
   },
   "youBadge": "Du",
   "errors": {

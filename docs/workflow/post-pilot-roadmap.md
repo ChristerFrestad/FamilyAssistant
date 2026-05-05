@@ -308,3 +308,95 @@ enricher-flyten er allerede der.
 - `client/src/app/screens/Shopping.tsx` (enrichment-status UI)
 - `client/src/app/components/shopping/EnrichmentStatusBadge.tsx` (ny)
 - `client/src/app/i18n/locales/{no,en}/shopping.json` (status-keys)
+
+---
+
+## Post-Pilot Family Features Roadmap (loggført 2026-05-05, Sprint 9 plan)
+
+Christer re-scopet Sprint 9 fra MVP-basis til **kvalitets-fokus** når
+strategien gikk fra "hard pilot-deadline" til "pre-pilot soft-launch
+til fokusgruppe". Sprint 9 (PR #119) leverer derfor en full
+invitasjons-flyt med polish.
+
+### Sprint 9: Family Invitation (implementert i PR #119)
+
+- Standard invitasjons-flyt: opprett, list pending, trekk tilbake,
+  send på nytt
+- Personlig melding (max 500 tegn) som vises i email + accept-side
+- Pre-validering ved create — `EMAIL_ALREADY_MEMBER` og
+  `EMAIL_ALREADY_INVITED` (409 med machine-readable code)
+- Resend-endpoint som roterer token og gjenbruker locale + melding
+- 5-state accept-page (`/v2/invite/:token`): loading, valid-anon,
+  valid-match, valid-mismatch (logout-redirect), error (404 / 410 /
+  409 / 5xx)
+- Norsk + engelsk i18n-dekning (alle strings + 4 email-templates)
+- DEL 14 cross-tenant tester for create + resend + revoke
+- ISO 25010: brukbarhet 8.5 → 8.7, sikkerhet 8.2 → 8.3
+
+### Utsatt til post-pre-pilot (eksplisitt nedprioritert i Sprint 9)
+
+- **Bulk-invitasjoner:** invitere flere e-poster i én operasjon
+- **Invitation analytics:** open-rate / accept-rate per familie
+- **Custom branding per family:** egen logo / farge-palett (i tillegg
+  til operatør-nivå white-label via `APP_NAME`)
+- **Email-template-editor:** admin-flate for å redigere
+  invitation-{no,en}.{html,txt} uten redeploy
+
+Punktene under er bredere familie-funksjoner som var utsatt før
+Sprint 9 og forblir utsatt — de logges her så de ikke forsvinner.
+
+### Sprint 10: Subaccounts (barn 4-18)
+
+- Foreldre oppretter familiemedlem med navn, fødselsdato, allergier,
+  porsjonsfaktor (eksisterer allerede i `family_profile_members`)
+- Optional 4-sifret PIN per barn (ny migrasjon: `family_profile_members.pin_hash`)
+- Barn med PIN kan logge inn på familie-enhet (egen login-flow)
+- Begrenset rettigheter (read-only først, granular permissions i Sprint 11)
+
+### Sprint 11: Granulære permissions
+
+- Per-barn-config: meal-planning, husarbeid-marking, dashboard-access,
+  handleliste-tilgang
+- Familie-eier kontrollerer alle permissions via Family-side
+- Backend: ny tabell `family_member_permissions(profile_member_id, scope, allowed)`
+
+### Sprint 12: Adaptive UX og templates
+
+- Aldersgrupperte profil-templates (4-7, 8-12, 13-17)
+- Auto-anbefale endringer når barn blir eldre
+- Foreslå template-overgang ved aldersmilepæler
+- Backend: ny CRON-job sjekker fødselsdatoer mot template-grenser
+
+### Sprint 13: Leaderboard og gamification
+
+- Husarbeid-poeng per barn (utvid `chore_completions` med `points`-felt)
+- Visuell progresjon (ny screen + chart-komponenter)
+- Familie-leaderboard
+- Belønnings-systemet (foreldre-konfigurerbart, ny tabell `chore_rewards`)
+
+### Sprint 14: Voksne barn (18-25) som gjeste-medlemmer
+
+- 'Frontside' invitasjoner til middager (ny invitasjon-type:
+  `assigned_role='guest'`)
+- 'Forespørsel om middag'-flow (barn → eier; ny endpoint
+  `POST /api/meals/:id/request-attendance`)
+- Eier inviterer barn til spesifikt måltid
+- Porsjonsfaktor automatisk regnet inn (Eksisterende portion-factor-logikk)
+
+### Sprint 15: Cross-family overføring
+
+- Standard scenario: bestemor flytter mellom familier
+- Mottaker-samtykke + admin-varsel
+- Brukers data følger med (preferences, history) — krever explicit
+  family_id-migrering på user_preferences-tabeller
+- Backend: ny endpoint `POST /api/family/transfer-user/:userId` med
+  to-fase-flow (request → accept)
+
+### Sprint 16+: Re-implement bootstrap-flow på v2
+
+Sprint 8 (PR #118) slettet `public/setup.html`. Bootstrap-handler-koden i
+`server/http/bootstrap.js` finnes fortsatt men `setupUrl: '/setup.html'`
+peker på en slettet fil. Sprint 16+ kan re-implementere wizard på v2
+(`/v2/setup`) hvis vi vil støtte zero-config Docker-deploy for andre
+familier. Alternativt: slett bootstrap-flow helt (det er ikke i pilot-bruk).
+Tracked i `docs/workflow/post-pilot-code-debt-cleanup.md` Entry 14.

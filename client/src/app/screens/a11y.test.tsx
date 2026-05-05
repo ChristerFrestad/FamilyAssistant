@@ -52,9 +52,16 @@ afterEach(() => {
 });
 
 function mockFetchByPath(handlers: Record<string, () => Response>): void {
+  // Sprint 9 PR #119: Family screen now also fetches
+  // /api/family/invitations for owners. Pre-fill an empty array when the
+  // caller does not supply its own handler.
+  const withDefaults: Record<string, () => Response> = {
+    '/api/family/invitations': () => jsonResponse(200, { invitations: [] }),
+    ...handlers,
+  };
   fetchSpy.mockImplementation((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
-    for (const [pattern, handler] of Object.entries(handlers)) {
+    for (const [pattern, handler] of Object.entries(withDefaults)) {
       if (url === pattern || url.startsWith(pattern + '?') || url.startsWith(pattern)) {
         return Promise.resolve(handler());
       }

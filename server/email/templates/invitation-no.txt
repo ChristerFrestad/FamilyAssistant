@@ -1,0 +1,14 @@
+{{INVITER_NAME}} inviterer deg til {{FAMILY_NAME}}
+
+Hei!
+
+{{INVITER_NAME}} inviterer deg til å bli med i {{FAMILY_NAME}} på
+{{APP_NAME}} — en app for familieplanlegging av måltider,
+handlelister og hverdagsoppgaver.
+
+{{INVITATION_MESSAGE_BLOCK}}Klikk lenken under for å bli med:
+
+{{URL}}
+
+Lenken er gyldig i {{EXPIRES_IN_DAYS}} dager. Hvis du ikke
+forventet denne invitasjonen, kan du ignorere denne eposten.
