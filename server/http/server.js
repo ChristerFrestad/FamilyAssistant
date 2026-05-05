@@ -141,6 +141,32 @@ function createServer(router, { authenticate } = {}) {
     let routeTemplate = pathname; // overridet etter dispatch
 
     try {
+      // Universal root-redirect: GET / → 302 /v2/.
+      //
+      // V2 (the React SPA in client/src/) is the pilot frontend. The legacy
+      // v1 HTML in public/index.html still ships in the image and is reachable
+      // through specific paths (/index.html, /js/*, /css/*, /privacy.html…)
+      // for backwards compatibility, but the bare root must funnel every
+      // visitor to /v2/. Without this redirect we hit one of two failure
+      // modes on the pilot deploy:
+      //   - Anonymous visitor with AUTH_TOKEN set → 401 from authenticate()
+      //   - Authenticated session-cookie holder → 200 + legacy v1 SPA leaks
+      //
+      // The redirect runs BEFORE rate-limit and authenticate so it is
+      // unconditional, cookie-agnostic, and side-effect-free. /api/*,
+      // /v2/*, static files, and every other path is unchanged. Only
+      // GET (and HEAD by extension via 302) on the bare "/" is intercepted.
+      // Non-GET methods (POST /, PUT /, DELETE /) fall through to the
+      // router and return 404 as before.
+      if (pathname === '/' && req.method === 'GET') {
+        res.writeHead(302, { Location: '/v2/' });
+        res.end();
+        const dur = Date.now() - started;
+        metrics.record(req.method, '/', 302, dur);
+        logRequest(ctx, 302, dur, 'root_redirect');
+        return;
+      }
+
       // Rate limit + authentication always first (incl. static files).
       // When authenticate is injected it performs bearer-token fallback,
       // session-cookie lookup and attaches ctx.user / ctx.familyId.

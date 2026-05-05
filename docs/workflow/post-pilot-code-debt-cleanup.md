@@ -499,3 +499,65 @@ automatisk av CI mot et test-image:
 **Estimat:** 4-6 timer for komplett smoke-test + Actions-integrasjon.
 
 **Risiko:** Lav. Test-only, ingen prod-impact.
+
+---
+
+### Entry 13: Full v1-frontend cleanup (Sprint 8 — post-pilot)
+
+- **Kategori:** Dead-code-cleanup / arkitektur
+- **Severity:** MEDIUM
+- **Logget:** 2026-05-04 (sammen med fix/root-redirect-to-v2)
+
+**Beskrivelse:** Etter root-redirect-fix (PR #117) lander alle pilot-
+brukere på `/v2/` (React-app). Legacy v1-frontend i `public/index.html`
++ `public/js/*` + `public/css/*` er fortsatt i imaget, men ingen
+faktiske brukere bør treffe det gjennom normal flow.
+
+**Hva som fortsatt er tilgjengelig (med vilje):**
+- `/index.html` (eksplisit URL) — legacy SPA-shell
+- `/login.html`, `/invite.html`, `/setup.html` — diverse legacy-pages
+- `/js/*`, `/css/*` — assets
+- `/sw.js` — gammel service worker
+- `/manifest.json` — gammel PWA-manifest
+
+**Hvorfor det fortsatt er der:**
+1. Backwards compatibility — operatører eller eksterne lenker kan
+   peke på legacy-paths
+2. Service worker cache i eksisterende brukere kan trenge fallback
+3. Ikke testet om noen pilot-bruker har URL-er bookmarked
+4. Cleanup utenfor scope for kritisk pilot-fix
+
+**Cleanup-handling for post-pilot (Sprint 8):**
+
+Faser:
+
+1. **Audit hva som faktisk brukes:**
+   - Logge alle requests til `/index.html`, `/js/*`, `/css/*` over en
+     uke
+   - Hvis null traffic fra ekte brukere → trygt å fjerne
+   - Hvis traffic fra service-worker → må migrere SW til v2 først
+
+2. **Migrer essensielle endpoints til v2:**
+   - PWA-manifest til v2 (Sprint 6 har dette på roadmap allerede)
+   - Service worker til v2 (Sprint 6)
+   - `/login.html`, `/invite.html`, `/setup.html` til v2-rutene
+
+3. **Fjern legacy-filer:**
+   - `public/index.html`, `public/js/*`, `public/css/*`
+   - `tryServeSpaFallback()` i server.js (kun v2 igjen)
+   - DEL 6.1-frosne tester (frontend-auth, family-ui-assets) som
+     tester v1 — flytt til v2-ekvivalenter eller slette
+   - Update CLAUDE.md DEL 6.1 til å reflektere ny arkitektur
+
+4. **Verifisering:**
+   - Bundle-size-budsjett (v1 fjerning sparer ~200 KB statisk innhold)
+   - Sjekk at intet under `/js/`, `/css/` referer hverandre
+   - Smoke-test alle pilot-flows med kun v2
+
+**Estimat:** 2-3 dager (audit + migrering + cleanup).
+
+**Risiko:** Middels. Frontend-arkitektur-endring som påvirker hele
+brukervendt flate. Krever grundig testing før vi sletter.
+
+**Avhengigheter:** Sprint 6 (v2 PWA-manifest + service worker) bør
+være ferdig før vi sletter legacy-ekvivalentene.

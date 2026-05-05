@@ -50,7 +50,11 @@ test('family-ui.js is served to authenticated users', async () => {
 
 test('index.html references the new family settings panels', async () => {
   const owner = createOwner('ui-index@test', 'UI Index');
-  const r = await request(server.baseUrl, 'GET', '/', {
+  // Pre-2026-05-04 this hit "/" directly. Post-fix the bare root redirects
+  // to /v2/, so we ask for the legacy entry-point explicitly. The intent
+  // of the test (verify the legacy v1 family-settings markup is wired up)
+  // is unchanged.
+  const r = await request(server.baseUrl, 'GET', '/index.html', {
     headers: { Cookie: owner.cookie },
   });
   assert.strictEqual(r.status, 200);

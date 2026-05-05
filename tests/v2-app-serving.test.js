@@ -116,12 +116,26 @@ test('GET /v2/assets/../../etc/passwd is blocked (path traversal)', async () => 
 // Legacy app isolation
 // ============================================================
 
-test('GET / still serves public/index.html (legacy app untouched)', async () => {
+test('GET / now redirects to /v2/ (post-2026-05-04 fix)', async () => {
+  // Pre-fix this returned 200 with legacy v1 SPA content. Post-fix the
+  // bare root unconditionally redirects to the v2 React app — see
+  // tests/root-redirect.test.js for the full matrix. We keep this assertion
+  // here so the v2-vs-v1 isolation contract is exercised in this file too.
   const r = await request(server.baseUrl, 'GET', '/');
-  assert.equal(r.status, 200);
-  // Legacy index.html contains either 'Familieassistenten' or app-specific
-  // strings. We assert that it does NOT contain our v2 fixture marker.
-  assert.ok(!r.raw.includes('v2 test fixture'), 'legacy / must not fall through to v2 fixture');
+  assert.equal(r.status, 302);
+  assert.strictEqual(r.headers.location || r.headers.Location, '/v2/');
+});
+
+test('GET /index.html still serves legacy v1 (explicit path unchanged)', async () => {
+  // Legacy v1 stays reachable for operators / tests that ask for it
+  // explicitly. Only the bare "/" root is intercepted by the redirect.
+  const r = await request(server.baseUrl, 'GET', '/index.html');
+  // 200 if served, 401 if AUTH_TOKEN gates it — either proves the request
+  // hit the legacy handler and not the redirect.
+  assert.notStrictEqual(r.status, 302, '/index.html must not redirect');
+  if (r.status === 200) {
+    assert.ok(!r.raw.includes('v2 test fixture'), 'legacy must not serve v2 fixture');
+  }
 });
 
 test('GET /js/core.js still serves the existing legacy asset', async () => {
