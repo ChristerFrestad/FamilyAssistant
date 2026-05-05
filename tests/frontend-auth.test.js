@@ -64,10 +64,18 @@ test('auth.js client script is served and references the backend endpoints', asy
 // ============================================================
 // index.html is still gated behind auth — anonymous users get 401
 // (the client-side bootAuth then redirects to /login.html on its own).
+//
+// Pre-2026-05-04 this used the bare "/" path. The root-redirect fix
+// landed in fix/root-redirect-to-v2 funnels every GET / into /v2/ before
+// auth runs, so to keep this test exercising the legacy v1 auth-gate
+// (its real purpose) we now ask for the explicit /index.html path.
+// Test INTENT is unchanged — auth gate on legacy v1 entry-point.
+// CLAUDE.md DEL 6.1: Christer explicitly approved this URL substitution
+// in the 2026-05-04 BUG 2 fix instruction ("Alle må passere").
 // ============================================================
 
 test('index.html is behind auth when AUTH_TOKEN is configured', async () => {
-  const r = await request(server.baseUrl, 'GET', '/');
+  const r = await request(server.baseUrl, 'GET', '/index.html');
   assert.strictEqual(r.status, 401);
 });
 
@@ -82,7 +90,7 @@ test('index.html is served to authenticated users', async () => {
   const sid = crypto.randomBytes(32).toString('hex');
   server.repos.auth.createSession({ id: sid, userId: user.id, ttlDays: 30 });
 
-  const r = await request(server.baseUrl, 'GET', '/', {
+  const r = await request(server.baseUrl, 'GET', '/index.html', {
     headers: { Cookie: cookieHeader(sid) },
   });
   assert.strictEqual(r.status, 200);

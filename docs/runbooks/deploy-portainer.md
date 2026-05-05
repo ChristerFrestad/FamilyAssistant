@@ -202,6 +202,41 @@ Hvis Christer setter `HTTPS_TERMINATED=true` på en LAN-deploy som bruker plain 
 
 ## Troubleshooting
 
+### `GET /` viser legacy v1-frontend eller returnerer 401
+
+**Symptom:**
+- I browsere med stale session-cookie: `GET /` → 200 OK med legacy v1 (Chat / Ukesmeny / Handletur / Husarbeid / Kontrollrommet)
+- I browsere uten cookies: `GET /` → 401 "Authentication required"
+- Forventet: 302 redirect til `/v2/` for å lande på pilot-frontend
+
+**Verifisering:**
+
+```bash
+# Anonym
+curl -i http://<deploy>:7777/ | head -3
+# Forventet: HTTP/1.1 302 Found, Location: /v2/
+
+# Med session-cookie
+curl -i -H 'Cookie: fa_session=...' http://<deploy>:7777/ | head -3
+# Forventet: HTTP/1.1 302 Found, Location: /v2/
+```
+
+**Rotårsak (fixed 2026-05-04 i fix/root-redirect-to-v2):**
+Tidligere versjoner hadde ingen tidlig intercept for `GET /`. Authenticated visitors falt gjennom til `tryServeSpaFallback()` som serverer `public/index.html` (legacy v1). Anonymous visitors med AUTH_TOKEN satt fikk 401 fra auth-middleware.
+
+**Fix:** `server/http/server.js` fanger nå `GET /` rett etter CORS-headere og emitter `302 Location: /v2/` før rate-limit, auth eller routing kjører. Cookie-uavhengig.
+
+**Hvis du fortsatt ser symptomet:**
+1. Verifiser at imaget er bygd etter commit `<post-redirect-fix-sha>`
+2. `docker compose pull && docker compose up -d --force-recreate familieassistenten`
+3. Hard-reload browseren (ofte cached redirects sitter igjen) eller test med `curl`
+
+**Legacy v1 fortsatt tilgjengelig på eksplisitte stier:**
+- `http://<deploy>:7777/index.html` — legacy SPA-shell (krever auth)
+- `http://<deploy>:7777/login.html` — legacy login
+- `http://<deploy>:7777/js/*`, `/css/*` — legacy assets
+- Brukes ikke i pilot, men beholdes for backwards compatibility og diagnostikk
+
 ### Cookies (fa_pilot, fa_session) settes ikke i browser etter login
 
 **Symptom:**

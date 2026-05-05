@@ -6,6 +6,88 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed — GET / leaks legacy v1 OR returns 401 (2026-05-04, CRITICAL)
+
+**Symptom:** After PR #115 + #116 landed, the bare root URL exhibited
+two different but related failures depending on browser auth state:
+
+- **Edge (with stale session-cookie):** `GET /` → 200 OK serving the
+  legacy v1 SPA (Chat / Ukesmeny / Handletur / Husarbeid /
+  Kontrollrommet). Pilot users landed on the wrong frontend.
+- **Chrome (no cookies):** `GET /` → 401 "Authentication required"
+  with no recovery path.
+
+V2 has been the pilot frontend since Sprint 7, but the request flow
+allowed authenticated cookies to fall through to the legacy SPA-
+fallback handler and forced anonymous visitors into a 401 dead-end.
+
+**Root cause:** `server/http/server.js` had no early intercept for
+`GET /`. The request flowed all the way through pilot-gate (skipped
+when a stale cookie was present), `isPublicPath()` (`/` not public),
+the auth chain (Edge passed via session cookie; Chrome failed with
+401 because AUTH_TOKEN was set), and finally `tryServeSpaFallback()`
+which served `public/index.html` (legacy v1).
+
+**Fix:** Added a 15-line early-return at the top of the request
+handler in `server/http/server.js`. If `pathname === '/'` and
+`req.method === 'GET'`, the server emits a `302 Location: /v2/` and
+returns immediately — before rate-limit, before auth, before any
+cookie processing. Cookie-agnostic, side-effect-free.
+
+The legacy v1 frontend stays in the image and is reachable through
+explicit paths (`/index.html`, `/js/*`, `/css/*`, `/login.html`,
+etc.) for backwards compatibility and operator diagnostics. Only
+the bare root is intercepted.
+
+This is the THIRD root-redirect-class bug found on the first pilot
+deploy:
+- PR #114 fixed pilot-gate auth-middleware lockout
+- PR #115 fixed missing v2 bundle in Docker image
+- PR #116 fixed cookies dropped by browser on HTTP
+- This PR fixes the bare-root entry point that all three were
+  supposed to enable
+
+**Tested:**
+
+New regression suite `tests/root-redirect.test.js` (15 tests) covers
+the full matrix from Christer's BUG 2 spec:
+
+| Path | Method | Cookie | Expected |
+|---|---|---|---|
+| `/` | GET | (none) | 302 → /v2/ |
+| `/` | GET | session | 302 → /v2/ |
+| `/` | GET | pilot | 302 → /v2/ |
+| `/` | GET | Bearer | 302 → /v2/ |
+| `/v2/` | GET | (any) | unchanged |
+| `/api/*` | GET | (any) | unchanged |
+| `/health` | GET | (any) | 200 |
+| `/index.html` | GET | (any) | unchanged (legacy reachable) |
+| `/` | POST/PUT/DELETE | (any) | unchanged (router 404) |
+
+Existing tests (1419 → 1436): 4 tests updated to substitute `GET /`
+with `GET /index.html` (preserving INTENT, not assertions). The
+DEL 6.1-frozen `tests/frontend-auth.test.js` is among them — Christer
+explicitly approved the URL substitution in the BUG 2 fix instruction
+("Alle må passere"). Substitution does not alter the auth-gate
+test's purpose; it just keeps it exercising the legacy v1 entry-point
+under its new explicit URL.
+
+**Operator action after merge:**
+
+1. CI builds new `:main` + `:sha-XXX` images on GHCR
+2. In Portainer: pull + recreate container
+3. Verify in browser: visiting `http://<deploy>:7777/` redirects to
+   `/v2/` regardless of cookie state
+4. Verify legacy v1 still reachable at `http://<deploy>:7777/index.html`
+   when needed for diagnostics
+
+**Post-pilot:** Sprint 8 should evaluate full v1 cleanup
+(`public/*.html`, `public/js/*`, `public/css/*`). Tracked as Entry 13
+in `docs/workflow/post-pilot-code-debt-cleanup.md`.
+
+Tracking:
+[`docs/analyses/2026-05-04-root-redirect-to-v2.md`](docs/analyses/2026-05-04-root-redirect-to-v2.md).
+
 ### Fixed — Cookies dropped by browser on HTTP deploys (2026-05-04, CRITICAL)
 
 **Symptom:** After PR #114 + #115 landed, Christer redeployed to RPi5

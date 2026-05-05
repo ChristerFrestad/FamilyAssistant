@@ -33,8 +33,18 @@ after(async () => {
 });
 
 describe('M3.1 · E2E smoke — forsiden', () => {
-  test('GET / serverer index.html', async () => {
+  test('GET / redirects to /v2/ (post-2026-05-04 root-redirect)', async () => {
+    // Bare root no longer serves legacy v1 — it funnels every visitor into
+    // the v2 React app. The legacy index.html is still reachable at the
+    // explicit /index.html path; smoke-test for that markup lives in the
+    // assertion below.
     const res = await request(server.baseUrl, 'GET', '/');
+    assert.equal(res.status, 302);
+    assert.strictEqual(res.headers.location || res.headers.Location, '/v2/');
+  });
+
+  test('GET /index.html serverer legacy v1 markup', async () => {
+    const res = await request(server.baseUrl, 'GET', '/index.html');
     assert.equal(res.status, 200);
     assert.ok(res.headers['content-type']?.includes('text/html'));
     // Trenger noen markører fra den faktiske filen
