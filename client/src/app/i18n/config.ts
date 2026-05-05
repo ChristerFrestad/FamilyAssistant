@@ -146,36 +146,13 @@ i18n
     react: { useSuspense: false },
   });
 
-// White-label override.
-//
-// The default `appName` resource is the open-source product name
-// "FamilyAssistant". A deploy can override it by setting the build-time
-// env var `VITE_APP_NAME` (Vite exposes any `VITE_*` var via
-// `import.meta.env`). When set, we replace the appName resource on
-// both supported languages so every `t('common:appName')` call and
-// every `{{appName}}` interpolation across the bundle picks up the
-// brand name without further code changes.
-//
-// We intentionally do this AFTER `i18n.init()` so the override sits
-// on top of the loaded resource bundles. Doing it before init would
-// require re-asserting the value into the `resources` object, which
-// duplicates the override logic.
-//
-// Backend has its own equivalent flag `APP_NAME` (no VITE_ prefix —
-// VITE_* is a frontend-only build-time concept) consumed by
-// server/services/email.service.js. Keeping the two flags symmetric
-// in name keeps Christer's deploy-config short. See CLAUDE.md DEL
-// 7.12 for the full white-label policy.
-applyAppNameOverride(i18n);
-
-function applyAppNameOverride(instance: typeof i18n): void {
-  const raw = import.meta.env.VITE_APP_NAME;
-  if (typeof raw !== 'string') return;
-  const trimmed = raw.trim();
-  if (!trimmed) return;
-  for (const lng of SUPPORTED_LANGUAGES) {
-    instance.addResource(lng, 'common', 'appName', trimmed);
-  }
-}
+// Sprint 10 — runtime brand-config replaces the old build-time
+// VITE_APP_NAME path. main.tsx fetches /api/config at startup and
+// calls i18n.addResource(lng, 'common', 'appName', config.appName)
+// for each supported language so every {{appName}} interpolation
+// across the bundle picks up the active brand without rebuilding the
+// image. The default 'FamilyAssistant' value in common.json is what
+// renders for the open-source instance and during the brief cold-load
+// window before /api/config resolves. See docs/BRAND_SYSTEM.md.
 
 export default i18n;
