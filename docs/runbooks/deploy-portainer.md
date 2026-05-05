@@ -202,6 +202,36 @@ Hvis Christer setter `HTTPS_TERMINATED=true` på en LAN-deploy som bruker plain 
 
 ## Troubleshooting
 
+### Service worker fra v1-æra serverer cached innhold
+
+**Symptom:** Etter Sprint 8 v1-cleanup deploy ser bruker fortsatt
+gamle v1-skjermer (Chat / Ukesmeny / Handletur) selv om imaget er
+oppdatert. DevTools viser at en service worker fra v1-æra fortsatt
+intercepter requests.
+
+**Verifisering:**
+
+DevTools → Application → Service Workers:
+- Hvis det vises en SW med "active" status og kilde `/sw.js`, sjekk
+  scriptens innhold via "Source"-tab. Hvis det er tombstone-versjonen
+  (Sprint 8) er den i ferd med å unregistrere seg.
+- Etter første load + reload skal SW-listen være tom.
+
+**Rotårsak (by design — Sprint 8 tombstone):**
+V1's service worker pre-cachet HTML/JS/CSS. Plain delete av
+`public/sw.js` ville etterlatt eksisterende browsere med stale cache
+i ukjent tidsrom. Sprint 8 erstattet sw.js med tombstone som
+unregistrerer + reloader klienter ved første besøk etter deploy.
+
+**Løsning:**
+1. Be bruker hard-reloade (Ctrl+Shift+R) — tvinger ny SW-fetch
+2. Eller: bruker venter ett sekund etter neste besøk (tombstone
+   activate-handler kjører + reloader automatisk)
+3. Verifiser i DevTools at SW er borte etter reload
+
+**Permanent cleanup (post-pilot):** etter 3-6 måneder kan tombstone
+slettes helt. Tracked i `docs/workflow/post-pilot-code-debt-cleanup.md`.
+
 ### `GET /` viser legacy v1-frontend eller returnerer 401
 
 **Symptom:**

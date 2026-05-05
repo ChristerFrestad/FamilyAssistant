@@ -121,12 +121,14 @@ describe('Universal root redirect: GET / → 302 /v2/', () => {
       assert.notStrictEqual(r.status, 302, '/api/* must not be intercepted by root-redirect');
     });
 
-    test('GET /index.html → not redirected (legacy v1 reachable explicitly)', async () => {
-      // The legacy v1 frontend still lives in public/index.html. We do NOT
-      // redirect /index.html so operators / tests can reach it directly when
-      // needed. Without auth this returns 401; with auth it returns 200.
+    test('GET /index.html → 404 (v1 deleted in Sprint 8, not redirected)', async () => {
+      // After Sprint 8 v1-cleanup, /index.html no longer exists. The
+      // important assertion here is that the redirect does NOT fire on
+      // it — the redirect targets the bare root only. Anything else
+      // routes normally and 404s if there is no file.
       const r = await request(server.baseUrl, 'GET', '/index.html');
-      assert.notStrictEqual(r.status, 302, 'legacy index.html path must not redirect');
+      assert.notStrictEqual(r.status, 302, '/index.html must not redirect');
+      assert.equal(r.status, 404, 'v1 deletion: /index.html no longer served');
     });
   });
 

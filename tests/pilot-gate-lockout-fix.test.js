@@ -207,7 +207,10 @@ describe('Pilot-gate lockout regression (production-like env)', () => {
       assert.strictEqual(isPublicPath('/health'), true);
       assert.strictEqual(isPublicPath('/ready'), true);
       assert.strictEqual(isPublicPath('/privacy.html'), true);
-      assert.strictEqual(isPublicPath('/login.html'), true);
+      // Sprint 8 (2026-05-05): /login.html was removed from PUBLIC_PATHS
+      // when the v1 frontend was deleted. The v2 React app handles login
+      // under /v2/login. /sw.js (the tombstone) is the new public entry.
+      assert.strictEqual(isPublicPath('/sw.js'), true);
     });
 
     test('v2 SPA shell paths recognised as public', () => {

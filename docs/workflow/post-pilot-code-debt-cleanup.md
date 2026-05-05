@@ -561,3 +561,125 @@ brukervendt flate. Krever grundig testing før vi sletter.
 
 **Avhengigheter:** Sprint 6 (v2 PWA-manifest + service worker) bør
 være ferdig før vi sletter legacy-ekvivalentene.
+
+---
+
+### Entry 14: Bootstrap-flow refers to deleted /setup.html
+
+- **Kategori:** Dead URL / orphaned handler
+- **Severity:** LOW (bootstrap-mode er ikke aktiv i pilot)
+- **Logget:** 2026-05-05 (Sprint 8 v1-cleanup)
+
+**Beskrivelse:** Sprint 8 slettet `public/setup.html` (v1 bootstrap
+wizard). Bootstrap-handler-koden i `server/http/bootstrap.js` finnes
+fortsatt og returnerer `setupUrl: '/setup.html'`. Hvis BOOTSTRAP_MODE
+aktiveres (BOOTSTRAP_ALLOWED=true + tom data-volume + ingen AUTH_TOKEN),
+vil:
+
+- `server/index.js` logge "open http://<host>:7777/setup.html..."
+- `server/routes.js` returnere 503 med `{setupUrl: '/setup.html'}`
+- `server/http/bootstrap.js` `handleStatus` returnere
+  `{mode: 'bootstrap', setupUrl: '/setup.html'}`
+- Bruker går til /setup.html → 404
+
+Pilot-deploy bruker IKKE bootstrap-mode (operatør setter AUTH_TOKEN i
+Portainer manuelt), så dette er ikke aktiv produksjons-bug. Men det er
+dead code med peker til ikke-eksisterende ressurs.
+
+**Cleanup-handling for post-pilot:**
+
+To alternativer:
+
+A. **Re-implementer bootstrap-wizard på v2:** legg setup-flow inn i
+   v2 React app under `/v2/setup`. Update bootstrap.js sin setupUrl
+   til `/v2/setup`. Verdifullt hvis vi vil at andre familier skal
+   kunne deploye med Docker Compose uten manuell AUTH_TOKEN-setting.
+
+B. **Slett bootstrap-flow helt:** `server/http/bootstrap.js`,
+   bootstrap-routes i `server/routes.js`, BOOTSTRAP_*-config i
+   `server/config.js`, BOOTSTRAP_MODE-grenen i `server/index.js`.
+   Pilot bruker ikke bootstrap. Hvis behov oppstår post-pilot, kan
+   det re-implementeres med v2 fra scratch.
+
+Anbefalt: **B** med mindre Sprint 6+ planlegger ny multi-deploy-strategi.
+
+**Estimat:** A = 2-4 dager (frontend wizard + tests). B = 1-2 timer
+(slett kode + oppdater config-validering).
+
+**Risiko:** Lav. Bootstrap-mode er ikke i pilot-bruk.
+
+---
+
+### Entry 15: Remove sw.js tombstone after 3-6 months
+
+- **Kategori:** Forventet cleanup / time-bound
+- **Severity:** LOW
+- **Logget:** 2026-05-05 (Sprint 8 v1-cleanup)
+
+**Beskrivelse:** Tombstone `public/sw.js` (Sprint 8) unregistrerer
+v1-æra service workers fra eksisterende browsere. Etter 3-6 måneder
+når alle pilot-brukere har besøkt appen og fått sin SW unregistrert,
+kan tombstone-fila slettes.
+
+**Cleanup-handling:**
+
+1. Slett `public/sw.js`
+2. Fjern `/sw.js` fra `PUBLIC_PATHS` i `server/auth/middleware.js`
+3. Fjern `/sw.js` fra `ALLOWED_PUBLIC_FILES` i `server/http/server.js`
+4. Slett tilhørende test-assertion i `tests/static-pages.test.js`
+   (test "GET /sw.js → 200 (tombstone)")
+
+**Tracking:**
+- Date of v1-cleanup deploy: TBD (etter Christer merger Sprint 8 PR)
+- Earliest safe deletion: TBD + 3 months
+- Recommended deletion: TBD + 6 months
+
+**Estimat:** 30 min.
+
+**Risiko:** Lav. Etter 6 måneder vil enhver browser som ikke har
+besøkt appen i den perioden uansett ha mistet SW-state via browser-
+GC.
+
+---
+
+### Entry 16: Consider URL refactor — remove /v2/-prefix
+
+- **Kategori:** Frontend arkitektur / UX-polish
+- **Severity:** LOW (kosmetisk; UX OK med /v2/-prefix)
+- **Logget:** 2026-05-05 (Sprint 8 v1-cleanup)
+
+**Beskrivelse:** Etter v1-cleanup ser pilot-brukere fortsatt
+`/v2/login`, `/v2/dashboard`, `/v2/family` i URL-en. Standard moderne
+SaaS-pattern er ren URL: `/login`, `/dashboard`, `/family`.
+
+**Hvorfor det er teknisk gjeld:**
+`/v2/`-prefix var en pragmatisk valg da v1 og v2 levde side-om-side
+(Sprint 7). V1 er nå borte (Sprint 8). Prefix er bagasje fra coexistence-
+æraen.
+
+**Cleanup-handling for post-pilot:**
+
+1. `client/vite.config.ts`: `base: '/'` (currently `/v2/`)
+2. `client/vite.config.ts`: `outDir: '../client/dist'` (currently
+   `../public/v2`) for å unngå mappe-konflikt
+3. `client/src/main.tsx`: fjern `basename="/v2"`
+4. `Dockerfile` `frontend-builder` stage: oppdater output-path til
+   `client/dist/`
+5. `Dockerfile` `builder` stage: `COPY --from=frontend-builder
+   /build/client/dist ./client/dist`
+6. `server/http/server.js`: rename `tryServeV2App` → `tryServeApp`,
+   serve fra `client/dist/` i stedet for `public/v2/`. Fjern `/v2`-
+   prefix-matching, server alle non-API GET fra app
+7. `server/auth/middleware.js`: oppdater `isPublicPath()` til å
+   ikke matche `/v2/*` lenger; legge til ny `/assets/*`-matching
+8. Slett root-redirect i `server/http/server.js` (PR #117) — ikke
+   lenger nødvendig
+9. Oppdater alle tester som forventer `/v2/`-paths
+
+**Estimat:** 1-2 dager + grundig testing.
+
+**Risiko:** Medium. Berører Dockerfile + server-routing + Vite-config
+samtidig. Krever ny PORTAINER-RISIKO-review per CLAUDE.md DEL 3 Steg 3b.
+
+**Avhengigheter:** Sprint 8 må være merget og pilot-launch fullført før
+denne refactoren startes.

@@ -1,14 +1,17 @@
 'use strict';
 
-// Phase 16 — static public pages + footer wiring.
+// Phase 16 — static legal pages (privacy + terms).
+//
+// Sprint 8 (2026-05-05) trimmed the original suite: the v1 frontend was
+// deleted, so the INDEX/LOGIN/SW assertions that verified v1 markup +
+// service-worker pre-cache no longer have a test object. The legal
+// pages survive because they are the only public HTML still served from
+// public/ — the v2 React app handles everything else under /v2/.
 //
 // Verifies:
-//   - /privacy.html and /terms.html serve 200 as unauthenticated (PUBLIC_PATHS)
-//   - Both pages contain the expected section headings
-//   - index.html has a footer with links to both pages
-//   - login.html mentions both privacy and terms in its footer
-//   - sw.js precaches the two static pages
-//   - PUBLIC_PATHS export includes both
+//   - /privacy.html and /terms.html and /privacy-en.html serve 200 anonymously
+//   - The pages contain the expected section headings
+//   - PUBLIC_PATHS export includes the three pages
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -22,9 +25,6 @@ const PUBLIC = path.join(__dirname, '..', 'public');
 const PRIVACY = fs.readFileSync(path.join(PUBLIC, 'privacy.html'), 'utf8');
 const PRIVACY_EN = fs.readFileSync(path.join(PUBLIC, 'privacy-en.html'), 'utf8');
 const TERMS = fs.readFileSync(path.join(PUBLIC, 'terms.html'), 'utf8');
-const INDEX = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-const LOGIN = fs.readFileSync(path.join(PUBLIC, 'login.html'), 'utf8');
-const SW = fs.readFileSync(path.join(PUBLIC, 'sw.js'), 'utf8');
 
 describe('Phase 16 · Statisk innhold', () => {
   test('terms.html finnes og har forventede seksjoner', () => {
@@ -64,26 +64,6 @@ describe('Phase 16 · Statisk innhold', () => {
   });
 });
 
-describe('Phase 16 · Footer-lenker', () => {
-  test('index.html har app-footer med lenker til privacy + terms', () => {
-    assert.ok(/<footer class=["']app-footer["']/.test(INDEX), 'app-footer mangler i index.html');
-    assert.ok(/href=["']\/privacy\.html["']/.test(INDEX));
-    assert.ok(/href=["']\/terms\.html["']/.test(INDEX));
-  });
-
-  test('login.html peker til både privacy og terms', () => {
-    assert.ok(/href=["']\/privacy\.html["']/.test(LOGIN));
-    assert.ok(/href=["']\/terms\.html["']/.test(LOGIN));
-  });
-});
-
-describe('Phase 16 · SW precache av statiske sider', () => {
-  test('sw.js inkluderer /privacy.html og /terms.html i STATIC_ASSETS', () => {
-    assert.ok(SW.includes("'/privacy.html'"), '/privacy.html må precaches');
-    assert.ok(SW.includes("'/terms.html'"), '/terms.html må precaches');
-  });
-});
-
 describe('Phase 16 · PUBLIC_PATHS middleware', () => {
   test('PUBLIC_PATHS inkluderer /privacy.html og /terms.html', () => {
     assert.ok(PUBLIC_PATHS.has('/privacy.html'));
@@ -92,6 +72,13 @@ describe('Phase 16 · PUBLIC_PATHS middleware', () => {
 
   test('PUBLIC_PATHS inkluderer /privacy-en.html (engelsk versjon)', () => {
     assert.ok(PUBLIC_PATHS.has('/privacy-en.html'));
+  });
+
+  test('PUBLIC_PATHS inkluderer /sw.js (tombstone, post-Sprint 8)', () => {
+    // Sprint 8: sw.js is now a tombstone that unregisters the v1 service
+    // worker installed in pre-existing browsers. It must remain reachable
+    // anonymously so cached SWs can fetch and run their cleanup code.
+    assert.ok(PUBLIC_PATHS.has('/sw.js'));
   });
 });
 
@@ -120,5 +107,13 @@ describe('Phase 16 · Live server serves static pages anonymously', () => {
     const r = await request(server.baseUrl, 'GET', '/terms.html');
     assert.strictEqual(r.status, 200);
     assert.match(String(r.raw), /<h1>Bruksvilkår<\/h1>/);
+  });
+
+  test('GET /sw.js → 200 (tombstone), unregister + cache-clear logic present', async () => {
+    const r = await request(server.baseUrl, 'GET', '/sw.js');
+    assert.strictEqual(r.status, 200);
+    assert.match(String(r.raw), /Tombstone service worker/);
+    assert.match(String(r.raw), /registration\.unregister/);
+    assert.match(String(r.raw), /caches\.delete/);
   });
 });
