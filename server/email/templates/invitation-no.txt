@@ -1,3 +1,6 @@
+{{NAME_PRIMARY}}{{NAME_ACCENT}}
+{{TAGLINE}}
+
 {{INVITER_NAME}} inviterer deg til {{FAMILY_NAME}}
 
 Hei!
@@ -12,3 +15,6 @@ handlelister og hverdagsoppgaver.
 
 Lenken er gyldig i {{EXPIRES_IN_DAYS}} dager. Hvis du ikke
 forventet denne invitasjonen, kan du ignorere denne eposten.
+
+—
+{{APP_NAME}} · {{TAGLINE}}

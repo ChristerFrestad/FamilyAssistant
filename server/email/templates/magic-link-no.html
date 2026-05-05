@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="no">
   <body
     style="
       font-family:
@@ -22,26 +22,18 @@
             <span style="color:{{PRIMARY_COLOR}};">{{NAME_PRIMARY}}</span><span style="color:{{ACCENT_COLOR}};">{{NAME_ACCENT}}</span>
           </h1>
           <p style="margin:0 0 24px; color:#5f7a66; font-size:11px; letter-spacing:1.5px; text-transform:uppercase;">{{TAGLINE}}</p>
-          <h2 style="margin:0 0 16px; font-size:20px; font-weight:500; color:{{PRIMARY_COLOR}};">{{INVITER_NAME}} invites you to {{FAMILY_NAME}}</h2>
-          <p style="margin:0 0 16px; color:#374151;">Hi!</p>
-          <p style="margin:0 0 16px; color:#374151;">
-            <strong>{{INVITER_NAME}}</strong> invites you to join
-            <strong>{{FAMILY_NAME}}</strong> on {{APP_NAME}} — an app for
-            family planning of meals, shopping lists, and household tasks.
-          </p>
-          {{INVITATION_MESSAGE_BLOCK}}
+          <h2 style="margin:0 0 16px; font-size:20px; font-weight:500; color:{{PRIMARY_COLOR}};">Logg inn på {{APP_NAME}}</h2>
+          <p style="margin:0 0 16px; color:#374151;">Hei!</p>
+          <p style="margin:0 0 16px; color:#374151;">Klikk lenken under for å logge inn. Lenken er gyldig i 15 minutter og kan bare brukes én gang.</p>
           <p style="margin:24px 0;">
-            <a href="{{URL}}" style="display:inline-block; padding:14px 28px; background:{{PRIMARY_COLOR}}; color:#f7f3e8; text-decoration:none; border-radius:6px; font-weight:500; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;">Join {{FAMILY_NAME}}</a>
+            <a href="{{URL}}" style="display:inline-block; padding:14px 28px; background:{{PRIMARY_COLOR}}; color:#f7f3e8; text-decoration:none; border-radius:6px; font-weight:500; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;">Logg inn</a>
           </p>
           <p style="margin:0; color:#6b7280; font-size:13px;">
-            If the button does not work, paste this address into your browser:<br />
+            Hvis knappen ikke virker, lim denne adressen inn i nettleseren:<br />
             <a href="{{URL}}" style="color:{{PRIMARY_COLOR}}; word-break:break-all;">{{URL}}</a>
           </p>
           <hr style="border:none; border-top:1px solid #e5e7eb; margin:32px 0;" />
-          <p style="margin:0; color:#9ca3af; font-size:12px;">
-            The link is valid for {{EXPIRES_IN_DAYS}} days. If you did not
-            expect this invitation, you can safely ignore this email.
-          </p>
+          <p style="margin:0; color:#9ca3af; font-size:12px;">Hvis du ikke ba om denne lenken kan du ignorere denne eposten.</p>
           <p style="margin:16px 0 0; color:#9ca3af; font-size:11px; text-align:center;">{{APP_NAME}} · {{TAGLINE}}</p>
         </td>
       </tr>

@@ -1,0 +1,16 @@
+{{NAME_PRIMARY}}{{NAME_ACCENT}}
+{{TAGLINE}}
+
+Logg inn på {{APP_NAME}}
+
+Hei!
+
+Klikk lenken under for å logge inn på {{APP_NAME}}.
+Lenken er gyldig i 15 minutter og kan bare brukes én gang.
+
+{{URL}}
+
+Hvis du ikke ba om denne lenken kan du ignorere denne eposten.
+
+—
+{{APP_NAME}} · {{TAGLINE}}
