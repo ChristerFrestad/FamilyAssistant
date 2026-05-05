@@ -47,6 +47,7 @@ import { MagicLinkSent } from './screens/auth/MagicLinkSent';
 import { AuthCallback } from './screens/auth/AuthCallback';
 import { FamilySetup } from './screens/auth/FamilySetup';
 import { UserProfile } from './screens/auth/UserProfile';
+import { InviteAccept } from './screens/InviteAccept';
 
 export default function App(): JSX.Element {
   return (
@@ -66,6 +67,13 @@ function AppRoutes(): JSX.Element {
       <Route path="/login" element={<Login />} />
       <Route path="/login/sent" element={<MagicLinkSent />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      {/* /invite/:token is PUBLIC by design — recipients arrive via
+          email link without an active session yet. The component itself
+          reads useAuthContext() to decide between the four
+          valid-invitation states (anonymous, matching, mismatched,
+          accepted). PilotGuard is still in front so pilot-mode deploys
+          can gate visitors. */}
+      <Route path="/invite/:token" element={<InviteAccept />} />
 
       {/* ONBOARDING routes — auth required, but no OnboardingGuard
           (these screens ARE the onboarding flow). Rendered without

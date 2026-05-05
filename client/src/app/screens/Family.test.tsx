@@ -67,9 +67,17 @@ function mountFamily(user: AuthUser = TEST_USER): void {
 }
 
 function mockFetchByPath(handlers: Record<string, () => Response>): void {
+  // Sprint 9 added an /api/family/invitations fetch that fires
+  // alongside /api/family for owners. Pre-fill an empty list when the
+  // caller does not supply its own handler so older tests keep
+  // passing without each one re-mocking the new endpoint.
+  const withDefaults: Record<string, () => Response> = {
+    '/api/family/invitations': () => jsonResponse(200, { invitations: [] }),
+    ...handlers,
+  };
   fetchSpy.mockImplementation((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
-    for (const [pattern, handler] of Object.entries(handlers)) {
+    for (const [pattern, handler] of Object.entries(withDefaults)) {
       if (url === pattern || url.startsWith(pattern + '?')) {
         return Promise.resolve(handler());
       }
@@ -196,7 +204,9 @@ describe('Family — placeholder actions', () => {
     expect(screen.getByTestId('edit-placeholder-status')).toBeInTheDocument();
   });
 
-  test('Invite button shows placeholder status', async () => {
+  test('Invite button opens the InviteMemberModal', async () => {
+    // Sprint 9 PR #119: invite-member is no longer a placeholder.
+    // Clicking opens the real modal owner can fill in.
     mockFetchByPath({
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
     });
@@ -205,7 +215,7 @@ describe('Family — placeholder actions', () => {
       expect(screen.getByTestId('invite-member-button')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('invite-member-button'));
-    expect(screen.getByTestId('invite-placeholder-status')).toBeInTheDocument();
+    expect(screen.getByTestId('invite-email-input')).toBeInTheDocument();
   });
 });
 

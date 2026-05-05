@@ -24,32 +24,61 @@
 //     backend enforces this with 403, but we also pre-disable the
 //     slider so they get an immediate visual cue.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { MemberCard } from '../components/family/MemberCard';
+import { InviteMemberModal } from '../components/family/InviteMemberModal';
+import { PendingInvitationsList } from '../components/family/PendingInvitationsList';
 import { useFamilyData, joinMembersWithUsers } from '../family/useFamilyData';
 import { useAuthContext } from '../auth/AuthContext';
+import { listInvitations, type Invitation } from '../family/familyInvitationsApi';
 
-const PLACEHOLDER_DISMISS_MS = 3000;
+const PLACEHOLDER_DISMISS_MS = 4000;
 
 export function Family(): JSX.Element {
   const { t } = useTranslation(['family', 'common']);
   const { user } = useAuthContext();
   const { data, isLoading, error, memberSaveStatus, retry, updatePortion } = useFamilyData();
 
-  // Inline placeholder status for the two unimplemented buttons
-  // (rename + invite). Single piece of state — only one placeholder
-  // is visible at a time, which matches the natural focus flow.
-  const [placeholderKey, setPlaceholderKey] = useState<'edit' | 'invite' | null>(null);
+  // Edit-family-name still shows a Sprint-5+ placeholder. The invite
+  // surface is now real: opening the modal and a refreshable
+  // pending-list under the roster.
+  const [editPlaceholderVisible, setEditPlaceholderVisible] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invitationsError, setInvitationsError] = useState<string | null>(null);
+  const isOwner = user?.role === 'owner';
 
-  const showPlaceholder = useCallback((kind: 'edit' | 'invite') => {
-    setPlaceholderKey(kind);
-    setTimeout(() => {
-      setPlaceholderKey((current) => (current === kind ? null : current));
-    }, PLACEHOLDER_DISMISS_MS);
+  const showEditPlaceholder = useCallback(() => {
+    setEditPlaceholderVisible(true);
+    setTimeout(() => setEditPlaceholderVisible(false), PLACEHOLDER_DISMISS_MS);
   }, []);
+
+  const flashStatus = useCallback((message: string) => {
+    setStatusMessage(message);
+    setTimeout(
+      () => setStatusMessage((current) => (current === message ? null : current)),
+      PLACEHOLDER_DISMISS_MS
+    );
+  }, []);
+
+  const refreshInvitations = useCallback(async () => {
+    if (!isOwner) return;
+    try {
+      const r = await listInvitations();
+      setInvitations(Array.isArray(r.invitations) ? r.invitations : []);
+      setInvitationsError(null);
+    } catch {
+      setInvitationsError(t('family:invitations.pending.loadFailed'));
+    }
+  }, [isOwner, t]);
+
+  useEffect(() => {
+    void refreshInvitations();
+  }, [refreshInvitations]);
 
   const isChild = user?.role === 'child';
 
@@ -73,13 +102,13 @@ export function Family(): JSX.Element {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => showPlaceholder('edit')}
+            onClick={showEditPlaceholder}
             data-testid="edit-family-button"
           >
             {t('family:familyHeader.editAction')}
           </Button>
         </div>
-        {placeholderKey === 'edit' ? (
+        {editPlaceholderVisible ? (
           <p
             className="mt-3 font-body text-meta text-text-3"
             role="status"
@@ -144,27 +173,68 @@ export function Family(): JSX.Element {
         ) : null}
       </section>
 
+      {/* Pending invitations — owners only. The list lives next to the
+          roster so an owner planning new members can see who is in
+          flight without leaving the screen. */}
+      {isOwner ? (
+        <section aria-labelledby="pending-invitations-heading" className="flex flex-col gap-2">
+          <h2 id="pending-invitations-heading" className="sr-only">
+            {t('family:invitations.pending.title')}
+          </h2>
+          {invitationsError ? (
+            <p role="alert" className="font-body text-meta text-danger">
+              {invitationsError}
+            </p>
+          ) : (
+            <PendingInvitationsList
+              invitations={invitations}
+              onChanged={(event) => {
+                if (event.kind === 'resent') {
+                  flashStatus(t('family:invitations.success.resent'));
+                } else {
+                  flashStatus(t('family:invitations.success.revoked'));
+                }
+                void refreshInvitations();
+              }}
+              onError={(message) => flashStatus(message)}
+            />
+          )}
+        </section>
+      ) : null}
+
       {/* Footer actions */}
       <div className="flex flex-col gap-2">
         <Button
           type="button"
           variant="primary"
-          onClick={() => showPlaceholder('invite')}
+          onClick={() => setInviteModalOpen(true)}
           data-testid="invite-member-button"
+          disabled={!isOwner}
         >
           {t('family:actions.invite')}
         </Button>
-        {placeholderKey === 'invite' ? (
+        {statusMessage ? (
           <p
             className="font-body text-meta text-text-3"
             role="status"
             aria-live="polite"
-            data-testid="invite-placeholder-status"
+            data-testid="invite-status-message"
           >
-            {t('family:actions.invitePlaceholder')}
+            {statusMessage}
           </p>
         ) : null}
       </div>
+
+      <InviteMemberModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        onSuccess={(invitation) => {
+          flashStatus(
+            t('family:invitations.success.sent', { email: invitation.invitedEmail ?? '' })
+          );
+          void refreshInvitations();
+        }}
+      />
     </section>
   );
 }
