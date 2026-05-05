@@ -253,7 +253,10 @@ test('POST /api/invitations/:token/accept joins unbound user to family', async (
   assert.strictEqual(second.status, 409);
 });
 
-test('POST /api/invitations/:token/accept rejects expired token (403)', async () => {
+test('POST /api/invitations/:token/accept rejects expired token (410)', async () => {
+  // Sprint 9 PR #119: expired invitations now return 410 Gone with
+  // code INVITATION_EXPIRED so the v2 accept-page state-5 dispatcher
+  // can branch on the machine-readable code instead of message text.
   const owner = createUser('accept-exp-owner@test', 'owner', 'Expired Family');
   // Create an invitation with 0-day TTL so it is immediately expired.
   const token = crypto.randomBytes(16).toString('hex');
@@ -269,7 +272,8 @@ test('POST /api/invitations/:token/accept rejects expired token (403)', async ()
   const r = await request(server.baseUrl, 'POST', `/api/invitations/${token}/accept`, {
     headers: { Cookie: joiner.cookie },
   });
-  assert.strictEqual(r.status, 403);
+  assert.strictEqual(r.status, 410);
+  assert.strictEqual(r.body.code, 'INVITATION_EXPIRED');
 });
 
 test('POST /api/invitations/:token/accept rejects unknown token (404)', async () => {

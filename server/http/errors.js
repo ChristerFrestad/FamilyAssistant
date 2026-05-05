@@ -76,6 +76,8 @@ const errors = {
     new HttpError({ status: 404, title: 'Not Found', detail }),
   /** @param {string} [detail] @param {object} [extras] */
   conflict: (detail, extras) => new HttpError({ status: 409, title: 'Conflict', detail, extras }),
+  /** @param {string} [detail] @param {object} [extras] */
+  gone: (detail, extras) => new HttpError({ status: 410, title: 'Gone', detail, extras }),
   /** @param {string} [detail] */
   payloadTooLarge: (detail) => new HttpError({ status: 413, title: 'Payload Too Large', detail }),
   /** @param {string} [detail] */

@@ -444,7 +444,7 @@ function handlePeekInvitation(ctx, repos) {
   const inv = repos.family.findInvitationByToken(token);
   if (!inv) throw errors.notFound('Invitation not found.');
   if (inv.revoked_at) {
-    throw errors.conflict('This invitation has been revoked.', {
+    throw errors.gone('This invitation has been revoked.', {
       code: 'INVITATION_REVOKED',
     });
   }
@@ -454,7 +454,7 @@ function handlePeekInvitation(ctx, repos) {
     });
   }
   if (Date.parse(inv.expires_at.replace(' ', 'T') + 'Z') < Date.now()) {
-    throw errors.conflict('This invitation has expired.', { code: 'INVITATION_EXPIRED' });
+    throw errors.gone('This invitation has expired.', { code: 'INVITATION_EXPIRED' });
   }
   return {
     familyId: inv.family_id,
@@ -478,7 +478,7 @@ function handleAcceptInvitation(ctx, repos) {
   const inv = repos.family.findInvitationByToken(token);
   if (!inv) throw errors.notFound('Invitation not found.');
   if (inv.revoked_at) {
-    throw errors.conflict('This invitation has been revoked.', {
+    throw errors.gone('This invitation has been revoked.', {
       code: 'INVITATION_REVOKED',
     });
   }
@@ -488,7 +488,7 @@ function handleAcceptInvitation(ctx, repos) {
     });
   }
   if (Date.parse(inv.expires_at.replace(' ', 'T') + 'Z') < Date.now()) {
-    throw errors.conflict('This invitation has expired.', { code: 'INVITATION_EXPIRED' });
+    throw errors.gone('This invitation has expired.', { code: 'INVITATION_EXPIRED' });
   }
 
   // Email-match check. When the invitation was sent to a specific
