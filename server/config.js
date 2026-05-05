@@ -498,4 +498,10 @@ function parseFromName(resendFrom) {
 
 const config = loadConfig();
 
-module.exports = { config };
+module.exports = {
+  config,
+  // Exported for tests so RFC 5322 mailbox-edge-cases can be
+  // exercised without spinning up a full config-load round-trip.
+  __parseFromName: parseFromName,
+  __collectBrandWarnings: collectBrandWarnings,
+};

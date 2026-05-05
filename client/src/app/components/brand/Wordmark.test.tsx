@@ -58,11 +58,15 @@ describe('Wordmark', () => {
     expect(mark.textContent).toBe('Hverdagsplanleggeren');
   });
 
-  test('honors the size prop on the skeleton placeholder', () => {
+  test('honors the size prop on the skeleton placeholder (vertical only)', () => {
     fetchSpy.mockReturnValueOnce(new Promise(() => undefined));
     render(<Wordmark size="xl" />);
     const skeleton = screen.getByTestId('wordmark-skeleton');
-    expect(skeleton.style.minWidth).toBe('280px');
+    // Vertical reservation keeps the header row from collapsing
+    // during cold-load; horizontal width is not faked because every
+    // brand's actual wordmark length is different.
+    expect(skeleton.style.height).toBe('56px');
+    expect(skeleton.style.minWidth).toBe('');
   });
 
   test('falls back to skeleton (still invisible) when fetch errors', async () => {

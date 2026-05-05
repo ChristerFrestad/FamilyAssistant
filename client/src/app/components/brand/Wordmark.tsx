@@ -28,14 +28,23 @@ export interface WordmarkProps {
   className?: string;
 }
 
-const SIZE_MAP: Record<
-  WordmarkSize,
-  { fontSize: number; letterSpacing: string; minWidth: number }
-> = {
-  sm: { fontSize: 18, letterSpacing: '-0.3px', minWidth: 90 },
-  md: { fontSize: 26, letterSpacing: '-0.5px', minWidth: 130 },
-  lg: { fontSize: 38, letterSpacing: '-1px', minWidth: 190 },
-  xl: { fontSize: 56, letterSpacing: '-1.5px', minWidth: 280 },
+// Per-size metrics. Christer's verification flagged that a hardcoded
+// minWidth lies about the actual brand width — "FamilyAssistant" at
+// md=26px is roughly 195px, "Hverdagsplanleggeren" is roughly 260px.
+// Reserving a fixed 130px placeholder either oversizes the FOUC for
+// short brands or under-reserves for long ones, both visually wrong.
+//
+// Cold-load behaviour now: we reserve VERTICAL space (so the header
+// row keeps its height) but allow the horizontal slot to collapse to
+// zero. Layout shift on wordmark-arrival happens horizontally only;
+// the items to the right of the wordmark slide once when config
+// resolves. Better than rendering the wrong brand or pretending we
+// know the eventual width.
+const SIZE_MAP: Record<WordmarkSize, { fontSize: number; letterSpacing: string }> = {
+  sm: { fontSize: 18, letterSpacing: '-0.3px' },
+  md: { fontSize: 26, letterSpacing: '-0.5px' },
+  lg: { fontSize: 38, letterSpacing: '-1px' },
+  xl: { fontSize: 56, letterSpacing: '-1.5px' },
 };
 
 const VARIANT_COLORS: Record<WordmarkVariant, { primary: string; accent: string }> = {
@@ -51,12 +60,14 @@ export function Wordmark({
   className,
 }: WordmarkProps): JSX.Element {
   const { config } = useBrandConfig();
-  const { fontSize, letterSpacing, minWidth } = SIZE_MAP[size];
+  const { fontSize, letterSpacing } = SIZE_MAP[size];
   const { primary, accent } = VARIANT_COLORS[variant];
 
-  // Cold-load: reserve space without rendering text. aria-hidden so
-  // screen readers don't announce a blank, and an aria-label on the
-  // outer span when config arrives gives the full read-back.
+  // Cold-load: reserve VERTICAL space only (so the header row keeps
+  // its height during the brief fetch window). Horizontal width is
+  // unknown — we don't fake a width because every brand has a
+  // different actual wordmark length. aria-hidden keeps screen
+  // readers from announcing a blank.
   if (!config) {
     return (
       <span
@@ -65,7 +76,6 @@ export function Wordmark({
         className={className}
         style={{
           display: 'inline-block',
-          minWidth: `${minWidth}px`,
           height: `${fontSize}px`,
         }}
       />

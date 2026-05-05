@@ -211,3 +211,71 @@ describe('Brand config · cross-validation', () => {
     }
   });
 });
+
+describe('parseFromName · RFC 5322 mailbox edge-cases', () => {
+  // The function is the basis for RESEND_FROM display-name detection.
+  // Wrong parsing means either false-positive warnings (operator chases
+  // a non-bug) or false-negative misses (the warning that should have
+  // fired stays silent). Test the cases Christer flagged plus a few
+  // more we encountered while writing the prod patterns.
+  const { __parseFromName: parseFromName } = require('../server/config');
+
+  test('bare "addr@domain" returns null (no display-name to compare)', () => {
+    assert.equal(parseFromName('noreply@example.com'), null);
+  });
+
+  test('whitespace-padded bare address still returns null', () => {
+    assert.equal(parseFromName('   noreply@example.com   '), null);
+  });
+
+  test('"<addr@domain>" with no display-name returns null', () => {
+    assert.equal(parseFromName('<noreply@example.com>'), null);
+  });
+
+  test('"Display Name <addr@domain>" returns "Display Name"', () => {
+    assert.equal(
+      parseFromName('Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>'),
+      'Hverdagsplanleggeren'
+    );
+  });
+
+  test('whitespace-padded display-name is trimmed', () => {
+    assert.equal(parseFromName('  Display Name  <noreply@example.com>'), 'Display Name');
+  });
+
+  test('internal whitespace inside display-name is preserved', () => {
+    // RFC 5322 allows multi-word names; we keep them as written.
+    assert.equal(parseFromName('Family Assistant <noreply@example.com>'), 'Family Assistant');
+  });
+
+  test('quoted display-name returns the literal characters (quotes preserved)', () => {
+    // Resend accepts quoted display-names per RFC 5322. We do not strip
+    // the surrounding quotes — the cross-validation cares about the
+    // visible string the recipient sees, not the protocol-level
+    // serialization. An operator that quotes their brand name in
+    // RESEND_FROM and then doesn't include quotes in APP_NAME would
+    // legitimately get a warning, which is correct.
+    const r = parseFromName('"Quoted Brand" <noreply@example.com>');
+    assert.equal(r, '"Quoted Brand"');
+  });
+
+  test('display-name with embedded quotes returns the input verbatim', () => {
+    const r = parseFromName('Display "Quoted" Name <noreply@example.com>');
+    assert.equal(r, 'Display "Quoted" Name');
+  });
+
+  test('malformed input (no closing >) returns null', () => {
+    assert.equal(parseFromName('Display Name <noreply@example.com'), null);
+  });
+
+  test('empty string returns null', () => {
+    assert.equal(parseFromName(''), null);
+  });
+
+  test('non-string input returns null gracefully', () => {
+    // We pass coerced strings via `String(resendFrom)` so weird types
+    // become "undefined" / "[object Object]" — non-matches against
+    // the regex, which then return null.
+    assert.equal(parseFromName(undefined), null);
+  });
+});

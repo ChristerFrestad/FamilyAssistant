@@ -60,7 +60,10 @@ describe('Branding routes · /api/config', () => {
       assert.equal(r.body.nameAccent, 'Assistant');
       assert.equal(r.body.faviconLetter, 'F');
       assert.equal(r.body.primaryColor, '#1F3F26');
-      assert.match(r.headers['cache-control'], /max-age=3600/);
+      // 5-minute TTL: short enough that brand-env flips propagate
+      // within minutes, long enough to avoid hitting the server on
+      // every page-load.
+      assert.match(r.headers['cache-control'], /max-age=300/);
     } finally {
       await restore();
     }

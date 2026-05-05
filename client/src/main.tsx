@@ -29,15 +29,34 @@ import './app/styles/tokens.css';
 //   5. i18n.addResource('common.appName') so existing {{appName}}
 //      interpolations across the bundle pick up the active brand
 //      without refactoring every t() call site.
+//   6. Favicon + manifest cache-bust: rewrite the static <link href>
+//      values from index.html to include `?v={hash}` where the hash
+//      derives from the brand-config fields that affect the icon.
+//      Browsers are notoriously aggressive about caching favicons
+//      regardless of Cache-Control headers — the query-string flip
+//      is the only reliable way to force a re-fetch after a brand
+//      change.
 //
 // React mounts immediately — the brand-config promise runs in
 // parallel and its components (Wordmark, useBrandConfig consumers)
 // re-render via the hook's useState once it resolves. Failure leaves
 // document.title at the placeholder and Wordmark blank; AppShell and
 // the rest still render correctly.
+
+// Quick non-cryptographic hash. Six hex chars is enough to detect any
+// flip of (faviconLetter, primaryColor, dotColor) across deploys.
+function brandIconHash(parts: string): string {
+  let h = 0;
+  for (let i = 0; i < parts.length; i += 1) {
+    h = (h * 31 + parts.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+}
+
 function applyBrandSideEffects(config: {
   appName: string;
   tagline: string;
+  faviconLetter: string;
   primaryColor: string;
   accentColor: string;
   dotColor: string;
@@ -52,6 +71,21 @@ function applyBrandSideEffects(config: {
   // bundles (no/en) so existing translations don't have to change.
   for (const lng of ['no', 'en']) {
     i18n.addResource(lng, 'common', 'appName', config.appName);
+  }
+  // Cache-bust favicon + manifest by appending a hash of the
+  // brand-config fields that affect their rendered output. The
+  // browser's favicon cache treats /favicon.svg?v=abc123 as a
+  // distinct URL from /favicon.svg?v=def456, so a brand flip
+  // forces a fresh download even when Cache-Control is ignored.
+  const iconHash = brandIconHash(
+    `${config.faviconLetter}|${config.primaryColor}|${config.dotColor}`
+  );
+  const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (favicon) favicon.href = `/favicon.svg?v=${iconHash}`;
+  const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+  if (manifest) {
+    const manifestHash = brandIconHash(`${config.appName}|${config.tagline}|${iconHash}`);
+    manifest.href = `/manifest.json?v=${manifestHash}`;
   }
 }
 

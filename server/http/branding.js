@@ -15,10 +15,22 @@
 // leak). Each template is loaded once at module-init; runtime cost
 // per request is one string-replace pass.
 //
-// Cache policy: SVG + manifest get Cache-Control: public, max-age=3600
-// because brand-config rarely changes. Operators that flip env-vars
-// must wait up to one hour for clients to pick up the new values, or
-// hard-refresh. Acceptable for a deploy-time concern.
+// Cache policy:
+//   /api/config        public, max-age=300  (5 min)
+//   /favicon.svg       public, max-age=3600 (1 hour, but browsers
+//                      cache favicons aggressively regardless — see
+//                      cache-bust query in client/src/main.tsx)
+//   /logo-mark.svg     public, max-age=3600
+//   /manifest.json     public, max-age=300
+//
+// Why 5 min on /api/config + /manifest.json: the frontend reads them
+// at every cold-load, and an operator that flips brand env-vars wants
+// users to see the new brand within minutes — not the full hour the
+// SVG endpoints get. The trade-off is one extra fetch per page-load
+// in the worst case (after 5 min), still a single 1.6 KB JSON.
+// Removed the `immutable` flag from SVG cache because the rendered
+// content does change when env flips; immutable would actively defeat
+// the cache-bust query string we now ship with the favicon link.
 
 const fs = require('fs');
 const path = require('path');
@@ -30,8 +42,8 @@ const LOGO_MARK_TEMPLATE = fs.readFileSync(
   'utf8'
 );
 
-const SVG_CACHE = 'public, max-age=3600, immutable';
-const CONFIG_CACHE = 'public, max-age=3600';
+const SVG_CACHE = 'public, max-age=3600';
+const CONFIG_CACHE = 'public, max-age=300';
 
 function escapeXml(input) {
   return String(input)
