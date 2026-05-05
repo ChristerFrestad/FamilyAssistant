@@ -321,10 +321,15 @@ function createFamilyRepo(db) {
   // family_invitations
   // ============================================================
 
+  // Migration 029 adds invitation_message (nullable, repo-capped at 500
+  // chars) and locale (NOT NULL DEFAULT 'no', CHECK in 'no'|'en'). The
+  // INSERT writes both columns explicitly so the row owns its own
+  // language choice and any personal note from the inviter.
   const insertInvitationStmt = db.prepare(
     `INSERT INTO family_invitations
-       (family_id, token, assigned_role, profile_member_id, invited_by, expires_at, invited_email)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+       (family_id, token, assigned_role, profile_member_id, invited_by,
+        expires_at, invited_email, invitation_message, locale)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const findInvitationByTokenStmt = db.prepare(
     `SELECT fi.*, f.name AS family_name, u.name AS inviter_name, u.email AS inviter_email
@@ -336,10 +341,17 @@ function createFamilyRepo(db) {
   const findInvitationByIdStmt = db.prepare(
     'SELECT * FROM family_invitations WHERE id = ? AND family_id = ?'
   );
+  // listActive surfaces invited_email / invitation_message / locale to
+  // the owner-only pending-list UI. assigned_role is intentionally
+  // included so the row can render "Voksen" vs "Barn" without a
+  // second fetch.
   const listActiveForFamilyStmt = db.prepare(
     `SELECT id, token, assigned_role AS assignedRole,
             profile_member_id AS profileMemberId,
             invited_by AS invitedBy,
+            invited_email AS invitedEmail,
+            invitation_message AS invitationMessage,
+            locale,
             expires_at AS expiresAt, accepted_at AS acceptedAt,
             accepted_by AS acceptedBy, revoked_at AS revokedAt,
             created_at AS createdAt
@@ -360,6 +372,40 @@ function createFamilyRepo(db) {
         SET revoked_at = datetime('now')
       WHERE id = ? AND family_id = ? AND accepted_at IS NULL AND revoked_at IS NULL`
   );
+  // Resend rotates the token (so the previous link stops working) and
+  // pushes expires_at forward. invited_email, invitation_message and
+  // locale are intentionally untouched — the owner's intent ("send the
+  // same invite again") would be violated by silently re-localising or
+  // dropping their personal note. The WHERE clause enforces both
+  // family-scoping (DEL 14) and pending-only state.
+  const resendInvitationStmt = db.prepare(
+    `UPDATE family_invitations
+        SET token = ?, expires_at = ?
+      WHERE id = ? AND family_id = ?
+        AND accepted_at IS NULL AND revoked_at IS NULL`
+  );
+  // Pre-validation lookup: is there a still-active invitation for this
+  // email already? Family-scoped on purpose — the same email being
+  // invited to a different family is fine and should not block.
+  const findActiveInvitationByEmailStmt = db.prepare(
+    `SELECT id, token, expires_at AS expiresAt
+       FROM family_invitations
+      WHERE family_id = ? AND invited_email = ?
+        AND accepted_at IS NULL AND revoked_at IS NULL
+        AND expires_at > datetime('now')
+      LIMIT 1`
+  );
+  // Pre-validation lookup: is the email already attached to a user in
+  // this family? COLLATE NOCASE matches the email-uniqueness index on
+  // users.email and the lowercase-normalised invited_email.
+  const findExistingMemberByEmailStmt = db.prepare(
+    `SELECT id, email FROM users
+      WHERE family_id = ? AND email = ? COLLATE NOCASE
+        AND deleted_at IS NULL
+      LIMIT 1`
+  );
+
+  const VALID_LOCALES = Object.freeze(['no', 'en']);
 
   function createInvitation({
     familyId,
@@ -369,9 +415,25 @@ function createFamilyRepo(db) {
     invitedBy,
     ttlDays = 7,
     invitedEmail = null,
+    invitationMessage = null,
+    locale = 'no',
   }) {
     if (!['adult', 'child'].includes(assignedRole)) {
       throw new Error(`createInvitation: invalid role ${assignedRole}`);
+    }
+    if (!VALID_LOCALES.includes(locale)) {
+      throw new Error(`createInvitation: invalid locale ${locale}`);
+    }
+    let messageToStore = null;
+    if (invitationMessage != null) {
+      if (typeof invitationMessage !== 'string') {
+        throw new Error('createInvitation: invitationMessage must be string or null');
+      }
+      const trimmed = invitationMessage.trim();
+      if (trimmed.length > 500) {
+        throw new Error('createInvitation: invitationMessage exceeds 500 chars');
+      }
+      messageToStore = trimmed === '' ? null : trimmed;
     }
     const expiresAt = new Date(Date.now() + ttlDays * 86400000)
       .toISOString()
@@ -384,7 +446,9 @@ function createFamilyRepo(db) {
       profileMemberId,
       invitedBy,
       expiresAt,
-      invitedEmail ? String(invitedEmail).trim().toLowerCase() : null
+      invitedEmail ? String(invitedEmail).trim().toLowerCase() : null,
+      messageToStore,
+      locale
     );
     return findInvitationByTokenStmt.get(token);
   }
@@ -412,6 +476,31 @@ function createFamilyRepo(db) {
     return findInvitationByIdStmt.get(invitationId, familyId) || null;
   }
 
+  function findActiveInvitationByEmail(familyId, email) {
+    if (!email) return null;
+    const normalized = String(email).trim().toLowerCase();
+    if (!normalized) return null;
+    return findActiveInvitationByEmailStmt.get(familyId, normalized) || null;
+  }
+
+  function findExistingMemberByEmail(familyId, email) {
+    if (!email) return null;
+    const trimmed = String(email).trim();
+    if (!trimmed) return null;
+    return findExistingMemberByEmailStmt.get(familyId, trimmed) || null;
+  }
+
+  function resendInvitation(familyId, invitationId, newToken, ttlDays = 7) {
+    if (!newToken) throw new Error('resendInvitation: newToken is required');
+    const expiresAt = new Date(Date.now() + ttlDays * 86400000)
+      .toISOString()
+      .replace('T', ' ')
+      .slice(0, 19);
+    const info = resendInvitationStmt.run(newToken, expiresAt, invitationId, familyId);
+    if (info.changes === 0) return null;
+    return findInvitationByTokenStmt.get(newToken);
+  }
+
   return {
     // families
     createFamily,
@@ -436,6 +525,10 @@ function createFamilyRepo(db) {
     listActiveInvitations,
     acceptInvitation,
     revokeInvitation,
+    resendInvitation,
+    findActiveInvitationByEmail,
+    findExistingMemberByEmail,
+    VALID_LOCALES,
   };
 }
 
