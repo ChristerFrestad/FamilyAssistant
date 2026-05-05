@@ -1,25 +1,51 @@
 <!doctype html>
 <html lang="en">
-  <body style="font-family: system-ui, -apple-system, Segoe UI, sans-serif; line-height:1.5; color:#1f2937; max-width:600px; margin:0 auto; padding:24px;">
-    <h2 style="margin:0 0 16px; font-size:22px; color:#111827;">{{INVITER_NAME}} invites you to {{FAMILY_NAME}}</h2>
+  <body
+    style="
+      font-family:
+        system-ui,
+        -apple-system,
+        Segoe UI,
+        sans-serif;
+      line-height: 1.5;
+      color: #1f2937;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 24px;
+    "
+  >
+    <h2 style="margin: 0 0 16px; font-size: 22px; color: #111827">
+      {{INVITER_NAME}} invites you to {{FAMILY_NAME}}
+    </h2>
     <p>Hi!</p>
     <p>
-      <strong>{{INVITER_NAME}}</strong> invites you to join
-      <strong>{{FAMILY_NAME}}</strong> on {{APP_NAME}} — an app for
-      family planning of meals, shopping lists, and household tasks.
+      <strong>{{INVITER_NAME}}</strong> invites you to join <strong>{{FAMILY_NAME}}</strong> on
+      {{APP_NAME}} — an app for family planning of meals, shopping lists, and household tasks.
     </p>
     {{INVITATION_MESSAGE_BLOCK}}
-    <p style="margin:24px 0;">
-      <a href="{{URL}}" style="display:inline-block;padding:12px 22px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">Join {{FAMILY_NAME}}</a>
+    <p style="margin: 24px 0">
+      <a
+        href="{{URL}}"
+        style="
+          display: inline-block;
+          padding: 12px 22px;
+          background: #2563eb;
+          color: #ffffff;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+        "
+        >Join {{FAMILY_NAME}}</a
+      >
     </p>
-    <p style="color:#6b7280; font-size:13px;">
+    <p style="color: #6b7280; font-size: 13px">
       If the button does not work, paste this address into your browser:<br />
-      <a href="{{URL}}" style="color:#2563eb;">{{URL}}</a>
+      <a href="{{URL}}" style="color: #2563eb">{{URL}}</a>
     </p>
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0;" />
-    <p style="color:#9ca3af; font-size:12px;">
-      The link is valid for {{EXPIRES_IN_DAYS}} days. If you did not
-      expect this invitation, you can safely ignore this email.
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0" />
+    <p style="color: #9ca3af; font-size: 12px">
+      The link is valid for {{EXPIRES_IN_DAYS}} days. If you did not expect this invitation, you can
+      safely ignore this email.
     </p>
   </body>
 </html>
