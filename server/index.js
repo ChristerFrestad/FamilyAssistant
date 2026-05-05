@@ -75,7 +75,27 @@ let stopWatchdog = null;
 // ============================================================
 
 async function startServer() {
-  logger.info('Starting FamilyAssistant...');
+  // Sprint 10 — boot-log reflects the active brand-instance, not the
+  // open-source product name. Operators running multi-brand deploys
+  // see immediately which stack they are looking at in the logs.
+  logger.info(
+    {
+      appName: config.APP_NAME,
+      namePrimary: config.APP_NAME_PRIMARY,
+      nameAccent: config.APP_NAME_ACCENT,
+      faviconLetter: config.APP_FAVICON_LETTER,
+      tagline: config.APP_TAGLINE,
+    },
+    `Starting ${config.APP_NAME}...`
+  );
+  // Brand-config cross-validation warnings collected during loadConfig().
+  // Logged here (not in config.js) so they go through pino with proper
+  // structure instead of raw console.warn.
+  if (Array.isArray(config.BRAND_WARNINGS) && config.BRAND_WARNINGS.length > 0) {
+    for (const w of config.BRAND_WARNINGS) {
+      logger.warn({ subsystem: 'brand-config' }, w);
+    }
+  }
 
   // Phase 22: loud signal when the server is in bootstrap mode so
   // operators can tell at a glance whether the setup wizard will pick
