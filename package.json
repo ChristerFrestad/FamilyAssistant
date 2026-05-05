@@ -28,8 +28,8 @@
     "test:client:coverage": "vitest run --coverage --config client/vitest.config.ts --passWithNoTests",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --check \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"public/manifest.json\" \"package.json\"",
-    "format:fix": "prettier --write \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"public/manifest.json\" \"package.json\"",
+    "format": "prettier --check \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"package.json\"",
+    "format:fix": "prettier --write \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"package.json\"",
     "ci": "npm run lint && npm run format && npm test && npm run test:client",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "sbom": "cyclonedx-npm --omit dev --package-lock-only --output-format JSON --output-file sbom.json",
@@ -102,12 +102,10 @@
       "eslint --fix",
       "prettier --write"
     ],
-    "public/js/**/*.js": "eslint --fix",
     "public/sw.js": [
       "eslint --fix",
       "prettier --write"
     ],
-    "public/manifest.json": "prettier --write",
     "package.json": "prettier --write",
     "client/**/*.{ts,tsx,css}": "prettier --write",
     "client/**/*.{json,html}": "prettier --write"
