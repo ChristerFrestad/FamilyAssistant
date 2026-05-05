@@ -1,0 +1,14 @@
+{{INVITER_NAME}} invites you to {{FAMILY_NAME}}
+
+Hi!
+
+{{INVITER_NAME}} invites you to join {{FAMILY_NAME}} on {{APP_NAME}}
+— an app for family planning of meals, shopping lists, and
+household tasks.
+
+{{INVITATION_MESSAGE_BLOCK}}Click the link below to join:
+
+{{URL}}
+
+The link is valid for {{EXPIRES_IN_DAYS}} days. If you did not
+expect this invitation, you can safely ignore this email.
