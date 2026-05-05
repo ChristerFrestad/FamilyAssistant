@@ -404,6 +404,14 @@ function createFamilyRepo(db) {
         AND deleted_at IS NULL
       LIMIT 1`
   );
+  // Sliding-window count of invitations created by a family in the
+  // last hour. Backs the per-family create-rate-limit (20/h) — the
+  // global IP-bucket alone is too generous (300/min) to protect
+  // against an authenticated owner spraying invitations.
+  const countRecentInvitationsStmt = db.prepare(
+    `SELECT COUNT(*) AS c FROM family_invitations
+      WHERE family_id = ? AND created_at > datetime('now', '-1 hour')`
+  );
 
   const VALID_LOCALES = Object.freeze(['no', 'en']);
 
@@ -483,6 +491,10 @@ function createFamilyRepo(db) {
     return findActiveInvitationByEmailStmt.get(familyId, normalized) || null;
   }
 
+  function countRecentInvitations(familyId) {
+    return countRecentInvitationsStmt.get(familyId).c;
+  }
+
   function findExistingMemberByEmail(familyId, email) {
     if (!email) return null;
     const trimmed = String(email).trim();
@@ -528,6 +540,7 @@ function createFamilyRepo(db) {
     resendInvitation,
     findActiveInvitationByEmail,
     findExistingMemberByEmail,
+    countRecentInvitations,
     VALID_LOCALES,
   };
 }

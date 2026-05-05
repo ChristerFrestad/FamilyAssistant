@@ -37,6 +37,21 @@ async function createInvitation(server, owner, body) {
   return r.body.invitation;
 }
 
+// PR #119 introduced a 60-second resend cooldown anchored on
+// expires_at - INVITE_TTL_DAYS (which equals create-or-last-resend
+// time). Tests that exercise resend right after create must push
+// expires_at backwards so cooldown has elapsed.
+function bypassResendCooldown(server, invitationId) {
+  const past = new Date(Date.now() - 61_000).toISOString().replace('T', ' ').slice(0, 19);
+  const newExpires = new Date(Date.parse(`${past}Z`) + 7 * 86400_000)
+    .toISOString()
+    .replace('T', ' ')
+    .slice(0, 19);
+  server.repos._db
+    .prepare('UPDATE family_invitations SET expires_at = ? WHERE id = ?')
+    .run(newExpires, invitationId);
+}
+
 describe('Family invitation · resend', () => {
   let server;
 
@@ -54,6 +69,7 @@ describe('Family invitation · resend', () => {
       email: 'rs-target-1@test.no',
       invitationMessage: 'Velkommen!',
     });
+    bypassResendCooldown(server, inv.id);
 
     const r = await request(server.baseUrl, 'POST', `/api/family/invitations/${inv.id}/resend`, {
       headers: { Cookie: owner.cookie },
@@ -69,6 +85,7 @@ describe('Family invitation · resend', () => {
     const owner = createOwner(server, 'rs-2@test.no', 'Resend Two');
     const inv = await createInvitation(server, owner, { email: 'rs-target-2@test.no' });
     const oldToken = inv.token;
+    bypassResendCooldown(server, inv.id);
 
     await request(server.baseUrl, 'POST', `/api/family/invitations/${inv.id}/resend`, {
       headers: { Cookie: owner.cookie },

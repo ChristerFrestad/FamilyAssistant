@@ -11,11 +11,65 @@ const { requireRole } = require('./middleware');
 const { randomToken } = require('./crypto');
 const { config } = require('../config');
 const emailService = require('../services/email.service');
+const { runWithFamily } = require('./family-context');
 
 const INVITE_URL_PATH = '/v2/invite/';
 const INVITE_TTL_DAYS = 7;
 const MAX_INVITATION_MESSAGE_LENGTH = 500;
 const VALID_INVITATION_LOCALES = Object.freeze(['no', 'en']);
+// Per-family create-rate-limit: 20 invitations / 60 minutes. The global
+// IP-bucket alone (300/min) is too generous when the actor is an
+// authenticated owner — a misbehaving owner could otherwise drown
+// recipients in email. 20/h is well above any realistic family-onboarding
+// burst (a single owner inviting all their adults at once is ~5 emails).
+const CREATE_RATE_LIMIT_PER_HOUR = 20;
+// Per-invitation resend cooldown: 60 seconds between resends. Prevents
+// repeated-button spam from sending duplicate emails to the recipient.
+// Derived from `expires_at - INVITE_TTL_DAYS` since every create + resend
+// rewrites expires_at to "now + 7 days".
+const RESEND_COOLDOWN_MS = 60_000;
+// Common audit metadata helper. Keeps the four audit-log calls below
+// consistent and lets us attach a structured `event` discriminator the
+// dashboard can split on. metadata is stored as JSON (truncated 2000
+// chars) — never includes the token itself, only public-ish fields the
+// owner already sees.
+function auditInvitation(repos, ctx, eventName, invitation, extra = {}) {
+  try {
+    // The audit-log row's family_id column is sourced from the
+    // AsyncLocalStorage family-context. For three of the four events
+    // (sent / revoked / resent) ctx.familyId already matches the
+    // invitation's owning family because the route is owner-only and
+    // middleware has run. The accept-flow is the odd one: the joining
+    // user starts outside the family, so ctx.familyId is null at
+    // request-context time; we re-enter runWithFamily(invitation.
+    // family_id) here so the audit row is written under the correct
+    // family scope and reachable from the owner's audit-log queries.
+    const familyIdForContext = invitation?.family_id ?? ctx.familyId ?? null;
+    const writeAudit = () =>
+      repos.auditLog.record({
+        requestId: ctx.requestId || ctx.req?.headers?.['x-request-id'] || 'unknown',
+        actor: String(ctx.user?.id ?? 'unknown'),
+        action: (ctx.req?.method || 'POST').toUpperCase(),
+        entityType: 'family_invitation',
+        entityId: invitation?.id != null ? String(invitation.id) : null,
+        route: ctx.req?.url || 'unknown',
+        metadata: {
+          event: eventName,
+          familyId: familyIdForContext,
+          invitedEmail: invitation?.invited_email ?? null,
+          locale: invitation?.locale ?? null,
+          ...extra,
+        },
+      });
+    if (familyIdForContext && familyIdForContext !== ctx.familyId) {
+      runWithFamily(familyIdForContext, writeAudit);
+    } else {
+      writeAudit();
+    }
+  } catch (err) {
+    console.warn(`[invitation] audit-log write failed: ${err.message}`);
+  }
+}
 
 // Best-effort invitation-email send. Logs the URL if Resend is not
 // wired (or fails) so the operator can copy it manually. Never throws —
@@ -269,6 +323,18 @@ function handleCreateInvitation(ctx, repos) {
     throw errors.badRequest("locale must be 'no' or 'en'.");
   }
 
+  // Per-family create-rate-limit. Counted via family.repo over the
+  // last hour from family_invitations.created_at. Errors with
+  // 429 + Retry-After so the UI can disable the submit button during
+  // the cooldown window.
+  const recentCount = repos.family.countRecentInvitations(ctx.familyId);
+  if (recentCount >= CREATE_RATE_LIMIT_PER_HOUR) {
+    if (ctx.res) ctx.res.setHeader('Retry-After', '3600');
+    throw errors.tooManyRequests(
+      `Too many invitations created in the last hour (${recentCount}/${CREATE_RATE_LIMIT_PER_HOUR}). Try again later.`
+    );
+  }
+
   // Pre-validation (only when an email was supplied — the legacy null-
   // email path is opaque and can't be deduplicated).
   if (normalizedEmail) {
@@ -315,6 +381,8 @@ function handleCreateInvitation(ctx, repos) {
     });
   }
 
+  auditInvitation(repos, ctx, 'invitation_sent', invitation);
+
   return {
     ok: true,
     invitation: {
@@ -359,6 +427,20 @@ function handleResendInvitation(ctx, repos) {
     });
   }
 
+  // Per-invitation resend cooldown. expires_at is rewritten to "now +
+  // INVITE_TTL_DAYS" on every create AND every resend, so subtracting
+  // INVITE_TTL_DAYS recovers the timestamp of the most recent activity
+  // on this row. If that activity was less than RESEND_COOLDOWN_MS ago,
+  // reject with 429 + Retry-After so the UI can show a countdown.
+  const expiresMs = Date.parse(`${existing.expires_at.replace(' ', 'T')}Z`);
+  const lastActivityMs = expiresMs - INVITE_TTL_DAYS * 86400000;
+  const sinceLastMs = Date.now() - lastActivityMs;
+  if (sinceLastMs < RESEND_COOLDOWN_MS) {
+    const retryAfterSec = Math.max(1, Math.ceil((RESEND_COOLDOWN_MS - sinceLastMs) / 1000));
+    if (ctx.res) ctx.res.setHeader('Retry-After', String(retryAfterSec));
+    throw errors.tooManyRequests(`Resend cooldown active. Try again in ${retryAfterSec}s.`);
+  }
+
   const newToken = randomToken(32);
   const updated = repos.family.resendInvitation(
     ctx.familyId,
@@ -383,6 +465,8 @@ function handleResendInvitation(ctx, repos) {
       locale: updated.locale || 'no',
     });
   }
+
+  auditInvitation(repos, ctx, 'invitation_resent', updated);
 
   return {
     ok: true,
@@ -426,8 +510,15 @@ function handleRevokeInvitation(ctx, repos) {
   if (!Number.isInteger(invitationId) || invitationId <= 0) {
     throw errors.badRequest('Invalid invitation id.');
   }
+  // Snapshot the row before revoke so the audit-log entry can record
+  // which invitation was revoked (id + email + locale). The repo call
+  // below is the authoritative state-change; if it returns false (race
+  // condition or already-finalised) we surface notFound and skip the
+  // audit-log entry.
+  const before = repos.family.findInvitationById(ctx.familyId, invitationId);
   const ok = repos.family.revokeInvitation(ctx.familyId, invitationId);
   if (!ok) throw errors.notFound('Invitation not found or already finalised.');
+  auditInvitation(repos, ctx, 'invitation_revoked', before);
   return { ok: true };
 }
 
@@ -518,6 +609,10 @@ function handleAcceptInvitation(ctx, repos) {
     inv.profile_member_id || null
   );
   repos.family.acceptInvitation(inv.id, ctx.user.id);
+
+  auditInvitation(repos, ctx, 'invitation_accepted', inv, {
+    acceptedByUserId: ctx.user.id,
+  });
 
   return {
     ok: true,
