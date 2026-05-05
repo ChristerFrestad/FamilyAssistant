@@ -11,7 +11,12 @@
 //
 // Add new entries here only when introducing additional VITE_*-vars
 // that have to be baked into the bundle at build time (rare).
+//
+// The interface stays declared (rather than removed entirely) so any
+// future build-time env-var has an obvious place to land. Type-only
+// — disable the empty-interface lint rule until a field gets added.
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface ImportMetaEnv {}
 
 interface ImportMeta {
