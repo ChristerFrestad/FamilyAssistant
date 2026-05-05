@@ -57,35 +57,48 @@ function serveStatic(res, filePath) {
   }
 }
 
-function tryServeSpaFallback(pathname, res) {
-  const filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+// Sprint 8 (2026-05-05): the legacy v1 SPA-fallback (`tryServeSpaFallback`)
+// was removed when we deleted the v1 frontend. The catch-all GET now uses
+// `tryServePublicFile` for legacy-era static files we still need (legal
+// pages + the sw.js tombstone) and `tryServeV2App` for the v2 React app.
+//
+// Only files explicitly listed as ALLOWED_PUBLIC_FILES are served from
+// public/ directly. Everything else hits v2 (which handles its own routing
+// under /v2/) or 404s. This is the allowlist-form of static serving — no
+// blind path traversal into the public dir, no surprises if someone drops
+// a new file there.
+const ALLOWED_PUBLIC_FILES = new Set([
+  '/privacy.html',
+  '/privacy-en.html',
+  '/terms.html',
+  '/sw.js',
+]);
+
+function tryServePublicFile(pathname, res) {
+  if (!ALLOWED_PUBLIC_FILES.has(pathname)) return false;
+  const filePath = path.join(PUBLIC_DIR, pathname);
   const resolved = path.resolve(filePath);
+  // Defence in depth: even though pathname is matched against an exact-
+  // string set, refuse to serve if path resolution escapes the public dir.
   if (path.relative(PUBLIC_DIR, resolved).startsWith('..')) return false;
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     return serveStatic(res, filePath);
-  }
-  const indexPath = path.join(PUBLIC_DIR, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    return serveStatic(res, indexPath);
   }
   return false;
 }
 
 // ============================================================
-// v2 (redesign) sub-app static + SPA serving
+// v2 (React SPA) static + SPA serving
 // ============================================================
 //
-// Intentionally separate from tryServeSpaFallback so the two concerns
-// evolve independently. The legacy app on / must keep working byte-
-// identically while the new app on /v2/* is under active development.
-//
-// Matches ONLY /v2 and /v2/* — no generic sub-app prefix-matching.
+// Matches /v2 and /v2/* — no generic sub-app prefix-matching.
 // Explicit > implicit: when we add /v3 later it gets its own handler.
 //
-// Returns false (i.e. lets the caller fall through to
-// tryServeSpaFallback) when:
+// Returns false when:
 //   - path doesn't start with /v2
-//   - public/v2/ doesn't exist yet (pre-build state)
+//   - public/v2/ doesn't exist yet (pre-build state — Dockerfile builds
+//     the bundle into public/v2/ as part of the image, see Dockerfile
+//     stage `frontend-builder`)
 //   - path-traversal attempt (../ etc.)
 const V2_PREFIX = '/v2';
 
@@ -184,13 +197,15 @@ function createServer(router, { authenticate } = {}) {
         const dispatched = router.dispatch(req.method, pathname);
 
         if (!dispatched) {
-          // /api/* and /metrics are never served as SPA fallback — return 404.
+          // /api/* and /metrics are never served as static — return 404.
           const isApi = pathname.startsWith('/api/') || pathname === '/metrics';
           if (!isApi && req.method === 'GET') {
-            // Try v2 sub-app first (explicit /v2/* match), then legacy
-            // root SPA-fallback. Keeping them sequential preserves the
-            // byte-identical serving of the legacy app on /.
-            if (tryServeV2App(pathname, res) || tryServeSpaFallback(pathname, res)) {
+            // Sprint 8: v2 React app + allowlisted public files only.
+            // - tryServeV2App handles /v2 + /v2/* (the SPA shell + assets)
+            // - tryServePublicFile handles /privacy.html, /terms.html,
+            //   /privacy-en.html, /sw.js (the v1-tombstone)
+            // Anything else falls through to a 404.
+            if (tryServeV2App(pathname, res) || tryServePublicFile(pathname, res)) {
               const dur = Date.now() - started;
               metrics.record(req.method, 'static', 200, dur);
               logRequest(ctx, 200, dur, 'static');

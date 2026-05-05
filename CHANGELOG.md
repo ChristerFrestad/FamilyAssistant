@@ -6,6 +6,100 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Removed — Legacy v1 frontend (Sprint 8, 2026-05-05)
+
+After PR #114-117 unblocked the pilot deploy, Christer identified a class
+of subtle bugs caused by v1/v2 coexistence: logout flows could land users
+on `/login.html` (legacy v1), cached v1 service workers re-served stale
+content, and `/index.html` still served the legacy SPA shell.
+
+V2 has been the pilot frontend since Sprint 7 and remains the post-pilot
+target. V1 has no further purpose. This Sprint 8 cleanup deletes it
+entirely.
+
+**Deleted from `public/`:**
+
+- `index.html`, `login.html`, `invite.html`, `setup.html` — legacy SPA
+  pages and entry points (4 files)
+- `manifest.json`, `icon-192.png` — legacy PWA manifest + icon
+- `js/*` — 18 legacy JavaScript modules (auth.js, chat.js, chores.js,
+  core.js, family-ui.js, feedback.js, init.js, meals.js, notifications.js,
+  pantry.js, recipe-import.js, settings.js, setup.js, shopping.js,
+  tabs.js, theme.js, today.js, voice.js)
+- `css/*` — 4 legacy stylesheets (base.css, components-extended.css,
+  glass.css, settings.css)
+
+**Kept in `public/`:**
+
+- `privacy.html`, `privacy-en.html`, `terms.html` — legal pages
+- `sw.js` — replaced with tombstone (see Changed)
+- `v2/` — Vite build-output (gitignored)
+
+**Deleted tests (10 total):**
+
+- `tests/frontend-auth.test.js` (DEL 6.1-frozen, DEL 6.5 explicitly
+  approved by Christer 2026-05-05)
+- `tests/phase14-sw-multitenant.test.js` (DEL 6.1-frozen, approved)
+- `tests/family-ui-assets.test.js`
+- `tests/m3-e2e-smoke.test.js`
+- `tests/m3-a11y.test.js`
+- `tests/m-week4-a11y-extended.test.js`
+- `tests/m-week4-frontend-features.test.js`
+- `tests/m5-frontend-pwa.test.js`
+- `tests/m-week7-portability.test.js`
+- `tests/phase22-bootstrap.test.js` (bootstrap-flow is v1-frontend-only;
+  bootstrap.js handler code remains, see code-debt Entry 14)
+
+### Changed — Server now exclusively serves v2 frontend (Sprint 8)
+
+- `server/http/server.js`: removed `tryServeSpaFallback()` (was the v1
+  SPA-fallback). The catch-all GET now uses an allowlist-based
+  `tryServePublicFile()` for the four legitimate public files
+  (privacy.html, privacy-en.html, terms.html, sw.js) and `tryServeV2App()`
+  for /v2 + /v2/*. Anything else 404s.
+- `server/auth/middleware.js`: `PUBLIC_PATHS` trimmed. Removed
+  `/login.html`, `/invite.html`, `/setup.html`. Added `/sw.js` (tombstone
+  must be reachable so cached v1 service workers can fetch it).
+- `public/sw.js`: replaced with a **tombstone service worker**. Browsers
+  that visited the v1 frontend earlier still have the v1 SW installed
+  and would keep serving cached content even after the source files
+  were deleted. The tombstone:
+  1. On `install`: calls `skipWaiting()` to take over immediately
+  2. On `activate`: clears all caches the v1 SW had, calls
+     `self.registration.unregister()`, then forces every controlled
+     client to reload (which then runs without any SW)
+  3. Pass-through `fetch` handler as safety net while activating
+
+### Fixed — Logout no longer redirects to legacy /login.html
+
+The v2 app's `LogoutButton.tsx` always redirected to `/v2/login`
+correctly, but if the browser had v1's cached service worker, a stale
+v1 codepath could trigger `window.location.replace('/login.html')` from
+v1's auth.js / family-ui.js. Deleting v1's source files + the SW
+tombstone removes both possibilities.
+
+**DEL 6.1 + 6.5 approval:** Christer explicitly approved on 2026-05-05:
+- `server/http/server.js` (remove v1-fallback)
+- `server/auth/middleware.js` (PUBLIC_PATHS update)
+- Deletion of two frozen tests (DEL 6.5: test objects no longer exist)
+
+**Operator action after merge:**
+
+1. CI builds new `:main` + `:sha-XXX` images (3-4 min)
+2. Portainer: pull + recreate
+3. Verify in browser:
+   - `http://<deploy>:7777/` → 302 → `/v2/`
+   - `http://<deploy>:7777/v2/` → 200 (v2 React app)
+   - `http://<deploy>:7777/login.html` → 404 (deleted)
+   - `http://<deploy>:7777/index.html` → 404 (deleted)
+   - `http://<deploy>:7777/sw.js` → 200 (tombstone)
+   - DevTools → Application → Service Workers: previous v1 SW unregisters
+     itself on the next visit, no caches remain
+   - Logout → redirected to `/v2/` (not `/login.html`)
+
+Tracking:
+[`docs/analyses/2026-05-05-sprint-8-v1-frontend-cleanup.md`](docs/analyses/2026-05-05-sprint-8-v1-frontend-cleanup.md).
+
 ### Fixed — GET / leaks legacy v1 OR returns 401 (2026-05-04, CRITICAL)
 
 **Symptom:** After PR #115 + #116 landed, the bare root URL exhibited

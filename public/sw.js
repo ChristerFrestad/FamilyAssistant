@@ -1,256 +1,75 @@
-// Familieassistenten Service Worker (M5.2 + phase 14)
+// Tombstone service worker — Sprint 8 V1 frontend cleanup (2026-05-05).
 //
-// Strategi:
-//   - Statiske assets (HTML, manifest, icon, css, js) → cache-first, network-fallback
-//   - API GET (/api/*) → network-first, cache-fallback for offline lesing
-//   - Tenant-sensitive API (/api/auth/*, /api/family/*, /api/llm-config/*,
-//     /api/invitations/*, /api/onboarding/*, /api/gdpr/*) → network-only, aldri
-//     cache. En bufret respons ville lekke mellom familier/brukere når samme
-//     enhet byttes til en annen konto.
-//   - API POST/PUT/DELETE → network-only (mutasjoner skal ikke repeteres)
-//   - /metrics, /health, /ready → network-only (monitoring trenger ferske tall)
-//   - 401/403-respons evicter API-cache så neste bruker ikke ser forrige kontos data
+// Background:
+// The legacy v1 frontend shipped a service worker that pre-cached HTML/JS/CSS
+// from public/index.html, public/js/*, public/css/*. Browsers that visited
+// the app while v1 was live still have that SW installed and would keep
+// serving stale cached content even after we deleted the source files.
 //
-// Cache-versjon bumpes ved hver deploy så gamle caches ryddes automatisk.
+// This tombstone replaces the v1 sw.js with a minimal worker whose only job
+// is to unregister itself and force the controlled clients to reload. After
+// reload, the page boots without any service worker — the new v2 React app
+// loads from the network, no caching layer in the way.
+//
+// Lifecycle:
+//   1. Browser fetches /sw.js (existing SW update-check or fresh visit)
+//   2. install: skipWaiting() so this version takes over immediately,
+//      bypassing the normal "wait until all tabs close" gate
+//   3. activate: drop all caches the v1 SW had, unregister this worker,
+//      then navigate every controlled client to its current URL so the
+//      page reloads without a SW intercept
+//   4. The next request from each client goes to the network — v2 loads
+//
+// Removal plan:
+// After 3-6 months when all pilot users have visited the app and had their
+// v1 SW unregistered, this file can be deleted entirely along with the
+// /sw.js route. Tracked in docs/workflow/post-pilot-code-debt-cleanup.md.
 
-// v1.9-phase24: bumped 2026-04-29 (PR #77 atomic onboarding) to force
-// cache invalidation after the legacy SPA onboarding wizard was deleted.
-// Browsers running an older sw.js still in cache would otherwise keep
-// trying to pre-cache /onboarding.html and /js/family-onboarding.js and
-// fail noisily on the install step. Bumping VERSION trips the activate
-// handler's old-cache cleanup so the precache list is rebuilt fresh.
-// Previous: v1.8-phase23 (2026-04-22, PR #44/#46 — shopping UX fixes).
-// Naming-convention vN.M-phaseN asserted by phase14-sw-multitenant.test.js.
-// Bump this VERSION for any PR that changes public/js/*.js or public/css/*.
-const VERSION = 'v1.9-phase24';
-const STATIC_CACHE = `fam-static-${VERSION}`;
-const API_CACHE = `fam-api-${VERSION}`;
-
-// Phase 14: auth/family-skjermene og tilhørende moduler pre-caches så offline-
-// brukere kan nå login-flyten (selv om selve auth-kallet trenger nettverk —
-// skjermen skal likevel være synlig). Onboarding-flyten lever nå i v2-SPA-en
-// (PR #77), så onboarding.html og family-onboarding.js er ikke lenger del av
-// legacy precachen.
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/login.html',
-  '/invite.html',
-  '/privacy.html',
-  '/terms.html',
-  '/setup.html',
-  '/js/setup.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/css/base.css',
-  '/css/glass.css',
-  '/css/components-extended.css',
-  '/css/settings.css',
-  '/js/core.js',
-  '/js/auth.js',
-  '/js/tabs.js',
-  '/js/today.js',
-  '/js/meals.js',
-  '/js/shopping.js',
-  '/js/pantry.js',
-  '/js/recipe-import.js',
-  '/js/chores.js',
-  '/js/chat.js',
-  '/js/voice.js',
-  '/js/theme.js',
-  '/js/notifications.js',
-  '/js/settings.js',
-  '/js/family-ui.js',
-  '/js/feedback.js',
-  '/js/init.js',
-];
-
-// Phase 14: prefikser som ALDRI skal caches. Inneholder per-bruker/per-familie
-// data — bufring ville bryte tenant-isolasjon ved kontobytte på delt enhet.
-const NO_CACHE_API_PREFIXES = [
-  '/api/auth/',
-  '/api/family',
-  '/api/llm-config',
-  '/api/invitations',
-  '/api/onboarding',
-  '/api/gdpr',
-  // Phase 22 — bootstrap wizard: responses must never be cached because
-  // the very next request after setup completion should hit the now-
-  // authenticated server, not a stale "bootstrap pending" body.
-  '/api/bootstrap',
-];
-
-function isNoCacheApi(pathname) {
-  return NO_CACHE_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
-}
-
-// ============================================================
-// Install — pre-cache statiske assets
-// ============================================================
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting())
-      .catch((err) => console.warn('[sw] install cache feilet:', err))
-  );
+  // Take over immediately rather than waiting for all tabs to close.
+  event.waitUntil(self.skipWaiting());
 });
 
-// ============================================================
-// Activate — rydd gamle caches, ta kontroll over åpne tabs
-// ============================================================
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((k) => k.startsWith('fam-') && k !== STATIC_CACHE && k !== API_CACHE)
-            .map((k) => caches.delete(k))
-        )
-      )
-      .then(() => self.clients.claim())
+    (async () => {
+      // Drop every cache the v1 SW (or this tombstone) created. Listing
+      // explicit cache names would be brittle — clear all caches owned by
+      // this origin to guarantee no stale v1 content survives.
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      } catch {
+        /* best-effort; never block unregister on cache cleanup failure */
+      }
+
+      // Unregister this worker so future requests go to the network.
+      try {
+        await self.registration.unregister();
+      } catch {
+        /* if unregister fails, the next visit will retry — still safe */
+      }
+
+      // Force every currently-controlled tab to reload, which detaches them
+      // from this (now-unregistered) worker and runs without any SW.
+      try {
+        const clients = await self.clients.matchAll({ includeUncontrolled: true });
+        for (const client of clients) {
+          if ('navigate' in client) {
+            client.navigate(client.url);
+          }
+        }
+      } catch {
+        /* best-effort */
+      }
+    })()
   );
 });
 
-// ============================================================
-// Fetch
-// ============================================================
+// Pass-through fetch handler — any request that does hit this SW before it
+// finishes activating goes straight to the network, no cache lookup. This
+// is a safety net; in practice the activate-handler unregisters the worker
+// before any meaningful number of fetches go through.
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Kun GET caches — POST/PUT/DELETE går rett gjennom
-  if (request.method !== 'GET') return;
-
-  // Eksterne origins — bypass SW helt
-  if (url.origin !== self.location.origin) return;
-
-  // Monitoring / health — network-only
-  if (url.pathname === '/metrics' || url.pathname === '/health' || url.pathname === '/ready') {
-    return;
-  }
-
-  // Phase 14: tenant-sensitive API — network-only, aldri cache
-  if (url.pathname.startsWith('/api/') && isNoCacheApi(url.pathname)) {
-    event.respondWith(apiNetworkOnly(request));
-    return;
-  }
-
-  // API GET — network-first, cache-fallback
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(apiNetworkFirst(request));
-    return;
-  }
-
-  // Statiske assets — cache-first
-  event.respondWith(staticCacheFirst(request));
-});
-
-async function apiNetworkOnly(request) {
-  try {
-    const fresh = await fetch(request);
-    // Phase 14: 401/403 på tenant-sensitive endpoints betyr at sesjonen
-    // er død eller byttet. Tøm API-cache så forrige kontos data ikke
-    // vises for neste bruker på samme enhet.
-    if (fresh.status === 401 || fresh.status === 403) {
-      caches.delete(API_CACHE).catch(() => {});
-    }
-    return fresh;
-  } catch {
-    return new Response(
-      JSON.stringify({
-        type: 'about:blank',
-        title: 'Offline',
-        status: 503,
-        detail: 'Ingen forbindelse — denne forespørselen krever nettverk',
-      }),
-      { status: 503, headers: { 'Content-Type': 'application/problem+json' } }
-    );
-  }
-}
-
-async function apiNetworkFirst(request) {
-  const cache = await caches.open(API_CACHE);
-  try {
-    const fresh = await fetch(request);
-    // Phase 14: 401/403 på hvilken som helst API — invalider cache slik at
-    // neste bruker ikke får forrige brukers data servert offline.
-    if (fresh.status === 401 || fresh.status === 403) {
-      caches.delete(API_CACHE).catch(() => {});
-      return fresh;
-    }
-    // Kun cache suksessfulle 200-responser
-    if (fresh.ok) {
-      // Klone før cache.put — response-body kan kun leses én gang
-      cache.put(request, fresh.clone()).catch(() => {});
-    }
-    return fresh;
-  } catch {
-    // Offline: prøv cache
-    const cached = await cache.match(request);
-    if (cached) {
-      // Legg til en header så klienten vet responsen er stale
-      const headers = new Headers(cached.headers);
-      headers.set('X-SW-Cache', 'STALE');
-      return new Response(await cached.blob(), {
-        status: cached.status,
-        statusText: cached.statusText,
-        headers,
-      });
-    }
-    // Ingen cache, ingen nettverk → returner JSON-feil som matcher server
-    return new Response(
-      JSON.stringify({
-        type: 'about:blank',
-        title: 'Offline',
-        status: 503,
-        detail: 'Ingen forbindelse og ingen bufret data tilgjengelig',
-      }),
-      { status: 503, headers: { 'Content-Type': 'application/problem+json' } }
-    );
-  }
-}
-
-async function staticCacheFirst(request) {
-  const cache = await caches.open(STATIC_CACHE);
-  const cached = await cache.match(request);
-  if (cached) {
-    // Oppdater i bakgrunnen så neste request får fersk kopi
-    fetch(request)
-      .then((fresh) => {
-        if (fresh.ok) cache.put(request, fresh).catch(() => {});
-      })
-      .catch(() => {});
-    return cached;
-  }
-  try {
-    const fresh = await fetch(request);
-    if (fresh.ok) cache.put(request, fresh.clone()).catch(() => {});
-    return fresh;
-  } catch (err) {
-    // Fallback til root index for SPA-navigasjon offline
-    if (request.mode === 'navigate') {
-      const root = await cache.match('/');
-      if (root) return root;
-    }
-    throw err;
-  }
-}
-
-// ============================================================
-// Message handler — klient kan trigge cleanup / manual cache-purge
-// ============================================================
-self.addEventListener('message', (event) => {
-  if (!event.data) return;
-  if (event.data.type === 'SKIP_WAITING') self.skipWaiting();
-  if (event.data.type === 'CLEAR_CACHE') {
-    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
-  }
-  // Phase 14: kun API-cachen — trigges fra klient ved logout
-  if (event.data.type === 'CLEAR_API_CACHE') {
-    caches.delete(API_CACHE).catch(() => {});
-  }
+  event.respondWith(fetch(event.request));
 });

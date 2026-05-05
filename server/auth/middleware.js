@@ -21,8 +21,11 @@ const { errors } = require('../http/errors');
 const { parseCookies } = require('./cookies');
 
 // Paths that never require authentication and never attempt to resolve a user.
-// Includes a couple of static pages so unauthenticated visitors can read the
-// privacy policy / terms before signing up.
+// Sprint 8 (2026-05-05): trimmed to the post-v1-cleanup surface. Legal pages
+// (privacy + terms) are still served from public/ as static HTML; the sw.js
+// tombstone is reachable so cached v1 service workers can fetch it and
+// unregister themselves. /login.html, /invite.html, /setup.html are gone
+// — the v2 React app handles all of those flows under /v2/*.
 const PUBLIC_PATHS = new Set([
   '/health',
   '/ready',
@@ -30,12 +33,7 @@ const PUBLIC_PATHS = new Set([
   '/privacy.html',
   '/privacy-en.html',
   '/terms.html',
-  '/login.html',
-  '/invite.html',
-  // Phase 22 — setup wizard (zero-config Docker deploy). Only served
-  // meaningfully when BOOTSTRAP_MODE is active; the auth middleware
-  // itself is also skipped by server.js in that mode.
-  '/setup.html',
+  '/sw.js',
 ]);
 
 // Sprint 7 / pre-pilot — paths that bypass the pilot-password gate.
