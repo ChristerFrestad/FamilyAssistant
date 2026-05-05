@@ -120,29 +120,35 @@ npm start                    # serve via Express
 
 ## Branding (white-label)
 
-FamilyAssistant supports custom branding via env vars so a fork
-can ship with its own product name without touching code.
+FamilyAssistant ships a runtime brand-system so the same Docker
+image can serve any white-label brand without rebuilding.
 
-- **Default:** the app calls itself `FamilyAssistant` in both
-  Norwegian and English — across the header, login screen,
-  magic-link emails, and the page title.
-- **Override:** set the same brand value on both sides of the
-  stack:
+- **Default:** the app calls itself `FamilyAssistant` across the
+  header, login screen, emails, favicon, and PWA manifest.
+- **Override:** set eight env-vars in your Portainer stack — the
+  app fetches them via `GET /api/config` at startup and re-skins
+  itself accordingly. No code changes, no rebuild, no per-brand
+  Docker image.
 
   ```
-  VITE_APP_NAME=YourBrandName   # frontend, build-time
-  APP_NAME=YourBrandName        # backend, runtime
+  APP_NAME=Hverdagsplanleggeren
+  APP_NAME_PRIMARY=Hverdags
+  APP_NAME_ACCENT=planleggeren
+  APP_FAVICON_LETTER=h
+  APP_TAGLINE=Planlegg middag, gjøremål og familie
+  RESEND_FROM=Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>
   ```
 
-  Both flags read the same brand string. Frontend uses Vite's
-  `import.meta.env.VITE_*` exposure (so the value lands in the
-  built bundle); backend reads `process.env.APP_NAME` at startup
-  via `server/config.js`. Keep them in sync — divergence shows
-  up as the email saying one name and the website another.
+  Cross-validation runs at boot — mismatches between `APP_NAME` and
+  `APP_NAME_PRIMARY+APP_NAME_ACCENT`, between `APP_FAVICON_LETTER`
+  and the first letter of the primary segment, or between
+  `RESEND_FROM` display-name and `APP_NAME` log warnings without
+  preventing startup.
 
-See `CLAUDE.md` § 7.12 for the full pattern (which files are
-white-labeled, which always read `FamilyAssistant`, and the test
-contract that protects the override).
+See [`docs/operations/PORTAINER_BRANDING_SETUP.md`](docs/operations/PORTAINER_BRANDING_SETUP.md)
+for the full env-var table, deploy verification checklist, and
+new-brand-instance checklist. Design rules and token tables are
+documented in [`docs/BRAND_SYSTEM.md`](docs/BRAND_SYSTEM.md).
 
 ## Production requirements
 
