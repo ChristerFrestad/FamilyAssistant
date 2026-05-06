@@ -1,3 +1,6 @@
+{{NAME_PRIMARY}}{{NAME_ACCENT}}
+{{TAGLINE}}
+
 {{INVITER_NAME}} invites you to {{FAMILY_NAME}}
 
 Hi!
@@ -12,3 +15,6 @@ household tasks.
 
 The link is valid for {{EXPIRES_IN_DAYS}} days. If you did not
 expect this invitation, you can safely ignore this email.
+
+—
+{{APP_NAME}} · {{TAGLINE}}

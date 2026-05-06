@@ -15,6 +15,7 @@ const { registerLlmConfigRoutes } = require('./auth/llm-routes');
 const { registerGdprRoutes } = require('./auth/gdpr-routes');
 const { registerFeedbackRoutes } = require('./http/feedback-routes');
 const { registerBootstrapRoutes } = require('./http/bootstrap');
+const { registerBrandingRoutes } = require('./http/branding');
 const { config } = require('./config');
 const { requireRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
@@ -155,6 +156,13 @@ function registerRoutes(router, { repos, serverState }) {
   // gated by config.BOOTSTRAP_MODE inside the handlers, so even outside
   // bootstrap-mode a malicious caller gets 403, not a write.
   registerBootstrapRoutes(router, { config });
+
+  // Sprint 10 brand-config + favicon + logo-mark + manifest. Public
+  // (no-auth) routes that the frontend consumes via useBrandConfig()
+  // and the browser pulls for tab-icon / PWA-manifest. Registered
+  // before the bootstrap-mode short-circuit below so the favicon
+  // request from the setup wizard still succeeds.
+  registerBrandingRoutes(router, { config });
 
   // When in bootstrap-mode, block everything else under /api/* so a
   // half-configured server can't be used accidentally. /health and

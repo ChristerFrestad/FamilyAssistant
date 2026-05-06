@@ -38,6 +38,7 @@ import { LanguageSwitcher } from '../form/LanguageSwitcher';
 import { UserMenu } from './UserMenu';
 import { SideNav } from './SideNav';
 import { BottomNav } from './BottomNav';
+import { Wordmark } from '../brand/Wordmark';
 
 export interface AppShellProps {
   children: ReactNode;
@@ -75,13 +76,13 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
             to="/dashboard"
             aria-label={t('appShell.logoLabel')}
             className={[
-              'font-display text-card text-text-1 leading-tight',
+              'leading-tight',
               'hover:opacity-80 focus:outline-none',
               'focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-0 rounded-md',
               'px-1',
             ].join(' ')}
           >
-            {t('appName')}
+            <Wordmark size="sm" />
           </Link>
 
           {/* Spacer pushes the header utilities to the right. */}

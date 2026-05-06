@@ -97,7 +97,12 @@ describe('Phase 21 · Kept docs are exactly the intended set', () => {
       .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
       .map((entry) => entry.name)
       .sort();
-    assert.deepEqual(docs, ['DB_INDEXES.md', 'DOMAIN_MODEL.md']);
+    // Sprint 10 (PR #122) added BRAND_SYSTEM.md as the brand-config
+    // governance document. Lives in docs/ root rather than a subfolder
+    // because it pairs conceptually with DOMAIN_MODEL — both are
+    // cross-cutting governance specs that the CLAUDE.md workflow
+    // refers to from multiple sprints.
+    assert.deepEqual(docs, ['BRAND_SYSTEM.md', 'DB_INDEXES.md', 'DOMAIN_MODEL.md']);
   });
 });
 

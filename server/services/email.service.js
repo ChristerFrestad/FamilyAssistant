@@ -1,23 +1,24 @@
-// Transactional email sender used by magic-link authentication.
+// Transactional email sender for magic-link auth + family invitations.
 //
 // Uses the Resend HTTP API directly (fetch, no SDK dependency). Resend
-// supports custom domains — the RESEND_FROM env must be a verified sender
-// for the configured RESEND_API_KEY.
+// supports custom domains — the RESEND_FROM env must be a verified
+// sender for the configured RESEND_API_KEY.
 //
-// For local development and integration tests there are two escape hatches:
-//   - isEmailConfigured() returns false → callers should return 503 instead
-//     of trying to send.
-//   - __setSenderForTests(fn) swaps out the network call; helpers.js uses it
-//     to capture the outgoing payload without hitting the network.
+// For local development and integration tests there are two escape
+// hatches:
+//   - isEmailConfigured() returns false → callers should return 503
+//     instead of trying to send.
+//   - __setSenderForTests(fn) swaps out the network call; helpers.js
+//     uses it to capture the outgoing payload without hitting the
+//     network.
 //
-// White-label note: subject and body strings interpolate config.APP_NAME
-// (defaults to 'FamilyAssistant') so a deploy that sets APP_NAME picks up
-// its own brand without code changes. See CLAUDE.md DEL 7.12.
-//
-// Invitation templates (NO + EN) live next to this file under
-// server/email/templates/. They are loaded synchronously on module-init
-// — total payload is ~4 KB and reading them once at boot keeps the
-// per-send hot-path allocation-free. See sendInvitationEmail() below.
+// Sprint 10 — every template (invitation + magic-link) lives as a
+// pair of files (.html + .txt) under server/email/templates/. Each
+// template carries the same brand placeholders ({{APP_NAME}},
+// {{NAME_PRIMARY}}, {{NAME_ACCENT}}, {{TAGLINE}}, {{PRIMARY_COLOR}},
+// {{ACCENT_COLOR}}) so any deploy that overrides the brand-config
+// env-vars gets correctly-coloured emails without touching code. See
+// docs/BRAND_SYSTEM.md.
 
 const fs = require('fs');
 const path = require('path');
@@ -25,10 +26,11 @@ const { config } = require('../config');
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
-// Cache of {locale: { html, text }} populated at module-init. Throwing
-// at boot is intentional — a missing template file is a packaging bug,
-// not a per-request failure.
 const TEMPLATES_DIR = path.join(__dirname, '..', 'email', 'templates');
+
+// Cache of {locale: { html, text }} for each template-family. Loaded
+// once at module-init — a missing file at boot is a packaging bug, not
+// a per-request failure, so we let fs.readFileSync throw.
 const INVITATION_TEMPLATES = {
   no: {
     html: fs.readFileSync(path.join(TEMPLATES_DIR, 'invitation-no.html'), 'utf8'),
@@ -40,9 +42,25 @@ const INVITATION_TEMPLATES = {
   },
 };
 
+const MAGIC_LINK_TEMPLATES = {
+  no: {
+    html: fs.readFileSync(path.join(TEMPLATES_DIR, 'magic-link-no.html'), 'utf8'),
+    text: fs.readFileSync(path.join(TEMPLATES_DIR, 'magic-link-no.txt'), 'utf8'),
+  },
+  en: {
+    html: fs.readFileSync(path.join(TEMPLATES_DIR, 'magic-link-en.html'), 'utf8'),
+    text: fs.readFileSync(path.join(TEMPLATES_DIR, 'magic-link-en.txt'), 'utf8'),
+  },
+};
+
 const INVITATION_SUBJECTS = {
   no: '{{INVITER_NAME}} inviterer deg til {{FAMILY_NAME}} på {{APP_NAME}}',
   en: '{{INVITER_NAME}} invites you to {{FAMILY_NAME}} on {{APP_NAME}}',
+};
+
+const MAGIC_LINK_SUBJECTS = {
+  no: 'Logg inn på {{APP_NAME}}',
+  en: 'Sign in to {{APP_NAME}}',
 };
 
 const SUPPORTED_INVITATION_LOCALES = Object.freeze(['no', 'en']);
@@ -81,39 +99,6 @@ function __setSenderForTests(fn) {
   _sendImpl = fn || defaultSend;
 }
 
-async function sendMagicLinkEmail({ to, url }) {
-  // White-label: interpolate APP_NAME so a custom-brand deploy
-  // (e.g. APP_NAME=Hverdagsplanleggeren) emits the right brand
-  // in the magic-link email. config.APP_NAME defaults to
-  // 'FamilyAssistant' when the env var is unset.
-  const appName = config.APP_NAME;
-  const subject = `Logg inn på ${appName}`;
-  const text = [
-    `Hei!`,
-    ``,
-    `Klikk lenken under for å logge inn på ${appName}.`,
-    `Lenken er gyldig i 15 minutter og kan bare brukes én gang.`,
-    ``,
-    url,
-    ``,
-    `Hvis du ikke ba om denne lenken kan du ignorere denne eposten.`,
-  ].join('\n');
-  const html = `
-    <!DOCTYPE html>
-    <html lang="no">
-      <body style="font-family: system-ui, -apple-system, Segoe UI, sans-serif; line-height:1.5;">
-        <h2>Logg inn på ${escapeHtml(appName)}</h2>
-        <p>Klikk lenken under for å logge inn. Lenken er gyldig i 15 minutter og kan bare brukes én gang.</p>
-        <p><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Logg inn</a></p>
-        <p style="color:#6b7280;font-size:13px;">Hvis knappen ikke virker, lim denne adressen inn i nettleseren:<br>${escapeHtml(url)}</p>
-        <hr style="border:none;border-top:1px solid #e5e7eb;margin-top:32px;">
-        <p style="color:#9ca3af;font-size:12px;">Hvis du ikke ba om denne lenken kan du ignorere denne eposten.</p>
-      </body>
-    </html>
-  `.trim();
-  return sendEmail({ to, subject, html, text });
-}
-
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, '&amp;')
@@ -123,55 +108,22 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-// Renders one of the four invitation templates (NO/EN × HTML/TXT).
-//
-// Substitution is plain string-replace — no template engine — because
-// we control the templates, the variable set is fixed, and the only
-// dynamic input that can be attacker-controlled (familyName, inviterName,
-// invitationMessage) is HTML-escaped for the .html template. The .txt
-// template skips escaping by design: plain-text MUAs render '<' literally.
-//
-// invitationMessage handling:
-//   - Empty / null  → INVITATION_MESSAGE_BLOCK is replaced with an empty
-//                     string, and surrounding whitespace in the template
-//                     stays intact (so we don't get "Hi!\n\n\n\nClick...").
-//   - Present       → wrapped in a styled <blockquote> for HTML and
-//                     prefixed with "> " line-by-line for text.
-function renderInvitationTemplate({
-  locale,
-  inviterName,
-  familyName,
-  appName,
-  url,
-  invitationMessage,
-  expiresInDays,
-}) {
-  const safeLocale = SUPPORTED_INVITATION_LOCALES.includes(locale) ? locale : 'no';
-  const tpl = INVITATION_TEMPLATES[safeLocale];
-  const subjectTpl = INVITATION_SUBJECTS[safeLocale];
-
-  const messageBlockHtml = renderInvitationMessageHtml(invitationMessage);
-  const messageBlockText = renderInvitationMessageText(invitationMessage);
-
-  const replacements = {
-    '{{INVITER_NAME}}': inviterName,
-    '{{FAMILY_NAME}}': familyName,
-    '{{APP_NAME}}': appName,
-    '{{URL}}': url,
-    '{{EXPIRES_IN_DAYS}}': String(expiresInDays),
+// Brand-token replacements common to every template. Sourced from
+// config so a runtime APP_NAME / APP_PRIMARY_COLOR / etc. override
+// flows into both invitation and magic-link emails uniformly. The
+// values are static strings (hex colors, brand parts) — no
+// HTML-escaping required for the color tokens since they are
+// exclusively under server-controlled env validation.
+function brandReplacements() {
+  return {
+    '{{APP_NAME}}': config.APP_NAME,
+    '{{NAME_PRIMARY}}': config.APP_NAME_PRIMARY,
+    '{{NAME_ACCENT}}': config.APP_NAME_ACCENT,
+    '{{TAGLINE}}': config.APP_TAGLINE,
+    '{{PRIMARY_COLOR}}': config.APP_PRIMARY_COLOR,
+    '{{ACCENT_COLOR}}': config.APP_ACCENT_COLOR,
+    '{{DOT_COLOR}}': config.APP_DOT_COLOR,
   };
-
-  const html = applyReplacements(tpl.html, replacements, { escape: true }).replace(
-    '{{INVITATION_MESSAGE_BLOCK}}',
-    messageBlockHtml
-  );
-  const text = applyReplacements(tpl.text, replacements, { escape: false }).replace(
-    '{{INVITATION_MESSAGE_BLOCK}}',
-    messageBlockText
-  );
-  const subject = applyReplacements(subjectTpl, replacements, { escape: false });
-
-  return { subject, html, text };
 }
 
 function applyReplacements(input, replacements, { escape }) {
@@ -186,8 +138,10 @@ function applyReplacements(input, replacements, { escape }) {
 function renderInvitationMessageHtml(message) {
   const trimmed = typeof message === 'string' ? message.trim() : '';
   if (!trimmed) return '';
+  // border-left now reads the configured primary color so the
+  // blockquote matches the rest of the brand chrome.
   return [
-    '<blockquote style="margin:16px 0; padding:12px 16px; border-left:3px solid #2563eb; background:#f3f4f6; color:#374151; font-style:italic;">',
+    `<blockquote style="margin:16px 0; padding:12px 16px; border-left:3px solid ${escapeHtml(config.APP_PRIMARY_COLOR)}; background:#f3f4f6; color:#374151; font-style:italic;">`,
     escapeHtml(trimmed).replace(/\n/g, '<br />'),
     '</blockquote>',
   ].join('');
@@ -203,9 +157,90 @@ function renderInvitationMessageText(message) {
   return `${quoted}\n\n`;
 }
 
-// Sends the invitation email. Resend must be configured; callers can
-// pre-check via isEmailConfigured() and skip the call (logging the URL
-// instead) for self-host deploys without Resend wired up.
+// Renders one of the four invitation templates (NO/EN × HTML/TXT).
+// Substitution is plain string-replace; the only attacker-controllable
+// inputs (familyName, inviterName, invitationMessage) get HTML-escaped
+// for the .html variant. Brand-token placeholders come from config and
+// are NOT escaped since they're env-validated.
+function renderInvitationTemplate({
+  locale,
+  inviterName,
+  familyName,
+  url,
+  invitationMessage,
+  expiresInDays,
+}) {
+  const safeLocale = SUPPORTED_INVITATION_LOCALES.includes(locale) ? locale : 'no';
+  const tpl = INVITATION_TEMPLATES[safeLocale];
+  const subjectTpl = INVITATION_SUBJECTS[safeLocale];
+
+  const messageBlockHtml = renderInvitationMessageHtml(invitationMessage);
+  const messageBlockText = renderInvitationMessageText(invitationMessage);
+
+  // Two replacement passes per format: brand-tokens first (no escape —
+  // env-validated), then per-recipient values (escape on HTML).
+  const brand = brandReplacements();
+  const recipientReplacements = {
+    '{{INVITER_NAME}}': inviterName,
+    '{{FAMILY_NAME}}': familyName,
+    '{{URL}}': url,
+    '{{EXPIRES_IN_DAYS}}': String(expiresInDays),
+  };
+
+  const html = applyReplacements(
+    applyReplacements(tpl.html, brand, { escape: false }),
+    recipientReplacements,
+    { escape: true }
+  ).replace('{{INVITATION_MESSAGE_BLOCK}}', messageBlockHtml);
+
+  const text = applyReplacements(
+    applyReplacements(tpl.text, brand, { escape: false }),
+    recipientReplacements,
+    { escape: false }
+  ).replace('{{INVITATION_MESSAGE_BLOCK}}', messageBlockText);
+
+  const subject = applyReplacements(
+    applyReplacements(subjectTpl, brand, { escape: false }),
+    recipientReplacements,
+    { escape: false }
+  );
+
+  return { subject, html, text };
+}
+
+// Renders the magic-link template (NO/EN × HTML/TXT). Same token surface
+// minus the invitation-only fields. Locale defaults to NO since that is
+// what the pilot ships and what the original inline-HTML magic-link used.
+function renderMagicLinkTemplate({ locale, url }) {
+  const safeLocale = SUPPORTED_INVITATION_LOCALES.includes(locale) ? locale : 'no';
+  const tpl = MAGIC_LINK_TEMPLATES[safeLocale];
+  const subjectTpl = MAGIC_LINK_SUBJECTS[safeLocale];
+
+  const brand = brandReplacements();
+  const recipientReplacements = { '{{URL}}': url };
+
+  const html = applyReplacements(
+    applyReplacements(tpl.html, brand, { escape: false }),
+    recipientReplacements,
+    { escape: true }
+  );
+  const text = applyReplacements(
+    applyReplacements(tpl.text, brand, { escape: false }),
+    recipientReplacements,
+    { escape: false }
+  );
+  const subject = applyReplacements(subjectTpl, brand, { escape: false });
+
+  return { subject, html, text };
+}
+
+async function sendMagicLinkEmail({ to, url, locale = 'no' }) {
+  if (!to) throw new Error('sendMagicLinkEmail: to is required');
+  if (!url) throw new Error('sendMagicLinkEmail: url is required');
+  const { subject, html, text } = renderMagicLinkTemplate({ locale, url });
+  return sendEmail({ to, subject, html, text });
+}
+
 async function sendInvitationEmail({
   to,
   url,
@@ -223,7 +258,6 @@ async function sendInvitationEmail({
     locale,
     inviterName,
     familyName,
-    appName: config.APP_NAME,
     url,
     invitationMessage,
     expiresInDays,
@@ -240,5 +274,6 @@ module.exports = {
   // Exported for tests so they can render templates without going
   // through the network mock + assert against the substituted output.
   __renderInvitationTemplate: renderInvitationTemplate,
+  __renderMagicLinkTemplate: renderMagicLinkTemplate,
   SUPPORTED_INVITATION_LOCALES,
 };

@@ -77,6 +77,19 @@
    --------------------------------------------------------------------- */
 
 :root {
+  /* Sprint 10 — brand-tokens. Defaults match the open-source
+     FamilyAssistant brand. Runtime override via main.tsx
+     applyBrandTokens() emits a higher-specificity inline <style>
+     tag with values from /api/config so white-label deploys (e.g.
+     Hverdagsplanleggeren) re-color without rebuilding. */
+  --brand-primary: #1f3f26;
+  --brand-accent: #5f8b5c;
+  --brand-dot: #7ba05b;
+  --brand-cream: #f7f3e8;
+  --brand-muted: #5f7a66;
+  --brand-dark-bg: #1a2620;
+  --brand-dark-accent: #9bc59a;
+
   /* Background scale — neutral cream / off-white. */
   --canvas-0: oklch(0.97 0.008 85);
   --canvas-1: oklch(0.99 0.005 85);

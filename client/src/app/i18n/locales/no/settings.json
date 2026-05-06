@@ -84,7 +84,7 @@
     }
   },
   "footer": {
-    "version": "FamilyAssistant · v{{version}}"
+    "version": "{{appName}} · v{{version}}"
   },
   "actions": {
     "retry": "Prøv igjen"

@@ -170,6 +170,114 @@ for pilot), så invitasjonen må selv eie locale-valget.
 
 **Dokumentert:** 2026-05-05, PR #119
 
+### BR-BRAND-1: Brand-config kommer kun fra env-variabler
+
+**Hva:** Hver white-label-instans (Hverdagsplanleggeren,
+FamilyAssistant og fremtidige) får brand-config (app-navn, wordmark-
+splitt, favicon-bokstav, tagline, primær/aksent/dot-farger) fra åtte
+env-variabler. Ingen hardkodede app-navn, taglines eller farger
+finnes i React-komponenter, HTML eller email-templates.
+
+**Hvorfor:** Samme Docker-image skal kunne servere alle brands uten
+rebuild. Build-time-mekanikken (`VITE_APP_NAME`) som ble brukt fra
+Sprint 2.5 til Sprint 9 brøt dette løftet — `:main`-imaget hadde en
+bygget-inn `appName` som ikke kunne overstyres ved deploy. Sprint 10
+(PR #122) erstattet build-time-mekanikken med `GET /api/config` som
+klienten henter ved app-mount.
+
+**Detaljert flyt:**
+1. Operatør setter `APP_NAME`, `APP_NAME_PRIMARY`, `APP_NAME_ACCENT`,
+   `APP_FAVICON_LETTER`, `APP_TAGLINE`, `APP_PRIMARY_COLOR`,
+   `APP_ACCENT_COLOR`, `APP_DOT_COLOR` i Portainer-stacken
+2. `server/config.js` Zod-validerer ved oppstart; defaults reflekterer
+   FamilyAssistant
+3. `server/index.js` logger aktiv brand ved boot via pino +
+   eventuelle cross-validation-warnings
+4. `server/http/branding.js` eksponerer ikke-sensitive felter via
+   `GET /api/config` (cache 1 t)
+5. Klient henter `/api/config` i `client/src/main.tsx` før React-mount
+6. `applyBrandTokens(config)` injiserer CSS-tokens på `:root`;
+   `i18n.addResource('common.appName', ...)` driver eksisterende
+   `{{appName}}`-interpolation
+7. `Wordmark` + email-templates leser fra config — ingen hardkoding
+
+**Berørte filer:**
+- `server/config.js` (envSchema, collectBrandWarnings)
+- `server/http/branding.js` (`/api/config`, `/favicon.svg`,
+  `/logo-mark.svg`, `/manifest.json`)
+- `client/src/app/hooks/useBrandConfig.ts`
+- `client/src/main.tsx` (early fetch + side-effects)
+- `tests/brand-config-validation.test.js`,
+  `tests/branding-routes.test.js`
+
+**Dokumentert:** 2026-05-05, PR #122
+
+### BR-BRAND-2: Wordmark er todelt med fargedeling
+
+**Hva:** App-navnet rendres alltid som to konkatenerte segmenter
+(`APP_NAME_PRIMARY` + `APP_NAME_ACCENT`) hvor hvert segment har en
+egen farge — primær og aksent. Fargedelingen markerer en konseptuell
+todeling i navnet (sammensatt ord på norsk, to-ords-navn på engelsk).
+`<Wordmark size="..." />`-komponenten brukes overalt der app-navnet
+skal vises som logo. Rene tekst-kontekster (browser-title, meta-tags,
+email-subject) bruker `config.appName` direkte.
+
+**Hvorfor:** Visuell signatur som er gjenkjennelig på tvers av brand-
+instanser uten å kreve grafisk illustrasjon. Hver instans deler
+samme strukturelle DNA men har egne ord og farger via env.
+
+**Detaljert flyt:**
+1. `Wordmark` leser `useBrandConfig().config.{namePrimary, nameAccent}`
+2. Mens config er null (cold-load): rendrer width-reservert usynlig
+   placeholder. Bedre tom for ~200 ms enn feil brand for 200 ms —
+   ingen `'FamilyAssistant'`-fallback under cold-load
+3. Når config kommer: `<span style="color:primary">{namePrimary}</span><span style="color:accent">{nameAccent}</span>`
+4. `aria-label` settes til konkateneringen så screen-readers leser
+   "Hverdagsplanleggeren" som ett ord
+
+**Berørte filer:**
+- `client/src/app/components/brand/Wordmark.tsx`
+- `client/src/app/hooks/useBrandConfig.ts`
+- `client/src/app/components/layout/AppShell.tsx` (header)
+- `client/src/app/components/brand/Wordmark.test.tsx`,
+  `client/src/app/hooks/useBrandConfig.test.ts`
+
+**Dokumentert:** 2026-05-05, PR #122
+
+### BR-BRAND-3: Favicon = én bokstav i mørkegrønn container
+
+**Hva:** Favicon er én bokstav (`APP_FAVICON_LETTER`) i samme
+typografi som wordmarken, satt på en mørkegrønn rounded-rect
+container (`#1F3F26` default) med en liten salviegrønn prikk
+(`#7BA05B` default) i øvre høyre hjørne. Bokstaven er første tegn i
+`APP_NAME_PRIMARY`. Rendres dynamisk fra
+`server/branding/templates/favicon.template.svg` ved request til
+`GET /favicon.svg`.
+
+**Hvorfor:** Et symbol som er gjenkjennelig på tab-bar uten å være
+knyttet til en spesifikk app-funksjon (kalender, hake, mat). Samme
+container-formel virker for hver brand — bare bokstaven og evt.
+fargene endres. SVG-only inntil PNG-derivater (sharp) tas inn
+som tech-debt før external pilot.
+
+**Detaljert flyt:**
+1. `client/index.html` har `<link rel="icon" type="image/svg+xml" href="/favicon.svg">`
+2. Browser fetcher `/favicon.svg`
+3. `server/http/branding.js` leser cached template + substituerer
+   `{{LETTER}}` (sanitized til a-zA-Z) og `{{APP_NAME}}` (XML-escaped)
+4. Server returnerer `image/svg+xml` med `Cache-Control: public,
+   max-age=3600, immutable`
+5. Samme template i større format brukes for `/logo-mark.svg` (PWA
+   install-icon, post-pilot OG-image)
+
+**Berørte filer:**
+- `server/branding/templates/favicon.template.svg`
+- `server/branding/templates/logo-mark.template.svg`
+- `server/http/branding.js`
+- `tests/branding-routes.test.js`
+
+**Dokumentert:** 2026-05-05, PR #122
+
 ### Format å følge når du legger til en regel
 
 ````markdown

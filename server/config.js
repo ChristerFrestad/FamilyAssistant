@@ -10,13 +10,36 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65535).default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
 
-  // White-label override. Default 'FamilyAssistant'. Operators that
-  // run their own brand (e.g. Christer's Hverdagsplanleggeren pilot)
-  // set this in env so the magic-link email subject/body uses the
-  // local brand name instead of the open-source product name. The
-  // frontend has its own equivalent build-time flag VITE_APP_NAME —
-  // keep them in sync. See CLAUDE.md DEL 7.12.
-  APP_NAME: z.string().default('FamilyAssistant'),
+  // White-label brand-config. Sprint 10 (PR #122) made these runtime
+  // env-vars and removed the old build-time-only VITE_APP_NAME path.
+  // Defaults reflect the open-source FamilyAssistant brand. Operators
+  // that run their own brand (e.g. Christer's Hverdagsplanleggeren
+  // pilot) override every field below in their Portainer stack so the
+  // same image serves any brand without rebuilding.
+  //
+  // See docs/BRAND_SYSTEM.md for design rules and
+  // docs/operations/PORTAINER_BRANDING_SETUP.md for deploy examples.
+  APP_NAME: z.string().min(1).max(40).default('FamilyAssistant'),
+  APP_NAME_PRIMARY: z.string().min(1).max(20).default('Family'),
+  APP_NAME_ACCENT: z.string().min(1).max(20).default('Assistant'),
+  APP_FAVICON_LETTER: z
+    .string()
+    .length(1)
+    .regex(/^[a-zA-Z]$/, 'APP_FAVICON_LETTER must be a single ASCII letter')
+    .default('F'),
+  APP_TAGLINE: z.string().min(1).max(80).default('Plan meals, chores and family'),
+  APP_PRIMARY_COLOR: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'APP_PRIMARY_COLOR must be a 6-digit hex string (e.g. #1F3F26)')
+    .default('#1F3F26'),
+  APP_ACCENT_COLOR: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'APP_ACCENT_COLOR must be a 6-digit hex string')
+    .default('#5F8B5C'),
+  APP_DOT_COLOR: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'APP_DOT_COLOR must be a 6-digit hex string')
+    .default('#7BA05B'),
 
   // HTTP
   MAX_BODY_BYTES: z.coerce.number().int().positive().default(1_048_576), // 1 MB
@@ -404,9 +427,81 @@ function loadConfig() {
     process.env.ENCRYPTION_KEY = cfg.ENCRYPTION_KEY;
   }
 
+  // Sprint 10 — brand cross-validation. Surfaces operator typos in the
+  // wordmark / favicon env-vars without crashing the server, since an
+  // operator may have a deliberate mismatch (e.g. APP_NAME with a space
+  // vs primary+accent without). Tests skip the warnings so test
+  // fixtures don't pollute output.
+  cfg.BRAND_WARNINGS = collectBrandWarnings(cfg);
+  if (cfg.NODE_ENV !== 'test') {
+    for (const w of cfg.BRAND_WARNINGS) {
+      console.warn(`⚠️  brand-config: ${w}`);
+    }
+  }
+
   return Object.freeze(cfg);
+}
+
+// Returns an array of human-readable warnings about brand-config
+// inconsistencies. Empty array means everything is consistent. Pure
+// function — no side effects — so callers can format the output (boot-
+// log, /ready endpoint, tests) however they like.
+//
+// Cross-checks (per docs/BRAND_SYSTEM.md):
+//   1. APP_NAME == APP_NAME_PRIMARY + APP_NAME_ACCENT
+//      (case-insensitive, whitespace stripped)
+//   2. APP_FAVICON_LETTER == first letter of APP_NAME_PRIMARY
+//      (case-insensitive)
+//   3. RESEND_FROM "name" part == APP_NAME (case-insensitive)
+//      (only checked when RESEND_FROM is set; format is either bare
+//      "addr@domain" or "Name <addr@domain>")
+function collectBrandWarnings(cfg) {
+  const warnings = [];
+
+  const concat = `${cfg.APP_NAME_PRIMARY}${cfg.APP_NAME_ACCENT}`;
+  const expectedName = cfg.APP_NAME.replace(/\s+/g, '');
+  if (concat.toLowerCase() !== expectedName.toLowerCase()) {
+    warnings.push(
+      `APP_NAME ("${cfg.APP_NAME}") does not match APP_NAME_PRIMARY+APP_NAME_ACCENT ` +
+        `("${concat}"). Wordmark and meta-tags will display different names.`
+    );
+  }
+
+  const expectedLetter = cfg.APP_NAME_PRIMARY.charAt(0);
+  if (cfg.APP_FAVICON_LETTER.toLowerCase() !== expectedLetter.toLowerCase()) {
+    warnings.push(
+      `APP_FAVICON_LETTER ("${cfg.APP_FAVICON_LETTER}") does not match the first letter ` +
+        `of APP_NAME_PRIMARY ("${expectedLetter}"). Favicon and wordmark will mismatch.`
+    );
+  }
+
+  if (cfg.RESEND_FROM) {
+    const fromName = parseFromName(cfg.RESEND_FROM);
+    if (fromName && fromName.toLowerCase() !== cfg.APP_NAME.toLowerCase()) {
+      warnings.push(
+        `RESEND_FROM display-name ("${fromName}") does not match APP_NAME ("${cfg.APP_NAME}"). ` +
+          `Recipients will see emails from a different brand than the one rendered in-app.`
+      );
+    }
+  }
+
+  return warnings;
+}
+
+// Extracts the human-readable name from a RFC 5322 mailbox-style
+// `Name <addr@domain>` string. Returns null if the input is a bare
+// address (no display name).
+function parseFromName(resendFrom) {
+  const match = String(resendFrom).match(/^\s*(.+?)\s*<[^>]+>\s*$/);
+  return match ? match[1].trim() : null;
 }
 
 const config = loadConfig();
 
-module.exports = { config };
+module.exports = {
+  config,
+  // Exported for tests so RFC 5322 mailbox-edge-cases can be
+  // exercised without spinning up a full config-load round-trip.
+  __parseFromName: parseFromName,
+  __collectBrandWarnings: collectBrandWarnings,
+};
