@@ -128,13 +128,26 @@ describe('Pilot-gate lockout regression (production-like env)', () => {
       assert.strictEqual(r.status, 403);
     });
 
-    test('Magic-link verify NOT in pilot-bypass (intentional)', async () => {
-      // Christer's pragmatic decision: keep magic-link/verify gated so
-      // pilot password is required before any session can be created.
-      // This means a magic-link clicked in a NEW browser would hit pilot-
-      // gate first; user must enter pilot password in same browser.
+    test('Magic-link verify bypasses pilot-gate (token is the auth)', async () => {
+      // Updated 2026-05-06: pilot-gate is a formality to keep random
+      // visitors away from the wizard, NOT a real auth mechanism.
+      // Core auth flows must never depend on pilot-password being on,
+      // because PILOT_MODE is a temporary toggle the operator flips
+      // off whenever the soft-launch ends.
+      //
+      // The previous "same browser" assumption (pilot password before
+      // session) broke once Sprint 9 invitations + Sprint 10 multi-
+      // deploy made it normal for a magic-link to be clicked on a
+      // different device than the one that solved the gate. Real
+      // pilot user got 403 in production 2026-05-06.
+      //
+      // The HMAC-signed magic-link token is itself sufficient auth —
+      // the verify-handler validates it before creating a session.
       const r = await request(baseUrl, 'GET', '/api/auth/magic-link/verify?token=fake');
-      assert.strictEqual(r.status, 403, 'magic-link verify must require pilot cookie');
+      // Handler returns 4xx for invalid token (e.g. 401 invalid_token).
+      // The pilot-gate's 403 "Pilot password required" must NOT appear
+      // here — that was the pre-fix bug.
+      assert.notStrictEqual(r.status, 403, 'magic-link verify must NOT be pilot-gated');
     });
   });
 
