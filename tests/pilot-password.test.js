@@ -204,6 +204,115 @@ describe('Pilot password gate (PILOT_MODE=true)', () => {
       assert.strictEqual(r.status, 200);
     });
   });
+
+  // External auth flows must reach their handlers without solving the
+  // pilot gate first — the link target IS the auth signal (HMAC-signed
+  // magic-link token, OAuth state, invitation token). Bug fix
+  // 2026-05-06: a real pilot user clicked a magic-link in their email
+  // and got 403 Pilot password required because the verify endpoint
+  // was not in the bypass list. Each test below asserts the gate does
+  // not refuse the request — the handler is free to return whatever
+  // it likes (including 4xx for invalid tokens), as long as the 403
+  // is not the gate's "Pilot password required."
+  describe('External auth flows bypass the pilot gate', () => {
+    beforeEach(resetEach);
+
+    function notPilotForbidden(r) {
+      // The gate emits exactly: {title:'Forbidden',status:403,detail:'Pilot password required'}
+      // Any 4xx with a different detail (e.g. invalid_token, not_found)
+      // means the handler ran — that is the success criterion.
+      if (r.status !== 403) return true;
+      const detail = (r.body && r.body.detail) || '';
+      return !/pilot password required/i.test(detail);
+    }
+
+    test('GET /api/auth/magic-link/verify reaches the handler', async () => {
+      const r = await request(baseUrl, 'GET', '/api/auth/magic-link/verify?token=invalid');
+      // Handler returns 401 / 4xx for an invalid token. The gate's 403
+      // would block before the handler runs; either way the bug is
+      // fixed if the response is NOT the gate's 403.
+      assert.ok(
+        notPilotForbidden(r),
+        `magic-link verify should not be 403'd by pilot gate, got ${r.status} ${r.raw}`
+      );
+    });
+
+    test('POST /api/auth/magic-link/start reaches the handler', async () => {
+      const r = await request(baseUrl, 'POST', '/api/auth/magic-link/start', {
+        body: { email: 'someone@example.com' },
+      });
+      // Handler returns 200 (idempotent send) or 503 if Resend not
+      // configured. Anything other than the gate's 403 is fine.
+      assert.ok(
+        notPilotForbidden(r),
+        `magic-link start should not be 403'd by pilot gate, got ${r.status} ${r.raw}`
+      );
+    });
+
+    test('GET /api/invitations/:token reaches the handler', async () => {
+      const r = await request(baseUrl, 'GET', '/api/invitations/some-fake-token');
+      // Handler returns 404 / 410 for unknown / expired tokens.
+      assert.ok(
+        notPilotForbidden(r),
+        `invitation peek should not be 403'd by pilot gate, got ${r.status} ${r.raw}`
+      );
+    });
+
+    test('non-bypassed /api/* still 403s without pilot cookie', async () => {
+      // Sanity check: the bypass is targeted, not a wholesale opening.
+      // /api/today is a normal API path and must still demand the gate.
+      const r = await request(baseUrl, 'GET', '/api/today');
+      assert.strictEqual(r.status, 403);
+      assert.match(r.body.detail, /pilot password required/i);
+    });
+  });
+
+  // A valid session cookie means the visitor has already authenticated
+  // (via magic-link, OAuth, or invitation accept) — the pilot-gate's
+  // job is to keep ANONYMOUS visitors out, so an authenticated visitor
+  // is by definition past that bar. Without this, every authenticated
+  // user would 403 on every /api/* call until they ALSO entered the
+  // pilot password, defeating the soft-launch UX.
+  describe('Session cookie honored as pilot-auth', () => {
+    beforeEach(resetEach);
+
+    function makeSessionCookie(repos) {
+      // Pre-create a user + session row directly in the repo, then
+      // mint a cookie value matching SESSION_COOKIE_NAME.
+      const user = repos.auth.createUser({
+        email: `pilot-session-${Date.now()}@example.com`,
+        name: 'Pilot Session User',
+      });
+      const sessionId = require('node:crypto').randomBytes(16).toString('hex');
+      repos.auth.createSession({ id: sessionId, userId: user.id, ttlDays: 30 });
+      return `fa_session=${sessionId}`;
+    }
+
+    test('valid session cookie → /api/auth/me proceeds (no pilot cookie needed)', async () => {
+      const cookie = makeSessionCookie(server.repos);
+      const r = await request(baseUrl, 'GET', '/api/auth/me', {
+        headers: { Cookie: cookie },
+      });
+      // The handler MAY return 200 with user info or 401 for some
+      // legacy reasons, but it MUST NOT be the gate's 403.
+      assert.notStrictEqual(
+        r.status,
+        403,
+        `session-authenticated /api/auth/me should not be 403'd, got ${r.status} ${r.raw}`
+      );
+    });
+
+    test('garbage session cookie still 403s (gate refuses fake sessions)', async () => {
+      // A cookie value that does not resolve to a real session must
+      // not bypass the gate — otherwise we would let anyone through
+      // by sending any random fa_session string.
+      const r = await request(baseUrl, 'GET', '/api/auth/me', {
+        headers: { Cookie: 'fa_session=this-is-not-a-real-session-id' },
+      });
+      assert.strictEqual(r.status, 403);
+      assert.match(r.body.detail, /pilot password required/i);
+    });
+  });
 });
 
 describe('Pilot password gate (PILOT_MODE=false)', () => {
