@@ -77,4 +77,34 @@ describe('Wordmark', () => {
     expect(screen.queryByTestId('wordmark')).not.toBeInTheDocument();
     expect(screen.getByTestId('wordmark-skeleton')).toBeInTheDocument();
   });
+
+  test('default variant is "auto" and reads theme-aware CSS tokens', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, SAMPLE_CONFIG));
+    render(<Wordmark />);
+    const mark = await waitFor(() => screen.getByTestId('wordmark'));
+    // The outer span carries --brand-wordmark-primary; the inner
+    // accent span carries --brand-wordmark-accent. CSS-variable
+    // strings appear verbatim in inline-style values per JSDOM.
+    expect(mark.style.color).toContain('--brand-wordmark-primary');
+    const accentSpan = mark.querySelector('span');
+    expect(accentSpan).not.toBeNull();
+    expect(accentSpan?.style.color).toContain('--brand-wordmark-accent');
+  });
+
+  test('explicit variant="light" uses fixed light-mode tokens (escape hatch)', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, SAMPLE_CONFIG));
+    render(<Wordmark variant="light" />);
+    const mark = await waitFor(() => screen.getByTestId('wordmark'));
+    expect(mark.style.color).toContain('--brand-primary');
+    expect(mark.style.color).not.toContain('--brand-wordmark-primary');
+  });
+
+  test('explicit variant="dark" uses fixed dark-mode tokens (escape hatch)', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, SAMPLE_CONFIG));
+    render(<Wordmark variant="dark" />);
+    const mark = await waitFor(() => screen.getByTestId('wordmark'));
+    expect(mark.style.color).toContain('--brand-cream');
+    const accentSpan = mark.querySelector('span');
+    expect(accentSpan?.style.color).toContain('--brand-dark-accent');
+  });
 });

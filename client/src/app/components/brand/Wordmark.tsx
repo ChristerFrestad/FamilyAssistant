@@ -20,7 +20,12 @@
 import { useBrandConfig } from '../../hooks/useBrandConfig';
 
 export type WordmarkSize = 'sm' | 'md' | 'lg' | 'xl';
-export type WordmarkVariant = 'light' | 'dark';
+// 'auto' (default) reads CSS tokens that swap with the active theme
+// — dark-green on cream in light mode, cream on dark-green in dark
+// mode. The forced 'light' / 'dark' variants are escape hatches for
+// rare contexts where the surface is fixed regardless of theme
+// (e.g. an always-cream email-style preview, an always-dark splash).
+export type WordmarkVariant = 'auto' | 'light' | 'dark';
 
 export interface WordmarkProps {
   size?: WordmarkSize;
@@ -48,17 +53,22 @@ const SIZE_MAP: Record<WordmarkSize, { fontSize: number; letterSpacing: string }
 };
 
 const VARIANT_COLORS: Record<WordmarkVariant, { primary: string; accent: string }> = {
-  // light: dark mark on light surface (default app chrome)
+  // auto: read theme-aware tokens. tokens.css defines the light-mode
+  // values on :root and overrides them for @media-dark + [data-theme]
+  // selectors. Theme-flip → CSS re-paints the mark without React
+  // having to re-render. This is the right default for every in-app
+  // surface (header, splash, footer).
+  auto: {
+    primary: 'var(--brand-wordmark-primary, #1F3F26)',
+    accent: 'var(--brand-wordmark-accent, #5F8B5C)',
+  },
+  // Forced light: dark mark on light surface (escape hatch).
   light: { primary: 'var(--brand-primary, #1F3F26)', accent: 'var(--brand-accent, #5F8B5C)' },
-  // dark: light mark on dark surface (dark-mode header / splash)
+  // Forced dark: light mark on dark surface (escape hatch).
   dark: { primary: 'var(--brand-cream, #F7F3E8)', accent: 'var(--brand-dark-accent, #9BC59A)' },
 };
 
-export function Wordmark({
-  size = 'md',
-  variant = 'light',
-  className,
-}: WordmarkProps): JSX.Element {
+export function Wordmark({ size = 'md', variant = 'auto', className }: WordmarkProps): JSX.Element {
   const { config } = useBrandConfig();
   const { fontSize, letterSpacing } = SIZE_MAP[size];
   const { primary, accent } = VARIANT_COLORS[variant];
