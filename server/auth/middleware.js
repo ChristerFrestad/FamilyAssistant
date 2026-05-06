@@ -52,6 +52,27 @@ const PILOT_GATE_BYPASS_PATHS = new Set([
   '/terms.html',
 ]);
 
+// Path prefixes that bypass the pilot-password gate. Added 2026-05-06
+// after a real pilot user was 403'd when clicking a magic-link in their
+// email — the link target /api/auth/magic-link/verify was not in the
+// exact-match bypass set, so the gate refused before the verify-handler
+// could create a session.
+//
+// The security argument for bypassing these: each path validates its
+// own token (HMAC-signed magic-link, OAuth state, invitation token).
+// The pilot-gate is designed to keep anonymous visitors out, not to
+// gate authenticated flows whose own tokens are the auth signal.
+//
+// Adding a new auth route under one of these prefixes? It will
+// automatically bypass — but it MUST validate its own token in the
+// handler. Do not add an admin-only route under /api/invitations/
+// without verifying tokens first.
+const PILOT_GATE_BYPASS_PREFIXES = [
+  '/api/auth/magic-link/', // start + verify
+  '/api/auth/google/', // OAuth start + callback
+  '/api/invitations/', // peek + accept
+];
+
 // Paths that never require authentication but DO try to resolve the user if a
 // cookie/token is present. Handlers here can behave differently for
 // logged-in vs anonymous visitors (e.g. /api/auth/me returns the current user
@@ -116,22 +137,44 @@ function isPilotGateBypassPath(pathname) {
   // /api/* calls until the cookie is set.
   if (pathname === '/v2/' || pathname === '/v2/index.html') return true;
   if (pathname.startsWith('/v2/assets/')) return true;
+  for (const prefix of PILOT_GATE_BYPASS_PREFIXES) {
+    if (pathname.startsWith(prefix)) return true;
+  }
   return false;
 }
 
-function isPilotAuthenticated(req) {
+// Returns true when the visitor is past the pilot-gate bar. Two paths:
+//   1. Valid `fa_pilot` cookie (entered the pilot password)
+//   2. Valid `fa_session` cookie (already authenticated via magic-link,
+//      OAuth, or invitation accept) — a real session implies the
+//      visitor is no longer anonymous, which is what the pilot-gate is
+//      designed to enforce. Without this, every authenticated user
+//      would get 403'd on every /api/* call until they also entered
+//      the pilot password — defeating the soft-launch UX.
+//
+// `repos` is optional for backward compatibility; without it the
+// session-cookie path is skipped and behavior matches the pre-fix
+// pilot-cookie-only check.
+function isPilotAuthenticated(req, repos) {
   const pilotPasswordService = require('../services/pilot-password.service');
   if (!pilotPasswordService.isPilotEnabled()) return true;
   const cookies = parseCookies(req.headers.cookie);
-  const value = cookies[config.PILOT_COOKIE_NAME];
-  return pilotPasswordService.isPilotCookieValid(value);
+  if (pilotPasswordService.isPilotCookieValid(cookies[config.PILOT_COOKIE_NAME])) {
+    return true;
+  }
+  const sid = cookies[config.SESSION_COOKIE_NAME];
+  if (sid && repos?.auth?.getValidSession) {
+    const session = repos.auth.getValidSession(sid);
+    if (session) return true;
+  }
+  return false;
 }
 
-function enforcePilotGate(ctx) {
+function enforcePilotGate(ctx, repos) {
   const pilotPasswordService = require('../services/pilot-password.service');
   if (!pilotPasswordService.isPilotEnabled()) return;
   if (isPilotGateBypassPath(ctx.pathname)) return;
-  if (isPilotAuthenticated(ctx.req)) return;
+  if (isPilotAuthenticated(ctx.req, repos)) return;
   // For API calls return JSON 403 so the React client can show the
   // gate without trying to parse an HTML response.
   if (ctx.pathname.startsWith('/api/')) {
@@ -172,8 +215,10 @@ function createAuthenticate(repos) {
   return function authenticate(ctx) {
     // Pilot gate runs FIRST. If PILOT_MODE is on and the visitor has
     // not entered the password, this short-circuits the response so
-    // the rest of the auth chain never sees the request.
-    enforcePilotGate(ctx);
+    // the rest of the auth chain never sees the request. `repos` is
+    // forwarded so the gate can honor an existing session-cookie as
+    // pilot-auth (see isPilotAuthenticated).
+    enforcePilotGate(ctx, repos);
     if (ctx.res.writableEnded) return;
 
     if (isPublicPath(ctx.pathname)) return;
@@ -270,6 +315,7 @@ module.exports = {
   enforcePilotGate,
   PUBLIC_PATHS,
   PILOT_GATE_BYPASS_PATHS,
+  PILOT_GATE_BYPASS_PREFIXES,
   SOFT_AUTH_PATH_PREFIXES,
   SOFT_AUTH_PATHS_EXACT,
   LOCAL_USER,
