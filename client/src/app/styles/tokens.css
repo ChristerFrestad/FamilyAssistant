@@ -81,7 +81,18 @@
      FamilyAssistant brand. Runtime override via main.tsx
      applyBrandTokens() emits a higher-specificity inline <style>
      tag with values from /api/config so white-label deploys (e.g.
-     Hverdagsplanleggeren) re-color without rebuilding. */
+     Hverdagsplanleggeren) re-color without rebuilding.
+
+     The seven base tokens below are FIXED-IDENTITY brand colors —
+     used wherever the brand-color appears regardless of the active
+     theme (favicon SVG container, email CTA backgrounds, the dark-
+     bg surface itself). They do not swap with the theme.
+
+     The two --brand-wordmark-* tokens below DO swap with the theme
+     because they drive the Wordmark component's text rendering on
+     the app surface, where contrast against canvas matters. The
+     swap happens via the @media (prefers-color-scheme) and
+     [data-theme] blocks further down this file. */
   --brand-primary: #1f3f26;
   --brand-accent: #5f8b5c;
   --brand-dot: #7ba05b;
@@ -89,6 +100,13 @@
   --brand-muted: #5f7a66;
   --brand-dark-bg: #1a2620;
   --brand-dark-accent: #9bc59a;
+
+  /* Theme-aware wordmark tokens. Light-mode default: dark mark on
+     cream canvas. Dark-mode (further below): cream mark on dark
+     canvas. The Wordmark component reads these via CSS variable so
+     a theme flip re-paints the mark without re-rendering React. */
+  --brand-wordmark-primary: var(--brand-primary);
+  --brand-wordmark-accent: var(--brand-accent);
 
   /* Background scale — neutral cream / off-white. */
   --canvas-0: oklch(0.97 0.008 85);
@@ -194,6 +212,13 @@
     --ink-contrast: oklch(0.15 0.02 95);
 
     --shadow-glow: 0 0 60px -12px oklch(0.82 0.15 155 / 0.35);
+
+    /* Dark-mode wordmark: swap the brand-fixed dark-green mark for
+       cream + light-green so the split-color reads against the dark
+       canvas. Per docs/BRAND_SYSTEM.md these are the spec's
+       parallel-design dark-mode values. */
+    --brand-wordmark-primary: var(--brand-cream);
+    --brand-wordmark-accent: var(--brand-dark-accent);
   }
 }
 
@@ -233,6 +258,11 @@
   --ink-contrast: oklch(0.99 0.005 85);
 
   --shadow-glow: 0 20px 50px -20px oklch(0.5 0.14 155 / 0.25);
+
+  /* Light-mode wordmark — explicit override that wins over the
+     @media-dark fallback when the user has opted in to light. */
+  --brand-wordmark-primary: var(--brand-primary);
+  --brand-wordmark-accent: var(--brand-accent);
 }
 
 /* User explicitly chose dark. Mirror of the @media-dark block. */
@@ -266,6 +296,12 @@
   --ink-contrast: oklch(0.15 0.02 95);
 
   --shadow-glow: 0 0 60px -12px oklch(0.82 0.15 155 / 0.35);
+
+  /* Dark-mode wordmark — explicit override. Same values as the
+     @media-dark fallback so an explicit dark choice and a system-
+     dark preference produce the same mark colors. */
+  --brand-wordmark-primary: var(--brand-cream);
+  --brand-wordmark-accent: var(--brand-dark-accent);
 }
 
 /* ---------------------------------------------------------------------
