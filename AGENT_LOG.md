@@ -6,6 +6,90 @@
 
 ---
 
+2026-05-27 – Public-repo prep PR 3: genericize user-facing strings
+
+Oppgave: Tredje av 7 PR-er. Fjern operatør-spesifikke referanser
+fra strings som faktisk vises til brukere — pilot-gate-lockout,
+onboarding-placeholders, og privacy-policy-pages. Andre families
+som forker prosjektet vil ellers se "Christer trenger at du
+venter" eller "Christers pilot-RPi har volum-kryptering" i sin
+egen UI.
+
+Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
+(samme audit, §0.2 og beslutning 8)
+
+- Reisen: 2 logiske commits — (1) i18n auth.json + tilhørende
+  kode-kommentar, (2) privacy.html + privacy-en.html.
+- Edge-cases: Bundle-parity-testen i bundles.test.ts håndhever
+  same keys i no+en — kun verdier endret, ikke keys, så parity
+  holdt. Ingen tester asserterer på spesifikk lockout-tekst
+  (verifisert via grep). Privacy-sider verifiseres i
+  static-pages.test.js bare for 200-status, ikke innhold.
+- Beslutninger: brukte audit §13 beslutning 8 (parameteriser
+  USER-FACING) som ja-besvart av Christer. Valgte å fjerne
+  operator-navn helt fra lockout (renere enn `{{operatorName}}`-
+  interpolering siden meldingen leser bedre uten det).
+- Portainer-risiko: nei (statisk HTML + i18n-bundles, ingen
+  oppstartsendring).
+
+Plan: (1) bytt 6 i18n-strings (3 keys × 2 språk) +
+PilotPasswordGate-kommentar, (2) genericisere 4 privacy-strings
+(2 keys × 2 språk).
+
+Gjort:
+
+- Branch: feat/public-repo-prep-3-user-facing-strings (basert på
+  PR 2-branch i stacked-PR-pattern)
+- Commits: 2 PR 3-commits + AGENT_LOG = 3 totalt
+- Filer endret: 5 (2 auth.json, PilotPasswordGate.tsx, privacy.html,
+  privacy-en.html)
+- Tester lagt til: 0
+- Test-resultat: 1361 backend pass / 0 fail / 2 skip; 928 client
+  pass / 0 fail. Lint 0 errors. Typecheck (server + client) clean.
+- DOMAIN_MODEL.md oppdatert: nei
+- Avvik fra plan: ingen
+- privacy.html + privacy-en.html ble verifisert via Launch preview-
+  panelet (åpnet av Edit-hook).
+
+Sikkerhet: Andre family-forks får ikke lenger "Christer trenger at
+du venter" som lockout, og privacy-policy-pages refererer ikke
+lenger operatørens spesifikke RPi eller Cloudflare-domene. Forks
+kan trygt deploye uten å først måtte rydde i bruker-vendte
+strings.
+
+ISO 25010:
+- Sikkerhet 8.40 → 8.45 (+0.05, ingen operator-spesifikk PII i
+  user-facing strings)
+- Brukervennlighet 8.7 → 8.75 (+0.05, lockout-melding leser
+  renere uten persontilskrivning)
+- Portabilitet 8.55 → 8.60 (+0.05, forks får et helt-generisk
+  default-bilde i pilot-flyt)
+- Andre karakteristikker: ikke berørt
+
+Status: lokalt klart, venter på push fra Christer
+
+Pre-eksisterende observasjoner (uendret fra PR 1):
+
+- 1 ESLint warning i client/.../ErrorBoundary.tsx (pre-Phase-1-debt)
+- 56 prettier-format-warnings på Windows (CRLF/LF — påvirker ikke
+  CI på Linux)
+
+Beslutninger Christer må ta:
+
+1. Når PR 1-3 pushes (krever eksplisitt "push"-ord), squash til
+   3 PR-er eller behold logiske commits per PR? ANBEFALING:
+   behold 3 PR-er som separat sluttet historikk — hver
+   selvstendig revertbart.
+2. Skal pilot-passordet (`Andromeda`) roteres i Portainer-
+   stack før push? ANBEFALING: ja, gjøres som operatør-handling
+   utenfor commit-streamen.
+
+Neste: PR 4-7 ligger som plan i audit-doc §14. PR 4 er den
+største (oversette 17 public-facing docs til engelsk, 3-4
+sesjoner). Vent på Christer for ordre om å starte.
+
+---
+
 2026-05-27 – Public-repo prep PR 2: scrub PII in tracked files
 
 Oppgave: Andre av 7 PR-er. Mekanisk PII-scrub i tracked filer
