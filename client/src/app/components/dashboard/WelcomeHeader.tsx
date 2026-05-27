@@ -8,7 +8,7 @@
 // Name resolution: useAuth().user.name. If the stored name looks
 // like an email (heuristic: contains '@'), use the local-part
 // before '@' as a fallback so a user who hasn't yet edited their
-// profile sees "Hei Christer" instead of "Hei christer@frestad.com".
+// profile sees "Hei Peder" instead of "Hei peder@example.com".
 // Same heuristic as UserProfile.tsx.
 
 import { useTranslation } from 'react-i18next';

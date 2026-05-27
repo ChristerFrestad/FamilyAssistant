@@ -14,7 +14,7 @@ import type { AuthUser } from '../../auth/authApi';
 
 const TEST_USER: AuthUser = {
   id: 7,
-  email: 'christer@frestad.com',
+  email: 'peder@example.com',
   name: 'Christer',
   role: 'owner',
   avatarUrl: null,
@@ -59,7 +59,7 @@ describe('displayNameFromUser', () => {
     expect(displayNameFromUser('Christer')).toBe('Christer');
   });
   test('extracts and capitalises the email local-part', () => {
-    expect(displayNameFromUser('christer@frestad.com')).toBe('Christer');
+    expect(displayNameFromUser('peder@example.com')).toBe('Peder');
   });
   test('returns "" for null', () => {
     expect(displayNameFromUser(null)).toBe('');
@@ -93,9 +93,9 @@ describe('WelcomeHeader render', () => {
   });
 
   test('uses the email-local-part when name is an email', () => {
-    const userWithEmailName: AuthUser = { ...TEST_USER, name: 'christer@frestad.com' };
+    const userWithEmailName: AuthUser = { ...TEST_USER, name: 'peder@example.com' };
     render(withAuth(<WelcomeHeader now={new Date('2026-04-29T09:00:00')} />, userWithEmailName));
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/God morgen, Christer/);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/God morgen, Peder/);
   });
 
   test('renders an empty interpolation slot when user.name is null', () => {
