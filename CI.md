@@ -1,171 +1,171 @@
-# CI/CD — Familieassistenten
+# CI/CD — FamilyAssistant
 
-**Etablert:** 2026-04-10 (uke 1 av ISO/IEC 25010-forbedringsplan)
+**Established:** 2026-04-10 (week 1 of the ISO/IEC 25010 improvement plan)
 
-Dette dokumentet beskriver kvalitetsgatene som må passere for at en endring
-kan merges til `main`.
+This document describes the quality gates that must pass before a change
+can be merged to `main`.
 
 ---
 
-## Oversikt
+## Overview
 
-GitHub Actions kjører følgende tre jobber på hver push og pull request mot `main`:
+GitHub Actions runs the following three jobs on every push and pull request against `main`:
 
-| Jobb | Beskrivelse | Matriks |
+| Job | Description | Matrix |
 |---|---|---|
-| `test` | Lint + format + tester | Node 20.x, Node 22.x (ubuntu-latest) |
+| `test` | Lint + format + tests | Node 20.x, Node 22.x (ubuntu-latest) |
 | `coverage` | Native Node coverage + gate | Node 20.x |
-| `security` | npm audit (runtime-deps) | Node 20.x |
+| `security` | npm audit (runtime deps) | Node 20.x |
 
-Workflow-fil: `.github/workflows/ci.yml`.
+Workflow file: `.github/workflows/ci.yml`.
 
-Alle jobber må være grønne før merge. Dette erstatter tidligere manuell disiplin.
+All jobs must be green before merge. This replaces the previous manual discipline.
 
 ---
 
-## Lokale kommandoer
+## Local commands
 
 ```bash
-# Full CI-gate lokalt (lint + format + test)
+# Full CI gate locally (lint + format + test)
 npm run ci
 
-# Enkeltsteg
-npm run lint           # ESLint, 0 errors tillatt
+# Single steps
+npm run lint           # ESLint, 0 errors allowed
 npm run format         # Prettier --check
-npm test               # 408 tester, alle må passere
+npm test               # 408 tests, all must pass
 
 # Coverage
-npm run test:coverage       # spec-reporter med coverage-tabell
-npm run test:coverage:gate  # som over + feiler hvis under terskel
+npm run test:coverage       # spec reporter with coverage table
+npm run test:coverage:gate  # same as above + fails if below threshold
 
 # Auto-fix
 npm run lint:fix       # eslint --fix
 npm run format:fix     # prettier --write
 
-# Runtime-deps audit (som i CI)
+# Runtime-deps audit (same as in CI)
 npm run audit:prod
 ```
 
 ---
 
-## Terskler
+## Thresholds
 
 ### ESLint (`eslint.config.mjs`)
-- **Errors:** 0 tillatt. Gjelder blokkerende regler som `no-undef`,
+- **Errors:** 0 allowed. Applies to blocking rules such as `no-undef`,
   `no-dupe-keys`, `no-unreachable`, `valid-typeof`.
-- **Warnings:** 25 pt (baseline 2026-04-10). Disse er ikke-blokkerende
-  og skal ryddes gradvis i senere uker.
+- **Warnings:** 25 pts (baseline 2026-04-10). These are non-blocking
+  and will be cleaned up gradually over the coming weeks.
 
 ### Prettier (`.prettierrc.json`)
-- 100 tegn linje-bredde, 2 mellomrom, single quotes, ES5 trailing commas.
-- Gate: `prettier --check` må gi 0 mismatches.
+- 100-character line width, 2 spaces, single quotes, ES5 trailing commas.
+- Gate: `prettier --check` must yield 0 mismatches.
 
-### Coverage-gate (`scripts/coverage-gate.js`)
-Basert på native Node 20 `--experimental-test-coverage`:
+### Coverage gate (`scripts/coverage-gate.js`)
+Based on native Node 20 `--experimental-test-coverage`:
 
-| Metrikk | Baseline 2026-04-10 | Terskel (feiler hvis under) |
+| Metric | Baseline 2026-04-10 | Threshold (fails if below) |
 |---|---|---|
 | Lines | 83.26% | **80.00%** |
 | Branches | 71.23% | **68.00%** |
 | Functions | 75.83% | **72.00%** |
 
-Tersklene er satt ca. 3 pt under baseline for å tillate naturlig variasjon
-uten å være så løse at coverage kan rases. Økes etter uke 3-4 når frontend
-er modularisert og testbar.
+Thresholds are set roughly 3 pts below baseline to allow natural variation
+without being so loose that coverage can collapse. They will be raised after
+weeks 3-4, once the frontend is modularized and testable.
 
 ### npm audit
-- `npm audit --omit=dev --audit-level=high` må gi 0 advarsler.
-- Dev-deps auditerer på `moderate`-nivå som informasjons-steg (ikke-blokkerende).
+- `npm audit --omit=dev --audit-level=high` must yield 0 warnings.
+- Dev deps are audited at `moderate` level as an informational step (non-blocking).
 
 ---
 
 ## Dependabot
 
-Weekly updates (mandager 07:00 Europe/Oslo):
-- **npm production** og **development** — groupert på minor/patch for mindre støy
-- **GitHub Actions** — action-versjoner
+Weekly updates (Mondays 07:00 Europe/Oslo):
+- **npm production** and **development** — grouped on minor/patch to reduce noise
+- **GitHub Actions** — action versions
 
-Major-versjoner kommer som separate PRs for manuell vurdering.
+Major versions arrive as separate PRs for manual review.
 
-Konfig: `.github/dependabot.yml`.
+Config: `.github/dependabot.yml`.
 
 ---
 
-## Første-gangs-oppsett for nye bidragsytere
+## First-time setup for new contributors
 
 ```bash
 git clone <repo>
 cd Familieassistenten
-npm ci              # ikke 'npm install' — bruker package-lock.json
-                    # `prepare`-scriptet aktiverer husky pre-commit-hook
-npm run ci          # verifisér at alt er grønt lokalt før første commit
+npm ci              # not 'npm install' — uses package-lock.json
+                    # the `prepare` script activates the husky pre-commit hook
+npm run ci          # verify everything is green locally before the first commit
 ```
 
 ---
 
 ## Pre-commit hook (husky + lint-staged)
 
-`npm ci` (eller `npm install`) trigger `prepare`-scriptet som aktiverer
-husky. På hvert `git commit` kjøres `.husky/pre-commit` som igjen kaller
-`npx lint-staged`. Staged filer auto-fikses før commit:
+`npm ci` (or `npm install`) triggers the `prepare` script which activates
+husky. On every `git commit`, `.husky/pre-commit` runs and in turn calls
+`npx lint-staged`. Staged files are auto-fixed before the commit:
 
-| Glob | Kommandoer |
+| Glob | Commands |
 |---|---|
 | `server/**/*.js`, `scripts/**/*.js`, `tests/**/*.js` | `eslint --fix` + `prettier --write` |
 | `public/sw.js` | `eslint --fix` + `prettier --write` |
-| `public/js/**/*.js` | `eslint --fix` (ikke i `format`-globbet) |
+| `public/js/**/*.js` | `eslint --fix` (not in the `format` glob) |
 | `public/manifest.json`, `package.json` | `prettier --write` |
 
-**Hvorfor:** Forhindrer at format/lint-rettelser må gjøres i separate
-follow-up-commits (som skjedde med PR #22 etter at PR #20 merget inn 2
-uformatterte filer).
+**Why:** Prevents format/lint fixes from having to be made in separate
+follow-up commits (as happened with PR #22 after PR #20 merged in 2
+unformatted files).
 
-**Overstyring:** `git commit --no-verify` hopper over hooken — men bruk
-kun ved WIP-stash eller unntakstilfeller. Hvis hooken feilaktig blokkerer
-en commit, rapportér det som en issue.
+**Override:** `git commit --no-verify` skips the hook — but use it only
+for WIP stashes or exceptional cases. If the hook erroneously blocks
+a commit, report it as an issue.
 
-**CI-kompatibilitet:** `prepare`-scriptet er `"husky || true"` slik at
-det ikke feiler i Docker-builds hvor husky ikke installeres
+**CI compatibility:** The `prepare` script is `"husky || true"` so that
+it does not fail in Docker builds where husky is not installed
 (`npm ci --omit=dev`).
 
 ---
 
-## Feilsøking
+## Troubleshooting
 
-### Lint feiler lokalt, men ikke i CI (eller motsatt)
-Sjekk at du bruker samme Node-versjon som CI: `node --version` skal være
-`v20.x` eller `v22.x`. Kjør `npm ci` fremfor `npm install` for å få
-nøyaktig samme avhengigheter som CI.
+### Lint fails locally but not in CI (or vice versa)
+Check that you're using the same Node version as CI: `node --version` should be
+`v20.x` or `v22.x`. Run `npm ci` instead of `npm install` to get the exact
+same dependencies as CI.
 
-### Coverage-gate feiler
-1. Kjør `npm run test:coverage` lokalt og se hvilken metrikk som droppet.
-2. Hvis endringen din lovlig reduserer coverage (f.eks. fjerner død kode),
-   kan tersklene justeres i `scripts/coverage-gate.js`.
-3. Ellers: skriv tester for den nye koden.
+### Coverage gate fails
+1. Run `npm run test:coverage` locally and see which metric dropped.
+2. If your change legitimately reduces coverage (e.g. removes dead code),
+   the thresholds can be adjusted in `scripts/coverage-gate.js`.
+3. Otherwise: write tests for the new code.
 
-### Prettier-mismatch på flere filer
-Kjør `npm run format:fix` og commit resultatet som egen "style"-commit.
+### Prettier mismatch on multiple files
+Run `npm run format:fix` and commit the result as its own "style" commit.
 
-### ESLint-feil du er uenig i
-Legg en `// eslint-disable-next-line <rule>`-kommentar med begrunnelse.
-Ikke slå av regler globalt uten diskusjon i PR.
+### ESLint error you disagree with
+Add an `// eslint-disable-next-line <rule>` comment with justification.
+Do not turn off rules globally without discussion in the PR.
 
 ---
 
-## Historikk
+## History
 
-- **2026-04-10** — initial CI/CD-pipeline etablert (ISO-plan uke 1).
-  - 408 tester + lint + format + coverage-gate + npm audit
+- **2026-04-10** — initial CI/CD pipeline established (ISO plan week 1).
+  - 408 tests + lint + format + coverage gate + npm audit
   - Baseline coverage: 83.26% / 71.23% / 75.83%
-  - 4 nye devDeps: eslint, @eslint/js, globals, prettier
+  - 4 new devDeps: eslint, @eslint/js, globals, prettier
 
-- **2026-04-16** — `@eslint/js` oppgradert fra v9.38.0 til v10.0.1
-  (post-v1.3.0 cleanup; punkt 3 i gjenstående tekniske gjeld).
-  De to nye error-reglene i `js.configs.recommended` —
-  `no-useless-assignment` og `preserve-caught-error` — avdekket 8
-  kode-brudd som ble fikset i kilden. Ingen regler ble deaktivert.
+- **2026-04-16** — `@eslint/js` upgraded from v9.38.0 to v10.0.1
+  (post-v1.3.0 cleanup; item 3 in remaining tech debt).
+  The two new error rules in `js.configs.recommended` —
+  `no-useless-assignment` and `preserve-caught-error` — surfaced 8
+  code violations that were fixed at the source. No rules were disabled.
 
-- **2026-04-16** — pre-commit hook lagt til (husky + lint-staged).
-  Kjører `eslint --fix` og `prettier --write` på staged filer før
-  commit. Introdusert etter at PR #20 merget 2 uformaterte filer som
-  brøt main CI i et lite vindu.
+- **2026-04-16** — pre-commit hook added (husky + lint-staged).
+  Runs `eslint --fix` and `prettier --write` on staged files before
+  commit. Introduced after PR #20 merged 2 unformatted files that
+  broke main CI in a small window.

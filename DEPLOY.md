@@ -1,48 +1,48 @@
-# Familieassistenten v1.2 — Deploy på Raspberry Pi 5
+# FamilyAssistant v1.2 — Deploy on Raspberry Pi 5
 
-> **Stier i dette dokumentet** bruker `$APP_ROOT` som plassholder.
-> Standard: `export APP_ROOT=$APP_ROOT`
+> **Paths in this document** use `$APP_ROOT` as a placeholder.
+> Default: `export APP_ROOT=$APP_ROOT`
 
-> ## ⚠️ Produksjons-krav (M1)
+> ## ⚠️ Production requirements (M1)
 >
-> Før du setter `NODE_ENV=production` må følgende være på plass:
+> Before setting `NODE_ENV=production`, the following must be in place:
 >
-> 1. **`AUTH_TOKEN`** (minst 16, helst 32 tegn) — serveren nekter oppstart uten den i prod.
->    Generer: `openssl rand -hex 32`
-> 2. **`ALLOWED_ORIGINS`** — komma-separert liste over tillatte origins.
->    `*` er ikke tillatt i prod. Eksempel: `https://familieassistenten.local,https://raspberrypi.local`
-> 3. **HTTPS via Caddy** — se seksjon 13 under. Sett `HTTPS_TERMINATED=true` i environment
->    så serveren legger til `Strict-Transport-Security`-header.
-> 4. **API-nøkler i .env** (ikke i systemd!) — fil-permissions `chmod 600 .env`,
->    eier `pi:pi`. Nøkler settes via Settings-UI som skriver via env-store.service.
+> 1. **`AUTH_TOKEN`** (at least 16, preferably 32 characters) — the server refuses to start without it in prod.
+>    Generate: `openssl rand -hex 32`
+> 2. **`ALLOWED_ORIGINS`** — comma-separated list of allowed origins.
+>    `*` is not allowed in prod. Example: `https://familieassistenten.local,https://raspberrypi.local`
+> 3. **HTTPS via Caddy** — see section 13 below. Set `HTTPS_TERMINATED=true` in the environment
+>    so the server adds the `Strict-Transport-Security` header.
+> 4. **API keys in .env** (not in systemd!) — file permissions `chmod 600 .env`,
+>    owner `pi:pi`. Keys are set via the Settings UI which writes through env-store.service.
 
 
-## 1. Kopier filene
+## 1. Copy the files
 
 ```bash
 scp -r Familieassistenten/ pi@raspberrypi.local:~
 ```
 
-## 2. Installer Node.js
+## 2. Install Node.js
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
-## 3. Installer SQLite-støtte (anbefalt)
+## 3. Install SQLite support (recommended)
 
 ```bash
 cd $APP_ROOT
 npm init -y
 npm install better-sqlite3
-# Eller om bedre-sqlite3 feiler:
+# Or if better-sqlite3 fails:
 npm install sql.js
 ```
 
-Uten SQLite bruker serveren JSON-fallback (fungerer, men tregere og ingen vektorsøk).
+Without SQLite the server uses a JSON fallback (works, but slower and no vector search).
 
-## 4. Start manuelt (for testing)
+## 4. Start manually (for testing)
 
 ```bash
 cd $APP_ROOT
@@ -50,9 +50,9 @@ chmod +x start.sh
 ./start.sh
 ```
 
-Åpne `http://raspberrypi.local:3000` for å sjekke at det fungerer.
+Open `http://raspberrypi.local:3000` to verify that it works.
 
-## 5. Automatisk oppstart (systemd)
+## 5. Automatic startup (systemd)
 
 ```bash
 sudo cp familieassistenten.service /etc/systemd/system/
@@ -61,24 +61,24 @@ sudo systemctl enable familieassistenten
 sudo systemctl start familieassistenten
 ```
 
-Sjekk status: `sudo systemctl status familieassistenten`
-Se logger: `journalctl -u familieassistenten -f`
+Check status: `sudo systemctl status familieassistenten`
+View logs: `journalctl -u familieassistenten -f`
 
-## 6. LLM-oppsett
+## 6. LLM setup
 
-### Alternativ A: Ollama (enklest)
+### Option A: Ollama (simplest)
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull qwen2.5:3b
 ```
 
-### Alternativ B: llama.cpp (raskere, lavere RAM)
+### Option B: llama.cpp (faster, lower RAM)
 
 ```bash
 git clone https://github.com/ggerganov/llama.cpp
-cd llama.cpp && make -j4 GGML_VULKAN=1  # Vulkan for GPU-akselerasjon
-# Last ned Qwen2.5-3B i GGUF-format:
+cd llama.cpp && make -j4 GGML_VULKAN=1  # Vulkan for GPU acceleration
+# Download Qwen2.5-3B in GGUF format:
 wget https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf
 
 # Start server:
@@ -86,49 +86,49 @@ wget https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3
   -c 3072 -t 3 --host 0.0.0.0 --port 8080
 ```
 
-Sett `LLM_BACKEND=llamacpp` i `.env` eller systemd-service.
+Set `LLM_BACKEND=llamacpp` in `.env` or the systemd service.
 
-### Modellvalg for RPI5 8GB
+### Model selection for RPI5 8GB
 
-| Modell | RAM | Hastighet | Anbefalt? |
+| Model | RAM | Speed | Recommended? |
 |--------|-----|-----------|-----------|
-| qwen2.5:1.5b | ~1.2 GB | 15-25 t/s | Rask, enklere svar |
-| qwen2.5:3b | ~2.5 GB | 8-15 t/s | Beste balanse for 8GB |
-| qwen2.5:7b | ~5 GB | 3-8 t/s | Best kvalitet, risikerer swap |
+| qwen2.5:1.5b | ~1.2 GB | 15-25 t/s | Fast, simpler answers |
+| qwen2.5:3b | ~2.5 GB | 8-15 t/s | Best balance for 8GB |
+| qwen2.5:7b | ~5 GB | 3-8 t/s | Best quality, risk of swap |
 
-Standard er `qwen2.5:3b`. Endre via `OLLAMA_MODEL` i environment.
+Default is `qwen2.5:3b`. Change via `OLLAMA_MODEL` in the environment.
 
-## 7. STT/Stemmegjenkjenning (valgfritt)
+## 7. STT / Speech recognition (optional)
 
-### whisper.cpp (anbefalt for offline norsk)
+### whisper.cpp (recommended for offline Norwegian)
 
 ```bash
 git clone https://github.com/ggerganov/whisper.cpp
 cd whisper.cpp && make -j4
 
-# Last ned NB-Whisper (norsk-optimalisert):
+# Download NB-Whisper (Norwegian-optimized):
 wget https://huggingface.co/NbAiLab/nb-whisper-base/resolve/main/ggml-model.bin \
   -O models/ggml-nb-whisper-base.bin
 
-# Installer ffmpeg (for lydkonvertering):
+# Install ffmpeg (for audio conversion):
 sudo apt install -y ffmpeg
 ```
 
-Sett i `.env` eller systemd:
+Set in `.env` or systemd:
 ```
 WHISPER_CPP_PATH=/opt/whisper.cpp/main
 WHISPER_MODEL_PATH=/opt/whisper.cpp/models/ggml-nb-whisper-base.bin
 ```
 
-Uten whisper.cpp brukes nettleserens Web Speech API (krever internett).
+Without whisper.cpp, the browser's Web Speech API is used (requires internet).
 
-## 8. Miljøvariabler
+## 8. Environment variables
 
-Opprett `$APP_ROOT/.env` eller sett i systemd:
+Create `$APP_ROOT/.env` or set in systemd:
 
 ```bash
 PORT=3000
-LLM_BACKEND=ollama          # eller 'llamacpp'
+LLM_BACKEND=ollama          # or 'llamacpp'
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:3b
 LLAMACPP_HOST=http://localhost:8080
@@ -139,50 +139,50 @@ WHISPER_MODEL_PATH=/opt/whisper.cpp/models/ggml-nb-whisper-base.bin
 WHISPER_THREADS=3
 ```
 
-## 9. iPhone-snarvei
+## 9. iPhone shortcut
 
-1. Åpne Safari på iPhone
-2. Gå til `http://raspberrypi.local:3000`
-3. Trykk Del-knappen > "Legg til på Hjem-skjerm"
-4. Navn: "Familieassistenten"
+1. Open Safari on iPhone
+2. Go to `http://raspberrypi.local:3000`
+3. Tap the Share button > "Add to Home Screen"
+4. Name: "FamilyAssistant"
 
-## 10. Tilgang utenfor hjemmet
+## 10. Access outside the home
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 ```
 
-## 11. RAM-optimalisering
+## 11. RAM optimization
 
-Anbefalt oppsett for å unngå swapping:
+Recommended setup to avoid swapping:
 
 ```bash
-# Aktiver zram (komprimert swap)
+# Enable zram (compressed swap)
 sudo apt install -y zram-tools
 echo 'ALGO=zstd' | sudo tee /etc/default/zramswap
 echo 'PERCENT=50' | sudo tee -a /etc/default/zramswap
 sudo systemctl restart zramswap
 
-# Begrens GPU-minne (frigjør RAM)
+# Limit GPU memory (frees RAM)
 echo 'gpu_mem=64' | sudo tee -a /boot/config.txt
 sudo reboot
 ```
 
-Typisk RAM-bruk med alt kjørende:
+Typical RAM usage with everything running:
 - OS + systemd: ~800 MB
 - Node.js server: ~100 MB
 - Ollama + qwen2.5:3b: ~2.5 GB
-- whisper.cpp (on-demand): ~400 MB (bare under transkribering)
-- Totalt: ~3.8 GB — godt innenfor 8 GB
+- whisper.cpp (on-demand): ~400 MB (only during transcription)
+- Total: ~3.8 GB — comfortably within 8 GB
 
-## 13. HTTPS via Caddy (M1.6 — obligatorisk før ekstern tilgang)
+## 13. HTTPS via Caddy (M1.6 — required before external access)
 
-Familieassistenten eksponerer sensitive data (familiekalender, handleliste, LLM-chat).
-Ren HTTP er ikke akseptabelt utenfor et strengt LAN. Bruk Caddy som reverse proxy
-foran Node-serveren på port 3000.
+FamilyAssistant exposes sensitive data (family calendar, shopping list, LLM chat).
+Plain HTTP is not acceptable outside a strict LAN. Use Caddy as a reverse proxy
+in front of the Node server on port 3000.
 
-### 13.1 Installer Caddy
+### 13.1 Install Caddy
 
 ```bash
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
@@ -193,165 +193,165 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | \
 sudo apt update && sudo apt install -y caddy
 ```
 
-### 13.2 Installer Caddyfile
+### 13.2 Install the Caddyfile
 
 ```bash
 sudo cp $APP_ROOT/Caddyfile /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
-Caddyfile har 3 alternativer — **A) LAN-only med intern CA (anbefalt for familie)**,
-B) Tailscale Serve, C) public domain. Rediger filen og kommenter ut de du ikke bruker.
+The Caddyfile has 3 options — **A) LAN-only with internal CA (recommended for family)**,
+B) Tailscale Serve, C) public domain. Edit the file and comment out the ones you do not use.
 
-### 13.3 Installer Caddys rot-sertifikat på iPhone
+### 13.3 Install Caddy's root certificate on iPhone
 
-Alternativ A bruker Caddys lokale CA. iPhone må godkjenne rot-sertifikatet én gang:
+Option A uses Caddy's local CA. The iPhone must approve the root certificate once:
 
 ```bash
-# På RPi5:
+# On the RPi5:
 sudo caddy trust
 sudo cp /etc/caddy/pki/authorities/local/root.crt ~/caddy-root.crt
 ```
 
-Kopier `~/caddy-root.crt` til iPhone (AirDrop/mail), åpne det, og:
-**Innstillinger → Profiler → Godkjenn → Innstillinger → Generelt → VPN og enhetsadministrering → Sertifikat-innstillinger → Slå på "Familieassistenten"**.
+Copy `~/caddy-root.crt` to the iPhone (AirDrop/mail), open it, and:
+**Settings → Profiles → Approve → Settings → General → VPN and Device Management → Certificate Trust Settings → Enable "FamilyAssistant"**.
 
-Etter dette åpner du `https://familieassistenten.local` i Safari og får grønt hengelåsikon.
+After this, open `https://familieassistenten.local` in Safari and you get a green padlock icon.
 
-### 13.4 Oppdater systemd med prod-env
+### 13.4 Update systemd with prod env
 
-Legg til i `/etc/systemd/system/familieassistenten.service`:
+Add to `/etc/systemd/system/familieassistenten.service`:
 
 ```ini
 Environment=NODE_ENV=production
 Environment=HTTPS_TERMINATED=true
 Environment=ALLOWED_ORIGINS=https://familieassistenten.local,https://raspberrypi.local
-Environment=AUTH_TOKEN=<generert-32-hex-tegn>
+Environment=AUTH_TOKEN=<generated-32-hex-characters>
 ```
 
-Generer token:
+Generate token:
 ```bash
 openssl rand -hex 32
 ```
 
 `sudo systemctl daemon-reload && sudo systemctl restart familieassistenten`.
-Sjekk at oppstarten lykkes — serveren avviser ugyldig config med tydelig feilmelding.
+Verify that startup succeeds — the server rejects invalid config with a clear error message.
 
-### 13.5 Verifiser HTTPS + auth
+### 13.5 Verify HTTPS + auth
 
 ```bash
-# 1. HTTPS med gyldig cert (etter rot-cert er installert)
+# 1. HTTPS with valid cert (after root cert is installed)
 curl -I https://familieassistenten.local/health
-# Forvent: 200 OK, Strict-Transport-Security, Content-Security-Policy
+# Expected: 200 OK, Strict-Transport-Security, Content-Security-Policy
 
-# 2. API krever token
+# 2. API requires token
 curl -I https://familieassistenten.local/api/today
-# Forvent: 401 Unauthorized
+# Expected: 401 Unauthorized
 
 curl -H "Authorization: Bearer <token>" https://familieassistenten.local/api/today
-# Forvent: 200 OK med data
+# Expected: 200 OK with data
 
-# 3. /health og /ready er åpne (for monitoring)
+# 3. /health and /ready are open (for monitoring)
 curl https://familieassistenten.local/ready
-# Forvent: 200 OK uten token
+# Expected: 200 OK without token
 ```
 
-### 13.6 Brannmur — ikke eksponer port 3000 direkte
+### 13.6 Firewall — do not expose port 3000 directly
 
 ```bash
 sudo ufw allow 443/tcp    # HTTPS
 sudo ufw allow 80/tcp     # HTTP redirect → HTTPS
-sudo ufw deny 3000/tcp    # Node kun via Caddy
+sudo ufw deny 3000/tcp    # Node only via Caddy
 sudo ufw enable
 ```
 
 ---
 
-## 12. Oppgradering: Hailo AI HAT+
+## 12. Upgrade: Hailo AI HAT+
 
-For betydelig raskere LLM:
+For significantly faster LLM:
 
 ```bash
 sudo apt install hailo-all
-# Gir opptil 26 TOPS akselerasjon
-# Se: https://www.raspberrypi.com/products/ai-hat-plus/
+# Provides up to 26 TOPS acceleration
+# See: https://www.raspberrypi.com/products/ai-hat-plus/
 ```
 
-## Feilsøking
+## Troubleshooting
 
-- **Server starter ikke:** `journalctl -u familieassistenten -f`
-- **LLM treg:** Bytt til qwen2.5:1.5b, eller bruk llama.cpp med Q4_K_M quant
-- **STT fungerer ikke:** Sjekk at ffmpeg er installert, whisper.cpp-binaryen finnes
-- **Kan ikke nå fra iPhone:** `sudo ufw allow 3000`
-- **Database resett:** Slett `data/familieassistenten.db` (eller `.json`) og start på nytt
-- **Migrering:** Gammel JSON-database migreres automatisk til SQLite ved oppstart
+- **Server does not start:** `journalctl -u familieassistenten -f`
+- **LLM slow:** Switch to qwen2.5:1.5b, or use llama.cpp with Q4_K_M quant
+- **STT does not work:** Check that ffmpeg is installed and the whisper.cpp binary exists
+- **Cannot reach from iPhone:** `sudo ufw allow 3000`
+- **Database reset:** Delete `data/familieassistenten.db` (or `.json`) and start over
+- **Migration:** Old JSON database is migrated automatically to SQLite on startup
 
 ---
 
-## 14. Docker-deployment (uke 7 PORT-6)
+## 14. Docker deployment (week 7 PORT-6)
 
-Familieassistenten leveres som et ferdig multiarch Docker-image på
-GitHub Container Registry. Dette er anbefalt deployment-metode for
-nye installasjoner på RPi5 — enklere enn systemd + manuell npm install.
+FamilyAssistant ships as a prebuilt multiarch Docker image on
+GitHub Container Registry. This is the recommended deployment method for
+new installs on RPi5 — simpler than systemd + manual npm install.
 
-### 14.1 Forutsetninger
+### 14.1 Prerequisites
 
 ```bash
-# Installer Docker Engine og Docker Compose plugin
+# Install Docker Engine and the Docker Compose plugin
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER
-# Log ut og inn igjen for å aktivere group membership
+# Log out and back in to activate group membership
 
-# Verifiser
+# Verify
 docker --version
 docker compose version
 ```
 
-### 14.2 Rask start
+### 14.2 Quick start
 
 ```bash
 # Clone repo for Caddyfile + docker-compose.yml + .env.example
 git clone https://github.com/ChristerFrestad/FamilyAssistant.git
 cd FamilyAssistant
 
-# Lag produksjons-config
+# Create production config
 cp .env.example .env
 nano .env
-# Sett minimum:
-#   AUTH_TOKEN=<output av openssl rand -hex 32>
+# Set at minimum:
+#   AUTH_TOKEN=<output of openssl rand -hex 32>
 #   ALLOWED_ORIGINS=https://familieassistenten.local
 #   AUTH_TOKEN_CREATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Opprett data-mappe
+# Create data directory
 mkdir -p data
 
 # Start
 docker compose up -d
 
-# Verifiser
+# Verify
 docker compose ps
 curl -sf http://localhost:3000/health && echo " — OK"
 ```
 
-Appen er nå på `http://localhost:3000` og Caddy serverer HTTPS på
-`https://familieassistenten.local` (hvis mDNS er satt opp).
+The app is now at `http://localhost:3000` and Caddy serves HTTPS at
+`https://familieassistenten.local` (if mDNS is set up).
 
-### 14.3 Oppgradering
+### 14.3 Upgrade
 
 ```bash
 cd ~/FamilyAssistant
-docker compose pull     # Hent siste image fra ghcr.io
-docker compose up -d    # Restart med nytt image
-docker compose logs -f app  # Følg loggene i 1 min
+docker compose pull     # Pull latest image from ghcr.io
+docker compose up -d    # Restart with new image
+docker compose logs -f app  # Follow logs for 1 min
 ```
 
-Dataene i `./data/` beholdes på tvers av oppgraderinger. DB-migrasjoner
-kjøres automatisk ved oppstart.
+Data in `./data/` is retained across upgrades. DB migrations
+run automatically on startup.
 
 ### 14.4 Backup / restore via Docker
 
 ```bash
-# Backup mens app kjører (bruker SQLite online-backup)
+# Backup while app is running (uses SQLite online backup)
 docker compose exec app /nodejs/bin/node -e "
   const { initDB } = require('./server/db');
   const { backupNow } = require('./server/backup');
@@ -361,61 +361,61 @@ docker compose exec app /nodejs/bin/node -e "
   })();
 "
 
-# Siste backup ligger i ./data/backups/
+# Latest backup is in ./data/backups/
 ls -lh data/backups/
 
-# Restore — stopp app, kopier backup, start app
+# Restore — stop app, copy backup, start app
 docker compose stop app
 cp data/backups/familieassistenten-2026-04-11.db data/familieassistenten.db
 docker compose start app
 ```
 
-### 14.5 Bruker `install.sh --docker`
+### 14.5 Using `install.sh --docker`
 
-Alternativt kan du bruke installasjonsscriptet som gjør alt ovenfor:
+Alternatively, use the install script that does everything above:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ChristerFrestad/FamilyAssistant/main/install.sh | bash -s -- --docker
 
-# Eller lokalt etter clone:
+# Or locally after clone:
 sudo ./install.sh --docker
 ```
 
-Scriptet:
-- Installerer Docker Engine hvis det mangler
-- Genererer AUTH_TOKEN automatisk
-- Lager `.env` med fornuftige defaults
-- Starter `docker compose up -d`
-- Verifiserer `/health`
+The script:
+- Installs Docker Engine if missing
+- Generates AUTH_TOKEN automatically
+- Creates `.env` with sensible defaults
+- Starts `docker compose up -d`
+- Verifies `/health`
 
 ### 14.6 Troubleshooting Docker
 
-**Container restarter i loop:**
+**Container restarts in a loop:**
 ```bash
 docker compose logs app --tail 100
-# Se etter: AUTH_TOKEN, ALLOWED_ORIGINS, DB-path
+# Look for: AUTH_TOKEN, ALLOWED_ORIGINS, DB-path
 ```
 
-**Kan ikke nå Ollama på host:**
-- Linux: Sett `OLLAMA_HOST=http://host.docker.internal:11434`
-  (docker-compose.yml har `host-gateway` mapping)
-- macOS / Windows: Samme, `host.docker.internal` fungerer by default
+**Cannot reach Ollama on host:**
+- Linux: Set `OLLAMA_HOST=http://host.docker.internal:11434`
+  (docker-compose.yml has `host-gateway` mapping)
+- macOS / Windows: Same, `host.docker.internal` works by default
 
-**Permission denied på data-mappe:**
+**Permission denied on data directory:**
 ```bash
-# Distroless bruker UID 65532 (nonroot)
+# Distroless uses UID 65532 (nonroot)
 sudo chown -R 65532:65532 data/
 ```
 
-**Oppgrader multiarch-image til ARM64 manuelt:**
+**Upgrade multiarch image to ARM64 manually:**
 ```bash
 docker pull --platform linux/arm64 ghcr.io/christerfrestad/familyassistant:latest
 ```
 
-### 14.7 systemd ELLER Docker — aldri begge
+### 14.7 systemd OR Docker — never both
 
-Velg én metode. Hvis du tidligere brukte `familieassistenten.service`,
-stopp og deaktiver den før du går over til Docker:
+Pick one method. If you previously used `familieassistenten.service`,
+stop and disable it before switching to Docker:
 
 ```bash
 sudo systemctl stop familieassistenten
@@ -424,7 +424,7 @@ sudo rm /etc/systemd/system/familieassistenten.service
 sudo systemctl daemon-reload
 ```
 
-Ikke slett data-mappen — Docker-varianten bruker samme SQLite-fil.
+Do not delete the data directory — the Docker variant uses the same SQLite file.
 
 ---
 
@@ -553,4 +553,3 @@ If you later want to manage the token via Portainer variables instead of the per
 | `Complete setup` returns 409 conflict | Two setup requests raced. Reload `/setup.html` — the wizard will detect that `bootstrap.json` now exists and redirect to the main app. |
 | Container fails to start after bootstrap | The data volume is not writable by UID 65532 (distroless `nonroot`). Shell access required: `docker exec --user root familieassistenten chown -R 65532:65532 /app/data`. |
 | `host.docker.internal` does not resolve on Linux | Linux Docker ≥ 20.10 is required. The compose file adds `extra_hosts: host.docker.internal:host-gateway` which only works on that version. Upgrade Docker. |
-
