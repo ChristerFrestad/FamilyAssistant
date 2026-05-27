@@ -6,6 +6,68 @@
 
 ---
 
+2026-05-27 – Public-repo prep PR 2: scrub PII in tracked files
+
+Oppgave: Andre av 7 PR-er. Mekanisk PII-scrub i tracked filer
+basert på audit-dokumentet. Bytter operatørens private LAN-IP,
+personlige e-post, faktiske filsti-prefiks, og illustrative
+familiemedlems-navn til generiske ekvivalenter.
+
+Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
+(samme audit som PR 1)
+
+- Reisen: 3 logiske commits — (1) LAN-IP-masking, (2) e-post +
+  filsti, (3) 5 historiske analyser scrubbet i-place.
+- Edge-cases: WelcomeHeader.test.tsx tester displayNameFromUser
+  som ekstraherer navn fra e-post — bytte til peder@example.com
+  krever symmetriske assert-oppdateringer (`Christer` → `Peder`).
+  Admin-bootstrap-test for case-insensitivitet (` Christer@Frestad.COM `)
+  bytter til ` Admin@Example.COM `. Beholdt operatørens NAVN
+  ("Christer", "Frestad") som test-fixtures per beslutning 5 —
+  navnet er offentlig OK, kun e-post er PII.
+- Beslutninger: brukte audit §13 beslutning 6 (bytt e-post) og
+  beslutning 7 (maskér LAN-IP) som ja-besvart av Christer.
+- Portainer-risiko: nei (kun docs + test-fixtures, ingen
+  oppstarts-kode).
+
+Plan: (1) bytt 192.168.50.x → 192.0.2.x / `<rpi-lan-ip>` i
+6 filer, (2) bytt christer@frestad.com → peder@example.com /
+admin@example.com + /home/christer/ → /srv/familyassistant-data/,
+(3) scrubbe 5 internal-analyser + Lise/Kari → Marte/Sofie.
+
+Gjort:
+
+- Branch: chore/public-repo-prep-2-pii-scrub-tracked (basert på
+  PR 1-branch i stacked-PR-pattern)
+- Commits: 3 PII-scrub-commits + denne AGENT_LOG-commit (4 totalt)
+- Filer endret: 19 (CHANGELOG, Caddyfile, 2 backend-tester, 6
+  client-tester/komponenter, 1 runbook, 5 historiske analyser)
+- Tester lagt til: 0 (mekanisk fixture-bytte)
+- Test-resultat: 1361 backend pass / 0 fail / 2 skip; 928 client
+  pass / 0 fail. Lint 0 errors. Typecheck (server + client) clean.
+- DOMAIN_MODEL.md oppdatert: nei
+- Avvik fra plan: ingen
+- AGENT_LOG.md og audit-doc selv beholder originale PII-treff
+  (append-only-prinsipp + audit dokumenterer hva som ble funnet).
+
+Sikkerhet: All ikke-historisk PII byttet til generiske eksempler.
+Owner-navnet "Christer" + family-navnet "Frestad" beholdt i
+fixtures per beslutning 5 (navn er offentlig OK).
+
+ISO 25010:
+- Sikkerhet 8.25 → 8.40 (+0.15, alle gjenværende PII-tokens i
+  HEAD scrubbet bortsett fra append-only-historie)
+- Vedlikeholdbarhet 8.35 → 8.40 (+0.05, generiske test-fixtures
+  reduserer "spesielt-for-Christer"-koblinger)
+- Andre karakteristikker: ikke berørt
+
+Status: lokalt klart, venter på push fra Christer
+
+Neste: PR 3 (USER-FACING strings — parameteriser auth.json
+lockout, privacy.html-domener) starter umiddelbart.
+
+---
+
 2026-05-27 – Public-repo prep PR 1: stop acute leakage
 
 Oppgave: Første av 7 PR-er for å gjøre repo public. Stopp akutt
