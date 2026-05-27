@@ -218,10 +218,15 @@ describe('Uke5 · PERF-5 LLM cache warm endpoint', () => {
 // ============================================================
 describe('Uke5 · PERF-7 SLO i RUNBOOK', () => {
   test('RUNBOOK.md har §10 SLO-seksjon', () => {
+    // Updated 2026-05-27: RUNBOOK.md translated to English in PR 4
+    // (`docs/analyses/2026-05-27-public-repo-readiness.md` §13 beslutning 2).
+    // "Latency-mål"/"Resource-mål" -> "Latency Targets"/"Resource Targets".
+    // Policy intent unchanged: §10 must still document SLO latency + resource
+    // targets.
     const md = fs.readFileSync(path.join(ROOT, 'RUNBOOK.md'), 'utf8');
     assert.ok(/§10\s+Service Level Objectives/i.test(md), 'SLO §10 mangler');
-    assert.ok(/Latency-m[aå]l/.test(md), 'Latency-mål tabell mangler');
-    assert.ok(/Resource-m[aå]l/.test(md), 'Resource-mål tabell mangler');
+    assert.ok(/Latency Targets/i.test(md), 'Latency Targets-tabell mangler');
+    assert.ok(/Resource Targets/i.test(md), 'Resource Targets-tabell mangler');
   });
 
   test('RUNBOOK.md SLO nevner MEMORY_BUDGET_MB', () => {
