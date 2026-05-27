@@ -7,7 +7,7 @@ Severity: **CRITICAL — pilot-launch blocker**
 ## Symptom
 
 After PR #114 merged, Christer deployed `:main` to RPi5 via Portainer
-and visited `http://192.168.50.123:7777/v2/`. He expected to see the
+and visited `http://&lt;rpi-lan-ip&gt;:7777/v2/`. He expected to see the
 PilotPasswordGate UI rendered by the v2 React app. Instead he saw the
 legacy v1 frontend (Chat / Ukesmeny / Handletur / Husarbeid /
 Kontrollrommet).

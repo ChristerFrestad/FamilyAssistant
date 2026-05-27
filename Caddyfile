@@ -35,8 +35,9 @@
 #   2. Kopier /etc/caddy/pki/authorities/local/root.crt til iPhone via AirDrop/mail
 #   3. Innstillinger → Profiler → godkjenn → Innstillinger → Generelt → VPN og enhetsadministrering → Sertifikat-innstillinger
 
-familieassistenten.local, raspberrypi.local, 192.168.50.50 {
-    # Bytt IP til RPi5s faktiske LAN-IP
+familieassistenten.local, raspberrypi.local, 192.168.1.50 {
+    # Bytt IP-adressen til RPi5s faktiske LAN-IP (eksempelet over er en
+    # vilkårlig RFC 1918-adresse — bytt eller fjern hele linjen).
 
     # HTTPS med lokalt sertifikat fra Caddys interne CA
     tls internal
