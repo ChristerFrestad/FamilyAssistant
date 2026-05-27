@@ -92,7 +92,7 @@ allergier overtrådt" — binær.
 
 Naiv "bytt til per-medlem" bryter tre ting:
 1. **UI-feedback** forsvinner: I dag viser vi "Inneholder gluten" i én
-   samlet advarsel. Per-medlem må vise "Truer Lise (gluten), Kari (laktose)"
+   samlet advarsel. Per-medlem må vise "Truer Marte (gluten), Sofie (laktose)"
    ellers mister brukeren kontekst om hvem som må få alternativ-middag.
 2. **LLM-prompt** (i `recipe-suggest`) bruker `profile.allergies` for å
    prompte LLM'en om å unngå ingredienser. Må utvide til union-av-alle-medlemmer

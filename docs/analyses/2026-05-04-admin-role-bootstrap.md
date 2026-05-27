@@ -9,7 +9,7 @@
 
 Christer (eller annen administrator) onboarder for første gang etter ny pilot-deploy. Hvilken bruker som blir admin avhenger av Portainer-config:
 
-1. Operatør setter `APP_ADMIN_EMAIL=christer@frestad.com` i Portainer.
+1. Operatør setter `APP_ADMIN_EMAIL=admin@example.com` i Portainer.
 2. Christer onboarder via magic-link.
 3. Backend `handleOnboardingComplete` kjører tx:
 3.1. Oppretter family + member + setter onboarding_completed.
@@ -49,7 +49,7 @@ Berørte filer:
 2. **Multiple users matcher APP_ADMIN_EMAIL (unique-email-constraint forhindrer).** Kun én user per email.
 3. **APP_ADMIN_EMAIL unset, første user onboarder, så APP_ADMIN_EMAIL settes.** Bootstrap allerede done → no-op. Ingen race.
 4. **APP_ADMIN_EMAIL set, ingen matching user noensinne onboarder.** `app_setup` forblir tom → ingen admin. Bevisst — uten admin er admin-endpoints ubrukelige (returner 403 for alle).
-5. **Email-matching er case-insensitive og trim-tolerant.** `' Christer@Frestad.COM '` matcher `'christer@frestad.com'`.
+5. **Email-matching er case-insensitive og trim-tolerant.** `' Admin@Example.COM '` matcher `'admin@example.com'`.
 6. **DB-rollback i onboarding-tx.** Hele tx ruller tilbake hvis admin-bootstrap krasjer (samme `db.transaction()`-wrapper).
 7. **Migration 026 på eksisterende DB.** ALTER TABLE er additive — eksisterende data er uberørt. Default 0 for is_admin betyr alle eksisterende brukere er ikke-admin (riktig).
 8. **Cross-tenant: admin i family A prøver å lese family B data.** /api/admin/* endpoints krever `requireAdmin()` men har ingen cross-family logikk; `getFamilyId()` filterer fortsatt all family-data per request. Multi-tenant-isolation testet i admin-bootstrap.test.js.

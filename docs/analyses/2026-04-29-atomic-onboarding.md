@@ -642,7 +642,7 @@ ingen snarveier.
 ## 13. Cleanup-script — observert dev-DB-state (2026-04-29)
 
 Pre-cleanup-snapshot:
-- `users` (1 rad): id=1 christer@frestad.com, family_id=2,
+- `users` (1 rad): id=1 admin@example.com, family_id=2,
   role=owner, onboarding_completed=0, profile_member_id=null →
   zombie-bruker fra Christers manuell-test 17:18.
 - `families` (2 rader):
@@ -661,6 +661,6 @@ Cleanup-script kriterier:
 
 Forventet etter cleanup på dagens dev-DB:
 - families: 1 rad (Default Family beholdes)
-- users: christer@frestad.com med family_id=null, role='adult',
+- users: admin@example.com med family_id=null, role='adult',
   onboarding_completed=0 → ved relogin starter han på FamilySetup
   som om det var første gang, akkurat som tiltenkt.
