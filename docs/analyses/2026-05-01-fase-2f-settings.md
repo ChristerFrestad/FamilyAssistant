@@ -354,7 +354,7 @@ Christer's CONTEXT.md sier "Sprint 5 Settings — siste skjerm". Christer's prom
 
 ## 4. Manuell test-instruksjoner (for Christer post-merge)
 
-1. Logg inn som owner (christer@frestad.com).
+1. Logg inn som owner (admin@example.com).
 2. Naviger til `/v2/settings`.
 3. Verifiser 4 seksjoner: System, Familie, Bruker, Konto.
 4. **System:** Bytt språk (NO/EN) — UI skal oppdatere alle tekster reaktivt.
