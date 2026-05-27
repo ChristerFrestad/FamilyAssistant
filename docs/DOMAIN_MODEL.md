@@ -1,165 +1,168 @@
-# DOMAIN_MODEL.md – Domenemodell og forretningsregler
+# DOMAIN_MODEL.md – Domain model and business rules
 
-> Dette dokumentet er systemets kollektive forståelse av seg selv.
-> Claude leser det før hver oppgave og oppdaterer det når domenet
-> utvides eller endres. Hvis denne filen og koden er i konflikt:
-> STOPP og varsle Christer. En av dem er feil.
+> This document is the system's collective understanding of itself.
+> Claude reads it before every task and updates it when the domain
+> expands or changes. If this file and the code are in conflict:
+> STOP and notify Christer. One of them is wrong.
 
-> Dette dokumentet er **bevisst startet tomt**. Prosjektet har allerede
-> 22 services og rik domeneforståelse i koden – å backfille alt her
-> ville være en flere-ukers oppgave på linje med ISO-løftet. I stedet
-> vokser dokumentet når Claude berører domeneområder, én oppgave av gangen.
-
----
-
-## HVORDAN LESE DETTE DOKUMENTET
-
-Inntil en entitet, regel, eller edge-case er dokumentert her, er
-kode-sannhet i `server/services/*.service.js` og `server/repositories.js`
-den autoritative kilden. Når Claude jobber med en ny oppgave:
-
-1. Sjekk om berørte entiteter/regler finnes her
-2. Hvis ja: bruk som referanse, oppdater hvis endring
-3. Hvis nei: når oppgaven er ferdig, dokumenter det som ble etablert
-   eller oppdaget under arbeidet
+> This document is **intentionally started empty**. The project already
+> has 22 services and rich domain understanding in the code – backfilling
+> everything here would be a multi-week task on par with the ISO lift.
+> Instead, the document grows as Claude touches domain areas, one task
+> at a time.
 
 ---
 
-## ENTITETER
+## HOW TO READ THIS DOCUMENT
 
-> Hver entitet beskriver: felter, relasjoner, regler, livssyklus.
-> Kort og konkret. Koden er sannheten; dette er forklaringen.
+Until an entity, rule, or edge case is documented here, code truth in
+`server/services/*.service.js` and `server/repositories.js` is the
+authoritative source. When Claude works on a new task:
 
-*(Ingen entiteter dokumentert ennå. Vokser organisk.)*
+1. Check whether affected entities/rules exist here
+2. If yes: use as reference, update if changed
+3. If no: when the task is complete, document what was established
+   or discovered during the work
 
-### Format å følge når du legger til en entitet
+---
+
+## ENTITIES
+
+> Each entity describes: fields, relationships, rules, lifecycle.
+> Short and concrete. The code is the truth; this is the explanation.
+
+*(No entities documented yet. Grows organically.)*
+
+### Format to follow when adding an entity
 
 ````markdown
 ### <EntityName>
 
-**Kildefil:** `server/services/<name>.service.js`
-**Repository:** `repos.<entity>` i `server/repositories.js`
-**Tabell:** `<table_name>` (migrasjon `server/migrations/<NNN>_*.sql`)
+**Source file:** `server/services/<name>.service.js`
+**Repository:** `repos.<entity>` in `server/repositories.js`
+**Table:** `<table_name>` (migration `server/migrations/<NNN>_*.sql`)
 
-**Hva er det:** 2–3 setninger som forklarer hva entiteten representerer
-i familien/husholdningen.
+**What it is:** 2–3 sentences explaining what the entity represents
+in the family/household.
 
-**Felter:**
+**Fields:**
 - `id` – PK
-- `<felt>` (type) – kort forklaring
+- `<field>` (type) – brief explanation
 - `created_at`, `updated_at`
 
-**Relasjoner:**
-- 1 ↔ N med <AnnenEntity>
+**Relationships:**
+- 1 ↔ N with <OtherEntity>
 - ...
 
-**Regler:**
-- <regel 1>
-- <regel 2>
-- Referer BR-N hvis regel er dokumentert i forretningsregler
+**Rules:**
+- <rule 1>
+- <rule 2>
+- Reference BR-N if the rule is documented in business rules
 
-**Livssyklus:**
-<Hvordan entiteten oppstår, endres, og forsvinner.>
+**Lifecycle:**
+<How the entity is created, modified, and removed.>
 
-**Berøres av tester:**
-- `tests/<fil>.test.js`
+**Covered by tests:**
+- `tests/<file>.test.js`
 ````
 
 ---
 
-## FORRETNINGSREGLER
+## BUSINESS RULES
 
-> Regler som går på tvers av flere entiteter. Nummereres for referanse
-> fra kode og tester. Format: BR-<nummer> (Business Rule).
+> Rules that cut across multiple entities. Numbered for reference
+> from code and tests. Format: BR-<number> (Business Rule).
 
-### BR-INVITE-1: Pre-validering ved invitasjons-opprettelse
+### BR-INVITE-1: Pre-validation on invitation creation
 
-**Hva:** Når en eier oppretter en invitasjon med en e-post-adresse,
-avviser serveren med 409 hvis e-posten allerede er medlem
-(`EMAIL_ALREADY_MEMBER`) eller allerede har en aktiv pending
-invitasjon (`EMAIL_ALREADY_INVITED`) i samme familie.
+**What:** When an owner creates an invitation with an email address,
+the server rejects with 409 if the email is already a member
+(`EMAIL_ALREADY_MEMBER`) or already has an active pending
+invitation (`EMAIL_ALREADY_INVITED`) in the same family.
 
-**Hvorfor:** Forhindrer at brukere blir bombardert med duplikate
-invitasjoner og at invitasjons-listen vokser med "ghost"-rader.
-Sjekken er familie-scoped slik at den samme e-posten kan inviteres
-til flere familier samtidig (DEL 14 cross-tenant isolation).
+**Why:** Prevents users from being bombarded with duplicate
+invitations and prevents the invitation list from growing with
+"ghost" rows. The check is family-scoped so the same email can be
+invited to multiple families simultaneously (DEL 14 cross-tenant
+isolation).
 
-**Detaljert flyt:**
-1. Klient sender POST `/api/family/invitations` med email + role +
+**Detailed Flow:**
+1. Client sends POST `/api/family/invitations` with email + role +
    message + locale
-2. Server normaliserer email: `trim().toLowerCase()`
+2. Server normalizes email: `trim().toLowerCase()`
 3. `findExistingMemberByEmail(familyId, email)` (case-insensitive
-   match mot `users.email` for `family_id = ?` og `deleted_at IS NULL`)
-4. Hvis treff → 409 `{code: 'EMAIL_ALREADY_MEMBER'}`
-5. `findActiveInvitationByEmail(familyId, email)` (mot
-   `family_invitations` med `accepted_at IS NULL AND revoked_at IS
+   match against `users.email` for `family_id = ?` and `deleted_at IS NULL`)
+4. If hit → 409 `{code: 'EMAIL_ALREADY_MEMBER'}`
+5. `findActiveInvitationByEmail(familyId, email)` (against
+   `family_invitations` with `accepted_at IS NULL AND revoked_at IS
    NULL AND expires_at > now`)
-6. Hvis treff → 409 `{code: 'EMAIL_ALREADY_INVITED'}`
-7. Ellers: insert + send email
+6. If hit → 409 `{code: 'EMAIL_ALREADY_INVITED'}`
+7. Otherwise: insert + send email
 
-**Berørte filer:**
+**Affected files:**
 - `server/auth/family-routes.js` (`handleCreateInvitation`)
 - `server/repositories/family.repo.js`
   (`findExistingMemberByEmail`, `findActiveInvitationByEmail`)
 - `tests/family-invitation-prevalidation.test.js`
 
-**Dokumentert:** 2026-05-05, PR #119
+**Documented:** 2026-05-05, PR #119
 
-### BR-INVITE-2: Resend roterer token og invaliderer gammel
+### BR-INVITE-2: Resend rotates the token and invalidates the old one
 
-**Hva:** Resend genererer en ny `token`-verdi og oppdaterer
-`expires_at` til nå + 7 dager. Den gamle token-verdien blir
-slettet, så den gamle `/v2/invite/<oldToken>`-lenken slutter å
-fungere umiddelbart.
+**What:** Resend generates a new `token` value and updates
+`expires_at` to now + 7 days. The old token value is deleted, so
+the old `/v2/invite/<oldToken>` link stops working immediately.
 
-**Hvorfor:** Standard SaaS-pattern. Hvis original e-post lekker
-eller invitasjons-lenken kompromitteres, gir resend en ny rotert
-token uten å lage en duplikat-rad. invited_email,
-invitation_message og locale arves fra original-raden — eierens
-intent er "send samme invitasjon på nytt", ikke "endre den".
+**Why:** Standard SaaS pattern. If the original email leaks or the
+invitation link is compromised, resend produces a new rotated
+token without creating a duplicate row. invited_email,
+invitation_message, and locale are inherited from the original
+row — the owner's intent is "send the same invitation again", not
+"change it".
 
-**Detaljert flyt:**
-1. Eier klikker "Send på nytt" på pending-listen
-2. Klient POSTer `/api/family/invitations/:id/resend`
-3. Server validerer family_id-match og pending-state
-4. `randomToken(32)` → ny token
+**Detailed Flow:**
+1. Owner clicks "Resend" on the pending list
+2. Client POSTs `/api/family/invitations/:id/resend`
+3. Server validates family_id match and pending state
+4. `randomToken(32)` → new token
 5. UPDATE `family_invitations` SET token = ?, expires_at = ?
    WHERE id = ? AND family_id = ? AND accepted_at IS NULL AND
    revoked_at IS NULL
-6. Email sendes på nytt med ny URL og samme melding/locale
-7. Gammel token returnerer null fra `findInvitationByToken` → klikk
-   på gammel link gir STATE 5 NOT_FOUND
+6. Email is sent again with new URL and same message/locale
+7. Old token returns null from `findInvitationByToken` → clicking
+   the old link gives STATE 5 NOT_FOUND
 
-**Berørte filer:**
+**Affected files:**
 - `server/auth/family-routes.js` (`handleResendInvitation`)
 - `server/repositories/family.repo.js` (`resendInvitation`)
 - `tests/family-invitation-resend.test.js`
 
-**Dokumentert:** 2026-05-05, PR #119
+**Documented:** 2026-05-05, PR #119
 
-### BR-INVITE-3: Invitasjon eier sin egen locale + personlig melding
+### BR-INVITE-3: An invitation owns its own locale + personal message
 
-**Hva:** Hver `family_invitations`-rad lagrer `locale`
-(`'no' | 'en'`, NOT NULL DEFAULT 'no') og valgfri
-`invitation_message` (TEXT, max 500 tegn). Email-rendering bruker
-disse feltene direkte — uten å avhenge av inviters eller mottakers
-nåværende språkpreferanse.
+**What:** Each `family_invitations` row stores `locale`
+(`'no' | 'en'`, NOT NULL DEFAULT 'no') and an optional
+`invitation_message` (TEXT, max 500 characters). Email rendering
+uses these fields directly — without depending on the inviter's or
+recipient's current language preference.
 
-**Hvorfor:** Resend må kunne sende emailen i samme språk som
-første gang. `users.preferred_language` finnes ikke (out-of-scope
-for pilot), så invitasjonen må selv eie locale-valget.
+**Why:** Resend must be able to send the email in the same language
+as the first time. `users.preferred_language` does not exist (out
+of scope for pilot), so the invitation itself must own the locale
+choice.
 
-**Detaljert flyt:**
-1. Frontend leser `i18n.language` ved create
-2. Klient POSTer body `{email, role, invitationMessage, locale}`
-3. Backend Zod-aktig validering: locale ∈ {'no','en'}, message ≤ 500
-4. Server INSERT — locale + message persistert på raden
-5. Email-rendering velger template `invitation-{locale}.html` +
-   `.txt`, substituerer `{{INVITATION_MESSAGE_BLOCK}}` (HTML-eskapet
-   blockquote eller plain-text quote)
-6. Resend leser samme felter — ingen re-fetch av brukerpreferanse
+**Detailed Flow:**
+1. Frontend reads `i18n.language` at create time
+2. Client POSTs body `{email, role, invitationMessage, locale}`
+3. Backend Zod-style validation: locale ∈ {'no','en'}, message ≤ 500
+4. Server INSERT — locale + message persisted on the row
+5. Email rendering picks template `invitation-{locale}.html` +
+   `.txt`, substitutes `{{INVITATION_MESSAGE_BLOCK}}` (HTML-escaped
+   blockquote or plain-text quote)
+6. Resend reads the same fields — no re-fetch of user preferences
 
-**Berørte filer:**
+**Affected files:**
 - `server/migrations/029_invitation_message_locale.sql`
 - `server/repositories/family.repo.js` (`createInvitation`)
 - `server/services/email.service.js` (`renderInvitationTemplate`,
@@ -168,186 +171,188 @@ for pilot), så invitasjonen må selv eie locale-valget.
 - `tests/family-invitation-message.test.js`,
   `tests/email-invitation-locale.test.js`
 
-**Dokumentert:** 2026-05-05, PR #119
+**Documented:** 2026-05-05, PR #119
 
-### BR-BRAND-1: Brand-config kommer kun fra env-variabler
+### BR-BRAND-1: Brand config comes only from env variables
 
-**Hva:** Hver white-label-instans (Hverdagsplanleggeren,
-FamilyAssistant og fremtidige) får brand-config (app-navn, wordmark-
-splitt, favicon-bokstav, tagline, primær/aksent/dot-farger) fra åtte
-env-variabler. Ingen hardkodede app-navn, taglines eller farger
-finnes i React-komponenter, HTML eller email-templates.
+**What:** Each white-label instance (Hverdagsplanleggeren,
+FamilyAssistant, and future ones) gets brand config (app name,
+wordmark split, favicon letter, tagline, primary/accent/dot colors)
+from eight env variables. No hardcoded app names, taglines, or
+colors exist in React components, HTML, or email templates.
 
-**Hvorfor:** Samme Docker-image skal kunne servere alle brands uten
-rebuild. Build-time-mekanikken (`VITE_APP_NAME`) som ble brukt fra
-Sprint 2.5 til Sprint 9 brøt dette løftet — `:main`-imaget hadde en
-bygget-inn `appName` som ikke kunne overstyres ved deploy. Sprint 10
-(PR #122) erstattet build-time-mekanikken med `GET /api/config` som
-klienten henter ved app-mount.
+**Why:** The same Docker image must be able to serve all brands
+without rebuild. The build-time mechanism (`VITE_APP_NAME`) used
+from Sprint 2.5 to Sprint 9 broke this promise — the `:main` image
+had a built-in `appName` that could not be overridden at deploy
+time. Sprint 10 (PR #122) replaced the build-time mechanism with
+`GET /api/config`, which the client fetches at app mount.
 
-**Detaljert flyt:**
-1. Operatør setter `APP_NAME`, `APP_NAME_PRIMARY`, `APP_NAME_ACCENT`,
+**Detailed Flow:**
+1. Operator sets `APP_NAME`, `APP_NAME_PRIMARY`, `APP_NAME_ACCENT`,
    `APP_FAVICON_LETTER`, `APP_TAGLINE`, `APP_PRIMARY_COLOR`,
-   `APP_ACCENT_COLOR`, `APP_DOT_COLOR` i Portainer-stacken
-2. `server/config.js` Zod-validerer ved oppstart; defaults reflekterer
+   `APP_ACCENT_COLOR`, `APP_DOT_COLOR` in the Portainer stack
+2. `server/config.js` Zod-validates at startup; defaults reflect
    FamilyAssistant
-3. `server/index.js` logger aktiv brand ved boot via pino +
-   eventuelle cross-validation-warnings
-4. `server/http/branding.js` eksponerer ikke-sensitive felter via
-   `GET /api/config` (cache 1 t)
-5. Klient henter `/api/config` i `client/src/main.tsx` før React-mount
-6. `applyBrandTokens(config)` injiserer CSS-tokens på `:root`;
-   `i18n.addResource('common.appName', ...)` driver eksisterende
-   `{{appName}}`-interpolation
-7. `Wordmark` + email-templates leser fra config — ingen hardkoding
+3. `server/index.js` logs the active brand at boot via pino +
+   any cross-validation warnings
+4. `server/http/branding.js` exposes non-sensitive fields via
+   `GET /api/config` (cache 1 h)
+5. Client fetches `/api/config` in `client/src/main.tsx` before React mount
+6. `applyBrandTokens(config)` injects CSS tokens on `:root`;
+   `i18n.addResource('common.appName', ...)` drives the existing
+   `{{appName}}` interpolation
+7. `Wordmark` + email templates read from config — no hardcoding
 
-**Berørte filer:**
+**Affected files:**
 - `server/config.js` (envSchema, collectBrandWarnings)
 - `server/http/branding.js` (`/api/config`, `/favicon.svg`,
   `/logo-mark.svg`, `/manifest.json`)
 - `client/src/app/hooks/useBrandConfig.ts`
-- `client/src/main.tsx` (early fetch + side-effects)
+- `client/src/main.tsx` (early fetch + side effects)
 - `tests/brand-config-validation.test.js`,
   `tests/branding-routes.test.js`
 
-**Dokumentert:** 2026-05-05, PR #122
+**Documented:** 2026-05-05, PR #122
 
-### BR-BRAND-2: Wordmark er todelt med fargedeling
+### BR-BRAND-2: Wordmark is two-part with color split
 
-**Hva:** App-navnet rendres alltid som to konkatenerte segmenter
-(`APP_NAME_PRIMARY` + `APP_NAME_ACCENT`) hvor hvert segment har en
-egen farge — primær og aksent. Fargedelingen markerer en konseptuell
-todeling i navnet (sammensatt ord på norsk, to-ords-navn på engelsk).
-`<Wordmark size="..." />`-komponenten brukes overalt der app-navnet
-skal vises som logo. Rene tekst-kontekster (browser-title, meta-tags,
-email-subject) bruker `config.appName` direkte.
+**What:** The app name is always rendered as two concatenated
+segments (`APP_NAME_PRIMARY` + `APP_NAME_ACCENT`) where each
+segment has its own color — primary and accent. The color split
+marks a conceptual two-part structure in the name (compound word
+in Norwegian, two-word name in English). The
+`<Wordmark size="..." />` component is used everywhere the app
+name should be shown as a logo. Plain text contexts (browser
+title, meta tags, email subject) use `config.appName` directly.
 
-**Hvorfor:** Visuell signatur som er gjenkjennelig på tvers av brand-
-instanser uten å kreve grafisk illustrasjon. Hver instans deler
-samme strukturelle DNA men har egne ord og farger via env.
+**Why:** A visual signature that is recognizable across brand
+instances without requiring graphical illustration. Each instance
+shares the same structural DNA but has its own words and colors
+via env.
 
-**Detaljert flyt:**
-1. `Wordmark` leser `useBrandConfig().config.{namePrimary, nameAccent}`
-2. Mens config er null (cold-load): rendrer width-reservert usynlig
-   placeholder. Bedre tom for ~200 ms enn feil brand for 200 ms —
-   ingen `'FamilyAssistant'`-fallback under cold-load
-3. Når config kommer: `<span style="color:primary">{namePrimary}</span><span style="color:accent">{nameAccent}</span>`
-4. `aria-label` settes til konkateneringen så screen-readers leser
-   "Hverdagsplanleggeren" som ett ord
+**Detailed Flow:**
+1. `Wordmark` reads `useBrandConfig().config.{namePrimary, nameAccent}`
+2. While config is null (cold load): renders a width-reserved invisible
+   placeholder. Better empty for ~200 ms than wrong brand for 200 ms —
+   no `'FamilyAssistant'` fallback during cold load
+3. When config arrives: `<span style="color:primary">{namePrimary}</span><span style="color:accent">{nameAccent}</span>`
+4. `aria-label` is set to the concatenation so screen-readers read
+   "Hverdagsplanleggeren" as one word
 
-**Berørte filer:**
+**Affected files:**
 - `client/src/app/components/brand/Wordmark.tsx`
 - `client/src/app/hooks/useBrandConfig.ts`
 - `client/src/app/components/layout/AppShell.tsx` (header)
 - `client/src/app/components/brand/Wordmark.test.tsx`,
   `client/src/app/hooks/useBrandConfig.test.ts`
 
-**Dokumentert:** 2026-05-05, PR #122
+**Documented:** 2026-05-05, PR #122
 
-### BR-BRAND-3: Favicon = én bokstav i mørkegrønn container
+### BR-BRAND-3: Favicon = one letter in a dark-green container
 
-**Hva:** Favicon er én bokstav (`APP_FAVICON_LETTER`) i samme
-typografi som wordmarken, satt på en mørkegrønn rounded-rect
-container (`#1F3F26` default) med en liten salviegrønn prikk
-(`#7BA05B` default) i øvre høyre hjørne. Bokstaven er første tegn i
-`APP_NAME_PRIMARY`. Rendres dynamisk fra
-`server/branding/templates/favicon.template.svg` ved request til
+**What:** The favicon is one letter (`APP_FAVICON_LETTER`) in the
+same typography as the wordmark, placed on a dark-green rounded-rect
+container (`#1F3F26` default) with a small sage-green dot
+(`#7BA05B` default) in the upper right corner. The letter is the
+first character in `APP_NAME_PRIMARY`. Rendered dynamically from
+`server/branding/templates/favicon.template.svg` on request to
 `GET /favicon.svg`.
 
-**Hvorfor:** Et symbol som er gjenkjennelig på tab-bar uten å være
-knyttet til en spesifikk app-funksjon (kalender, hake, mat). Samme
-container-formel virker for hver brand — bare bokstaven og evt.
-fargene endres. SVG-only inntil PNG-derivater (sharp) tas inn
-som tech-debt før external pilot.
+**Why:** A symbol that is recognizable on the tab bar without being
+tied to a specific app function (calendar, check, food). The same
+container formula works for each brand — only the letter and
+optionally the colors change. SVG-only until PNG derivatives
+(sharp) are picked up as tech debt before external pilot.
 
-**Detaljert flyt:**
-1. `client/index.html` har `<link rel="icon" type="image/svg+xml" href="/favicon.svg">`
-2. Browser fetcher `/favicon.svg`
-3. `server/http/branding.js` leser cached template + substituerer
-   `{{LETTER}}` (sanitized til a-zA-Z) og `{{APP_NAME}}` (XML-escaped)
-4. Server returnerer `image/svg+xml` med `Cache-Control: public,
+**Detailed Flow:**
+1. `client/index.html` has `<link rel="icon" type="image/svg+xml" href="/favicon.svg">`
+2. Browser fetches `/favicon.svg`
+3. `server/http/branding.js` reads cached template + substitutes
+   `{{LETTER}}` (sanitized to a-zA-Z) and `{{APP_NAME}}` (XML-escaped)
+4. Server returns `image/svg+xml` with `Cache-Control: public,
    max-age=3600, immutable`
-5. Samme template i større format brukes for `/logo-mark.svg` (PWA
-   install-icon, post-pilot OG-image)
+5. The same template in larger format is used for `/logo-mark.svg`
+   (PWA install icon, post-pilot OG image)
 
-**Berørte filer:**
+**Affected files:**
 - `server/branding/templates/favicon.template.svg`
 - `server/branding/templates/logo-mark.template.svg`
 - `server/http/branding.js`
 - `tests/branding-routes.test.js`
 
-**Dokumentert:** 2026-05-05, PR #122
+**Documented:** 2026-05-05, PR #122
 
-### Format å følge når du legger til en regel
+### Format to follow when adding a rule
 
 ````markdown
-### BR-001: <Kort tittel>
+### BR-001: <Short title>
 
-**Hva:** <Regelen i 1–2 setninger>
+**What:** <The rule in 1–2 sentences>
 
-**Hvorfor:** <Bakgrunn og begrunnelse>
+**Why:** <Background and rationale>
 
-**Detaljert flyt:**
-1. <steg>
-2. <steg>
-3. <steg>
+**Detailed Flow:**
+1. <step>
+2. <step>
+3. <step>
 
-**Berørte filer:**
-- `server/services/<navn>.service.js` (implementasjon)
-- `tests/<fil>.test.js` (verifikasjon)
+**Affected files:**
+- `server/services/<name>.service.js` (implementation)
+- `tests/<file>.test.js` (verification)
 
-**Dokumentert:** <dato, PR-nummer>
-**Sist endret:** <dato, PR-nummer>
+**Documented:** <date, PR number>
+**Last modified:** <date, PR number>
 ````
 
 ---
 
-## EDGE-CASES PÅ TVERS
+## CROSS-CUTTING EDGE CASES
 
-> Edge-cases som berører flere entiteter og må håndteres konsistent
-> overalt. Nummereres for referanse.
+> Edge cases that touch multiple entities and must be handled
+> consistently everywhere. Numbered for reference.
 
-*(Ingen edge-cases dokumentert ennå.)*
+*(No edge cases documented yet.)*
 
 ---
 
-## GLOSSAR
+## GLOSSARY
 
-> Når Christer eller koden bruker ord, skal de bety det samme.
+> When Christer or the code uses words, they should mean the same thing.
 
-*(Ingen termer definert ennå. Bygges opp etter hvert.)*
+*(No terms defined yet. Built up over time.)*
 
-### Format å følge
+### Format to follow
 
 ````markdown
-- **<Term>:** <Kort definisjon>. (Referanse: `<fil>`)
+- **<Term>:** <Short definition>. (Reference: `<file>`)
 ````
 
 ---
 
-## RELASJONER PÅ HØYT NIVÅ
+## HIGH-LEVEL RELATIONSHIPS
 
-*(Diagram/oversikt kommer når nok entiteter er dokumentert.)*
+*(Diagram/overview coming when enough entities are documented.)*
 
 ---
 
-## REFERANSER TIL EKSISTERENDE ID-SYSTEMER
+## REFERENCES TO EXISTING ID SYSTEMS
 
-Prosjektet har allerede etablert flere ID-systemer fra ISO-planen.
-DOMAIN_MODEL.md bruker **BR-N** for forretningsregler, og refererer
-til eksisterende ID-er der relevant – **introduserer ikke parallelle
-systemer**:
+The project has already established several ID systems from the ISO plan.
+DOMAIN_MODEL.md uses **BR-N** for business rules and references
+existing IDs where relevant – **it does not introduce parallel
+systems**:
 
-- **SAF-N** – safety (se `docs/SAFETY_CASE.md`, f.eks. SAF-1 =
-  deterministisk allergi-post-filter)
-- **SBOM-N** – supply chain (f.eks. SBOM-6 = audit_log)
+- **SAF-N** – safety (see `docs/SAFETY_CASE.md`, e.g. SAF-1 =
+  deterministic allergy post-filter)
+- **SBOM-N** – supply chain (e.g. SBOM-6 = audit_log)
 - **OBS-N** – observability
-- **PERF-N** – ytelse
-- **PORT-N** – portabilitet
-- **TS-N** – type-sikkerhet
-- **R-N** – risks (se `docs/RISK_REGISTER.md`, R1-R12)
+- **PERF-N** – performance
+- **PORT-N** – portability
+- **TS-N** – type safety
+- **R-N** – risks (see `docs/RISK_REGISTER.md`, R1-R12)
 
-En forretningsregel kan referere en SAF eller R der det gir mening,
-f.eks.:
-> BR-005 implementerer SAF-1 (deterministisk allergi-sjekk) for
-> shopping-list-entries. Se også R1.
+A business rule can reference a SAF or R where it makes sense,
+e.g.:
+> BR-005 implements SAF-1 (deterministic allergy check) for
+> shopping-list-entries. See also R1.
