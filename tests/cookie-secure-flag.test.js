@@ -109,7 +109,7 @@ process.env.SESSION_SECRET = 'test-session-secret-1234567890abcdef1234567890abcd
 process.env.SESSION_COOKIE_NAME = 'fa_session';
 process.env.PILOT_COOKIE_NAME = 'fa_pilot';
 process.env.PILOT_MODE = 'true';
-process.env.PILOT_PASSWORD = 'Andromeda';
+process.env.PILOT_PASSWORD = 'test-pilot-password';
 process.env.ALLOWED_ORIGINS = 'http://localhost:7777';
 process.env.LOG_LEVEL = 'fatal';
 
@@ -301,7 +301,7 @@ describe('Pilot cookie — full HTTP round-trip (POST /api/auth/pilot-password)'
 
   before(async () => {
     process.env.PILOT_MODE = 'true';
-    process.env.PILOT_PASSWORD = 'Andromeda';
+    process.env.PILOT_PASSWORD = 'test-pilot-password';
     process.env.SESSION_SECRET = 'test-session-secret-1234567890abcdef1234567890abcdef';
 
     clearServerCache();
@@ -321,7 +321,7 @@ describe('Pilot cookie — full HTTP round-trip (POST /api/auth/pilot-password)'
     delete process.env.HTTPS_TERMINATED;
     const { request } = require('./helpers');
     const r = await request(baseUrl, 'POST', '/api/auth/pilot-password', {
-      body: { password: 'Andromeda' },
+      body: { password: 'test-pilot-password' },
     });
     assert.strictEqual(r.status, 200);
     const setCookie = r.headers['set-cookie'];
@@ -343,7 +343,7 @@ describe('Pilot cookie — full HTTP round-trip (POST /api/auth/pilot-password)'
       require('../server/services/pilot-password.service').resetRateLimitForTests();
       const { request } = require('./helpers');
       const r = await request(baseUrl, 'POST', '/api/auth/pilot-password', {
-        body: { password: 'Andromeda' },
+        body: { password: 'test-pilot-password' },
       });
       assert.strictEqual(r.status, 200);
       const setCookie = r.headers['set-cookie'];
@@ -360,7 +360,7 @@ describe('Pilot cookie — full HTTP round-trip (POST /api/auth/pilot-password)'
     require('../server/services/pilot-password.service').resetRateLimitForTests();
     const { request } = require('./helpers');
     const r = await request(baseUrl, 'POST', '/api/auth/pilot-password', {
-      body: { password: 'Andromeda' },
+      body: { password: 'test-pilot-password' },
       headers: { 'x-forwarded-proto': 'https' },
     });
     assert.strictEqual(r.status, 200);
