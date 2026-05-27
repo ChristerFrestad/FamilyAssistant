@@ -18,7 +18,7 @@ import type { AuthUser } from '../auth/authApi';
 
 const TEST_USER: AuthUser = {
   id: 7,
-  email: 'christer@frestad.com',
+  email: 'peder@example.com',
   name: 'Christer',
   role: 'owner',
   avatarUrl: null,

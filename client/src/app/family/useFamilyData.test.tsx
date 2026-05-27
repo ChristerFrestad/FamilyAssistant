@@ -40,7 +40,7 @@ const MEMBER_KID: ProfileMember = {
 
 const USER_CHRISTER: FamilyUser = {
   id: 1,
-  email: 'christer@frestad.com',
+  email: 'peder@example.com',
   name: 'Christer',
   avatarUrl: null,
   role: 'owner',
