@@ -1,184 +1,189 @@
 # Security Policy
 
 **Last updated:** 2026-04-18
-**Applies to:** Familieassistenten v1.3.0+
+**Applies to:** FamilyAssistant v1.3.0+
 
-Familieassistenten kjører i to modus:
+FamilyAssistant runs in two modes:
 
-1. **Lokal selvhost** (RPi5 bak router, valgfritt eksponert via
-   Cloudflare Tunnel) — én familie, `AUTH_TOKEN`.
-2. **Multi-tenant via Docker/Portainer** (samme codebase) — flere
-   familier på samme host med Google OAuth eller magic-link-
-   innlogging, per-familie LLM-konfig. Sky-/SaaS-varianten av
-   denne modusen er retired pr. Sprint 2.6 (2026-04-29); auth-
-   koden lever videre og dekkes av tester.
+1. **Local self-host** (RPi5 behind router, optionally exposed via
+   Cloudflare Tunnel) — single family, `AUTH_TOKEN`.
+2. **Multi-tenant via Docker/Portainer** (same codebase) — multiple
+   families on the same host with Google OAuth or magic-link login,
+   per-family LLM config. The cloud/SaaS variant of this mode was
+   retired as of Sprint 2.6 (2026-04-29); the auth code lives on and
+   is covered by tests.
 
-Sikkerhetsmodellen dekker begge. Vi forsvarer mot tilfeldig ondsinnet
-trafikk, prompt-injeksjoner og tenant-krysning, ikke mot statsaktører.
+The security model covers both. We defend against incidental malicious
+traffic, prompt injections, and tenant crossing — not against state
+actors.
 
-## 0. Multi-tenant-garantier (fase 1–20)
+## 0. Multi-tenant Guarantees (phases 1–20)
 
-- **Tenant-isolasjon**: alle familie-skopede repositories leser `family_id`
-  fra en `AsyncLocalStorage`-kontekst satt av middleware. Ingen query kan
-  returnere data uten denne konteksten. Integrasjonstester i
-  `tests/tenant-isolation.test.js` verifiserer at familie A aldri ser
-  familie Bs inventory/menyer/oppskrifter/handleliste/kvitteringer.
-- **Rolle-håndhevelse**: `owner`/`adult`/`child`-matrise håndheves per
-  mutations-endepunkt via `requireRole`. `child` kan ikke POSTe til
-  pantry, meny, handleliste eller AI-chat. Se
+- **Tenant isolation**: all family-scoped repositories read `family_id`
+  from an `AsyncLocalStorage` context set by middleware. No query can
+  return data without this context. Integration tests in
+  `tests/tenant-isolation.test.js` verify that family A never sees
+  family B's inventory/menus/recipes/shopping list/receipts.
+- **Role enforcement**: the `owner`/`adult`/`child` matrix is enforced
+  per mutation endpoint via `requireRole`. `child` cannot POST to
+  pantry, menu, shopping list, or AI chat. See
   `tests/role-enforcement.test.js`.
-- **Kryptering av LLM-credentials**: `family_llm_config.api_key_encrypted`
-  er AES-256-GCM-kryptert med `ENCRYPTION_KEY` (32 bytes hex, distinkt fra
-  `SESSION_SECRET`). Klartekst returneres aldri via API —
-  `GET /api/family/llm` returnerer kun `has_key: boolean`.
-- **Hashed family-id i observability**: Sentry-integrasjonen (valgfri)
-  sender kun SHA-256-truncated family-id som `user.id`. `email`,
-  `username`, `ip_address` og request-body scrubbes i `beforeSend`.
-  Authorization/Cookie-headere redacted.
-- **Session-cookies**: HttpOnly + Secure + SameSite=Lax, 30-dagers TTL,
-  signed med `SESSION_SECRET`. Logout invaliderer serverside-sessionen
-  og tømmer SW API-cache slik at neste bruker på delt enhet ikke ser
-  forrige brukers data.
-- **Tenant-sensitive API-endpoints** (`/api/auth/*`, `/api/family/*`,
+- **Encryption of LLM credentials**: `family_llm_config.api_key_encrypted`
+  is AES-256-GCM encrypted with `ENCRYPTION_KEY` (32 bytes hex, distinct
+  from `SESSION_SECRET`). Cleartext is never returned via the API —
+  `GET /api/family/llm` returns only `has_key: boolean`.
+- **Hashed family-id in observability**: the Sentry integration (optional)
+  sends only the SHA-256-truncated family-id as `user.id`. `email`,
+  `username`, `ip_address`, and request body are scrubbed in `beforeSend`.
+  Authorization/Cookie headers are redacted.
+- **Session cookies**: HttpOnly + Secure + SameSite=Lax, 30-day TTL,
+  signed with `SESSION_SECRET`. Logout invalidates the server-side
+  session and clears the SW API cache so the next user on a shared
+  device cannot see the previous user's data.
+- **Tenant-sensitive API endpoints** (`/api/auth/*`, `/api/family/*`,
   `/api/llm-config/*`, `/api/invitations/*`, `/api/onboarding/*`,
-  `/api/gdpr/*`) bypasser service-worker-cache eksplisitt — network-only
-  slik at en stale bufret respons aldri kan lekke mellom kontoer.
+  `/api/gdpr/*`) explicitly bypass the service-worker cache — network-only
+  so a stale cached response can never leak between accounts.
 
 ---
 
-## 1. Trusselmodell (STRIDE)
+## 1. Threat Model (STRIDE)
 
-| Kategori | Trussel | Mitigasjon |
+| Category | Threat | Mitigation |
 |---|---|---|
-| **S**poofing | Uautorisert klient på LAN | `AUTH_TOKEN` (≥16 tegn) obligatorisk i produksjon, bearer auth på alle `/api/*` unntatt `/health`, `/ready`, `/metrics` |
-| | Caddy serverer feil sertifikat | Caddy intern CA, `caddy trust` installerer rot-cert lokalt |
-| | Angriper på offentlig nett | Tailscale Serve eller Let's Encrypt for ekstern tilgang |
-| **T**ampering | XSS via recipe-import / LLM | `escapeHtml` i alle `innerHTML`, CSP `script-src 'self' 'unsafe-inline'`, backend `sanitizeString` trimmer tags/control chars |
-| | Prompt-injection i LLM-kontekst | `sanitizeForPrompt` fjerner "ignore previous", rolle-hijack, kontrolltegn |
-| | Modifisering av lokal DB | SQLite-fil eid av `pi:pi` med `0644`, systemd `ReadWritePaths` begrenser til `data/` |
-| | MITM på LAN | HTTPS via Caddy, HSTS når `HTTPS_TERMINATED=true` |
-| **R**epudiation | Uklart hvem som gjorde hva | `requestId` i alle log-linjer + problem-body, men single-user på dette nivået |
-| **I**nformation disclosure | API-nøkkel i loggen | `pino` redact-paths for `KASSAL_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `AUTH_TOKEN`, `Authorization`-header, `cookie` |
-| | `.env`-fil lest av annen bruker | systemd `User=pi`, `.env` settes til `0600 pi:pi` i installasjonsscriptet |
-| | Env-nøkler returnert i `/api/settings/env` | `readMasked()` returnerer `●●●●●●●●●•XYZW` — aldri klartekst |
-| | Error-traces lekker detaljer i prod | `server/http/server.js` masker interne meldinger til "Intern feil" når `NODE_ENV=production` |
-| **D**enial of service | Flood av requests | `RATE_LIMIT_MAX=300`/min per IP (default), Caddy `request_body { max_size 5MB }` |
-| | Henger på ekstern backend | Circuit breakers på ollama (3 fails, 30s cooldown), kassal/anthropic (5, 60s) |
-| | Uendelig backup-loop | Schedule-driven, én gang per 24t, prune etter 14 dager |
+| **S**poofing | Unauthorized client on LAN | `AUTH_TOKEN` (≥16 chars) required in production, bearer auth on all `/api/*` except `/health`, `/ready`, `/metrics` |
+| | Caddy serves the wrong certificate | Caddy internal CA, `caddy trust` installs the root cert locally |
+| | Attacker on public network | Tailscale Serve or Let's Encrypt for external access |
+| **T**ampering | XSS via recipe-import / LLM | `escapeHtml` in all `innerHTML`, CSP `script-src 'self' 'unsafe-inline'`, backend `sanitizeString` trims tags/control chars |
+| | Prompt injection in LLM context | `sanitizeForPrompt` removes "ignore previous", role hijack, control characters |
+| | Modification of local DB | SQLite file owned by `pi:pi` with `0644`, systemd `ReadWritePaths` restricts to `data/` |
+| | MITM on LAN | HTTPS via Caddy, HSTS when `HTTPS_TERMINATED=true` |
+| **R**epudiation | Unclear who did what | `requestId` in all log lines + problem body, but single-user at this level |
+| **I**nformation disclosure | API key in logs | `pino` redact paths for `KASSAL_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `AUTH_TOKEN`, `Authorization` header, `cookie` |
+| | `.env` file read by another user | systemd `User=pi`, `.env` set to `0600 pi:pi` in the install script |
+| | Env keys returned in `/api/settings/env` | `readMasked()` returns `●●●●●●●●●•XYZW` — never cleartext |
+| | Error traces leak details in prod | `server/http/server.js` masks internal messages to "Internal error" when `NODE_ENV=production` |
+| **D**enial of service | Request flood | `RATE_LIMIT_MAX=300`/min per IP (default), Caddy `request_body { max_size 5MB }` |
+| | Hangs on external backend | Circuit breakers on ollama (3 fails, 30s cooldown), kassal/anthropic (5, 60s) |
+| | Infinite backup loop | Schedule-driven, once per 24h, prune after 14 days |
 | | Massive payloads | `MAX_BODY_BYTES=1MB` (configurable) |
-| **E**levation of privilege | systemd prosess kompromittert | `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictSUIDSGID` |
-| | Symbolic link attack | `ReadWritePaths=$APP_ROOT/data` — DB-filen er eneste skriving |
+| **E**levation of privilege | systemd process compromised | `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictSUIDSGID` |
+| | Symbolic link attack | `ReadWritePaths=$APP_ROOT/data` — the DB file is the only write target |
 
 ---
 
-## 2. Sensitiv data i prosjektet
+## 2. Sensitive Data in the Project
 
-Dette er data som finnes i produksjonsinstallasjonen og krever ekstra vare:
+This is data that exists in a production install and requires extra care:
 
-- **API-nøkler** (Kassal, OpenAI, Anthropic, xAI) — lagres i `.env`,
-  permissions `0600`, aldri logged. Kan settes/rotert via Settings-UI
-  som skriver via `env-store.service` med atomic write + backup.
-- **AUTH_TOKEN** — systemd environment (`systemctl edit`) eller separate
-  `/etc/familieassistenten.env`. Minimum 32 hex-tegn (`openssl rand -hex 32`).
-- **Familiedata** — medlemmer, allergier, mislikt mat, handlemønster,
-  LLM-chat-historikk. Alt ligger i SQLite-filen `data/familieassistenten.db`.
-  Backup-filer krypteres ikke (hjemme-nett only) — bruk `rsync` over SSH
-  for off-site og stol på SSH-nøkkelen, eller manuell GPG-kryptering.
-- **Kvitteringer + OCR-tekst** — tekst-ekstrakter kan inneholde navn/adresser.
-  Lagres i `receipts`-tabellen, samme sensitivitet som DB ellers.
+- **API keys** (Kassal, OpenAI, Anthropic, xAI) — stored in `.env`,
+  permissions `0600`, never logged. Can be set/rotated via the Settings
+  UI, which writes through `env-store.service` with atomic write + backup.
+- **AUTH_TOKEN** — systemd environment (`systemctl edit`) or separate
+  `/etc/familyassistant.env`. Minimum 32 hex chars (`openssl rand -hex 32`).
+- **Family data** — members, allergies, food dislikes, shopping patterns,
+  LLM chat history. All lives in the SQLite file `data/familyassistant.db`.
+  Backup files are not encrypted (home-network only) — use `rsync` over SSH
+  for off-site and trust the SSH key, or manual GPG encryption.
+- **Receipts + OCR text** — text extracts can contain names/addresses.
+  Stored in the `receipts` table, same sensitivity as the DB otherwise.
 
-### 2.1 PII i dokumentasjon — policy
+### 2.1 PII in Documentation — Policy
 
-**Ingen PII skal committes i repo-tekst.** Dette dekker:
+**No PII shall be committed in repo text.** This covers:
 
-- Navn på familiemedlemmer utover prosjekt-eieren (for author-attribution)
-- Adresser, postnummer, telefon, personnummer
-- Bilder eller navn på barn
-- Spesifikke butikk-lokasjoner (bruk generisk butikk-navn uten bydel
-  eller by — f.eks. "Kiwi" i stedet for "Kiwi <bydel>")
-- Kalender-lokasjoner (bruk test-verdier som "Testveien 1" i fixtures)
+- Names of family members beyond the project owner (for author attribution)
+- Addresses, postal codes, phone numbers, national ID numbers
+- Pictures or names of children
+- Specific store locations (use generic store names without district or
+  city — e.g. "Kiwi" instead of "Kiwi <district>")
+- Calendar locations (use test values like "Test Street 1" in fixtures)
 
-**Hvorfor:** Repoet kan en dag bli delt, klonet av nye bidragsytere,
-eller eksponert via logs/backups. PII i git-historien er vanskelig
-å fjerne senere (krever force-push + history rewrite).
+**Why:** The repo may one day be shared, cloned by new contributors, or
+exposed via logs/backups. PII in git history is hard to remove later
+(requires force-push + history rewrite).
 
-**Ved oppdagelse av PII i committed kode:** Kjør `git log --all -p |
-grep -i <trigger>` for å finne alle forekomster, bruk `git filter-repo`
-eller squash-rewrite for å fjerne fra hele historikken. Force-push og
-varsle alle som har clonet.
+**On discovery of PII in committed code:** Run `git log --all -p | grep
+-i <trigger>` to find all occurrences, use `git filter-repo` or
+squash-rewrite to remove from the entire history. Force-push and notify
+everyone who has cloned.
 
-**Hva operatøren gjør i prod:** Familiespesifikk data (navn, allergier,
-preferanser) legges i family_profile-tabellen via Kontrollrommet-UIet.
-Det er kun i SQLite-databasen lokalt på enheten — aldri i git.
+**What the operator does in prod:** Family-specific data (names,
+allergies, preferences) is entered into the family_profile table via the
+Control Room UI. It lives only in the SQLite database locally on the
+device — never in git.
 
-## 3. Kjente svakheter og trade-offs
+## 3. Known Weaknesses and Trade-offs
 
-Disse er akseptert risiko, dokumentert her så nye utviklere forstår:
+These are accepted risks, documented here so new developers understand:
 
-- **CSP har `'unsafe-inline'` for script** — `public/index.html` er én stor
-  fil med inline-handlers (`onclick="..."`). Planen var å modularisere i M5,
-  men ble utsatt til v1.3 for å unngå blast radius av en 3700-linje refaktor.
-  `escapeHtml`-helperen gir bunden sikkerhet selv uten nonce/hash-baserte CSP.
-- **~~Ingen audit-logg~~ Dedikert audit-log fra v1.3** — destruktive
-  operasjoner (DELETE/PUT på profile, pantry, sources, receipts, calendar)
-  logges i `audit_log`-tabellen med request-id, SHA-256 før/etter-hash og
-  tidsstempel. Eksponeres read-only via `/api/audit`. Append-only på
-  API-nivå. Se SBOM-6 i CHANGELOG.md.
-- **Rate-limit er in-memory** — nullstilles ved restart, ikke delt mellom
-  noder. Akseptabelt for single-node RPi5.
-- **Ingen 2FA** — kun bearer-token. Token-kompromittering gir full tilgang.
-- **`sw.js` bufrer API GET-responses** — inneholder ikke-sensitive data
-  (meal plans, chores) men en fysisk enhet med cache-tilgang kan lese
-  gammel data. Scope er samme device, så samme risiko som DB-tilgangen.
+- **CSP has `'unsafe-inline'` for script** — `public/index.html` is one
+  large file with inline handlers (`onclick="..."`). The plan was to
+  modularize in M5, but it was deferred to v1.3 to avoid the blast radius
+  of a 3700-line refactor. The `escapeHtml` helper gives bounded security
+  even without nonce/hash-based CSP.
+- **~~No audit log~~ Dedicated audit log from v1.3** — destructive
+  operations (DELETE/PUT on profile, pantry, sources, receipts, calendar)
+  are logged in the `audit_log` table with request-id, SHA-256 before/after
+  hash, and timestamp. Exposed read-only via `/api/audit`. Append-only at
+  the API level. See SBOM-6 in CHANGELOG.md.
+- **Rate limit is in-memory** — resets on restart, not shared between
+  nodes. Acceptable for single-node RPi5.
+- **No 2FA** — bearer-token only. Token compromise grants full access.
+- **`sw.js` caches API GET responses** — contains non-sensitive data
+  (meal plans, chores), but a physical device with cache access can read
+  old data. Scope is the same device, so the same risk as DB access.
 
-## 4. Supply-chain policy (fra v1.3)
+## 4. Supply-chain Policy (from v1.3)
 
 ### 4.1 SBOM (Software Bill of Materials)
 
-Hver release-bygging genererer en **CycloneDX 1.6** SBOM som dekker alle
-runtime-avhengigheter (produksjons-bundle, ekskluderer devDeps).
+Every release build generates a **CycloneDX 1.6** SBOM that covers all
+runtime dependencies (production bundle, excluding devDeps).
 
-- **Lokalt:** `npm run sbom` → `sbom.json`
-- **Full (inkl. dev):** `npm run sbom:full` → `sbom-full.json`
-- **CI:** `sbom`-jobben i `.github/workflows/ci.yml` genererer og laster opp
-  SBOM-en som build-artifact ved hver push. Beholdes i 90 dager.
-- **Release:** `.github/workflows/release.yml` vedhefter `sbom.json` til
-  hver GitHub Release (taggede versjoner `v*`).
+- **Locally:** `npm run sbom` → `sbom.json`
+- **Full (incl. dev):** `npm run sbom:full` → `sbom-full.json`
+- **CI:** the `sbom` job in `.github/workflows/ci.yml` generates and
+  uploads the SBOM as a build artifact on every push. Retained for 90 days.
+- **Release:** `.github/workflows/release.yml` attaches `sbom.json` to
+  every GitHub Release (tagged versions `v*`).
 
-SBOM gir downstream-brukere muligheten til å krysssjekke egne avhengigheter,
-møte NIS2 / US EO 14028 supply-chain-krav, og rask CVE-kartlegging.
+SBOM gives downstream users the ability to cross-check their own
+dependencies, meet NIS2 / US EO 14028 supply-chain requirements, and
+perform rapid CVE mapping.
 
 ### 4.2 OSV-Scanner (vulnerability feed)
 
-Google's [Open Source Vulnerabilities](https://osv.dev) database scannes
-på hvert CI-kjøring via `google/osv-scanner-action`.
+Google's [Open Source Vulnerabilities](https://osv.dev) database is
+scanned on every CI run via `google/osv-scanner-action`.
 
-- **Gate:** CI feiler hvis HIGH/CRITICAL-sårbarheter finnes i `package-lock.json`.
-- **Output:** SARIF-fil lastes opp til GitHub Security-tabben (krever
-  `security-events: write`-permission).
-- **Reaksjonstid:** Hvis OSV-Scanner flagger en HIGH/CRITICAL CVE, skal
-  den patches eller workaround etableres **innen 7 dager**. Dokumenter i
-  issue eller CHANGELOG.
+- **Gate:** CI fails if HIGH/CRITICAL vulnerabilities are found in
+  `package-lock.json`.
+- **Output:** SARIF file uploaded to the GitHub Security tab (requires
+  `security-events: write` permission).
+- **Response time:** If OSV-Scanner flags a HIGH/CRITICAL CVE, it shall
+  be patched or a workaround established **within 7 days**. Document in
+  an issue or CHANGELOG.
 
 ### 4.3 npm audit
 
-Komplementerer OSV-Scanner med npm-sin egen database:
+Complements OSV-Scanner with npm's own database:
 
-- `npm audit --omit=dev --audit-level=high` kjøres som eget CI-steg
-  (`security`-jobben). Feiler ved HIGH+.
-- `npm audit --audit-level=moderate` (inkl. dev) kjøres som informativt
-  steg, ikke blokkerende.
+- `npm audit --omit=dev --audit-level=high` runs as its own CI step
+  (`security` job). Fails on HIGH+.
+- `npm audit --audit-level=moderate` (incl. dev) runs as an informational
+  step, non-blocking.
 
-### 4.4 SLSA Level 3 provenance
+### 4.4 SLSA Level 3 Provenance
 
-Release-artifacts er kryptografisk signert med build-herkomst:
+Release artifacts are cryptographically signed with build provenance:
 
-- `release.yml` bruker `slsa-framework/slsa-github-generator` for å generere
-  en signert `.intoto.jsonl` fil som beskriver hvem, hva, når, og hvordan
-  artifact-et ble bygget.
-- Ingen private nøkler i repoet — signeringen skjer via GitHub OIDC +
-  Sigstore Fulcio/Rekor (keyless signing).
-- Verifisering downstream:
+- `release.yml` uses `slsa-framework/slsa-github-generator` to generate a
+  signed `.intoto.jsonl` file that describes who, what, when, and how the
+  artifact was built.
+- No private keys in the repo — signing happens via GitHub OIDC + Sigstore
+  Fulcio/Rekor (keyless signing).
+- Downstream verification:
   ```bash
   slsa-verifier verify-artifact \
     --provenance-path familieassistenten-v1.3.0.intoto.jsonl \
@@ -186,88 +191,88 @@ Release-artifacts er kryptografisk signert med build-herkomst:
     familieassistenten-v1.3.0.tar.gz
   ```
 
-### 4.5 Token rotation
+### 4.5 Token Rotation
 
-`AUTH_TOKEN` skal roteres **minst hver 90. dag**. Mekanikk:
+`AUTH_TOKEN` shall be rotated **at least every 90 days**. Mechanics:
 
-1. Operatør setter ny token i `.env` eller `systemd environment`:
+1. Operator sets a new token in `.env` or `systemd environment`:
    ```bash
    NEW_TOKEN=$(openssl rand -hex 32)
-   # Oppdater AUTH_TOKEN og AUTH_TOKEN_CREATED_AT
+   # Update AUTH_TOKEN and AUTH_TOKEN_CREATED_AT
    ```
 2. `AUTH_TOKEN_CREATED_AT=2026-04-10T12:00:00Z` (ISO-8601).
-3. Appen leser dette i `config.js` og /ready flagger warning
-   `auth_token_stale_<N>d` når `N > AUTH_TOKEN_MAX_AGE_DAYS` (default 90).
-4. Hvis `AUTH_TOKEN` er satt men `AUTH_TOKEN_CREATED_AT` mangler, returnerer
-   /ready en `auth_token_age_unknown`-warning i produksjon.
+3. The app reads this in `config.js` and /ready flags warning
+   `auth_token_stale_<N>d` when `N > AUTH_TOKEN_MAX_AGE_DAYS` (default 90).
+4. If `AUTH_TOKEN` is set but `AUTH_TOKEN_CREATED_AT` is missing, /ready
+   returns an `auth_token_age_unknown` warning in production.
 
-Rate-limit CI-gate og audit-log fanger eventuell misbruk mellom rotasjoner.
+The rate-limit CI gate and audit log catch any misuse between rotations.
 
 ### 4.6 Dependabot
 
-`.github/dependabot.yml` åpner ukentlige PR-er (mandager 07:00 Europe/Oslo):
+`.github/dependabot.yml` opens weekly PRs (Mondays 07:00 Europe/Oslo):
 
-- **npm (production + development)** — grupperte minor/patch for mindre støy,
+- **npm (production + development)** — grouped minor/patch for less noise,
   separate PRs for major.
-- **GitHub Actions** — action-versjoner.
+- **GitHub Actions** — action versions.
 
-Alle Dependabot-PRs skal kjøre gjennom vanlig CI-gate (lint + format + test
-+ coverage + SBOM + OSV-scan) før merge.
+All Dependabot PRs go through the normal CI gate (lint + format + test +
+coverage + SBOM + OSV-scan) before merge.
 
-### 4.7 Oppdaterings-policy
+### 4.7 Update Policy
 
-- **Node.js**: hold på siste LTS (20.x p.t.). Sjekk `package.json#engines`.
-- **better-sqlite3**: oppdateres ved større Node-versjoner. Fallback til
-  `sql.js` hvis kompilering feiler.
-- **zod, pino, pino-pretty**: patch-level fra time til time, minor-level
-  månedlig hvis endringslog er ren.
-- **Avhengigheter fra Caddy/Ollama/whisper.cpp**: operatør holder disse
-  oppdatert separat via `apt` / releases.
+- **Node.js**: stay on the latest LTS (20.x currently). Check
+  `package.json#engines`.
+- **better-sqlite3**: updated with major Node versions. Fallback to
+  `sql.js` if compilation fails.
+- **zod, pino, pino-pretty**: patch-level hour by hour, minor-level
+  monthly if the changelog is clean.
+- **Dependencies from Caddy/Ollama/whisper.cpp**: the operator keeps
+  these up to date separately via `apt` / releases.
 
-Sjekk utdaterte pakker:
+Check outdated packages:
 ```bash
 cd $APP_ROOT
 npm outdated
 npm audit
-# CVE-er innen 7 dager, minor-updates innen 30 dager.
+# CVEs within 7 days, minor updates within 30 days.
 ```
 
-## 5. Rapporter en sikkerhetssvakhet
+## 5. Report a Vulnerability
 
-Familieassistenten er et privat prosjekt, ikke en offentlig tjeneste.
-Hvis du er en del av familien eller en tidligere utvikler som finner
-noe bekymringsverdig:
+FamilyAssistant is a private project, not a public service. If you are
+part of the family or a former developer who finds something concerning:
 
-1. **Ikke** åpne en public GitHub-issue med tekniske detaljer.
-2. Send en privat melding til prosjektets eier med:
-   - Hva du observerte
-   - Hvordan du reproduserte det
-   - Hvilken versjon (commit-hash fra `git rev-parse HEAD`)
-3. Responstid: vi målfører innen 48 timer, fix innen 7 dager for
-   kritiske funn.
+1. **Do not** open a public GitHub issue with technical details.
+2. Send a private message to the project owner with:
+   - What you observed
+   - How you reproduced it
+   - Which version (commit hash from `git rev-parse HEAD`)
+3. Response time: we aim to triage within 48 hours, fix within 7 days for
+   critical findings.
 
-For public GitHub-repo (`ChristerFrestad/FamilyAssistant`), bruk
-GitHub Security Advisories (private disclosures) hvis den funksjonen er
-aktivert.
+For the public GitHub repo (`ChristerFrestad/FamilyAssistant`), use
+GitHub Security Advisories (private disclosures) if that feature is
+enabled.
 
-## 6. Sikkerhets-sjekkliste før deploy
+## 6. Security Checklist Before Deploy
 
-Kjør gjennom denne før `systemctl start familieassistenten` i prod:
+Run through this before `systemctl start familieassistenten` in prod:
 
-- [ ] `NODE_ENV=production` satt
-- [ ] `AUTH_TOKEN` generert med `openssl rand -hex 32`
-- [ ] `ALLOWED_ORIGINS` satt til konkrete host-verdier (ikke `*`)
-- [ ] `.env` har `chmod 600` og `chown pi:pi`
-- [ ] `HTTPS_TERMINATED=true` hvis bak Caddy
-- [ ] `BACKUP_REMOTE_PATH` satt hvis off-site backup er ønsket
-- [ ] Caddyfile konfigurert (LAN intern CA eller Tailscale)
-- [ ] `ufw` tillater bare 80/443, ikke 3000
-- [ ] `sudo journalctl -u familieassistenten -p warn` viser ingen
-      `AUTH_TOKEN er påkrevd`-feil
+- [ ] `NODE_ENV=production` set
+- [ ] `AUTH_TOKEN` generated with `openssl rand -hex 32`
+- [ ] `ALLOWED_ORIGINS` set to concrete host values (not `*`)
+- [ ] `.env` has `chmod 600` and `chown pi:pi`
+- [ ] `HTTPS_TERMINATED=true` if behind Caddy
+- [ ] `BACKUP_REMOTE_PATH` set if off-site backup is desired
+- [ ] Caddyfile configured (LAN internal CA or Tailscale)
+- [ ] `ufw` allows only 80/443, not 3000
+- [ ] `sudo journalctl -u familieassistenten -p warn` shows no
+      `AUTH_TOKEN is required` errors
 - [ ] `curl -H "Authorization: Bearer $TOKEN" https://host/api/today`
-      returnerer 200
-- [ ] `curl https://host/api/today` uten token returnerer 401
-- [ ] `curl -k https://host/health` returnerer 200 med CSP-header
-- [ ] `curl https://host/api/status | jq '.breakers'` viser alle CLOSED
-- [ ] Minimum én lokal backup <24t gammel i `data/backups/`
-- [ ] (Off-site) Minimum én ekstern backup <24t gammel
+      returns 200
+- [ ] `curl https://host/api/today` without token returns 401
+- [ ] `curl -k https://host/health` returns 200 with CSP header
+- [ ] `curl https://host/api/status | jq '.breakers'` shows all CLOSED
+- [ ] At least one local backup <24h old in `data/backups/`
+- [ ] (Off-site) at least one external backup <24h old

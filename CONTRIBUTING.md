@@ -1,95 +1,96 @@
-# Bidra til Familieassistenten
+# Contributing to FamilyAssistant
 
-Takk for at du vurderer å bidra. Dette er et personlig, selvhostet husholdnings-
-system skrevet for å kjøre lokalt på en Raspberry Pi 5, men jeg tar gjerne imot
-ryddige bidrag fra andre.
+Thanks for considering a contribution. This is a personal, self-hosted
+household system written to run locally on a Raspberry Pi 5, but I'm
+happy to receive tidy contributions from others.
 
-Hoveddokumentasjonen er på norsk siden appen er norsk-fokusert. Du kan gjerne
-åpne issues og PR-beskrivelser på engelsk om det er mer praktisk for deg.
-
----
-
-## Kort oppsummering
-
-1. Åpne en [issue](https://github.com/ChristerFrestad/FamilyAssistant/issues)
-   først hvis du planlegger en større endring — da kan vi avklare scope før
-   du bruker tid på koden.
-2. Opprett en branch (se [Branch-navngivning](#branch-navngivning)).
-3. Utfør arbeidet. Kjør `npm run ci` før commit.
-4. Åpne en PR mot `main`. CI kjører alle gates automatisk.
-5. Jeg reviewer. Når alt er grønt og vi er enige, squash-merges PR-en.
+Issues and PR descriptions in English are preferred so they're accessible
+to the broader contributor community.
 
 ---
 
-## Rapportere bugs
+## Quick Summary
 
-Bruk [GitHub Issues](https://github.com/ChristerFrestad/FamilyAssistant/issues)
-og inkluder:
-
-- Kort beskrivelse av problemet
-- Hvordan reprodusere (steg for steg)
-- Forventet vs. faktisk oppførsel
-- Node-versjon (`node --version`), OS, om det er Docker/bare-metal
-- Relevante logg-utdrag fra `~/.familieassistenten/logs/` eller Docker-logs
-
-Har du funnet en **sikkerhetssårbarhet**, ikke åpne en offentlig issue — se
-[SECURITY.md](SECURITY.md) for hvordan du rapporterer privat.
+1. Open an [issue](https://github.com/ChristerFrestad/FamilyAssistant/issues)
+   first if you're planning a larger change — that way we can clarify
+   scope before you spend time on the code.
+2. Create a branch (see [Branch Naming](#branch-naming)).
+3. Do the work. Run `npm run ci` before commit.
+4. Open a PR against `main`. CI runs all gates automatically.
+5. I review. Once everything is green and we agree, the PR is squash-merged.
 
 ---
 
-## Foreslå funksjoner
+## Reporting Bugs
 
-Åpne en issue med label `enhancement` og beskriv:
+Use [GitHub Issues](https://github.com/ChristerFrestad/FamilyAssistant/issues)
+and include:
 
-- Brukerproblemet du løser (ikke bare løsningen)
-- Hvorfor dette passer i appens scope (lokal, familie-fokusert, enkel drift)
-- Alternativer du har vurdert
+- A short description of the problem
+- How to reproduce (step by step)
+- Expected vs. actual behavior
+- Node version (`node --version`), OS, whether it's Docker/bare-metal
+- Relevant log excerpts from `~/.familieassistenten/logs/` or Docker logs
 
-Jeg er konservativ med nye funksjoner. Appen skal forbli enkel å drifte på en
-Raspberry Pi av en familie uten IT-bakgrunn. Funksjoner som krever ekstern
-avhengighet, cloud-kontoer, eller stor kompleksitet avvises typisk.
+If you've found a **security vulnerability**, do not open a public issue
+— see [SECURITY.md](SECURITY.md) for how to report privately.
 
 ---
 
-## Utviklingsoppsett
+## Suggesting Features
 
-Se [CI.md](CI.md) for full beskrivelse. Kort:
+Open an issue with the `enhancement` label and describe:
+
+- The user problem you're solving (not just the solution)
+- Why this fits the app's scope (local, family-focused, simple operation)
+- Alternatives you've considered
+
+I'm conservative with new features. The app should remain easy to operate
+on a Raspberry Pi by a family without an IT background. Features that
+require external dependencies, cloud accounts, or significant complexity
+are typically rejected.
+
+---
+
+## Development Setup
+
+See [CI.md](CI.md) for the full description. Short version:
 
 ```bash
 git clone https://github.com/ChristerFrestad/FamilyAssistant.git
 cd FamilyAssistant
-npm ci                        # ikke 'npm install'
-npm run ci                    # verifisér at alt er grønt lokalt
+npm ci                        # not 'npm install'
+npm run ci                    # verify everything is green locally
 ```
 
-Node 20.x eller 22.x. SQLite-støtte via `better-sqlite3` (native binding bygges
-av `npm ci`) eller `sql.js` som fallback.
+Node 20.x or 22.x. SQLite support via `better-sqlite3` (native binding
+built by `npm ci`) or `sql.js` as a fallback.
 
 ---
 
-## Branch-navngivning
+## Branch Naming
 
-Bruk prefiks som matcher Conventional Commits (se neste seksjon):
+Use a prefix that matches Conventional Commits (see the next section):
 
-| Prefiks | Bruk |
+| Prefix | Use |
 |---|---|
-| `feat/` | Ny funksjonalitet |
-| `fix/` | Bug-fiks |
-| `chore/` | Vedlikehold, ikke brukervendt (build, CI, deps) |
-| `docs/` | Kun dokumentasjonsendringer |
-| `refactor/` | Strukturelle endringer uten adferdsendring |
-| `test/` | Kun test-tillegg/-endringer |
-| `ci/` | CI/CD-konfig-endringer |
-| `deps/` | Dependency-oppgraderinger (Dependabot bruker dette) |
+| `feat/` | New functionality |
+| `fix/` | Bug fix |
+| `chore/` | Maintenance, not user-facing (build, CI, deps) |
+| `docs/` | Documentation-only changes |
+| `refactor/` | Structural changes without behavior change |
+| `test/` | Test additions/changes only |
+| `ci/` | CI/CD config changes |
+| `deps/` | Dependency upgrades (Dependabot uses this) |
 
-Eksempel: `feat/weekly-menu-export`, `fix/pantry-unit-conversion`,
+Example: `feat/weekly-menu-export`, `fix/pantry-unit-conversion`,
 `chore/prettier-config`.
 
 ---
 
-## Commit-meldinger (Conventional Commits)
+## Commit Messages (Conventional Commits)
 
-Prosjektet følger [Conventional Commits 1.0](https://www.conventionalcommits.org/):
+The project follows [Conventional Commits 1.0](https://www.conventionalcommits.org/):
 
 ```
 <type>(<scope>): <subject>
@@ -99,18 +100,18 @@ Prosjektet følger [Conventional Commits 1.0](https://www.conventionalcommits.or
 <footer>
 ```
 
-Vanlige typer: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `perf`,
-`style`, `deps`.
+Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`,
+`perf`, `style`, `deps`.
 
-**Regler:**
+**Rules:**
 
-- Subject i imperativ, små bokstaver, ingen punktum: `add X`, `fix Y`, ikke
+- Subject in imperative, lowercase, no period: `add X`, `fix Y`, not
   `Added X.`
-- Maks 72 tegn i subject, 100 tegn per linje i body
-- Body forklarer **hvorfor**, ikke **hva** (diffen viser hva)
-- Referér issues med `Refs #42` eller `Closes #42` i footer
+- Max 72 chars in subject, 100 chars per line in body
+- Body explains **why**, not **what** (the diff shows what)
+- Reference issues with `Refs #42` or `Closes #42` in the footer
 
-**Eksempel (hentet fra historikken):**
+**Example (from history):**
 
 ```
 chore(deps): bump @eslint/js to v10 and fix new recommended errors
@@ -128,148 +129,152 @@ Closes #42
 
 ---
 
-## Kode-konvensjoner
+## Code Conventions
 
-- **ESLint flat config** (`eslint.config.mjs`) — 0 errors tillatt
-- **Prettier** (`.prettierrc.json`) — 100 tegn, single quotes, trailing commas
-  (ES5)
-- **TypeScript i JSDoc** — opt-in via `// @ts-check` på toppen av filer.
-  Se `docs/TYPE_COVERAGE.md`
-- **Tester** — `node --test` (ingen Jest/Mocha). Alle nye features må ha
-  tester. Coverage-gate må passere
-- **Kommentarer** — engelsk i ny kode, norsk i eldre filer aksepteres
-  inntil videre
+- **ESLint flat config** (`eslint.config.mjs`) — 0 errors allowed
+- **Prettier** (`.prettierrc.json`) — 100 chars, single quotes, trailing
+  commas (ES5)
+- **TypeScript in JSDoc** — opt-in via `// @ts-check` at the top of files.
+  See `docs/TYPE_COVERAGE.md`
+- **Tests** — `node --test` (no Jest/Mocha). All new features must have
+  tests. The coverage gate must pass
+- **Comments** — English in new code; Norwegian in older files is accepted
+  for now
 
-Kjør `npm run lint:fix && npm run format:fix` før commit.
-
----
-
-## Frontend-struktur: `app/` vs `dev/`
-
-V2-frontenden (React-redesign under `client/`) har en hard grense mellom
-produksjons-kode og dev-only-verktøy. Regelen er enkel:
-
-- Alt under `client/src/app/` (og `client/src/main.tsx`, som er
-  entry-point for produksjons-appen) er **produksjonskode** og skal
-  ende opp i bundlen.
-- Alt under `client/src/dev/` er **utviklerverktøy** — komponent-
-  gallerier, debug-panel, preview-sider, eksperimenter — som aldri
-  skal ende opp i produksjon.
-- **Produksjonskode kan IKKE importere fra `dev/`.** Dev-kode kan
-  importere fritt fra `app/` (en preview-side for `Button` skal
-  selvsagt bruke den ekte `Button`-komponenten).
-
-Grensen er maskinelt håndhevet:
-
-- `client/vite-plugins/enforce-isolation.ts` fanger ethvert
-  `app → dev`-import-forsøk og krasjer bygget med en tydelig
-  feilmelding som navngir både importer og target. Pluginet kjører
-  i både `npm run dev:client` og `npm run build:client`.
-- `tests/client-dev-isolation.test.js` beviser at pluginen virker
-  ved å kjøre en ekte Vite-build mot en probe som bryter grensen
-  (forventer feil) og en som ikke gjør det (forventer success).
-  Testen kjører som del av `npm test`.
-
-Hvis du havner i en situasjon der kode i `dev/` ville vært nyttig
-i produksjonen, flytt den til `client/src/app/lib/` først — og
-importer den deretter fra begge steder. Ikke strekk gjennom grensen.
-
-Se også `client/src/dev/README.md` for detaljer og CLAUDE.md
-seksjon 7.7 for den bredere regelen om teknisk gjeld som denne
-grensen er én manifestasjon av.
+Run `npm run lint:fix && npm run format:fix` before commit.
 
 ---
 
-## Testkrav
+## Frontend Structure: `app/` vs `dev/`
 
-Alle PR-er må passere:
+The v2 frontend (React redesign under `client/`) has a hard boundary
+between production code and dev-only tools. The rule is simple:
 
-| Gate | Terskel |
+- Everything under `client/src/app/` (and `client/src/main.tsx`, which is
+  the entry point for the production app) is **production code** and
+  ends up in the bundle.
+- Everything under `client/src/dev/` is **developer tooling** — component
+  galleries, debug panels, preview pages, experiments — and never ends
+  up in production.
+- **Production code CANNOT import from `dev/`.** Dev code may import
+  freely from `app/` (a preview page for `Button` should of course use
+  the real `Button` component).
+
+The boundary is enforced mechanically:
+
+- `client/vite-plugins/enforce-isolation.ts` catches any `app → dev`
+  import attempt and crashes the build with a clear error message that
+  names both the importer and the target. The plugin runs in both
+  `npm run dev:client` and `npm run build:client`.
+- `tests/client-dev-isolation.test.js` proves the plugin works by running
+  a real Vite build against a probe that breaks the boundary (expects
+  failure) and one that doesn't (expects success). The test runs as part
+  of `npm test`.
+
+If you find yourself in a situation where code in `dev/` would be useful
+in production, move it to `client/src/app/lib/` first — and then import
+it from both places. Don't reach across the boundary.
+
+See also `client/src/dev/README.md` for details and CLAUDE.md section 7.7
+for the broader rule about technical debt that this boundary is one
+manifestation of.
+
+---
+
+## Test Requirements
+
+All PRs must pass:
+
+| Gate | Threshold |
 |---|---|
 | `npm run lint` | 0 errors |
 | `npm run format` | 0 mismatches |
-| `npm run typecheck` | 0 feil |
+| `npm run typecheck` | 0 errors |
 | `npm test` | 100 % |
 | Coverage | 80 % lines, 68 % branches, 72 % functions |
 | `npm audit --omit=dev` | 0 high+ |
 | OSV-scan | 0 high+/critical |
 
-CI kjører alt på Linux/macOS/Windows × Node 20/22.
+CI runs everything on Linux/macOS/Windows × Node 20/22.
 
 ---
 
-## Pull Request-prosess
+## Pull Request Process
 
-1. **Rebase på main** før du åpner PR:
+1. **Rebase on main** before opening a PR:
    ```bash
    git fetch origin && git rebase origin/main
    ```
-2. Push branch-en din: `git push -u origin <branch-name>`
-3. Åpne PR mot `main`
-4. Beskriv **hvorfor**-en i PR-body, lenk til issue hvis relevant
-5. Vent på grønn CI (alle 6 jobber)
-6. Vent på review fra [CODEOWNERS](.github/CODEOWNERS)
-7. Adressér review-kommentarer ved å pushe nye commits (ikke force-push mens
-   review pågår — det gjør det vanskelig å se hva som er endret siden forrige
-   runde)
-8. Når approved, squash-merges PR-en inn i main
+2. Push your branch: `git push -u origin <branch-name>`
+3. Open a PR against `main`
+4. Describe the **why** in the PR body, link to issue if relevant
+5. Wait for green CI (all 6 jobs)
+6. Wait for review from [CODEOWNERS](.github/CODEOWNERS)
+7. Address review comments by pushing new commits (don't force-push while
+   review is in progress — it makes it hard to see what's changed since
+   the previous round)
+8. Once approved, the PR is squash-merged into main
 
-**Hva jeg som reviewer ser etter:**
+**What I look for as a reviewer:**
 
-- Løser PR-en det den hevder?
-- Er scope fokusert? (ingen uforeslåtte refaktoreringer på si)
-- Tester som verifiserer den nye adferden
-- Ingen regressions i eksisterende tester
-- Dokumentasjon oppdatert (CHANGELOG, relevant `*.md`)
-- Ingen sensitive data (API-nøkler, personopplysninger, private stier)
-
----
-
-## Lisens og opphav
-
-Ved å bidra samtykker du til at koden din utgis under prosjektets MIT-lisens
-(se `license`-feltet i `package.json`). Du erklærer også at:
-
-- Du har opphavsrett til det du bidrar med, eller
-- Bidraget er under en kompatibel lisens og du har rett til å submit-e det
-
-Det finnes ikke en formell CLA. Ingen `Signed-off-by`-linje kreves, men du er
-velkommen til å bruke `git commit -s` hvis du foretrekker DCO-stil.
+- Does the PR solve what it claims to?
+- Is scope focused? (no unsuggested refactorings on the side)
+- Tests that verify the new behavior
+- No regressions in existing tests
+- Documentation updated (CHANGELOG, relevant `*.md`)
+- No sensitive data (API keys, personal information, private paths)
 
 ---
 
-## Kode-attribusjon
+## License and Origin
 
-All kode som merges til `main` skal ha bidragsyteren selv som git-author. Ikke
-opprett commits der andre personer, verktøy eller AI-assistenter står som
-(co-)author med mindre de faktisk har skrevet koden uavhengig.
+By contributing, you agree that your code is released under the project's
+MIT license (see the `license` field in `package.json`). You also declare
+that:
 
-Dette gjelder også footers i commit-meldinger: ikke lim inn tool-genererte
-tracking-URL-er eller "Generated with X"-notiser.
+- You hold the copyright to what you contribute, or
+- The contribution is under a compatible license and you have the right
+  to submit it
 
----
-
-## Sikkerhet
-
-Sårbarheter rapporteres privat, ikke som issue. Se [SECURITY.md](SECURITY.md).
+There is no formal CLA. No `Signed-off-by` line is required, but you're
+welcome to use `git commit -s` if you prefer DCO style.
 
 ---
 
-## Spørsmål
+## Code Attribution
 
-Hvis noe er uklart, åpne en issue med label `question` eller send en
-kommentar i en eksisterende PR.
+All code merged to `main` shall have the contributor themselves as the
+git author. Don't create commits where other people, tools, or AI
+assistants appear as (co-)author unless they actually wrote the code
+independently.
+
+This also applies to footers in commit messages: don't paste in
+tool-generated tracking URLs or "Generated with X" notes.
 
 ---
 
-## For maintainere
+## Security
 
-Denne seksjonen er for repo-eieren og andre med admin-tilgang.
+Vulnerabilities are reported privately, not as an issue. See
+[SECURITY.md](SECURITY.md).
 
-### Branch protection på `main`
+---
 
-Konfigurér via GitHub UI: **Settings → Branches → Add branch ruleset** (eller
-**Branch protection rules** på eldre repos). Anbefalt konfigurasjon:
+## Questions
+
+If something is unclear, open an issue with the `question` label or
+leave a comment on an existing PR.
+
+---
+
+## For Maintainers
+
+This section is for the repo owner and others with admin access.
+
+### Branch Protection on `main`
+
+Configure via the GitHub UI: **Settings → Branches → Add branch ruleset**
+(or **Branch protection rules** on older repos). Recommended configuration:
 
 - **Branch name pattern:** `main`
 - ☑ **Require a pull request before merging**
@@ -278,7 +283,7 @@ Konfigurér via GitHub UI: **Settings → Branches → Add branch ruleset** (ell
   - ☑ Require review from Code Owners
 - ☑ **Require status checks to pass before merging**
   - ☑ Require branches to be up to date before merging
-  - **Required checks** (alle må eksistere i `ci.yml` først):
+  - **Required checks** (all must exist in `ci.yml` first):
     - `Test (Node 20.x, ubuntu-latest)`
     - `Test (Node 22.x, ubuntu-latest)`
     - `Test (Node 20.x, macos-latest)`
@@ -288,14 +293,14 @@ Konfigurér via GitHub UI: **Settings → Branches → Add branch ruleset** (ell
     - `SBOM generation`
     - `OSV vulnerability scan`
 - ☑ **Require conversation resolution before merging**
-- ☑ **Require signed commits** (valgfritt, men anbefalt)
-- ☑ **Require linear history** (passer med squash-merge-policy)
-- ☑ **Do not allow bypassing the above settings** (gjelder også admins — skru
-  av bare hvis du har en genuin nødsituasjon)
-- ☐ Allow force pushes — **la denne stå av**
-- ☐ Allow deletions — **la denne stå av**
+- ☑ **Require signed commits** (optional, but recommended)
+- ☑ **Require linear history** (fits the squash-merge policy)
+- ☑ **Do not allow bypassing the above settings** (applies to admins too —
+  only turn off if you have a genuine emergency)
+- ☐ Allow force pushes — **leave this off**
+- ☐ Allow deletions — **leave this off**
 
-### Squash-merge som default
+### Squash-merge as Default
 
 **Settings → General → Pull Requests:**
 
@@ -305,12 +310,13 @@ Konfigurér via GitHub UI: **Settings → Branches → Add branch ruleset** (ell
 - ☑ Always suggest updating pull request branches
 - ☑ Automatically delete head branches
 
-### Dependabot auto-merge (valgfritt)
+### Dependabot Auto-merge (optional)
 
-For dev-dep minor/patch-bumps kan du aktivere auto-merge når alle gates er
-grønne — se `.github/dependabot.yml` som allerede grupperer dem.
+For dev-dep minor/patch bumps you can enable auto-merge once all gates
+are green — see `.github/dependabot.yml`, which already groups them.
 
-### Signert tagging
+### Signed Tagging
 
-Release-tags (`v1.3.0` osv.) bør være GPG-signert. Konfigurér med
-`git config --global commit.gpgsign true` og bekreft i lokalt git-oppsett.
+Release tags (`v1.3.0` etc.) should be GPG-signed. Configure with
+`git config --global commit.gpgsign true` and confirm in your local git
+setup.
