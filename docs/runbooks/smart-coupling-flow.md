@@ -1,14 +1,14 @@
-# Smart-coupling flow — Pantry · Måltider · Handleliste
+# Smart-coupling flow — Pantry · Meals · Shopping list
 
-> Sprint 6 (2026-05-02). Dokumenterer den fulle reisen som binder
-> pantry, måltidsplan og handleliste sammen. Hver brukerhandling som
-> trekker eller tilfører inventory går gjennom de samme tre lagene
-> (route → service → repo) og lander i `inventory_log` med en
-> `reason` som gjør senere audit mulig.
+> Sprint 6 (2026-05-02). Documents the full journey that binds
+> pantry, meal plan, and shopping list together. Every user action
+> that pulls from or adds to inventory goes through the same three layers
+> (route → service → repo) and lands in `inventory_log` with a
+> `reason` that makes later audit possible.
 
 ---
 
-## Reisen ende til ende
+## The journey end to end
 
 ```
 ┌───────────────┐  generate   ┌──────────────────┐  bought   ┌──────────────┐
@@ -30,12 +30,12 @@
                               └──────────────────┘
 ```
 
-Hvert steg er ett HTTP-endepunkt + én service-funksjon. Backend er
-sannheten; UI er en ren projeksjon.
+Each step is one HTTP endpoint + one service function. The backend is
+the source of truth; the UI is a pure projection.
 
-## Endepunkter (backend)
+## Endpoints (backend)
 
-| Steg | Method | Path | Service | Inventory_log reason |
+| Step | Method | Path | Service | Inventory_log reason |
 |---|---|---|---|---|
 | Generate from meals | `POST` | `/api/shopping/generate` | `shopping-list.service.computeShoppingListForWeek` | (n/a — pre-pantry) |
 | Manual quick-add | `POST` | `/api/shopping/items` | `pantry-resolver.resolveOrCreate` | (n/a) |
@@ -46,107 +46,107 @@ sannheten; UI er en ren projeksjon.
 | Manual pantry edit | `PUT` | `/api/pantry/correct` | `pantry.correctQty` | `correction` |
 | Auto-restock (internal) | (called from `pantry.correctQty`) | — | `pantry.checkAndTriggerLowStock` | (writes `shopping_list_items.notes='auto:low-stock'`) |
 
-## Frontend-flyt
+## Frontend flow
 
-1. **Meals screen** — `MealHero` viser "Marker tilberedt"-knapp når
-   slot.recipe er satt og status er `'planned'`. Når knappen trykkes
-   åpner [MarkCookedDialog](../client/src/app/components/meals/MarkCookedDialog.tsx).
-2. **MarkCookedDialog** kaller `markMealEaten(mealId)` (set status =
-   `'cooked'`, return suggestions). Per ingrediens viser dialogen:
-   - navn + foreslått trekk-mengde (recipe × portion factor, klampet
-     til pantry remaining)
-   - hvor mye vi har hjemme
-   - skip-checkbox + redigerbart input-felt
-3. Tre terminale handlinger:
-   - **Confirm** → `applyMealDeduction(mealId, items)`. Bekreftet
-     trekk lander som én `correction`-rad per ingrediens i
-     `inventory_log` med `notes='meal_deduction:<mealId>'`.
-     Auto-restock kjører naturlig som del av `correctQty`.
-   - **Skip** → lukker dialog. Måltid forblir `'cooked'`. Pantry
-     uendret.
-   - **Cancel** → `unmarkMealEaten(mealId)` ruller status tilbake til
+1. **Meals screen** — `MealHero` shows a "Mark as cooked" button when
+   slot.recipe is set and status is `'planned'`. When the button is pressed
+   the [MarkCookedDialog](../client/src/app/components/meals/MarkCookedDialog.tsx) opens.
+2. **MarkCookedDialog** calls `markMealEaten(mealId)` (sets status =
+   `'cooked'`, returns suggestions). Per ingredient the dialog shows:
+   - name + suggested deduction amount (recipe × portion factor, clamped
+     to pantry remaining)
+   - how much we have at home
+   - skip checkbox + editable input field
+3. Three terminal actions:
+   - **Confirm** → `applyMealDeduction(mealId, items)`. The confirmed
+     deduction lands as one `correction` row per ingredient in
+     `inventory_log` with `notes='meal_deduction:<mealId>'`.
+     Auto-restock runs naturally as part of `correctQty`.
+   - **Skip** → closes the dialog. The meal stays `'cooked'`. Pantry
+     unchanged.
+   - **Cancel** → `unmarkMealEaten(mealId)` rolls the status back to
      `'planned'`.
-4. **Shopping screen** — `ShoppingItemRow` viser et "Foreslått fra
-   pantry"-badge når `item.notes === 'auto:low-stock'`. Brukeren
-   forstår dermed hvorfor en vare dukket opp uten at de la den til
-   selv.
+4. **Shopping screen** — `ShoppingItemRow` shows a "Suggested from
+   pantry" badge when `item.notes === 'auto:low-stock'`. The user
+   then understands why an item appeared without them adding it
+   themselves.
 
-## Forretningsregler (backfilled to DOMAIN_MODEL.md)
+## Business rules (backfilled to DOMAIN_MODEL.md)
 
-- **BR-001 Low-stock trigger**: `pantry.correctQty` kaller
-  `checkAndTriggerLowStock` etter hver mutasjon. Hvis `qty / total <
-  0.15` og varen ikke står som unbought rad på den aktive
-  handlelisten, legges en ny rad til med `source_type='manual'`,
-  `notes='auto:low-stock'`. Bought rader fra tidligere uker
-  blokkerer ikke trigger — historisk tilstand skal ikke hindre at
-  pantry-lavt-stock auto-restocker.
-- **BR-002 Meal-deduction reason**: deductions fra
-  mark-cooked-flyten gjenbruker enum-verdien `'correction'` i
-  `inventory_log.reason`. Konteksten bevares i `notes` med prefiks
-  `meal_deduction:<mealId>` slik at audit-loggen kan rekonstruere
-  hva som faktisk forbrukte beholdningen. Om vi senere trenger en
-  egen enum-verdi (analytics, rapportering), er det en separat
-  migration som bare legger en ny enum-verdi til CHECK-constraint.
+- **BR-001 Low-stock trigger**: `pantry.correctQty` calls
+  `checkAndTriggerLowStock` after each mutation. If `qty / total <
+  0.15` and the item is not present as an unbought row on the active
+  shopping list, a new row is added with `source_type='manual'`,
+  `notes='auto:low-stock'`. Bought rows from previous weeks
+  do not block the trigger — historical state should not prevent
+  pantry low-stock from auto-restocking.
+- **BR-002 Meal-deduction reason**: deductions from
+  the mark-cooked flow reuse the enum value `'correction'` in
+  `inventory_log.reason`. The context is preserved in `notes` with the prefix
+  `meal_deduction:<mealId>` so the audit log can reconstruct
+  what actually consumed the inventory. If we later need a
+  dedicated enum value (analytics, reporting), it is a separate
+  migration that only adds a new enum value to the CHECK constraint.
 
-## Pantry-mapping (recipe → pantry)
+## Pantry mapping (recipe → pantry)
 
-`pantry-deduction.buildSuggestions` matcher hver recipe-ingrediens mot
-inventory via `keyForIngredient`-helperen i
-`pantry-coverage.service.js`. Regelen er enkel:
+`pantry-deduction.buildSuggestions` matches each recipe ingredient against
+inventory via the `keyForIngredient` helper in
+`pantry-coverage.service.js`. The rule is simple:
 
 - `keyForIngredient(ing) = ing.productKey || ing.name.toLowerCase()`
-- Hvis flere ingredienser løser til samme key (f.eks. `salt` +
-  `havsalt`), summeres recipe-mengdene før suggestion bygges — slik
-  at brukeren ikke ser to like rader.
-- Suggestion-mengde klampet til pantry-remaining slik at UI aldri
-  default-foreslår mer enn det som faktisk finnes hjemme.
+- If multiple ingredients resolve to the same key (e.g. `salt` +
+  `havsalt`), the recipe amounts are summed before the suggestion is built — so
+  the user doesn't see two identical rows.
+- The suggestion amount is clamped to pantry remaining so the UI never
+  defaults to suggesting more than what is actually at home.
 
-## Hvorfor reuse av `'correction'` (B2 i analyse)
+## Why reuse of `'correction'` (B2 in the analysis)
 
-`inventory_log.reason` er en CHECK-constraint enum. Å legge til
-`'meal_deduction'` ville kreve en migration som dropper og
-gjenoppretter constraint, hvilket utløser
-PORTAINER-RISIKO-prosedyren. For pilot velger vi i stedet å:
+`inventory_log.reason` is a CHECK constraint enum. Adding
+`'meal_deduction'` would require a migration that drops and
+recreates the constraint, which triggers
+the PORTAINER-RISK procedure. For the pilot we instead choose to:
 
-1. Bruke eksisterende `'correction'`
-2. Stamp `notes='meal_deduction:<mealId>'` slik at hver rad er
-   maskinleselig for audit-rapporter
-3. Dokumentere her at en post-pilot migration kan rydde dette hvis
-   analytics begynner å skille på sources
+1. Use the existing `'correction'`
+2. Stamp `notes='meal_deduction:<mealId>'` so each row is
+   machine-readable for audit reports
+3. Document here that a post-pilot migration can clean this up if
+   analytics starts distinguishing on sources
 
-## Edge-cases
+## Edge cases
 
-| Scenario | Backend-respons |
+| Scenario | Backend response |
 |---|---|
-| Slot uten recipe → mark-eaten | `400 NO_RECIPE` |
-| Slot med status `'away'`, `'skipped'` eller `'removed'` | `400 WRONG_STATUS` |
-| Mark-eaten andre gang | `200 alreadyCooked: true` |
-| Apply-deduction når status ≠ `'cooked'` | `400 NOT_COOKED` |
-| Apply-deduction med tom items-liste | `200 applied: []` |
-| amountToDeduct > pantry remaining | klampet til `min(amount, remaining)` på backend |
-| Manglende productKey i deduction | hopper over rad, returnerer i `skipped`-listen |
-| Cancel etter mark-eaten | `unmark-eaten` ruller status tilbake; pantry uendret |
-| Cancel når unmark feiler | dialogen lukker uansett; backend er sannheten ved neste fetch |
+| Slot without recipe → mark-eaten | `400 NO_RECIPE` |
+| Slot with status `'away'`, `'skipped'`, or `'removed'` | `400 WRONG_STATUS` |
+| Mark-eaten a second time | `200 alreadyCooked: true` |
+| Apply-deduction when status ≠ `'cooked'` | `400 NOT_COOKED` |
+| Apply-deduction with empty items list | `200 applied: []` |
+| amountToDeduct > pantry remaining | clamped to `min(amount, remaining)` on the backend |
+| Missing productKey in deduction | skips the row, returns it in the `skipped` list |
+| Cancel after mark-eaten | `unmark-eaten` rolls the status back; pantry unchanged |
+| Cancel when unmark fails | the dialog closes regardless; the backend is the source of truth on the next fetch |
 
-## Tester
+## Tests
 
-- `tests/sprint-6-meal-deduction.test.js` — endpoint + service unit + integration (18 tester)
-- `tests/sprint-6-smart-coupling-chain.test.js` — full chain (1 omfattende test)
-- `client/src/app/components/meals/MarkCookedDialog.test.tsx` — UI presentation (10 tester)
-- `client/src/app/meals/usePantryDeduction.test.tsx` — hook state machine (7 tester)
-- `tests/fase-f2-units-pantry.test.js` — eksisterende pre-Sprint-6 tester for low-stock; fortsetter å passere etter at vi tightnet "already-on-list"-sjekken
+- `tests/sprint-6-meal-deduction.test.js` — endpoint + service unit + integration (18 tests)
+- `tests/sprint-6-smart-coupling-chain.test.js` — full chain (1 comprehensive test)
+- `client/src/app/components/meals/MarkCookedDialog.test.tsx` — UI presentation (10 tests)
+- `client/src/app/meals/usePantryDeduction.test.tsx` — hook state machine (7 tests)
+- `tests/fase-f2-units-pantry.test.js` — existing pre-Sprint-6 tests for low-stock; still passes after we tightened the "already-on-list" check
 
-## Manuell verifikasjon
+## Manual verification
 
-Se PR-beskrivelse for trinn-for-trinn-test (plan → buy → cook → deduct
-→ verify shopping-rad gjenkommer). Rask sanity-sjekk:
+See the PR description for a step-by-step test (plan → buy → cook → deduct
+→ verify shopping row reappears). Quick sanity check:
 
 ```bash
 curl -X POST http://localhost:7777/api/meals/<id>/mark-eaten -d '{}'
-# → returnerer { mealId, recipeId, alreadyCooked, suggestions: [...] }
+# → returns { mealId, recipeId, alreadyCooked, suggestions: [...] }
 
 curl -X POST http://localhost:7777/api/meals/<id>/apply-deduction \
      -H 'Content-Type: application/json' \
      -d '{"items":[{"productKey":"butter","amountToDeduct":50}]}'
-# → returnerer { ok, mealId, applied, skipped, lowStockTriggered }
+# → returns { ok, mealId, applied, skipped, lowStockTriggered }
 ```

@@ -1,18 +1,18 @@
 # Portainer Deploy Runbook
 
-**Mål:** Deploy FamilyAssistant til Christers RPi5 via Portainer + Cloudflare Tunnel for pilot 13–17. mai 2026.
+**Goal:** Deploy FamilyAssistant to Christer's RPi5 via Portainer + Cloudflare Tunnel for the pilot May 13-17, 2026.
 
 ---
 
-## Forutsetninger
+## Prerequisites
 
-- RPi5 8 GB med Raspberry Pi OS Lite (64-bit)
-- Docker + Docker Compose installert
-- Portainer CE installert (port 9000)
-- Cloudflare-konto + tunnel konfigurert til `app.hverdagsplanleggeren.com`
-- Persistent volume mounted på `/srv/familyassistant-data/`
+- RPi5 8 GB with Raspberry Pi OS Lite (64-bit)
+- Docker + Docker Compose installed
+- Portainer CE installed (port 9000)
+- Cloudflare account + tunnel configured to `app.hverdagsplanleggeren.com`
+- Persistent volume mounted at `/srv/familyassistant-data/`
 
-## Steg 1 — Volume-oppsett (én gang)
+## Step 1 — Volume setup (one-time)
 
 ```bash
 sudo mkdir -p /srv/familyassistant-data/data
@@ -20,13 +20,13 @@ sudo mkdir -p /srv/familyassistant-data/backups
 sudo chown -R 65532:65532 /srv/familyassistant-data
 ```
 
-UID 65532 = distroless `nonroot`. Container-prosessen må kunne skrive til volumet.
+UID 65532 = distroless `nonroot`. The container process must be able to write to the volume.
 
-## Steg 2 — Stack i Portainer
+## Step 2 — Stack in Portainer
 
-I Portainer: **Stacks → Add stack → Repository → Web editor**.
+In Portainer: **Stacks → Add stack → Repository → Web editor**.
 
-Lim inn `docker-compose.yml` fra repoet. Endre volume-mountene til absolute path:
+Paste `docker-compose.yml` from the repo. Change the volume mounts to absolute paths:
 
 ```yaml
 volumes:
@@ -34,75 +34,75 @@ volumes:
   - /srv/familyassistant-data/backups:/app/backups
 ```
 
-## Steg 3 — Environment variables (Portainer → Stack → Environment)
+## Step 3 — Environment variables (Portainer → Stack → Environment)
 
-### Pilot-spesifikt (sett før første deploy)
+### Pilot-specific (set before first deploy)
 
-| Variable | Verdi | Begrunnelse |
+| Variable | Value | Rationale |
 |---|---|---|
 | `NODE_ENV` | `production` | |
-| `PORT` | `7777` | Internal listen-port |
+| `PORT` | `7777` | Internal listen port |
 | `APP_URL` | `https://app.hverdagsplanleggeren.com` | For magic-link absolute URLs |
 | `APP_NAME` | `Hverdagsplanleggeren` | White-label (CLAUDE.md DEL 7.12) |
-| `PILOT_MODE` | `true` | Aktiverer pre-auth gate |
-| `PILOT_PASSWORD` | `<chosen-string>` | Pilot-bruker får denne separat |
+| `PILOT_MODE` | `true` | Enables pre-auth gate |
+| `PILOT_PASSWORD` | `<chosen-string>` | Pilot user receives this separately |
 | `APP_ADMIN_EMAIL` | `admin@example.com` | Admin-bootstrap target — first user matching this email becomes admin |
 | `RESEND_API_KEY` | `<from Resend dashboard>` | Magic-link email |
 | `RESEND_FROM` | `noreply@hverdagsplanleggeren.com` | Verified sender domain |
-| `SESSION_SECRET` | `<openssl rand -hex 32>` | Eller la wizard generere |
-| `AUTH_TOKEN` | (la stå tom) | Bootstrap wizard genererer |
-| `BOOTSTRAP_ALLOWED` | `true` | (allerede satt i compose) |
+| `SESSION_SECRET` | `<openssl rand -hex 32>` | Or let the wizard generate |
+| `AUTH_TOKEN` | (leave empty) | Bootstrap wizard generates |
+| `BOOTSTRAP_ALLOWED` | `true` | (already set in compose) |
 | `ALLOWED_ORIGINS` | `https://app.hverdagsplanleggeren.com` | CORS strict |
-| `HTTPS_TERMINATED` | `true` (Cloudflare) / `false` (LAN) | Se "HTTPS_TERMINATED-veiledning" under |
-| `TRUST_PROXY` | `true` | For ekte client-IP |
+| `HTTPS_TERMINATED` | `true` (Cloudflare) / `false` (LAN) | See "HTTPS_TERMINATED Guidance" below |
+| `TRUST_PROXY` | `true` | For real client IP |
 
 ### Optional / post-pilot
 
-| Variable | Verdi | Begrunnelse |
+| Variable | Value | Rationale |
 |---|---|---|
-| `KASSAL_API_KEY` | (tom for pilot) | Aktiveres post-pilot |
-| `SENTRY_DSN` | (tom for pilot) | Optional observability |
-| `MAGIC_LINK_CONSOLE` | `false` | Kun fallback hvis Resend faller |
+| `KASSAL_API_KEY` | (empty for pilot) | Enabled post-pilot |
+| `SENTRY_DSN` | (empty for pilot) | Optional observability |
+| `MAGIC_LINK_CONSOLE` | `false` | Only fallback if Resend goes down |
 
-### Aldri sett i pilot
+### Never set in pilot
 
-| Variable | Begrunnelse |
+| Variable | Rationale |
 |---|---|
-| `PILOT_BYPASS` | Deaktiverer auth — kun for solo-test |
-| `GOOGLE_CLIENT_ID` | Pilot er kun magic-link |
+| `PILOT_BYPASS` | Disables auth — only for solo testing |
+| `GOOGLE_CLIENT_ID` | Pilot is magic-link only |
 
-## Steg 4 — Cloudflare Tunnel
+## Step 4 — Cloudflare Tunnel
 
-I Cloudflare Zero Trust dashboard:
-1. Lag tunnel `familyassistant-pilot`
+In the Cloudflare Zero Trust dashboard:
+1. Create tunnel `familyassistant-pilot`
 2. Public hostname: `app.hverdagsplanleggeren.com` → `http://<RPi-IP>:7777`
-3. Kopier tunnel-token (kommer ikke i compose; kjøres som separat tjeneste)
+3. Copy the tunnel token (does not go in compose; runs as a separate service)
 
-På RPi:
+On the RPi:
 ```bash
 cloudflared service install <TOKEN>
 sudo systemctl enable --now cloudflared
 ```
 
-## Steg 5 — Deploy
+## Step 5 — Deploy
 
-I Portainer: **Update the stack** → applikasjonen pulles fra `ghcr.io/christerfrestad/familyassistant:main` og starter.
+In Portainer: **Update the stack** → the application is pulled from `ghcr.io/christerfrestad/familyassistant:main` and starts.
 
-Vent på healthcheck grønn (~30 sek). Sjekk logs i Portainer.
+Wait for the healthcheck to turn green (~30 sec). Check the logs in Portainer.
 
-## Steg 6 — Verifisering
+## Step 6 — Verification
 
 ```bash
-# Lokal LAN
+# Local LAN
 curl http://<RPi-IP>:7777/health
 
 # Via Cloudflare Tunnel
 curl https://app.hverdagsplanleggeren.com/health
 ```
 
-Skal returnere `{"status":"ok",...}`.
+Should return `{"status":"ok",...}`.
 
-Test pilot-gate:
+Test the pilot gate:
 ```bash
 curl -i https://app.hverdagsplanleggeren.com/api/pilot/status
 # → { pilotMode: true, pilotAuthenticated: false }
@@ -114,33 +114,33 @@ curl -i -X POST https://app.hverdagsplanleggeren.com/api/auth/pilot-password \
 
 curl -i -X POST https://app.hverdagsplanleggeren.com/api/auth/pilot-password \
   -H 'Content-Type: application/json' \
-  -d '{"password":"<ekte-passord>"}'
+  -d '{"password":"<actual-password>"}'
 # → 200 + Set-Cookie: fa_pilot=...
 ```
 
-Åpne `https://app.hverdagsplanleggeren.com/v2/` i nettleser → ser PilotPasswordGate.
+Open `https://app.hverdagsplanleggeren.com/v2/` in a browser → you see the PilotPasswordGate.
 
-## Steg 7 — Onboarding
+## Step 7 — Onboarding
 
-Etter pilot-gate: bruker får magic-link via Resend. Christer onboarder først, blir admin (APP_ADMIN_EMAIL match).
+After the pilot gate: the user receives a magic-link via Resend. Christer onboards first and becomes admin (APP_ADMIN_EMAIL match).
 
 ## Rollback
 
-Hvis problem etter deploy:
-1. **Disable pilot gate:** sett `PILOT_MODE=false` i Portainer + restart stack
-2. **Rollback til forrige image:** sett `TAG=sha-<prev>` i stack env, redeploy
-3. **Komplett restart:** `docker compose down && docker compose up -d`
+If a problem occurs after deploy:
+1. **Disable pilot gate:** set `PILOT_MODE=false` in Portainer + restart stack
+2. **Roll back to previous image:** set `TAG=sha-<prev>` in stack env, redeploy
+3. **Full restart:** `docker compose down && docker compose up -d`
 
-## Backup-restore
+## Backup and Restore
 
-Database backup tas automatisk daglig kl 03:00 UTC (cron i `server/cron.js`) til `/app/data/backups/`.
+A database backup is taken automatically every day at 03:00 UTC (cron in `server/cron.js`) to `/app/data/backups/`.
 
-Manuell backup:
+Manual backup:
 ```bash
 docker exec familieassistenten node -e "require('./server/backup').backupNow().then(console.log)"
 ```
 
-Restore (krever app-down):
+Restore (requires app to be down):
 ```bash
 docker compose down
 sudo cp /srv/familyassistant-data/backups/<file>.db \
@@ -148,12 +148,12 @@ sudo cp /srv/familyassistant-data/backups/<file>.db \
 docker compose up -d
 ```
 
-## Pre-pilot-cleanup (engangs)
+## Pre-pilot Cleanup (one-time)
 
-Christer kjører lokalt før pilot-deploy for å rydde orphan family-1 data:
+Christer runs this locally before the pilot deploy to clean up orphan family-1 data:
 
 ```bash
-# Backup først
+# Back up first
 node -e "const Database = require('better-sqlite3'); \
   const src = require('better-sqlite3')('data/familieassistenten.db', {readonly:true}); \
   src.backup('data/familieassistenten-backup-pre-pilot.db').then(() => src.close());"
@@ -163,216 +163,216 @@ node scripts/cleanup-orphan-family-1.js --dry-run  # preview
 node scripts/cleanup-orphan-family-1.js            # execute
 ```
 
-## Post-deploy sjekkliste
+## Post-deploy Checklist
 
-- [ ] /health returnerer 200
-- [ ] /api/pilot/status returnerer `pilotMode: true`
-- [ ] /v2/ viser PilotPasswordGate
-- [ ] Riktig passord setter cookie og slipper inn
-- [ ] Magic-link email kommer fra `noreply@hverdagsplanleggeren.com`
-- [ ] Christer blir admin på første onboarding
-- [ ] Backup-cron kjører kl 03:00 UTC (sjekk dag etter)
+- [ ] /health returns 200
+- [ ] /api/pilot/status returns `pilotMode: true`
+- [ ] /v2/ shows the PilotPasswordGate
+- [ ] The correct password sets the cookie and lets the user through
+- [ ] Magic-link email arrives from `noreply@hverdagsplanleggeren.com`
+- [ ] Christer becomes admin on the first onboarding
+- [ ] Backup cron runs at 03:00 UTC (check the next day)
 
 ---
 
-## HTTPS_TERMINATED-veiledning
+## HTTPS_TERMINATED Guidance
 
-Cookie-Secure-flag-håndtering er drevet av `isSecureRequest()`-helper i `server/auth/sessions.js`. Denne sjekker i rekkefølge:
+Cookie Secure-flag handling is driven by the `isSecureRequest()` helper in `server/auth/sessions.js`. It checks, in order:
 
-1. `HTTPS_TERMINATED=true` env-flagg (eksplisitt operatør-opt-in)
-2. `X-Forwarded-Proto: https` request-header (Cloudflare Tunnel + de fleste reverse-proxyer setter denne automatisk)
-3. `socket.encrypted === true` (direkte HTTPS uten proxy)
+1. `HTTPS_TERMINATED=true` env flag (explicit operator opt-in)
+2. `X-Forwarded-Proto: https` request header (Cloudflare Tunnel and most reverse proxies set this automatically)
+3. `socket.encrypted === true` (direct HTTPS without a proxy)
 
-Hvis ingen av disse er sant, settes IKKE `Secure`-flag på cookies — riktig for plain-HTTP-deploy fordi browsere ellers ville droppe cookien stille.
+If none of these is true, the `Secure` flag is NOT set on cookies — correct for plain-HTTP deploys because browsers would otherwise drop the cookie silently.
 
-### Hvilken verdi skal `HTTPS_TERMINATED` ha?
+### What value should `HTTPS_TERMINATED` have?
 
-| Deploy-type | Verdi | Begrunnelse |
+| Deploy type | Value | Rationale |
 |---|---|---|
-| Cloudflare Tunnel + custom domain | `true` | Forsikring — appen kan vite at HTTPS termineres et eller annet sted før requesten kommer frem (Cloudflare → tunnel → app over HTTP). `X-Forwarded-Proto` settes også, men eksplisitt env-flag er mer robust ved misconfig av proxy. |
-| LAN-pilot (`http://192.168.x.y:7777`) | `false` (eller utelatt) | Bruker plain HTTP. `Secure`-flag ville fått browsere til å droppe cookies. |
-| Caddy/nginx-proxy med TLS | `true` (anbefalt) eller la `X-Forwarded-Proto` håndtere | Begge funksjoner; eksplisitt env-flag er mindre fragilt mot proxy-config-feil. |
-| Direkte HTTPS uten proxy | (uansett) | `socket.encrypted` settes automatisk. Ingen env-flag nødvendig. |
+| Cloudflare Tunnel + custom domain | `true` | Insurance — the app can know that HTTPS is terminated somewhere before the request arrives (Cloudflare → tunnel → app over HTTP). `X-Forwarded-Proto` is also set, but the explicit env flag is more robust against proxy misconfiguration. |
+| LAN pilot (`http://192.168.x.y:7777`) | `false` (or omitted) | Uses plain HTTP. The `Secure` flag would cause browsers to drop cookies. |
+| Caddy/nginx proxy with TLS | `true` (recommended) or let `X-Forwarded-Proto` handle it | Both work; an explicit env flag is less fragile against proxy config errors. |
+| Direct HTTPS without proxy | (either) | `socket.encrypted` is set automatically. No env flag required. |
 
-### Vanlig feilkonfig: HTTPS_TERMINATED=true på HTTP-deploy
+### Common misconfig: HTTPS_TERMINATED=true on an HTTP deploy
 
-Hvis Christer setter `HTTPS_TERMINATED=true` på en LAN-deploy som bruker plain HTTP, vil cookies sendes med `Secure`-flag og browsere dropper dem stille. Pilot-gate og session vil ikke virke. Symptom: `POST /api/auth/pilot-password` returnerer 200, men neste request får 403 fordi cookien ikke persisterte.
+If Christer sets `HTTPS_TERMINATED=true` on a LAN deploy that uses plain HTTP, cookies are sent with the `Secure` flag and browsers drop them silently. The pilot gate and session will not work. Symptom: `POST /api/auth/pilot-password` returns 200, but the next request gets 403 because the cookie was not persisted.
 
-**Tommelfingerregel:** Hvis URL-en starter med `http://`, sett `HTTPS_TERMINATED=false` (eller utelat). Hvis `https://`, sett `true`.
+**Rule of thumb:** If the URL starts with `http://`, set `HTTPS_TERMINATED=false` (or omit it). If `https://`, set `true`.
 
 ## Troubleshooting
 
-### Service worker fra v1-æra serverer cached innhold
+### Service worker from the v1 era serves cached content
 
-**Symptom:** Etter Sprint 8 v1-cleanup deploy ser bruker fortsatt
-gamle v1-skjermer (Chat / Ukesmeny / Handletur) selv om imaget er
-oppdatert. DevTools viser at en service worker fra v1-æra fortsatt
-intercepter requests.
+**Symptom:** After the Sprint 8 v1 cleanup deploy, the user still sees
+old v1 screens (Chat / Weekly menu / Shopping) even though the image is
+updated. DevTools shows that a service worker from the v1 era still
+intercepts requests.
 
-**Verifisering:**
+**Verification:**
 
 DevTools → Application → Service Workers:
-- Hvis det vises en SW med "active" status og kilde `/sw.js`, sjekk
-  scriptens innhold via "Source"-tab. Hvis det er tombstone-versjonen
-  (Sprint 8) er den i ferd med å unregistrere seg.
-- Etter første load + reload skal SW-listen være tom.
+- If an SW shows with "active" status and source `/sw.js`, check the
+  script's content via the "Source" tab. If it is the tombstone version
+  (Sprint 8) it is in the process of unregistering itself.
+- After the first load + reload, the SW list should be empty.
 
-**Rotårsak (by design — Sprint 8 tombstone):**
-V1's service worker pre-cachet HTML/JS/CSS. Plain delete av
-`public/sw.js` ville etterlatt eksisterende browsere med stale cache
-i ukjent tidsrom. Sprint 8 erstattet sw.js med tombstone som
-unregistrerer + reloader klienter ved første besøk etter deploy.
+**Root cause (by design — Sprint 8 tombstone):**
+The v1 service worker pre-cached HTML/JS/CSS. A plain delete of
+`public/sw.js` would have left existing browsers with a stale cache
+for an unknown duration. Sprint 8 replaced sw.js with a tombstone that
+unregisters + reloads clients on the first visit after deploy.
 
-**Løsning:**
-1. Be bruker hard-reloade (Ctrl+Shift+R) — tvinger ny SW-fetch
-2. Eller: bruker venter ett sekund etter neste besøk (tombstone
-   activate-handler kjører + reloader automatisk)
-3. Verifiser i DevTools at SW er borte etter reload
+**Solution:**
+1. Ask the user to hard-reload (Ctrl+Shift+R) — forces a fresh SW fetch
+2. Or: the user waits a second after the next visit (the tombstone
+   activate handler runs + reloads automatically)
+3. Verify in DevTools that the SW is gone after reload
 
-**Permanent cleanup (post-pilot):** etter 3-6 måneder kan tombstone
-slettes helt. Tracked i `docs/workflow/post-pilot-code-debt-cleanup.md`.
+**Permanent cleanup (post-pilot):** after 3-6 months, the tombstone
+can be deleted entirely. Tracked in `docs/workflow/post-pilot-code-debt-cleanup.md`.
 
-### `GET /` viser legacy v1-frontend eller returnerer 401
+### `GET /` shows the legacy v1 frontend or returns 401
 
 **Symptom:**
-- I browsere med stale session-cookie: `GET /` → 200 OK med legacy v1 (Chat / Ukesmeny / Handletur / Husarbeid / Kontrollrommet)
-- I browsere uten cookies: `GET /` → 401 "Authentication required"
-- Forventet: 302 redirect til `/v2/` for å lande på pilot-frontend
+- In browsers with a stale session cookie: `GET /` → 200 OK with legacy v1 (Chat / Weekly menu / Shopping / Chores / Control room)
+- In browsers without cookies: `GET /` → 401 "Authentication required"
+- Expected: 302 redirect to `/v2/` to land on the pilot frontend
 
-**Verifisering:**
+**Verification:**
 
 ```bash
-# Anonym
+# Anonymous
 curl -i http://<deploy>:7777/ | head -3
-# Forventet: HTTP/1.1 302 Found, Location: /v2/
+# Expected: HTTP/1.1 302 Found, Location: /v2/
 
-# Med session-cookie
+# With session cookie
 curl -i -H 'Cookie: fa_session=...' http://<deploy>:7777/ | head -3
-# Forventet: HTTP/1.1 302 Found, Location: /v2/
+# Expected: HTTP/1.1 302 Found, Location: /v2/
 ```
 
-**Rotårsak (fixed 2026-05-04 i fix/root-redirect-to-v2):**
-Tidligere versjoner hadde ingen tidlig intercept for `GET /`. Authenticated visitors falt gjennom til `tryServeSpaFallback()` som serverer `public/index.html` (legacy v1). Anonymous visitors med AUTH_TOKEN satt fikk 401 fra auth-middleware.
+**Root cause (fixed 2026-05-04 in fix/root-redirect-to-v2):**
+Earlier versions had no early intercept for `GET /`. Authenticated visitors fell through to `tryServeSpaFallback()` which serves `public/index.html` (legacy v1). Anonymous visitors with AUTH_TOKEN set got 401 from auth middleware.
 
-**Fix:** `server/http/server.js` fanger nå `GET /` rett etter CORS-headere og emitter `302 Location: /v2/` før rate-limit, auth eller routing kjører. Cookie-uavhengig.
+**Fix:** `server/http/server.js` now catches `GET /` right after CORS headers and emits `302 Location: /v2/` before rate-limit, auth, or routing runs. Cookie-independent.
 
-**Hvis du fortsatt ser symptomet:**
-1. Verifiser at imaget er bygd etter commit `<post-redirect-fix-sha>`
+**If you still see the symptom:**
+1. Verify that the image is built after commit `<post-redirect-fix-sha>`
 2. `docker compose pull && docker compose up -d --force-recreate familieassistenten`
-3. Hard-reload browseren (ofte cached redirects sitter igjen) eller test med `curl`
+3. Hard-reload the browser (cached redirects often linger) or test with `curl`
 
-**Legacy v1 fortsatt tilgjengelig på eksplisitte stier:**
-- `http://<deploy>:7777/index.html` — legacy SPA-shell (krever auth)
+**Legacy v1 still available at explicit paths:**
+- `http://<deploy>:7777/index.html` — legacy SPA shell (requires auth)
 - `http://<deploy>:7777/login.html` — legacy login
 - `http://<deploy>:7777/js/*`, `/css/*` — legacy assets
-- Brukes ikke i pilot, men beholdes for backwards compatibility og diagnostikk
+- Not used in pilot, but kept for backwards compatibility and diagnostics
 
-### Cookies (fa_pilot, fa_session) settes ikke i browser etter login
+### Cookies (fa_pilot, fa_session) are not set in the browser after login
 
 **Symptom:**
-- `POST /api/auth/pilot-password` returnerer 200, men senere requests får 403
-- Browser `Application → Cookies → http://<deploy>` viser INGEN `fa_pilot`-cookie
-- Magic-link-onboarding feiler på tilsvarende måte (ingen `fa_session`)
+- `POST /api/auth/pilot-password` returns 200, but later requests get 403
+- Browser `Application → Cookies → http://<deploy>` shows NO `fa_pilot` cookie
+- Magic-link onboarding fails in the same way (no `fa_session`)
 
-**Verifisering:**
+**Verification:**
 
 ```bash
-# Sjekk Set-Cookie-header i response
+# Check the Set-Cookie header in the response
 curl -i -X POST http://<deploy>/api/auth/pilot-password \
   -H 'Content-Type: application/json' \
-  -d '{"password":"<ekte-passord>"}'
+  -d '{"password":"<actual-password>"}'
 ```
 
-I respons-headere, se etter `Set-Cookie: fa_pilot=...; ...`:
+In the response headers, look for `Set-Cookie: fa_pilot=...; ...`:
 
-- Hvis cookien har `; Secure;` på en HTTP-deploy → mismatch, browser dropper cookien
-- Hvis cookien IKKE har `; Secure;` på en HTTPS-deploy → mindre sikker, men virker. Sett `HTTPS_TERMINATED=true`
+- If the cookie has `; Secure;` on an HTTP deploy → mismatch, the browser drops the cookie
+- If the cookie does NOT have `; Secure;` on an HTTPS deploy → less secure, but works. Set `HTTPS_TERMINATED=true`
 
-**Rotårsak (fixed 2026-05-04 i fix/cookie-secure-flag-http-deploy):**
-Tidligere versjoner satte `Secure` på alle cookies når `NODE_ENV=production`, uansett om connection var HTTP eller HTTPS. Plain-HTTP-deploys (LAN-pilot, dev-staging) fikk cookies droppet av browseren.
+**Root cause (fixed 2026-05-04 in fix/cookie-secure-flag-http-deploy):**
+Earlier versions set `Secure` on all cookies when `NODE_ENV=production`, regardless of whether the connection was HTTP or HTTPS. Plain-HTTP deploys (LAN pilot, dev-staging) had cookies dropped by the browser.
 
-**Fix:** `Secure`-flag settes nå basert på `isSecureRequest()`-helper som leser `HTTPS_TERMINATED` env-flag, `X-Forwarded-Proto`-header, og `socket.encrypted`. Se "HTTPS_TERMINATED-veiledning" over.
+**Fix:** The `Secure` flag is now set based on the `isSecureRequest()` helper that reads the `HTTPS_TERMINATED` env flag, the `X-Forwarded-Proto` header, and `socket.encrypted`. See "HTTPS_TERMINATED Guidance" above.
 
-**Hvis du fortsatt ser symptomet:**
-1. Verifiser image er bygd etter commit `<post-cookie-fix-sha>`
-2. Sjekk env-config — `HTTPS_TERMINATED` matcher faktisk deployment (HTTP/HTTPS)
+**If you still see the symptom:**
+1. Verify the image is built after commit `<post-cookie-fix-sha>`
+2. Check env config — `HTTPS_TERMINATED` matches the actual deployment (HTTP/HTTPS)
 3. `docker compose pull && docker compose up -d --force-recreate familieassistenten`
-4. Test med curl over for å se faktisk Set-Cookie-header
+4. Test with the curl command above to see the actual Set-Cookie header
 
-### `/v2/` viser legacy v1-frontend (Chat / Ukesmeny / Handletur)
+### `/v2/` shows the legacy v1 frontend (Chat / Weekly menu / Shopping)
 
-**Symptom:** Bruker går til `/v2/` og forventer `PilotPasswordGate`,
-men ser i stedet legacy-frontend med "Familieassistenten"-logo og
-sidebar (Chat, Ukesmeny, I dag, Handletur, Husarbeid, Kontrollrommet).
+**Symptom:** The user goes to `/v2/` and expects `PilotPasswordGate`,
+but instead sees the legacy frontend with the "FamilyAssistant" logo and
+sidebar (Chat, Weekly menu, Today, Shopping, Chores, Control room).
 
-**Verifisering:**
+**Verification:**
 ```bash
 docker exec familieassistenten ls -la /app/public/v2/
 ```
-Hvis output er `No such file or directory` → bundle mangler i imaget.
+If output is `No such file or directory` → bundle missing in the image.
 
-**Rotårsak (fixed 2026-05-04 i fix/dockerfile-build-v2-frontend):**
-v2 React-bundle (`public/v2/`) er `.gitignored` i kilde, og tidligere
-Dockerfile-versjoner kjørte ikke `npm run build:client`. Image shipped
-til GHCR hadde tom `public/v2/`-mappe; `tryServeV2App()` falt tilbake
-til legacy SPA-handler som serverer `public/index.html` (v1).
+**Root cause (fixed 2026-05-04 in fix/dockerfile-build-v2-frontend):**
+The v2 React bundle (`public/v2/`) is `.gitignored` in source, and earlier
+Dockerfile versions did not run `npm run build:client`. The image shipped
+to GHCR had an empty `public/v2/` directory; `tryServeV2App()` fell back
+to the legacy SPA handler which serves `public/index.html` (v1).
 
-**Fix:** `Dockerfile` har nå en `frontend-builder`-stage som kjører
-`npm run build:client` under image-build. Backend-builder kopierer
-bundle inn via `COPY --from=frontend-builder /build/public/v2`.
+**Fix:** `Dockerfile` now has a `frontend-builder` stage that runs
+`npm run build:client` during image build. The backend-builder copies
+the bundle in via `COPY --from=frontend-builder /build/public/v2`.
 
-**Hvis du fortsatt ser symptomet:**
-1. Verifiser at imaget er bygget etter commit `<post-fix-sha>` —
-   sjekk `docker inspect familieassistenten | grep org.opencontainers.image.revision`
-2. `docker compose pull` for å hente fersk image fra `:main`
+**If you still see the symptom:**
+1. Verify that the image is built after commit `<post-fix-sha>` —
+   check `docker inspect familieassistenten | grep org.opencontainers.image.revision`
+2. `docker compose pull` to fetch a fresh image from `:main`
 3. `docker compose up -d --force-recreate familieassistenten`
-4. Verifiser: `docker exec familieassistenten ls /app/public/v2/`
-   skal vise `index.html` + `assets/`
+4. Verify: `docker exec familieassistenten ls /app/public/v2/`
+   should show `index.html` + `assets/`
 5. Test: `curl -s http://localhost:7777/v2/ | grep 'main-.*\.js'`
-   skal returnere en `<script>`-tag som peker på en hashet bundle-fil
+   should return a `<script>` tag pointing to a hashed bundle file
 
-### "401 Unauthorized" i endeløs loop på første deploy
+### "401 Unauthorized" in an endless loop on first deploy
 
-**Symptom:** Container starter (healthcheck grønn, alle migrasjoner kjører), men:
-- `GET /` → 302 redirect til `/v2/`
+**Symptom:** Container starts (healthcheck green, all migrations run), but:
+- `GET /` → 302 redirect to `/v2/`
 - `GET /v2/` → 401 `{"title":"Unauthorized","instance":"/v2/"}`
-- `GET /login.html` → 302 til `/v2/` → 401
-- Bruker fast i loop, kommer aldri til pilot-passord-form
+- `GET /login.html` → 302 to `/v2/` → 401
+- The user is stuck in a loop and never reaches the pilot password form
 
-**Rotårsak (fixed 2026-05-04 i fix/pilot-gate-lockout):**
-Tidligere versjoner hadde et auth-middleware-design der `/v2/`-bundle var i pilot-gate-bypass-listen MEN ikke i public-paths-listen. Med `AUTH_TOKEN` satt (alle prod-deploys) blokkerte autentiserings-kjeden bundle-en med 401 før React-app kunne laste og rendre PilotPasswordGate.
+**Root cause (fixed 2026-05-04 in fix/pilot-gate-lockout):**
+Earlier versions had an auth middleware design where the `/v2/` bundle was in the pilot-gate bypass list BUT not in the public-paths list. With `AUTH_TOKEN` set (all prod deploys), the authentication chain blocked the bundle with 401 before the React app could load and render PilotPasswordGate.
 
 **Fix:**
-`server/auth/middleware.js` `isPublicPath()` returnerer nå `true` for:
+`server/auth/middleware.js` `isPublicPath()` now returns `true` for:
 - `/v2`, `/v2/`, `/v2/index.html`
 - `/v2/assets/*`
-- `/api/pilot/status` og `/api/auth/pilot-password`
+- `/api/pilot/status` and `/api/auth/pilot-password`
 
-Frontend-Guards (PilotGuard → AuthGuard → OnboardingGuard) håndterer auth-state etter at bundle er lastet.
+Frontend guards (PilotGuard → AuthGuard → OnboardingGuard) handle auth state after the bundle is loaded.
 
-**Hvis du fortsatt ser symptomet:**
-1. Verifiser at image er på `:main` eller nyere enn commit `<post-fix-sha>`
-2. `docker compose pull` for å hente fersk image
+**If you still see the symptom:**
+1. Verify that the image is on `:main` or newer than commit `<post-fix-sha>`
+2. `docker compose pull` to fetch a fresh image
 3. `docker compose up -d --force-recreate familieassistenten`
-4. Test: `curl https://<deploy>/v2/` → må returnere 200 og HTML-bundle
+4. Test: `curl https://<deploy>/v2/` → must return 200 and the HTML bundle
 
-### Pilot-passord aksepteres ikke
+### Pilot password is not accepted
 
-**Sjekk:**
-- `PILOT_PASSWORD` env-var er nøyaktig samme verdi (case-sensitive, ingen whitespace)
-- Rate-limit ikke trigget: 5 attempts per IP per 10 minutter. `docker logs familieassistenten | grep pilot_password_attempts`
-- Sjekk pilot-cookie: `document.cookie` i browser console må vise `fa_pilot=...`
+**Check:**
+- `PILOT_PASSWORD` env var is exactly the same value (case-sensitive, no whitespace)
+- Rate limit not triggered: 5 attempts per IP per 10 minutes. `docker logs familieassistenten | grep pilot_password_attempts`
+- Check the pilot cookie: `document.cookie` in the browser console must show `fa_pilot=...`
 
-**Reset rate-limit:** Restart container (`docker compose restart`). In-memory state nullstilles.
+**Reset rate limit:** Restart the container (`docker compose restart`). In-memory state is reset.
 
-### Magic-link kommer ikke
+### Magic-link does not arrive
 
-**Hvis `MAGIC_LINK_CONSOLE=true`:** se `docker logs familieassistenten | grep "MAGIC LINK"` for URL.
+**If `MAGIC_LINK_CONSOLE=true`:** see `docker logs familieassistenten | grep "MAGIC LINK"` for the URL.
 
-**Hvis Resend skal være aktiv:** verifiser `RESEND_API_KEY` + `RESEND_FROM` er satt og `MAGIC_LINK_CONSOLE` IKKE er satt (eller er `false`).
+**If Resend should be active:** verify `RESEND_API_KEY` + `RESEND_FROM` are set and `MAGIC_LINK_CONSOLE` is NOT set (or is `false`).
 
-### Magic-link feiler med 403 i ny browser
+### Magic-link fails with 403 in a new browser
 
-**Bekreftet design (ikke bug):** `/api/auth/magic-link/verify` er IKKE i pilot-gate-bypass. Brukeren må først skrive pilot-passord i samme browser, deretter klikke magic-link. Dette er pragmatisk pilot-valg — bevarer pilot-gate-formålet.
+**Confirmed design (not a bug):** `/api/auth/magic-link/verify` is NOT in the pilot-gate bypass. The user must first enter the pilot password in the same browser, then click the magic-link. This is a pragmatic pilot choice — it preserves the purpose of the pilot gate.
 
-Hvis brukeren forsøker å klikke magic-link i ny browser uten pilot-cookie: 403. Be brukeren først åpne app-domenet, skrive pilot-passord, deretter klikke link.
+If the user tries to click the magic-link in a new browser without a pilot cookie: 403. Ask the user to first open the app domain, enter the pilot password, then click the link.
