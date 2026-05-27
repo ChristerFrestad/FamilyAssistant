@@ -6,8 +6,8 @@ const { normalizeBaseUrl } = require('../server/llm/ollama');
 
 test('normalizeBaseUrl strips query-string appended by browser paste', () => {
   assert.strictEqual(
-    normalizeBaseUrl('http://192.168.50.123:8080/?model=llama3.2%3A3b'),
-    'http://192.168.50.123:8080'
+    normalizeBaseUrl('http://192.0.2.123:8080/?model=llama3.2%3A3b'),
+    'http://192.0.2.123:8080'
   );
 });
 
