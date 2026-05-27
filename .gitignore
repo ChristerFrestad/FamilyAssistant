@@ -6,6 +6,8 @@ data/*.db
 data/*.db-journal
 data/*.sqlite
 data/*.sqlite-journal
+data/*.sqlite-shm
+data/*.sqlite-wal
 data/backups/
 data/familieassistenten.json
 
@@ -40,6 +42,13 @@ public/index.html.pre-*.bak
 .cursor/
 .copilot/
 *.local.json
+
+# Personal agent instructions (split from CLAUDE.md — operator-specific)
+CHRISTER.md
+
+# Ad-hoc database diagnostic scripts dropped at repo root
+db-*.js
+inspect-*.js
 
 # Privat designdokumentasjon (inneholder PII som ikke skal i git)
 DESIGNDOKUMENT.md
