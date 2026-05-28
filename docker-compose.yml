@@ -1,4 +1,4 @@
-# Familieassistenten — Docker Compose
+# FamilyAssistant — Docker Compose
 #
 # Zero-config deploy: run `docker compose up -d` with no variables, open
 # http://<host>:7777 in a browser, and finish the setup wizard. The
@@ -16,7 +16,7 @@
 
 services:
   # --------------------------------------------------------------------------
-  # Familieassistenten — main app
+  # FamilyAssistant — main app
   # --------------------------------------------------------------------------
   app:
     # Default to the :main tag because the Docker workflow only creates

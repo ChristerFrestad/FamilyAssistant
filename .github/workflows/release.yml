@@ -1,6 +1,6 @@
 name: Release
 
-# Trigges når en tag 'v*' pushes (f.eks. v1.3.0)
+# Triggered when a tag 'v*' is pushed (e.g. v1.3.0)
 on:
   push:
     tags:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. Bygg artifacts (tarball + SBOM) - output hashes for SLSA provenance
+  # 1. Build artifacts (tarball + SBOM) - output hashes for SLSA provenance
   # ---------------------------------------------------------------------------
   build:
     name: Build release artifacts
@@ -40,7 +40,7 @@ jobs:
       - name: Create source tarball
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          PREFIX="familieassistenten-${VERSION}"
+          PREFIX="familyassistant-${VERSION}"
           git archive --format=tar.gz --prefix="${PREFIX}/" -o "${PREFIX}.tar.gz" HEAD
           ls -la *.tar.gz
 
@@ -48,8 +48,8 @@ jobs:
         id: hash
         run: |
           set -euo pipefail
-          # Hash alle release-artifacts til base64 av "sha256  filename"-liste
-          # (format som SLSA provenance-generatoren forventer)
+          # Hash every release artifact into a base64 of "sha256  filename"
+          # entries (the format the SLSA provenance generator expects).
           HASHES=$(sha256sum *.tar.gz sbom.json | base64 -w0)
           echo "hashes=$HASHES" >> "$GITHUB_OUTPUT"
           sha256sum *.tar.gz sbom.json > SHA256SUMS.txt
@@ -60,14 +60,14 @@ jobs:
         with:
           name: release-artifacts-${{ github.ref_name }}
           path: |
-            familieassistenten-*.tar.gz
+            familyassistant-*.tar.gz
             sbom.json
             SHA256SUMS.txt
           retention-days: 90
 
   # ---------------------------------------------------------------------------
-  # 2. SLSA Level 3 provenance - kryptografisk signert build-herkomst
-  # Bruker GitHub's generic generator (OIDC-basert, ingen nøkler i repo).
+  # 2. SLSA Level 3 provenance - cryptographically signed build attestation
+  # Uses GitHub's generic generator (OIDC-based, no keys in repo).
   # ---------------------------------------------------------------------------
   provenance:
     name: Generate SLSA provenance
@@ -80,16 +80,19 @@ jobs:
     with:
       base64-subjects: ${{ needs.build.outputs.hashes }}
       upload-assets: false
-      provenance-name: familieassistenten-${{ github.ref_name }}.intoto.jsonl
-      # Uke 10 REL-6 fix: repoet er privat. SLSA-generatoren halter by default
-      # for å unngå å eksponere repo-navn i Sigstore Rekor's offentlige
-      # transparency-logg. Eksplisitt opt-in betyr at repo-URL + commit-SHAs
-      # blir permanent loggført i Rekor — ikke innhold, kun metadata.
-      # Prosjekt-eieren har godkjent denne privacy-kompromissen.
+      provenance-name: familyassistant-${{ github.ref_name }}.intoto.jsonl
+      # Week 10 REL-6 note: the repo was private when this workflow was
+      # written. The SLSA generator defaults to halting for private repos
+      # to avoid exposing the repo name in Sigstore Rekor's public
+      # transparency log. Explicit opt-in means repo URL + commit SHAs
+      # are permanently logged to Rekor (metadata only, not content).
+      # Owner has approved this privacy trade-off. Re-evaluate when the
+      # repo flips public — `private-repository: false` may then be the
+      # correct value (PR 7 of the public-repo-prep series handles this).
       private-repository: true
 
   # ---------------------------------------------------------------------------
-  # 3. Publiser GitHub Release med alle artifacts og provenance
+  # 3. Publish GitHub Release with all artifacts and provenance
   # ---------------------------------------------------------------------------
   publish:
     name: Publish GitHub Release
@@ -119,27 +122,27 @@ jobs:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            ./release/familieassistenten-*.tar.gz
+            ./release/familyassistant-*.tar.gz
             ./release/sbom.json
             ./release/SHA256SUMS.txt
             ./release/*.intoto.jsonl
           body: |
-            ## Familieassistenten ${{ github.ref_name }}
+            ## FamilyAssistant ${{ github.ref_name }}
 
-            ### Verifiser integritet
+            ### Verify integrity
 
             ```bash
-            # Sjekk SHA256-summer
+            # Check SHA256 sums
             sha256sum -c SHA256SUMS.txt
 
-            # Verifiser SLSA provenance (krever slsa-verifier installert)
+            # Verify SLSA provenance (requires slsa-verifier installed)
             slsa-verifier verify-artifact \
-              --provenance-path familieassistenten-${{ github.ref_name }}.intoto.jsonl \
+              --provenance-path familyassistant-${{ github.ref_name }}.intoto.jsonl \
               --source-uri github.com/${{ github.repository }} \
-              familieassistenten-*.tar.gz
+              familyassistant-*.tar.gz
             ```
 
             ### Software Bill of Materials
 
-            `sbom.json` inneholder full CycloneDX 1.6 SBOM for alle runtime-avhengigheter.
-            Se `SECURITY.md §4` for supply-chain-policy.
+            `sbom.json` contains the full CycloneDX 1.6 SBOM for all runtime dependencies.
+            See `SECURITY.md §4` for supply-chain policy.
