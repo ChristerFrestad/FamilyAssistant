@@ -340,6 +340,51 @@ optionally the colors change. SVG-only until PNG derivatives
 
 **Documented:** 2026-05-05, PR #122
 
+### BR-BRAND-4: PNG raster derivatives are rendered on demand and cached per brand-snapshot
+
+**What:** Five PNG endpoints rasterise the brand-aware SVG templates
+into PNG buffers when first requested and cache the result keyed on
+the SHA-256 hash of the current brand-env snapshot. Endpoints:
+`/favicon-32.png` (32×32), `/apple-touch-icon.png` (180×180),
+`/android-chrome-192.png`, `/android-chrome-512.png`, and
+`/og-image.png` (1200×630 wordmark-on-cream layout). All five share
+the same cache and the same brand-snapshot-hash; when the operator
+flips brand env-vars and restarts the process, the cache starts
+cold and the first request per endpoint re-renders.
+
+**Why:** Older browsers and iOS home-screen installs do not honour
+SVG favicons. Social-media crawlers expect a PNG `og:image` for
+card previews. Rendering on demand keeps the runtime cost
+proportional to traffic — a Christer-family pilot with two users
+hits each PNG once and serves from the in-memory cache for the
+rest of the process lifetime. Cache-Control is 24 h on the client
+side and ETag is the first 16 hex chars of the snapshot hash so
+crawlers can `If-None-Match` and get 304.
+
+**Detailed Flow:**
+1. Client / crawler requests one of the five PNG paths
+2. `server/http/branding.js` calls `renderTemplate(svg, config)`
+   to substitute `{{LETTER}}` / `{{APP_NAME}}` / `{{APP_TAGLINE}}`
+3. `server/branding/png-renderer.js` builds a cache key
+   `<endpoint>:<sha256(env-snapshot)>` and looks up. Hit → return
+   cached buffer. Miss → `sharp(svgBuffer, {density: 384}).resize(w, h).png().toBuffer()`,
+   cache-set (max 32 entries, LRU eviction), return
+4. Handler writes `Content-Type: image/png`, `Cache-Control:
+   public, max-age=86400`, `ETag: "<snapshot-hash-prefix>"`,
+   then streams the buffer
+5. Sharp not loadable → 503 with a clear "PNG renderer unavailable"
+   problem-details body. Frontend falls back to the SVG favicon /
+   logo-mark which always works
+
+**Affected files:**
+- `server/branding/templates/og-image.template.svg` (new)
+- `server/branding/png-renderer.js` (new, sharp wrapper + cache)
+- `server/http/branding.js` (`handlePng` + 5 new route bindings)
+- `client/index.html` (apple-touch-icon + og:image meta tags)
+- `tests/branding-png-endpoints.test.js`
+
+**Documented:** 2026-05-28, issue #123
+
 ### Format to follow when adding a rule
 
 ````markdown
