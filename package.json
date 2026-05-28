@@ -26,6 +26,7 @@
     "test:client": "vitest run --config client/vitest.config.ts --passWithNoTests",
     "test:client:watch": "vitest --config client/vitest.config.ts",
     "test:client:coverage": "vitest run --coverage --config client/vitest.config.ts --passWithNoTests",
+    "test:llm": "node --test tests/llm-integration.opt-in.test.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --check \"server/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/sw.js\" \"package.json\"",
