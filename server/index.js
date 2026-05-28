@@ -156,7 +156,7 @@ async function startServer() {
       routes: router.routes.length,
       sdNotifyActive: sdNotify.isActive(),
     },
-    `Familieassistenten kj\u00f8rer p\u00e5 http://localhost:${config.PORT}`
+    `FamilyAssistant running on http://localhost:${config.PORT}`
   );
 
   // M2.2: signaliser READY til systemd + start watchdog

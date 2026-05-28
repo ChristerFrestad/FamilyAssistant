@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-04-10
 **Audience:** Operator. This document is for troubleshooting and
-day-to-day operation of Familieassistenten on Raspberry Pi 5.
+day-to-day operation of FamilyAssistant on Raspberry Pi 5.
 
 > **Paths:** `$APP_ROOT` = install path (default: `$APP_ROOT`)
 
@@ -221,7 +221,7 @@ curl -s http://localhost:11434/api/tags | jq '.models[].name'
 curl -s http://localhost:3000/api/status | jq '.breakers.ollama'
 ```
 
-If the breaker is OPEN: restart Ollama first, then Familieassistenten:
+If the breaker is OPEN: restart Ollama first, then FamilyAssistant:
 ```bash
 sudo systemctl restart ollama
 sleep 5
@@ -230,7 +230,7 @@ sudo systemctl restart familieassistenten
 
 ### 4.5 "Disk Full"
 
-Familieassistenten typically uses <100 MB DB + backups. If the disk fills up:
+FamilyAssistant typically uses <100 MB DB + backups. If the disk fills up:
 
 ```bash
 # Most likely journald — cap it
@@ -247,7 +247,7 @@ du -sh ~/.ollama/models/
 ### 4.6 "CSP Error in Browser"
 
 Open DevTools → Console. If you see `Refused to execute inline script`,
-it means CSP is too strict for new inline code. Familieassistenten
+it means CSP is too strict for new inline code. FamilyAssistant
 allows `'unsafe-inline'` for script and style, so this shouldn't happen
 until M5 modularizes the frontend.
 
@@ -465,7 +465,7 @@ If everything is green: good night.
 
 ## §10 Service Level Objectives (SLO) — week 5 PERF-7
 
-Formal performance targets for Familieassistenten. The SLOs are used as
+Formal performance targets for FamilyAssistant. The SLOs are used as
 the basis for alerting (week 6) and as the regression gate in CI
 (`.github/workflows/performance.yml`).
 
@@ -565,7 +565,7 @@ to the RPi5 and sudo rights.
 **Alert:** `up{job="familieassistenten"} == 0` for 1+ minute.
 
 **Impact:** Full service outage. No family member can use
-Familieassistenten (no reads, no writes).
+FamilyAssistant (no reads, no writes).
 
 **First-response (≤5 min):**
 ```bash
@@ -606,7 +606,7 @@ service, potentially corrupt state.
 **First-response:**
 ```bash
 # Check how many times the process has restarted
-sudo journalctl -u familieassistenten --since "15 min ago" | grep -c "Started Familieassistenten"
+sudo journalctl -u familieassistenten --since "15 min ago" | grep -cE "^.*Started.*\.service"
 
 # Run in foreground to see the full error message
 sudo systemctl stop familieassistenten
@@ -1067,7 +1067,7 @@ from 5 families can become a bottleneck.
 |---|---|
 | qwen2.5:3b model loaded | ~2.0 GB |
 | Ollama process overhead | ~0.3 GB |
-| Familieassistenten container | ~0.5 GB (cap 512 MB per docker-compose) |
+| FamilyAssistant container | ~0.5 GB (cap 512 MB per docker-compose) |
 | HomeAssistant (if co-located) | ~0.8 GB |
 | OS + other | ~1.0 GB |
 | **Total** | ~4.6 GB |

@@ -1,49 +1,49 @@
 #!/bin/bash
-# Familieassistenten — Oppstartskript for Raspberry Pi 5
-# Kjør: chmod +x start.sh && ./start.sh
+# FamilyAssistant — start script for Raspberry Pi 5
+# Run: chmod +x start.sh && ./start.sh
 
 set -e
 
-echo "🏠 Starter Familieassistenten..."
+echo "Starting FamilyAssistant..."
 
-# Gå til prosjektmappen
+# Move to the project folder
 cd "$(dirname "$0")"
 
-# Sjekk Node.js
+# Check Node.js
 if ! command -v node &> /dev/null; then
-  echo "❌ Node.js er ikke installert. Installer med:"
+  echo "Node.js is not installed. Install with:"
   echo "   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
   echo "   sudo apt install -y nodejs"
   exit 1
 fi
 
-echo "✅ Node.js $(node -v)"
+echo "Node.js $(node -v)"
 
-# Sjekk Ollama (valgfritt)
+# Check Ollama (optional)
 if command -v ollama &> /dev/null; then
-  echo "✅ Ollama funnet"
-  # Start Ollama i bakgrunnen hvis ikke kjørende
+  echo "Ollama detected"
+  # Start Ollama in the background if not already running
   if ! pgrep -x "ollama" > /dev/null; then
-    echo "🤖 Starter Ollama..."
+    echo "Starting Ollama..."
     ollama serve &
     sleep 3
   fi
-  # Sjekk om modellen er lastet ned
+  # Check whether the model is already pulled
   if ! ollama list | grep -q "qwen3"; then
-    echo "📦 Laster ned Qwen 3 4B (dette tar noen minutter)..."
+    echo "Pulling Qwen 3 4B (this takes a few minutes)..."
     ollama pull qwen3:4b
   fi
 else
-  echo "⚠️  Ollama ikke installert — chatbot deaktivert"
-  echo "   Installer: curl -fsSL https://ollama.com/install.sh | sh"
-  echo "   Last ned modell: ollama pull qwen3:4b"
+  echo "Ollama not installed - chatbot disabled"
+  echo "   Install: curl -fsSL https://ollama.com/install.sh | sh"
+  echo "   Pull model: ollama pull qwen3:4b"
 fi
 
-# Start serveren
+# Start the server
 echo ""
-echo "🚀 Starter webserver på port 3000..."
-echo "📱 Åpne på iPhone: http://$(hostname -I | awk '{print $1}'):3000"
-echo "   Legg til som snarvei: Safari → Del → Legg til på Hjem-skjerm"
+echo "Starting web server on port 3000..."
+echo "Open on iPhone: http://$(hostname -I | awk '{print $1}'):3000"
+echo "   Add as shortcut: Safari -> Share -> Add to Home Screen"
 echo ""
 
 node server/index.js

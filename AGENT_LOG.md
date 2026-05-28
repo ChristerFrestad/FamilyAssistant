@@ -6,6 +6,84 @@
 
 ---
 
+2026-05-28 – Public-repo prep PR 5: brand consolidation to FamilyAssistant
+
+Oppgave: Femte av 7 PR-er. Konsolider open-source-brand default til
+"FamilyAssistant" overalt i tracked filer. Beholder breaking-rename
+unngått: database-filnavn (`familieassistenten.db`), systemd-unit-
+filnavn (`familieassistenten.service`), Prometheus-job/service-labels
+står som-er for å ikke knuse installerte instanser eller scrape-
+config. Per audit-doc §13 beslutning 9 (Christer-godkjent 2026-05-27).
+
+Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
+(samme audit som PR 1-4)
+
+- Reisen: 6 logiske commits — (1) package.json name, (2) Docker +
+  CI workflows, (3) installer-scripts + systemd unit, (4)
+  server-source brand-strings, (5) OpenAPI + monitoring, (6)
+  remaining docs + nytt known-issue.
+- Edge-cases: Prometheus `service: familieassistenten` og
+  `job="familieassistenten"`-labels måtte stå urørt for å ikke
+  knuse scrape-config; bare alert-summaries og dashboard-titler
+  rebrandet. RUNBOOK.md grep-eksempel for "Started Familieassistenten"
+  byttet til generisk `^.*Started.*\.service`-pattern slik at
+  både pre- og post-rename systemd-unit-Description matcher.
+  systemd-Description i `familieassistenten.service` byttet til
+  engelsk "FamilyAssistant — self-hosted household assistant" så
+  nye installs får riktig brand i `systemctl status`.
+- Beslutninger: audit §13 beslutning 9 (Christer-godkjent)
+  drev scope-valget. Andre overheard "Familieassistenten"-treff
+  i source-kode-kommentarer (server/* + tests/helpers.js +
+  client/* design-comments) er deferred til pre-deploy cleanup
+  per DEL 7.7 (ingen drive-by).
+- Portainer-risiko: nei (alle endringer er enten ikke-oppstarts-
+  kritisk eller bakoverkompatibel via install.sh runtime-patching).
+
+Plan: 6 PR-grupper + ny known-issue + AGENT_LOG.
+
+Gjort:
+
+- Branch: chore/public-repo-prep-5-brand-consolidation (basert
+  på PR 4-branch i stacked-PR-pattern)
+- Commits: 6 brand-konsolidering-commits + denne AGENT_LOG-commit
+  = 7 totalt på denne branchen
+- Filer endret: 22 totalt
+- Ny fil: docs/known-issues/setup-html-missing-after-sprint-8-cleanup.md
+- Test-resultat: 1361 backend pass / 0 fail / 2 skip. Lint
+  0 errors. Typecheck (server + client) clean.
+- DOMAIN_MODEL.md oppdatert: nei
+- Avvik fra plan: oppdaget separat bug under PR 5-investigasjon
+  (setup.html mangler etter Sprint 8 v1-cleanup, men bootstrap-
+  flyten refererer fortsatt til /setup.html). Dokumentert som
+  ny known-issue. Workaround eksisterer (sett AUTH_TOKEN direkte
+  i Portainer); ekte fiks er post-pilot work.
+
+Sikkerhet: ingen sikkerhets-endring — kun brand-rename. Bekreftet
+ingen nye hardkodede credentials eller hemmeligheter introdusert.
+
+ISO 25010:
+- Portabilitet 8.70 → 8.75 (+0.05, brand-konsistens reduserer
+  white-label oppsett-friksjon for forks)
+- Vedlikeholdbarhet 8.50 → 8.55 (+0.05, samme brand-navn på
+  tvers av tracked filer reduserer mental belastning ved review)
+- Andre karakteristikker: ikke berørt
+
+Status: lokalt klart, venter på push fra Christer
+(Christer har sagt at PR 5-7 skal kjøres lokalt før batch-push)
+
+Beslutninger Christer må ta:
+
+1. setup.html-bug: dokumentert som known-issue, men fortsatt
+   en reell deploy-blocker for fresh Portainer-deploys som
+   følger DEPLOY.md §16. ANBEFALING: post-pilot work, ikke
+   blocker for å gjøre repo public. Christer's egen pilot
+   bruker workarounden allerede.
+
+Neste: PR 6 (CLAUDE.md split til AGENTS.md + CHRISTER.md per
+beslutning 4) starter umiddelbart.
+
+---
+
 2026-05-27 – Public-repo prep PR 4: translate public-facing docs to English
 
 Oppgave: Fjerde av 7 PR-er. Oversett all public-facing

@@ -95,7 +95,7 @@ Config: `.github/dependabot.yml`.
 
 ```bash
 git clone <repo>
-cd Familieassistenten
+cd FamilyAssistant
 npm ci              # not 'npm install' — uses package-lock.json
                     # the `prepare` script activates the husky pre-commit hook
 npm run ci          # verify everything is green locally before the first commit

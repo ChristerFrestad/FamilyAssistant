@@ -1,38 +1,38 @@
-# Familieassistenten — multi-stage Dockerfile
+# FamilyAssistant — multi-stage Dockerfile
 #
-# Uke 7 av ISO/IEC 25010-planen (PORT-1, PORT-7), utvidet 2026-05-04
-# med frontend-builder for v2 React-bundle.
+# Week 7 of the ISO/IEC 25010 plan (PORT-1, PORT-7), extended 2026-05-04
+# with a frontend-builder for the v2 React bundle.
 #
-# Build-strategi:
-#   Stage 1a: frontend-builder — node:20-bookworm-slim med Vite. Bygger
-#             client/src/ til /build/public/v2/. Bundle-en er gitignored
-#             i git-checkout, så uten denne stagen ville imaget mangle
-#             v2 React-app og fallback til legacy v1.
-#   Stage 1b: builder (backend) — node:20-bookworm-slim med toolchain
-#             for å kompilere better-sqlite3 (native C++ modul).
-#             Installer runtime-deps, kopier dist-filer, og henter v2-
-#             bundle fra frontend-builder.
-#   Stage 2:  runtime — node:20-bookworm-slim med tini + gosu for
-#             entrypoint-permissions-fix. Kopier node_modules, server/,
-#             public/ (inkl. /v2/), og scripts/ fra builder.
+# Build strategy:
+#   Stage 1a: frontend-builder — node:20-bookworm-slim with Vite. Builds
+#             client/src/ to /build/public/v2/. The bundle is gitignored
+#             in the git checkout, so without this stage the image would
+#             miss the v2 React app and fall back to legacy v1.
+#   Stage 1b: builder (backend) — node:20-bookworm-slim with the toolchain
+#             needed to compile better-sqlite3 (native C++ module).
+#             Installs runtime deps, copies dist files, and pulls the v2
+#             bundle from frontend-builder.
+#   Stage 2:  runtime — node:20-bookworm-slim with tini + gosu for the
+#             entrypoint permissions fix. Copies node_modules, server/,
+#             public/ (incl. /v2/), and scripts/ from the builder.
 #
-# Multiarch: bygges med `docker buildx build --platform linux/amd64,linux/arm64`.
-# Både amd64 (x86 dev-PC) og arm64 (RPi5) er støttet.
+# Multi-arch: built with `docker buildx build --platform linux/amd64,linux/arm64`.
+# Both amd64 (x86 dev PC) and arm64 (RPi5) are supported.
 #
 # Build:
-#   docker build -t ghcr.io/christerfrestad/familieassistant:dev .
+#   docker build -t ghcr.io/christerfrestad/familyassistant:dev .
 #
-# Build multiarch (via GitHub Actions eller lokal buildx):
+# Build multi-arch (via GitHub Actions or local buildx):
 #   docker buildx build --platform linux/amd64,linux/arm64 \
-#     -t ghcr.io/christerfrestad/familieassistant:1.3.0 --push .
+#     -t ghcr.io/christerfrestad/familyassistant:1.3.0 --push .
 #
-# Run lokalt:
+# Run locally:
 #   docker run --rm -p 7777:7777 \
 #     -e NODE_ENV=production \
 #     -e AUTH_TOKEN=$(openssl rand -hex 32) \
 #     -e ALLOWED_ORIGINS=http://localhost:7777 \
 #     -v $(pwd)/data:/app/data \
-#     ghcr.io/christerfrestad/familieassistant:dev
+#     ghcr.io/christerfrestad/familyassistant:dev
 
 # ============================================================================
 # Stage 1a: Frontend builder — Vite-bygget v2 React-bundle

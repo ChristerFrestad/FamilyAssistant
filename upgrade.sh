@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
-# Familieassistenten — Safe upgrade (M7.2)
+# FamilyAssistant — safe upgrade (M7.2)
 #
-# Trygg oppgraderings-flyt:
-#   1. Safety-backup av DB (før migrasjoner kjører)
-#   2. git fetch + vis hva som kommer
-#   3. npm test (lokal, uten å røre running service)
-#   4. Hvis tester grønne: git pull + npm ci + systemctl restart
+# Safe upgrade flow:
+#   1. Safety backup of the DB (before migrations run)
+#   2. git fetch + show what is coming
+#   3. npm test (local, without touching the running service)
+#   4. If tests pass: git pull + npm ci + systemctl restart
 #   5. Post-upgrade /ready + /api/status
-#   6. Ved feil: automatisk rollback til forrige commit + DB-restore
+#   6. On failure: automatic rollback to the previous commit + DB restore
 #
-# Kjøres fra repo-roten: ./upgrade.sh
+# Run from the repo root: ./upgrade.sh
 #
 # Flags:
-#   --skip-tests    Hopp over test-gate (ikke anbefalt)
-#   --no-restart    Ikke restart systemd etter pull (for dry-run)
-#   --force         Ikke spør om confirm
+#   --skip-tests    Skip the test gate (not recommended)
+#   --no-restart    Do not restart systemd after pull (for dry-run)
+#   --force         Do not prompt for confirmation
 
 set -euo pipefail
 
@@ -26,9 +26,9 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 log()   { printf "${BLUE}[upgrade]${NC} %s\n" "$1"; }
-ok()    { printf "${GREEN}✓${NC} %s\n" "$1"; }
-warn()  { printf "${YELLOW}⚠${NC} %s\n" "$1"; }
-err()   { printf "${RED}✗${NC} %s\n" "$1" >&2; }
+ok()    { printf "${GREEN}OK${NC} %s\n" "$1"; }
+warn()  { printf "${YELLOW}WARN${NC} %s\n" "$1"; }
+err()   { printf "${RED}FAIL${NC} %s\n" "$1" >&2; }
 die()   { err "$1"; exit 1; }
 
 # ============================================================
@@ -46,7 +46,7 @@ for arg in "$@"; do
       grep '^#' "$0" | sed 's/^# \?//' | head -30
       exit 0
       ;;
-    *) die "Ukjent flag: $arg" ;;
+    *) die "Unknown flag: $arg" ;;
   esac
 done
 
@@ -56,53 +56,53 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-[[ -f package.json ]] || die "Ikke et Familieassistenten-repo"
-[[ -d .git ]] || die "Ikke et git-repo — kan ikke oppgradere"
-command -v git >/dev/null 2>&1 || die "git er ikke installert"
-command -v node >/dev/null 2>&1 || die "node er ikke installert"
+[[ -f package.json ]] || die "Not a FamilyAssistant repo"
+[[ -d .git ]] || die "Not a git repo - cannot upgrade"
+command -v git >/dev/null 2>&1 || die "git is not installed"
+command -v node >/dev/null 2>&1 || die "node is not installed"
 
 CURRENT_COMMIT="$(git rev-parse HEAD)"
 CURRENT_SHORT="$(git rev-parse --short HEAD)"
-log "Nåværende commit: $CURRENT_SHORT"
+log "Current commit: $CURRENT_SHORT"
 
-# Sjekk at working tree er ren (unntatt data/)
+# Check that the working tree is clean (except for data/)
 if [[ -n "$(git status --porcelain -- ':!data/' ':!backups/')" ]]; then
-  err "Working tree har ukommiterte endringer:"
+  err "Working tree has uncommitted changes:"
   git status --short -- ':!data/' ':!backups/'
-  die "Stash eller commit endringene først"
+  die "Stash or commit the changes first"
 fi
 
 # ============================================================
-# 1. Safety-backup av DB
+# 1. Safety backup of DB
 # ============================================================
 backup_db() {
-  log "Tar safety-backup av DB..."
+  log "Taking safety backup of DB..."
   local stamp
   stamp="pre-upgrade-$(date +%Y-%m-%d-%H%M)"
   local backup_file="data/backups/${stamp}.db"
   mkdir -p data/backups
 
   if [[ ! -f data/familieassistenten.db ]]; then
-    warn "data/familieassistenten.db finnes ikke — hopper over backup"
+    warn "data/familieassistenten.db does not exist - skipping backup"
     return
   fi
 
-  # VACUUM INTO er atomisk selv mens serveren kjører
+  # VACUUM INTO is atomic even while the server is running
   if command -v sqlite3 >/dev/null 2>&1; then
     sqlite3 data/familieassistenten.db "VACUUM INTO '$backup_file'"
   else
-    # Fallback: kald kopi (krever at serveren er stoppet eller tåler at vi leser)
+    # Fallback: cold copy (requires that the server is stopped or tolerates concurrent reads)
     cp data/familieassistenten.db "$backup_file"
   fi
-  ok "Safety-backup: $backup_file ($(du -h "$backup_file" | cut -f1))"
+  ok "Safety backup: $backup_file ($(du -h "$backup_file" | cut -f1))"
   SAFETY_BACKUP="$backup_file"
 }
 
 # ============================================================
-# 2. Sjekk hva som kommer
+# 2. Check what is coming
 # ============================================================
 fetch_and_preview() {
-  log "Henter endringer fra origin..."
+  log "Fetching changes from origin..."
   git fetch origin
 
   local upstream
@@ -111,34 +111,34 @@ fetch_and_preview() {
   behind="$(git rev-list --count HEAD.."$upstream")"
 
   if [[ "$behind" -eq 0 ]]; then
-    ok "Allerede på nyeste commit — ingenting å gjøre"
+    ok "Already on the latest commit - nothing to do"
     exit 0
   fi
 
-  log "$behind commit(s) bak $upstream:"
+  log "$behind commit(s) behind $upstream:"
   git log --oneline HEAD.."$upstream" | sed 's/^/    /'
 
   if [[ "$FORCE" -eq 0 ]]; then
     echo
-    read -r -p "Fortsette med upgrade? [y/N] " answer
-    [[ "$answer" =~ ^[Yy]$ ]] || die "Avbrutt av bruker"
+    read -r -p "Continue with the upgrade? [y/N] " answer
+    [[ "$answer" =~ ^[Yy]$ ]] || die "Aborted by user"
   fi
 }
 
 # ============================================================
-# 3. Test-gate
+# 3. Test gate
 # ============================================================
 run_tests() {
   if [[ "$SKIP_TESTS" -eq 1 ]]; then
-    warn "Hopper over test-gate (--skip-tests)"
+    warn "Skipping test gate (--skip-tests)"
     return
   fi
-  log "Kjører test-suite..."
+  log "Running the test suite..."
   if npm test 2>&1 | tail -10 | tee /tmp/fam-upgrade-tests.log; then
-    ok "Tester grønne"
+    ok "Tests passing"
   else
-    warn "Tester feilet PÅ NÅVÆRENDE commit (før pull) — avbryter"
-    die "Fiks brekken på HEAD først"
+    warn "Tests failed ON THE CURRENT commit (before pull) - aborting"
+    die "Fix the failure on HEAD first"
   fi
 }
 
@@ -146,7 +146,7 @@ run_tests() {
 # 4. Pull + install
 # ============================================================
 apply_upgrade() {
-  log "Pulling endringer..."
+  log "Pulling changes..."
   git pull --ff-only origin "$(git rev-parse --abbrev-ref HEAD)"
 
   log "npm ci --omit=dev..."
@@ -157,20 +157,20 @@ apply_upgrade() {
   fi
 
   if [[ "$SKIP_TESTS" -eq 0 ]]; then
-    log "Kjører tester på ny commit..."
+    log "Running tests on new commit..."
     if ! npm test 2>&1 | tail -10; then
-      warn "Tester feiler på ny commit — ruller tilbake"
+      warn "Tests fail on the new commit - rolling back"
       rollback
-      die "Rollback fullført"
+      die "Rollback complete"
     fi
   fi
 
   if [[ "$NO_RESTART" -eq 1 ]]; then
-    warn "--no-restart: hopper over systemctl restart"
+    warn "--no-restart: skipping systemctl restart"
     return
   fi
 
-  log "Restart service..."
+  log "Restarting service..."
   if command -v systemctl >/dev/null 2>&1; then
     sudo systemctl restart familieassistenten
     sleep 3
@@ -181,41 +181,41 @@ apply_upgrade() {
 # 5. Post-upgrade verify
 # ============================================================
 verify() {
-  log "Verifiserer..."
+  log "Verifying..."
   if command -v systemctl >/dev/null 2>&1 && ! sudo systemctl is-active familieassistenten >/dev/null 2>&1; then
-    warn "Service er ikke active etter restart — ruller tilbake"
+    warn "Service is not active after restart - rolling back"
     rollback
-    die "Rollback fullført"
+    die "Rollback complete"
   fi
 
   local attempts=5
   while (( attempts-- > 0 )); do
     if curl -sf http://localhost:3000/ready >/dev/null 2>&1; then
-      ok "/ready svarer OK"
+      ok "/ready returned OK"
       break
     fi
     sleep 2
   done
   if (( attempts < 0 )); then
-    warn "/ready svarte ikke — ruller tilbake"
+    warn "/ready did not respond - rolling back"
     rollback
-    die "Rollback fullført"
+    die "Rollback complete"
   fi
 
-  ok "Upgrade fullført: $(git rev-parse --short HEAD)"
+  ok "Upgrade complete: $(git rev-parse --short HEAD)"
 }
 
 # ============================================================
 # Rollback
 # ============================================================
 rollback() {
-  log "Ruller tilbake til $CURRENT_SHORT..."
+  log "Rolling back to $CURRENT_SHORT..."
   git reset --hard "$CURRENT_COMMIT"
   if [[ -f package-lock.json ]]; then
     npm ci --omit=dev 2>&1 | tail -3 || true
   fi
   if [[ -n "${SAFETY_BACKUP:-}" && -f "$SAFETY_BACKUP" ]]; then
-    log "Restoring DB fra $SAFETY_BACKUP..."
+    log "Restoring DB from $SAFETY_BACKUP..."
     if command -v systemctl >/dev/null 2>&1; then
       sudo systemctl stop familieassistenten || true
     fi
@@ -225,11 +225,11 @@ rollback() {
     fi
     ok "DB restored"
   fi
-  warn "Rollback ferdig — sjekk logger: journalctl -u familieassistenten -n 50"
+  warn "Rollback finished - check logs: journalctl -u familieassistenten -n 50"
 }
 
 # ============================================================
-# Hovedflyt
+# Main flow
 # ============================================================
 backup_db
 fetch_and_preview
@@ -238,4 +238,4 @@ apply_upgrade
 verify
 
 echo
-ok "Oppgradering komplett. Safety-backup: ${SAFETY_BACKUP:-(ingen)}"
+ok "Upgrade complete. Safety backup: ${SAFETY_BACKUP:-(none)}"
