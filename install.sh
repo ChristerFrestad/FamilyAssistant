@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 #
-# Familieassistenten — Idempotent installer (M7)
+# FamilyAssistant — idempotent installer (M7)
 #
-# Kjøres på en ren Raspberry Pi OS (Bookworm eller nyere). Kan kjøres
-# flere ganger — sjekker hvert steg og hopper over det som allerede
-# er gjort.
+# Runs on a clean Raspberry Pi OS (Bookworm or newer). Safe to run
+# multiple times — each step checks and skips work that is already
+# done.
 #
-# Steg:
+# Steps:
 #   1. Node 20 LTS (via nodesource)
-#   2. Build-deps for better-sqlite3 (build-essential, python3)
+#   2. Build deps for better-sqlite3 (build-essential, python3)
 #   3. npm ci --omit=dev
-#   4. data/ + backups/-mapper
-#   5. .env fra .env.example hvis ikke finnes, generer AUTH_TOKEN
-#   6. systemd-service fra repo-fil, daemon-reload, enable + start
-#   7. Sjekker /ready og viser grønt/rødt status
+#   4. data/ + backups/ directories
+#   5. .env from .env.example if missing, generate AUTH_TOKEN
+#   6. systemd unit from repo file, daemon-reload, enable + start
+#   7. Check /ready and report green/red status
 #
-# Kjør fra repo-roten: ./install.sh
+# Run from the repo root: ./install.sh
 
 set -euo pipefail
 
 # ============================================================
-# Arg-parsing (uke 7 PORT-6)
+# Argument parsing (week 7 PORT-6)
 # ============================================================
 INSTALL_MODE="systemd"
 for arg in "$@"; do
@@ -29,17 +29,17 @@ for arg in "$@"; do
     --systemd) INSTALL_MODE="systemd" ;;
     -h|--help)
       cat <<'HELP'
-Familieassistenten installer
+FamilyAssistant installer
 
 Usage:
-  ./install.sh              # systemd-deploy (default, kjører Node direkte)
-  ./install.sh --docker     # Docker Compose-deploy
-  ./install.sh --systemd    # eksplisitt systemd-modus
-  ./install.sh --help       # vis denne meldingen
+  ./install.sh              # systemd deploy (default, runs Node directly)
+  ./install.sh --docker     # Docker Compose deploy
+  ./install.sh --systemd    # explicit systemd mode
+  ./install.sh --help       # print this message
 HELP
       exit 0
       ;;
-    *) echo "Ukjent argument: $arg (bruk --help)" >&2; exit 1 ;;
+    *) echo "Unknown argument: $arg (use --help)" >&2; exit 1 ;;
   esac
 done
 
@@ -53,14 +53,14 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 log()   { printf "${BLUE}[install]${NC} %s\n" "$1"; }
-ok()    { printf "${GREEN}✓${NC} %s\n" "$1"; }
-warn()  { printf "${YELLOW}⚠${NC} %s\n" "$1"; }
-err()   { printf "${RED}✗${NC} %s\n" "$1" >&2; }
+ok()    { printf "${GREEN}OK${NC} %s\n" "$1"; }
+warn()  { printf "${YELLOW}WARN${NC} %s\n" "$1"; }
+err()   { printf "${RED}FAIL${NC} %s\n" "$1" >&2; }
 die()   { err "$1"; exit 1; }
 
 need_root_for() {
   if [[ $EUID -ne 0 ]] && ! command -v sudo >/dev/null 2>&1; then
-    die "Trenger root eller sudo for: $1"
+    die "Need root or sudo for: $1"
   fi
 }
 
@@ -75,40 +75,40 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 if [[ ! -f package.json ]]; then
-  die "Kjør dette scriptet fra Familieassistenten-repoet"
+  die "Run this script from the FamilyAssistant repo root"
 fi
 
-log "Familieassistenten installer v1.2"
-log "Arbeidsmappe: $SCRIPT_DIR"
-log "Bruker: $(whoami)"
+log "FamilyAssistant installer v1.2"
+log "Working directory: $SCRIPT_DIR"
+log "User: $(whoami)"
 
 # ============================================================
 # 1. Node.js 20 LTS
 # ============================================================
 install_node() {
-  log "Sjekker Node.js..."
+  log "Checking Node.js..."
   if command -v node >/dev/null 2>&1; then
     local v
     v="$(node -v | sed 's/v//' | cut -d. -f1)"
     if [[ "$v" -ge 20 ]]; then
-      ok "Node.js $(node -v) allerede installert"
+      ok "Node.js $(node -v) already installed"
       return
     fi
-    warn "Node.js $(node -v) er for gammel (trenger ≥20)"
+    warn "Node.js $(node -v) is too old (need >= 20)"
   fi
 
-  log "Installerer Node.js 20 LTS via nodesource..."
+  log "Installing Node.js 20 LTS via nodesource..."
   need_root_for "Node.js install"
   curl -fsSL https://deb.nodesource.com/setup_20.x | run_sudo -E bash -
   run_sudo apt-get install -y nodejs
-  ok "Node.js $(node -v) installert"
+  ok "Node.js $(node -v) installed"
 }
 
 # ============================================================
-# 2. Build-deps for better-sqlite3
+# 2. Build deps for better-sqlite3
 # ============================================================
 install_build_deps() {
-  log "Sjekker build-deps for better-sqlite3..."
+  log "Checking build deps for better-sqlite3..."
   local missing=()
   for pkg in build-essential python3 make g++; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
@@ -116,76 +116,76 @@ install_build_deps() {
     fi
   done
   if [[ ${#missing[@]} -eq 0 ]]; then
-    ok "Alle build-deps finnes"
+    ok "All build deps present"
     return
   fi
-  log "Installerer: ${missing[*]}"
+  log "Installing: ${missing[*]}"
   need_root_for "apt install"
   run_sudo apt-get update -qq
   run_sudo apt-get install -y "${missing[@]}"
-  ok "Build-deps installert"
+  ok "Build deps installed"
 }
 
 # ============================================================
-# 3. npm-pakker
+# 3. npm packages
 # ============================================================
 install_npm() {
-  log "Installerer npm-pakker..."
+  log "Installing npm packages..."
   if [[ -f package-lock.json ]]; then
     npm ci --omit=dev 2>&1 | tail -5 || {
-      warn "npm ci feilet — prøver npm install"
+      warn "npm ci failed - trying npm install"
       npm install --omit=dev 2>&1 | tail -5
     }
   else
     npm install --omit=dev 2>&1 | tail -5
   fi
-  # Verifiser at better-sqlite3 bygget
+  # Verify that better-sqlite3 built
   if node -e "require('better-sqlite3')" 2>/dev/null; then
-    ok "better-sqlite3 bygget OK"
+    ok "better-sqlite3 built OK"
   else
-    warn "better-sqlite3 kunne ikke bygges — bruker sql.js fallback"
+    warn "better-sqlite3 could not build - falling back to sql.js"
   fi
 }
 
 # ============================================================
-# 4. Opprette mapper
+# 4. Create directories
 # ============================================================
 create_dirs() {
-  log "Oppretter data-mapper..."
+  log "Creating data directories..."
   mkdir -p data data/backups
   chmod 755 data data/backups
-  ok "data/ og data/backups/ klar"
+  ok "data/ and data/backups/ ready"
 }
 
 # ============================================================
-# 5. .env-generering
+# 5. .env generation
 # ============================================================
 setup_env() {
-  log "Sjekker .env..."
+  log "Checking .env..."
   if [[ -f .env ]]; then
-    ok ".env finnes allerede"
+    ok ".env already present"
   else
     if [[ ! -f .env.example ]]; then
-      die ".env.example mangler — kjør fra fullt repo"
+      die ".env.example missing - run from a full repo checkout"
     fi
-    log "Lager .env fra .env.example..."
+    log "Creating .env from .env.example..."
     cp .env.example .env
   fi
 
-  # Generer AUTH_TOKEN hvis ikke satt
+  # Generate AUTH_TOKEN if not set
   if ! grep -qE '^AUTH_TOKEN=.+' .env; then
-    log "Genererer AUTH_TOKEN (openssl rand -hex 32)..."
+    log "Generating AUTH_TOKEN (openssl rand -hex 32)..."
     local token
     if command -v openssl >/dev/null 2>&1; then
       token="$(openssl rand -hex 32)"
     else
       token="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
     fi
-    # Bruk perl for cross-platform in-place edit (macOS sed trenger -i '')
+    # Use perl for cross-platform in-place edit (macOS sed needs -i '')
     perl -i -pe "s|^AUTH_TOKEN=.*|AUTH_TOKEN=$token|" .env
-    ok "AUTH_TOKEN generert ($(echo -n "$token" | head -c 8)...)"
+    ok "AUTH_TOKEN generated ($(echo -n "$token" | head -c 8)...)"
   else
-    ok "AUTH_TOKEN er satt fra før"
+    ok "AUTH_TOKEN already set"
   fi
 
   # Secure permissions
@@ -193,7 +193,7 @@ setup_env() {
   if [[ "$(whoami)" != "root" ]]; then
     chown "$(whoami):$(whoami)" .env 2>/dev/null || true
   fi
-  ok ".env satt til 0600"
+  ok ".env set to 0600"
 }
 
 # ============================================================
@@ -201,16 +201,16 @@ setup_env() {
 # ============================================================
 install_systemd() {
   if ! command -v systemctl >/dev/null 2>&1; then
-    warn "systemd finnes ikke — hopper over service-install"
+    warn "systemd not present - skipping service install"
     return
   fi
 
-  log "Installerer systemd-service..."
+  log "Installing systemd service..."
   if [[ ! -f familieassistenten.service ]]; then
-    die "familieassistenten.service mangler i repoet"
+    die "familieassistenten.service missing in repo"
   fi
 
-  # Patch User + WorkingDirectory til faktisk miljø før install
+  # Patch User + WorkingDirectory to actual environment before install
   local tmp
   tmp="$(mktemp)"
   sed \
@@ -226,21 +226,21 @@ install_systemd() {
   run_sudo systemctl daemon-reload
 
   if run_sudo systemctl is-enabled familieassistenten >/dev/null 2>&1; then
-    ok "Service allerede enabled"
+    ok "Service already enabled"
   else
     run_sudo systemctl enable familieassistenten
     ok "Service enabled"
   fi
 
-  # Test-run en rask syntax-check før vi restarter
-  log "Kjører rask syntaks-sjekk..."
+  # Quick syntax check before we restart
+  log "Running quick syntax check..."
   if NODE_ENV=test node -e "require('./server/index.js'); setTimeout(()=>process.exit(0), 300)" 2>&1 | tail -3; then
-    ok "Kode parser OK"
+    ok "Code parses OK"
   else
-    die "Koden kaster ved require — sjekk feilen over"
+    die "Code throws on require - see error above"
   fi
 
-  log "Starter/restarter service..."
+  log "Starting/restarting service..."
   run_sudo systemctl restart familieassistenten
   sleep 3
 }
@@ -249,14 +249,14 @@ install_systemd() {
 # 7. Health check
 # ============================================================
 verify() {
-  log "Verifiserer installasjon..."
+  log "Verifying installation..."
 
   # Systemd status
   if command -v systemctl >/dev/null 2>&1; then
     if run_sudo systemctl is-active familieassistenten >/dev/null 2>&1; then
       ok "systemd service: active"
     else
-      err "systemd service: ikke active"
+      err "systemd service: not active"
       run_sudo systemctl status familieassistenten --no-pager -n 20 || true
       return 1
     fi
@@ -266,13 +266,13 @@ verify() {
   local attempts=5
   while (( attempts-- > 0 )); do
     if curl -sf http://localhost:3000/health >/dev/null 2>&1; then
-      ok "/health svarer 200"
+      ok "/health returned 200"
       break
     fi
     sleep 1
   done
   if (( attempts < 0 )); then
-    err "/health svarte ikke innen 5 sekunder"
+    err "/health did not respond within 5 seconds"
     return 1
   fi
 
@@ -280,70 +280,70 @@ verify() {
   local ready_body
   ready_body="$(curl -sf http://localhost:3000/ready 2>/dev/null || echo '{}')"
   if echo "$ready_body" | grep -q '"ready":true'; then
-    ok "/ready rapporterer OK"
+    ok "/ready reports OK"
   else
-    warn "/ready rapporterer ikke ready=true:"
+    warn "/ready does not report ready=true:"
     echo "$ready_body" | head -c 300
     echo
   fi
 }
 
 # ============================================================
-# Docker-mode helpers (uke 7 PORT-6)
+# Docker mode helpers (week 7 PORT-6)
 # ============================================================
 install_docker() {
-  log "Sjekker Docker..."
+  log "Checking Docker..."
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-    ok "Docker $(docker --version | awk '{print $3}' | tr -d ,) og Compose plugin allerede installert"
+    ok "Docker $(docker --version | awk '{print $3}' | tr -d ,) and Compose plugin already installed"
     return
   fi
-  log "Installerer Docker Engine via get.docker.com..."
+  log "Installing Docker Engine via get.docker.com..."
   need_root_for "Docker install"
   curl -fsSL https://get.docker.com | run_sudo sh
-  # Legg til bruker i docker-gruppe
+  # Add user to docker group
   run_sudo usermod -aG docker "$(whoami)" || true
-  warn "Logg ut og inn igjen for å aktivere 'docker' group membership"
-  ok "Docker installert"
+  warn "Log out and back in to activate 'docker' group membership"
+  ok "Docker installed"
 }
 
 docker_compose_up() {
-  log "Starter Docker Compose..."
+  log "Starting Docker Compose..."
   if [[ ! -f docker-compose.yml ]]; then
-    die "docker-compose.yml mangler — kjør fra repo-roten"
+    die "docker-compose.yml missing - run from repo root"
   fi
   if [[ ! -f .env ]]; then
-    die ".env mangler — setup_env må kjøre først"
+    die ".env missing - setup_env must run first"
   fi
-  docker compose pull || warn "pull feilet (første-gang build vil skje)"
+  docker compose pull || warn "pull failed (first-time build will happen)"
   docker compose up -d
-  ok "docker compose up -d fullført"
+  ok "docker compose up -d complete"
 }
 
 verify_docker() {
-  log "Venter på /health via Docker..."
+  log "Waiting for /health via Docker..."
   for i in 1 2 3 4 5 6 7 8 9 10; do
     if curl -sf http://localhost:3000/health >/dev/null 2>&1; then
-      ok "Helse-sjekk OK etter $i sek"
+      ok "Health check OK after $i sec"
       return
     fi
     sleep 1
   done
-  err "/health svarer ikke etter 10 sek. Sjekk: docker compose logs app"
+  err "/health did not respond within 10 sec. Check: docker compose logs app"
   exit 1
 }
 
 # ============================================================
-# Hovedflyt
+# Main flow
 # ============================================================
 if [[ "$INSTALL_MODE" == "docker" ]]; then
-  log "Installerer i DOCKER-modus"
+  log "Installing in DOCKER mode"
   install_docker
   create_dirs
   setup_env
   docker_compose_up
   verify_docker
 else
-  log "Installerer i SYSTEMD-modus"
+  log "Installing in SYSTEMD mode"
   install_node
   install_build_deps
   install_npm
@@ -355,24 +355,24 @@ fi
 
 echo
 echo "============================================"
-ok "Installasjon fullført!"
+ok "Installation complete!"
 echo "============================================"
 echo
-echo "📱 Nettadresse på LAN:"
+echo "LAN address:"
 echo "   http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost'):3000"
 echo
-echo "🔑 AUTH_TOKEN er lagret i .env (0600, eier $(whoami))"
-echo "   Du trenger den for å kalle /api/* endepunkter."
-echo "   Les: grep AUTH_TOKEN .env"
+echo "AUTH_TOKEN is stored in .env (0600, owner $(whoami))"
+echo "   Required to call /api/* endpoints."
+echo "   Read: grep AUTH_TOKEN .env"
 echo
-echo "📋 Neste steg:"
-echo "   1. Installer Caddy for HTTPS (se DEPLOY.md §13)"
-echo "   2. Installer Ollama + last modell:"
+echo "Next steps:"
+echo "   1. Install Caddy for HTTPS (see DEPLOY.md §13)"
+echo "   2. Install Ollama and pull a model:"
 echo "      curl -fsSL https://ollama.com/install.sh | sh"
 echo "      ollama pull qwen2.5:3b"
-echo "   3. Legg til iPhone-snarvei (se DEPLOY.md §9)"
+echo "   3. Add an iPhone home-screen shortcut (see DEPLOY.md §9)"
 echo
-echo "🔧 Nyttige kommandoer (se RUNBOOK.md):"
+echo "Useful commands (see RUNBOOK.md):"
 echo "   sudo systemctl status familieassistenten"
 echo "   journalctl -u familieassistenten -f"
 echo "   curl -s http://localhost:3000/api/status | jq"
