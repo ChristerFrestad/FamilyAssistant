@@ -254,10 +254,8 @@ Alle eksterne kall beskyttet av `server/services/circuit-breaker.js`.
 ## FAMILIE- OG BRUKERKONTEKST
 
 - Christer Frestad – eier, produkteier, utvikler-proxy
-- Martine Frestad – medeier domene, bruker
-- Barn – brukere (barnedata = ekstra varsom)
+- Familiemedlemmer (medeier, barn) – brukere; data behandles ekstra varsomt
 - Andre familier via HAOS – kjører egen Portainer-instans av samme image
-- Domene: `frestad.com` (ikke aktivt for app-deploy nå)
 - Internett-deploy: utsatt, krever separat prosjekt når klar
 
 ---

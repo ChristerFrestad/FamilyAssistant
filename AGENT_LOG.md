@@ -439,17 +439,18 @@ Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
 - Edge-cases: WelcomeHeader.test.tsx tester displayNameFromUser
   som ekstraherer navn fra e-post — bytte til peder@example.com
   krever symmetriske assert-oppdateringer (`Christer` → `Peder`).
-  Admin-bootstrap-test for case-insensitivitet (` Christer@Frestad.COM `)
-  bytter til ` Admin@Example.COM `. Beholdt operatørens NAVN
-  ("Christer", "Frestad") som test-fixtures per beslutning 5 —
-  navnet er offentlig OK, kun e-post er PII.
+  Admin-bootstrap-test for case-insensitivitet brukte tidligere en
+  literal personlig e-post; byttet til ` Admin@Example.COM `.
+  Beholdt operatørens NAVN ("Christer", "Frestad") som
+  test-fixtures per beslutning 5 — navnet er offentlig OK, kun
+  e-post er PII.
 - Beslutninger: brukte audit §13 beslutning 6 (bytt e-post) og
   beslutning 7 (maskér LAN-IP) som ja-besvart av Christer.
 - Portainer-risiko: nei (kun docs + test-fixtures, ingen
   oppstarts-kode).
 
 Plan: (1) bytt 192.168.50.x → 192.0.2.x / `<rpi-lan-ip>` i
-6 filer, (2) bytt christer@frestad.com → peder@example.com /
+6 filer, (2) bytt operatørens personlige e-post → peder@example.com /
 admin@example.com + /home/christer/ → /srv/familyassistant-data/,
 (3) scrubbe 5 internal-analyser + Lise/Kari → Marte/Sofie.
 
@@ -525,8 +526,9 @@ Gjort:
   tester passerer fortsatt — 0 fail, 2 skip)
 - DOMAIN_MODEL.md oppdatert: nei
 - Avvik fra plan: ingen
-- Git author skiftet lokalt for dette repo-et:
-  `kommik303030@gmail.com` → `82406432+ChristerFrestad@users.noreply.github.com`.
+- Git author skiftet lokalt for dette repo-et fra operatørens
+  personlige Gmail til
+  `82406432+ChristerFrestad@users.noreply.github.com`.
   Eksisterende 175 commits med Gmail forblir (force-push forbudt
   per DEL 1 #7). user.name uendret ("Christer Frestad").
 
@@ -990,7 +992,7 @@ dem og test med nye items.
 Test-sekvens:
 
 1. Restart backend (stopp + start på nytt).
-2. Logg inn som christer@frestad.com på /v2/login.
+2. Logg inn som owner på /v2/login.
 3. Naviger til /v2/shopping (default = list-view).
 4. Slett "butter" og "melk" hvis de fortsatt er på listen
    (de er i bought-state og blokkerer test ellers).
