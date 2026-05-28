@@ -985,10 +985,10 @@ Read by `server/config.js` (Zod-validated, default
 `server/services/email.service.js` for the magic-link email's
 subject/body.
 
-**Operator's pilot deploy example (Hverdagsplanleggeren):**
+**Operator's pilot deploy example (Husby):**
 ```
-VITE_APP_NAME=Hverdagsplanleggeren
-APP_NAME=Hverdagsplanleggeren
+VITE_APP_NAME=Husby
+APP_NAME=Husby
 ```
 Both SHALL be identical. Frontend reads its own, backend reads
 its own — they can in principle be different but that will break

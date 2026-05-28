@@ -68,7 +68,7 @@ To roll back the production stack to a known-good build:
 
 4. Verify with curl:
    ```bash
-   curl https://app.hverdagsplanleggeren.com/health
+   curl https://app.familyassistant.com/health
    ```
 
 5. After incident is understood and a forward-fix lands, update the

@@ -9,9 +9,9 @@ import { Wordmark } from './Wordmark';
 import { __resetBrandConfigCache } from '../../hooks/useBrandConfig';
 
 const SAMPLE_CONFIG = {
-  appName: 'Hverdagsplanleggeren',
-  namePrimary: 'Hverdags',
-  nameAccent: 'planleggeren',
+  appName: 'Husby',
+  namePrimary: 'Hus',
+  nameAccent: 'by',
   faviconLetter: 'h',
   tagline: 'Planlegg middag, gjøremål og familie',
   primaryColor: '#1F3F26',
@@ -44,8 +44,8 @@ describe('Wordmark', () => {
     expect(skeleton).toBeInTheDocument();
     expect(skeleton).toHaveAttribute('aria-hidden', 'true');
     // Renders no brand text during cold-load
-    expect(screen.queryByText('Hverdags')).not.toBeInTheDocument();
-    expect(screen.queryByText('planleggeren')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hus')).not.toBeInTheDocument();
+    expect(screen.queryByText('by')).not.toBeInTheDocument();
     expect(screen.queryByText('FamilyAssistant')).not.toBeInTheDocument();
   });
 
@@ -53,9 +53,9 @@ describe('Wordmark', () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse(200, SAMPLE_CONFIG));
     render(<Wordmark />);
     const mark = await waitFor(() => screen.getByTestId('wordmark'));
-    expect(mark).toHaveAttribute('aria-label', 'Hverdagsplanleggeren');
+    expect(mark).toHaveAttribute('aria-label', 'Husby');
     // Both halves rendered
-    expect(mark.textContent).toBe('Hverdagsplanleggeren');
+    expect(mark.textContent).toBe('Husby');
   });
 
   test('honors the size prop on the skeleton placeholder (vertical only)', () => {

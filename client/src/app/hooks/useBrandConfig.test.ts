@@ -9,9 +9,9 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useBrandConfig, __resetBrandConfigCache } from './useBrandConfig';
 
 const SAMPLE_CONFIG = {
-  appName: 'Hverdagsplanleggeren',
-  namePrimary: 'Hverdags',
-  nameAccent: 'planleggeren',
+  appName: 'Husby',
+  namePrimary: 'Hus',
+  nameAccent: 'by',
   faviconLetter: 'h',
   tagline: 'Planlegg middag, gjøremål og familie',
   primaryColor: '#1F3F26',
@@ -49,7 +49,7 @@ describe('useBrandConfig', () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse(200, SAMPLE_CONFIG));
     const { result } = renderHook(() => useBrandConfig());
     await waitFor(() => expect(result.current.config).not.toBeNull());
-    expect(result.current.config?.appName).toBe('Hverdagsplanleggeren');
+    expect(result.current.config?.appName).toBe('Husby');
     expect(result.current.isLoading).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -78,7 +78,7 @@ describe('useBrandConfig', () => {
 
     fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ...SAMPLE_CONFIG, appName: 'Other' }));
     const second = renderHook(() => useBrandConfig());
-    expect(second.result.current.config?.appName).toBe('Hverdagsplanleggeren');
+    expect(second.result.current.config?.appName).toBe('Husby');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

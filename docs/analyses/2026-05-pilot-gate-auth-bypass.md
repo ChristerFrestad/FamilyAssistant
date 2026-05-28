@@ -7,7 +7,7 @@ Kompleksitet: liten (én fil + tester, ~30-45 min)
 
 ## Problem (rapportert 2026-05-06)
 
-Test-bruker på `app.hverdagsplanleggeren.com` (post-Sprint-10-deploy med
+Test-bruker på `app.familyassistant.com` (post-Sprint-10-deploy med
 `PILOT_MODE=true`) klikker magic-link i e-post. Browser hits
 `/api/auth/magic-link/verify?token=…` og får `403 Pilot password required`.
 Brukeren kommer aldri inn i appen — sesjon blir aldri etablert.
@@ -19,7 +19,7 @@ Request-ID i bug-rapport: `44132b98b980595b`.
 1. Christer (admin) sender magic-link til testbruker
    1.1. Frontend POST `/api/auth/magic-link/start { email }`
    1.2. Server signerer token + lagrer i `magic_link_tokens`
-   1.3. Resend leverer e-post med lenke `https://app.hverdagsplanleggeren.com/api/auth/magic-link/verify?token=<sig>`
+   1.3. Resend leverer e-post med lenke `https://app.familyassistant.com/api/auth/magic-link/verify?token=<sig>`
 2. Testbruker klikker lenken
    2.1. Browser åpner ny tab/vindu (kanskje annen enhet enn der invitasjon ble lest)
    2.2. Browser sender GET til `/api/auth/magic-link/verify?token=…`

@@ -206,7 +206,7 @@ describe('Settings — family name (inline edit)', () => {
             ok: true,
             family: {
               ...FAMILY_PAYLOAD.family,
-              name: 'Hverdagsplanleggeren',
+              name: 'Husby',
               updatedAt: '2026-05-01',
             },
           })
@@ -218,10 +218,10 @@ describe('Settings — family name (inline edit)', () => {
     await waitFor(() => expect(screen.getByText('Frestad')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('inline-editable-edit'));
     fireEvent.change(screen.getByTestId('inline-editable-input'), {
-      target: { value: 'Hverdagsplanleggeren' },
+      target: { value: 'Husby' },
     });
     fireEvent.click(screen.getByTestId('inline-editable-save'));
-    await waitFor(() => expect(screen.getByText('Hverdagsplanleggeren')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Husby')).toBeInTheDocument());
 
     type FetchCall = [RequestInfo | URL, RequestInit | undefined];
     const calls = fetchSpy.mock.calls as unknown as FetchCall[];

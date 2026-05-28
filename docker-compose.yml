@@ -113,7 +113,7 @@ services:
       # Kassal price-comparison. Optional opt-in; when unset the enricher
       # runs in no-op mode. Activates post-pilot per audit § C3.
       KASSAL_API_KEY: ${KASSAL_API_KEY:-}
-      # White-label override (Hverdagsplanleggeren for Christer's pilot).
+      # White-label override (e.g. Husby — the canonical example).
       # Defaults to "FamilyAssistant" if unset.
       APP_NAME: ${APP_NAME:-FamilyAssistant}
     # Resource limits — sized for an RPi5 4 GB host.

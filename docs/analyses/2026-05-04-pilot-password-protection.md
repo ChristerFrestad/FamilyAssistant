@@ -7,7 +7,7 @@
 
 ## Reisen
 
-Pilot-bruker (kjent person Christer har gitt passord til, eller Christer selv på en ny enhet) navigerer til `app.hverdagsplanleggeren.com` via Cloudflare Tunnel.
+Pilot-bruker (kjent person Christer har gitt passord til, eller Christer selv på en ny enhet) navigerer til `app.familyassistant.com` via Cloudflare Tunnel.
 
 1. Backend mottar request på `/v2/`.
 1.1. Auth-middleware kjøres FØR alle andre auth-sjekker.

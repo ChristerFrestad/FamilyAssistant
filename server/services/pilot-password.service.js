@@ -3,7 +3,7 @@
 // Pilot-mode pre-auth password gate service.
 //
 // Background: Sprint 7 / pre-pilot. The 13-17 May 2026 pilot deploys
-// behind app.hverdagsplanleggeren.com but is reachable from the open
+// behind app.familyassistant.com but is reachable from the open
 // internet via Cloudflare Tunnel. To keep random visitors out before
 // they ever see the magic-link login, every request goes through this
 // gate first.
