@@ -26,6 +26,22 @@ The UI is Norwegian and English; the codebase is English.
 - **GDPR**: data export, soft-delete with 30-day grace, cascade-delete on
   family removal
 
+## Screenshots
+
+Screenshots from the live pilot deploy. Drop PNG files in
+`docs/screenshots/` matching the names below and GitHub renders them
+inline.
+
+| Screen | Path | Purpose |
+|---|---|---|
+| Dashboard | `docs/screenshots/01-dashboard.png` | First screen after sign-in — week-at-a-glance + chore status |
+| Meals / weekplan | `docs/screenshots/02-meals-weekplan.png` | Day-by-day planner with per-member portion scaling |
+| Shopping list | `docs/screenshots/03-shopping-list.png` | Auto-generated list with pantry-aware filtering |
+| Pantry inventory | `docs/screenshots/04-pantry.png` | What's already in the house, shelf-life learner |
+
+See [`docs/screenshots/README.md`](docs/screenshots/README.md) for
+image-size and capture conventions.
+
 ## Quickstart
 
 Two flavours of the same codebase, both targeting the RPi5/Docker
@@ -85,10 +101,10 @@ recipe will return when the pilot has stabilised.
 - **SQLite** via `better-sqlite3` (synchronous, fastest on an RPi5)
 - **Validation**: Zod
 - **Logging**: pino
-- **Frontend (legacy, `/`)**: plain HTML / CSS / JS + a service worker, no build step
-- **Frontend (v2, `/v2/*`)**: Vite + React 18 + TypeScript + Tailwind v3 +
-  React Router — under active development, see
-  [`docs/frontend/v2-strategy.md`](docs/frontend/v2-strategy.md)
+- **Frontend**: Vite + React 18 + TypeScript + Tailwind v3 + React
+  Router under `/v2/*` (the legacy plain-HTML `/` was retired in
+  Sprint 8 — `/` now redirects to `/v2/`). See
+  [`docs/frontend/v2-strategy.md`](docs/frontend/v2-strategy.md).
 - **LLM abstraction**: per-family backend — Anthropic, OpenAI, xAI,
   Ollama, or a local llama.cpp server
 

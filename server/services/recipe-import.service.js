@@ -360,6 +360,10 @@ module.exports = {
   sanitizeCategory,
   sanitizeIngredients,
   sanitizeSteps,
+  sanitizeString,
+  sanitizeUrl,
+  buildUserPrompt,
+  MAX_TEXT_CHARS,
   parseRecipeWithLlm,
   IMPORT_SYSTEM_PROMPT,
 };

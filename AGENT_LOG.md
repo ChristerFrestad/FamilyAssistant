@@ -1685,3 +1685,95 @@ smoke-test og autonomt merge. Hvis "nei" / alternativ: jeg følger
 den valgte veien.
 
 ---
+
+2026-05-28 – Post-public improvements
+
+Oppgave: Iverksette de fem forbedringene fra ekstern repo-vurdering
+(8.5/10): ARCHITECTURE.md, README screenshots, rate-limit-tester
+for recipe-import/OCR, LLM-input-sanitization-tester, og opt-in
+LLM-integration-suite.
+
+Analyse: docs/analyses/2026-05-28-post-public-improvements.md
+Reisen: 4 trinn (med maks dybde 1.4 → 2.3)
+Edge-cases: 5 (under DEL 11-terskelen for triviell — docs + tester,
+ingen domenemodell-endring)
+Beslutninger: 0 (alle valg tatt i analysen som anbefaling)
+Portainer-risiko: nei (ingen endring i Dockerfile, index.js,
+config.js, db.js, eller migrasjoner)
+
+Plan: 5 commits — analyse, ARCHITECTURE+phase21-whitelist,
+README+screenshots-folder, rate-limit+sanitization-tester,
+LLM-integration opt-in.
+
+Gjort:
+
+- Branch: chore/post-public-improvements
+- Commits: 5
+  - fd5363a docs(analysis): add analysis for post-public improvements
+  - 1e778e7 docs(architecture): add one-page system overview
+  - 53f5133 docs(readme): add Screenshots section with capture guide
+  - 88a5190 test(security): cover recipe-import rate-limit + LLM input
+    sanitization
+  - e8ce7cd test(llm): add opt-in LLM integration smoke-tests
+- Filer endret: 8 nye (ARCHITECTURE.md, screenshots/README.md,
+  analyse-dokument, 3 tester) + 4 oppdaterte (README.md, phase21-
+  hygiene-whitelist, recipe-import.service.js exports, package.json
+  test:llm-script)
+- Tester lagt til: 24 nye (3 rate-limit + 21 sanitization;
+  LLM-integration-suite skipper når env ikke satt)
+- DOMAIN_MODEL.md oppdatert: nei (ingen domeneendring)
+- Avvik fra plan: ingen
+
+Sikkerhet: Rate-limit + sanitization gjort eksplisitt testbart for
+recipe-import-flyten. Output-sanitisere var allerede dekket av
+iteration3d-recipe-import.test.js; nytt er INPUT-side
+(sanitizeString, sanitizeUrl, MAX_TEXT_CHARS via buildUserPrompt) +
+sanitizeForPrompt (KB-context-injection-skrubbing). Ingen ny
+funksjonalitet — kun verifisering av eksisterende defense-in-depth.
+
+ISO 25010:
+- Vedlikeholdbarhet: 8.3 → 8.4 (+0.1, ARCHITECTURE.md senker
+  onboarding-tid)
+- Sikkerhet: 8.2 → 8.3 (+0.1, eksplisitte tester for rate-limit +
+  sanitization er nytt sikkerhetsnett)
+- Andre karakteristikker: ikke berørt
+
+Lokal CI: lint 0 errors (1 warning i urelatert ErrorBoundary.tsx),
+format 0 nye warnings (52 pre-eksisterende på main), typecheck pass,
+backend 1385/1387 (2 skipped, 0 fail), client 928/928, audit 0
+vulnerabilities, coverage 84.62/75.14/83.36 (alle over 80/68/72-
+terskelen).
+
+Status: venter-på-Christer (klar for push når Christer sier "push")
+
+Beslutninger Christer må ta:
+
+BESLUTNING: Push og merge-strategi for chore/post-public-improvements?
+
+ANBEFALING: Push branchen som én batch (squash til 1-3 commits er
+ikke nødvendig — de 5 commits er allerede én logisk enhet hver). PR
+kan auto-merges via DEL 5.1 (chore/-prefiks) etter grønn GitHub CI.
+Ingen Portainer-risiko, ingen frys-berøring.
+
+HVORFOR: Alt arbeid er rent additivt og testet lokalt. Coverage,
+audit, lint og 1385 backend-tester + 928 client-tester passerer.
+Eneste ikke-test-endringer er én docs-fil (ARCHITECTURE.md), én
+README-seksjon, og to script/export-tillegg i package.json + recipe-
+import.service.js.
+
+ALTERNATIVER:
+- Vente med push til Christer ønsker å gjennomgå ARCHITECTURE.md /
+  README screenshots-seksjonen manuelt først. Konsekvens: forbedringene
+  ligger lokalt, ingen umiddelbar verdi for nye besøkende.
+- Splitte i flere PR-er (docs separat fra tester). Konsekvens: dobbelt
+  CI-bruk, mer overhead, ingen reell gevinst — innholdet er allerede
+  delt i logiske commits.
+
+KONSEKVENS HVIS ANNERLEDES: Forbedringene gjør seg ikke synlige på
+GitHub før Christer godkjenner push.
+
+Neste: Christer sier "push" når han ønsker at jeg pusher batchen og
+oppretter PR. Inntil da: 5 lokale commits står klare på branch
+chore/post-public-improvements.
+
+---

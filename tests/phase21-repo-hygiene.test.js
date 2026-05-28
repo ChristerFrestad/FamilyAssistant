@@ -113,7 +113,19 @@ describe('Phase 21 · Kept docs are exactly the intended set', () => {
     // because it pairs conceptually with DOMAIN_MODEL — both are
     // cross-cutting governance specs that the CLAUDE.md workflow
     // refers to from multiple sprints.
-    assert.deepEqual(docs, ['BRAND_SYSTEM.md', 'DB_INDEXES.md', 'DOMAIN_MODEL.md']);
+    //
+    // 2026-05-28 (post-public follow-up) added ARCHITECTURE.md as the
+    // one-page system overview for new contributors / external reviewers.
+    // Lives in docs/ root because it pairs with the other docs/-root
+    // governance specs and is referenced from README.md as the entry
+    // point. Policy-test whitelist update authorised under AGENTS.md
+    // DEL 6.5 — minimal addition, no removal, documented in PR.
+    assert.deepEqual(docs, [
+      'ARCHITECTURE.md',
+      'BRAND_SYSTEM.md',
+      'DB_INDEXES.md',
+      'DOMAIN_MODEL.md',
+    ]);
   });
 });
 
