@@ -57,6 +57,9 @@
       "personalMessage": "Personal message (optional)",
       "personalMessagePlaceholder": "Add a note for the person you're inviting …",
       "personalMessageMax": "{{count}} / 500 characters",
+      "emailLanguage": "Email language",
+      "emailLanguageNo": "Norwegian",
+      "emailLanguageEn": "English",
       "send": "Send invitation",
       "cancel": "Cancel",
       "sending": "Sending …"

@@ -139,4 +139,59 @@ describe('InviteMemberModal', () => {
     fireEvent.click(screen.getByTestId('invite-cancel'));
     expect(onClose).toHaveBeenCalled();
   });
+
+  // Locale-picker tests (issue #121).
+  describe('email-language picker', () => {
+    test('defaults to Norwegian when the inviter is using the Norwegian UI', () => {
+      // The test bootstrap initialises i18next with language 'no'; the
+      // modal should mirror that by default.
+      render(
+        <InviteMemberModal open={true} onClose={() => undefined} onSuccess={() => undefined} />
+      );
+      expect(screen.getByTestId('invite-locale-no')).toBeChecked();
+      expect(screen.getByTestId('invite-locale-en')).not.toBeChecked();
+    });
+
+    test('explicit English override forwards locale=en in the submit payload', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        jsonResponse(200, { ok: true, invitation: SAMPLE_INVITATION })
+      );
+      render(
+        <InviteMemberModal open={true} onClose={() => undefined} onSuccess={() => undefined} />
+      );
+      fireEvent.change(screen.getByTestId('invite-email-input'), {
+        target: { value: 'a@test.no' },
+      });
+      // Switch to English BEFORE submit.
+      fireEvent.click(screen.getByTestId('invite-locale-en'));
+      expect(screen.getByTestId('invite-locale-en')).toBeChecked();
+      fireEvent.click(screen.getByTestId('invite-submit'));
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+      // The POST body must carry locale: 'en' regardless of the
+      // inviter's current i18n.language.
+      const call = fetchSpy.mock.calls[0];
+      const body = JSON.parse((call?.[1] as { body?: string })?.body ?? '{}');
+      expect(body.locale).toBe('en');
+    });
+
+    test('locale resets to default when the modal is closed and re-opened', () => {
+      const { rerender } = render(
+        <InviteMemberModal open={true} onClose={() => undefined} onSuccess={() => undefined} />
+      );
+      // Override to English
+      fireEvent.click(screen.getByTestId('invite-locale-en'));
+      expect(screen.getByTestId('invite-locale-en')).toBeChecked();
+      // Close
+      rerender(
+        <InviteMemberModal open={false} onClose={() => undefined} onSuccess={() => undefined} />
+      );
+      // Re-open
+      rerender(
+        <InviteMemberModal open={true} onClose={() => undefined} onSuccess={() => undefined} />
+      );
+      // Picker should be back to the i18n.language default (no).
+      expect(screen.getByTestId('invite-locale-no')).toBeChecked();
+      expect(screen.getByTestId('invite-locale-en')).not.toBeChecked();
+    });
+  });
 });

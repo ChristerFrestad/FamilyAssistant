@@ -12,9 +12,11 @@
 // errors under the email field; everything else maps to a generic toast
 // inside the modal so the user does not lose their typed message.
 //
-// Locale: the modal forwards `i18n.language` so the email arrives in the
-// language the inviter is currently using. Backend stores it on the row
-// for resend.
+// Locale: the modal defaults to the inviter's current `i18n.language`
+// but exposes an explicit radio-picker so the inviter can choose a
+// different email language without first switching the whole app
+// (issue #121). Backend stores the chosen value on the row so resend
+// reuses it.
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -45,27 +47,33 @@ export function InviteMemberModal({
   onSuccess,
 }: InviteMemberModalProps): JSX.Element {
   const { t, i18n } = useTranslation('family');
+  const defaultLocale: InvitationLocale = i18n.language?.startsWith('en') ? 'en' : 'no';
   const [email, setEmail] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [message, setMessage] = useState('');
+  const [locale, setLocale] = useState<InvitationLocale>(defaultLocale);
   const [submitting, setSubmitting] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [genericError, setGenericError] = useState<string | null>(null);
   const messageId = useId();
   const messageCounterId = useId();
+  const localeGroupId = useId();
   const genericErrorRef = useRef<HTMLParagraphElement | null>(null);
 
   // Reset form whenever the modal closes so re-opening starts clean.
+  // The locale also resets to the inviter's current i18n.language so a
+  // previous explicit override does not bleed into the next invitation.
   useEffect(() => {
     if (!open) {
       setEmail('');
       setEmailTouched(false);
       setMessage('');
+      setLocale(defaultLocale);
       setSubmitting(false);
       setEmailError(null);
       setGenericError(null);
     }
-  }, [open]);
+  }, [open, defaultLocale]);
 
   const trimmedEmail = email.trim();
   const trimmedMessage = message.trim();
@@ -86,7 +94,6 @@ export function InviteMemberModal({
     setEmailError(null);
     setGenericError(null);
     try {
-      const locale = (i18n.language?.startsWith('en') ? 'en' : 'no') as InvitationLocale;
       const r = await createInvitation({
         email: trimmedEmail,
         role: 'adult',
@@ -149,6 +156,42 @@ export function InviteMemberModal({
             {t('family:invitations.modal.roleAdult')}
           </p>
         </Field>
+
+        <fieldset
+          className="flex flex-col gap-2"
+          aria-labelledby={localeGroupId}
+          data-testid="invite-locale-fieldset"
+        >
+          <legend id={localeGroupId} className="font-body text-meta font-medium text-text-1">
+            {t('family:invitations.modal.emailLanguage')}
+          </legend>
+          <div className="flex flex-row gap-4" role="radiogroup">
+            <label className="flex flex-row items-center gap-2 font-body text-body text-text-1">
+              <input
+                type="radio"
+                name="invite-locale"
+                value="no"
+                checked={locale === 'no'}
+                onChange={() => setLocale('no')}
+                disabled={submitting}
+                data-testid="invite-locale-no"
+              />
+              {t('family:invitations.modal.emailLanguageNo')}
+            </label>
+            <label className="flex flex-row items-center gap-2 font-body text-body text-text-1">
+              <input
+                type="radio"
+                name="invite-locale"
+                value="en"
+                checked={locale === 'en'}
+                onChange={() => setLocale('en')}
+                disabled={submitting}
+                data-testid="invite-locale-en"
+              />
+              {t('family:invitations.modal.emailLanguageEn')}
+            </label>
+          </div>
+        </fieldset>
 
         <div className="flex flex-col gap-1">
           <label htmlFor={messageId} className="font-body text-meta font-medium text-text-1">
