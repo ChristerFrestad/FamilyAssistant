@@ -1,7 +1,7 @@
 {
-  "title": "Familieassistenten — Overview",
+  "title": "FamilyAssistant — Overview",
   "uid": "familieass-overview",
-  "tags": ["familieassistenten", "iso25010", "week6"],
+  "tags": ["familyassistant", "iso25010", "week6"],
   "timezone": "browser",
   "schemaVersion": 38,
   "version": 1,

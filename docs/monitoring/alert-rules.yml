@@ -1,20 +1,20 @@
-# Prometheus alerting rules for Familieassistenten
+# Prometheus alerting rules for FamilyAssistant
 #
-# Uke 6 av ISO/IEC 25010-planen (OBS-2). Dekker 10 nøkkel-alert-regler
-# basert på SLO-ene i RUNBOOK.md §10.
+# Week 6 of the ISO/IEC 25010 plan (OBS-2). Covers 10 key alert rules
+# based on the SLOs documented in RUNBOOK.md §10.
 #
-# Laste inn i Prometheus via:
+# Load into Prometheus via:
 #   rule_files:
 #     - /etc/prometheus/alert-rules.yml
 #
-# Koble til Alertmanager for e-post/webhook via:
+# Wire to Alertmanager for email/webhook delivery via:
 #   alerting:
 #     alertmanagers:
 #       - static_configs:
 #           - targets: ['localhost:9093']
 
 groups:
-  - name: familieassistenten
+  - name: familyassistant
     interval: 30s
     rules:
 
@@ -28,21 +28,22 @@ groups:
           severity: critical
           service: familieassistenten
         annotations:
-          summary: "Familieassistenten svarer ikke"
-          description: "Scrape target er nede i 1+ minutt. Sjekk systemctl status familieassistenten."
+          summary: "FamilyAssistant is not responding"
+          description: "Scrape target down for 1+ minute. Check systemctl status familieassistenten."
           runbook: "RUNBOOK.md §11.1"
 
       - alert: WatchdogMiss
-        # systemd Type=notify + WatchdogSec=90. Hvis uptime-counter reseter
-        # oftere enn hvert 5. minutt uten å være tilstøtt, står restart-loop.
+        # systemd Type=notify + WatchdogSec=90. If the uptime counter
+        # resets more often than every 5 minutes without being touched
+        # the service is in a restart loop.
         expr: changes(familieass_uptime_seconds[5m]) > 1
         for: 10m
         labels:
           severity: critical
           service: familieassistenten
         annotations:
-          summary: "Systemd-watchdog har restartet Familieassistenten 2+ ganger på 5 min"
-          description: "Prosessen henger eller panic-er. Sjekk journalctl -u familieassistenten."
+          summary: "systemd watchdog has restarted FamilyAssistant 2+ times in 5 min"
+          description: "Process is hung or panicking. Check journalctl -u familieassistenten."
           runbook: "RUNBOOK.md §11.2"
 
       # =================================================================
