@@ -57,6 +57,9 @@
       "personalMessage": "Personlig melding (valgfri)",
       "personalMessagePlaceholder": "Skriv en hilsen til den du inviterer …",
       "personalMessageMax": "{{count}} / 500 tegn",
+      "emailLanguage": "Språk for e-post",
+      "emailLanguageNo": "Norsk",
+      "emailLanguageEn": "Engelsk",
       "send": "Send invitasjon",
       "cancel": "Avbryt",
       "sending": "Sender …"
