@@ -190,7 +190,7 @@ verify() {
 
   local attempts=5
   while (( attempts-- > 0 )); do
-    if curl -sf http://localhost:3000/ready >/dev/null 2>&1; then
+    if curl -sf http://localhost:7777/ready >/dev/null 2>&1; then
       ok "/ready returned OK"
       break
     fi

@@ -50,7 +50,7 @@ chmod +x start.sh
 ./start.sh
 ```
 
-Open `http://raspberrypi.local:3000` to verify that it works.
+Open `http://raspberrypi.local:7777` to verify that it works.
 
 ## 5. Automatic startup (systemd)
 
@@ -127,7 +127,7 @@ Without whisper.cpp, the browser's Web Speech API is used (requires internet).
 Create `$APP_ROOT/.env` or set in systemd:
 
 ```bash
-PORT=3000
+PORT=7777
 LLM_BACKEND=ollama          # or 'llamacpp'
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:3b
@@ -142,7 +142,7 @@ WHISPER_THREADS=3
 ## 9. iPhone shortcut
 
 1. Open Safari on iPhone
-2. Go to `http://raspberrypi.local:3000`
+2. Go to `http://raspberrypi.local:7777`
 3. Tap the Share button > "Add to Home Screen"
 4. Name: "FamilyAssistant"
 
@@ -180,7 +180,7 @@ Typical RAM usage with everything running:
 
 FamilyAssistant exposes sensitive data (family calendar, shopping list, LLM chat).
 Plain HTTP is not acceptable outside a strict LAN. Use Caddy as a reverse proxy
-in front of the Node server on port 3000.
+in front of the Node server on port 7777.
 
 ### 13.1 Install Caddy
 
@@ -256,12 +256,12 @@ curl https://familieassistenten.local/ready
 # Expected: 200 OK without token
 ```
 
-### 13.6 Firewall — do not expose port 3000 directly
+### 13.6 Firewall — do not expose port 7777 directly
 
 ```bash
 sudo ufw allow 443/tcp    # HTTPS
 sudo ufw allow 80/tcp     # HTTP redirect → HTTPS
-sudo ufw deny 3000/tcp    # Node only via Caddy
+sudo ufw deny 7777/tcp    # Node only via Caddy
 sudo ufw enable
 ```
 
@@ -282,7 +282,7 @@ sudo apt install hailo-all
 - **Server does not start:** `journalctl -u familieassistenten -f`
 - **LLM slow:** Switch to qwen2.5:1.5b, or use llama.cpp with Q4_K_M quant
 - **STT does not work:** Check that ffmpeg is installed and the whisper.cpp binary exists
-- **Cannot reach from iPhone:** `sudo ufw allow 3000`
+- **Cannot reach from iPhone:** `sudo ufw allow 7777`
 - **Database reset:** Delete `data/familieassistenten.db` (or `.json`) and start over
 - **Migration:** Old JSON database is migrated automatically to SQLite on startup
 
@@ -330,10 +330,10 @@ docker compose up -d
 
 # Verify
 docker compose ps
-curl -sf http://localhost:3000/health && echo " — OK"
+curl -sf http://localhost:7777/health && echo " — OK"
 ```
 
-The app is now at `http://localhost:3000` and Caddy serves HTTPS at
+The app is now at `http://localhost:7777` and Caddy serves HTTPS at
 `https://familieassistenten.local` (if mDNS is set up).
 
 ### 14.3 Upgrade

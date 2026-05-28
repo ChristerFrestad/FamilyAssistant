@@ -4,7 +4,7 @@
 // Familieassistenten-server og rapporter p50/p95/p99 + RSS.
 //
 // Bruk:
-//   node scripts/load-baseline.js                       # local at :3000
+//   node scripts/load-baseline.js                       # local at :7777
 //   node scripts/load-baseline.js --url=https://host    # mot RPi5
 //   node scripts/load-baseline.js --token=$AUTH_TOKEN   # auth headers
 //   node scripts/load-baseline.js --concurrency=10 --duration=60
@@ -29,7 +29,7 @@ const { URL } = require('url');
 // ============================================================
 function parseArgs() {
   const args = {
-    url: 'http://localhost:3000',
+    url: 'http://localhost:7777',
     token: process.env.AUTH_TOKEN || '',
     concurrency: 10,
     duration: 30,
