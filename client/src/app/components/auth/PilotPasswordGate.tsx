@@ -8,8 +8,8 @@
 // Error UX:
 //   - 1-4 wrong attempts: "Feil passord. Du har {{count}} forsøk igjen."
 //   - 5 wrong attempts:  "Feil passord. Du har 0 forsøk igjen."
-//   - 6+ (rate-limited): "Du har forsøkt flere ganger. Christer trenger
-//                         at du venter i 10 minutter for å prøve på nytt."
+//   - 6+ (rate-limited): "Du har forsøkt flere ganger. Vent 10 minutter
+//                         før du prøver på nytt."
 //
 // We deliberately do NOT distinguish "wrong password" from "ran out of
 // attempts" in the lockout message — once rate-limited, even the right

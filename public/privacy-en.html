@@ -126,14 +126,14 @@
           <td>Active (pilot)</td>
           <td>Local storage of all application data</td>
           <td>
-            all data from "What data we collect". Volume encryption depends on the host setup;
-            Christer's pilot RPi has volume encryption enabled
+            all data from "What data we collect". Volume encryption depends on the host setup
+            the operator has chosen
           </td>
         </tr>
         <tr>
           <td>Cloudflare Tunnel</td>
           <td>Active (pilot)</td>
-          <td>Secure reverse proxy from <code>app.hverdagsplanleggeren.com</code> to the self-hosted RPi</td>
+          <td>Secure reverse proxy from the operator's app domain to the self-hosted RPi</td>
           <td>
             HTTPS traffic transits Cloudflare's network (existing edge locations in the EU). No
             application data is permanently stored at Cloudflare; the tunnel configuration is
