@@ -131,12 +131,12 @@ image can serve any white-label brand without rebuilding.
   Docker image.
 
   ```
-  APP_NAME=Hverdagsplanleggeren
-  APP_NAME_PRIMARY=Hverdags
-  APP_NAME_ACCENT=planleggeren
-  APP_FAVICON_LETTER=h
-  APP_TAGLINE=Planlegg middag, gjøremål og familie
-  RESEND_FROM=Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>
+  APP_NAME=Familyassistant
+  APP_NAME_PRIMARY=Family
+  APP_NAME_ACCENT=Assistant
+  APP_FAVICON_LETTER=F
+  APP_TAGLINE=Plan dinners, pantry and chores
+  RESEND_FROM=Familyassistant <noreply@domain.com>
   ```
 
   Cross-validation runs at boot — mismatches between `APP_NAME` and
