@@ -488,11 +488,15 @@ function handleResendInvitation(ctx, repos) {
 function handleListInvitations(ctx, repos) {
   if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
   const rows = repos.family.listActiveInvitations(ctx.familyId);
+  // Migration 030: token is stored as SHA-256 hash and the plain token
+  // is irrecoverable after creation. The listing endpoint therefore no
+  // longer carries `token` or `url` — both are returned one-shot from
+  // the create- and resend-handlers as part of the invitation response.
+  // The owner-facing PendingInvitationsList UI never rendered them
+  // anyway (it shows email + relative times + resend/revoke actions).
   return {
     invitations: rows.map((r) => ({
       id: r.id,
-      token: r.token,
-      url: invitationUrlFor(r.token),
       assignedRole: r.assignedRole,
       profileMemberId: r.profileMemberId,
       invitedEmail: r.invitedEmail,

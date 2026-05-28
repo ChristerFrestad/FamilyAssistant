@@ -152,13 +152,19 @@ describe('Family invitation · pre-validation', () => {
   test('expired invitation is not counted as pending duplicate', () => {
     const owner = createOwner(server, 'pv-expired@test', 'PV-expired');
     const past = '2020-01-01 00:00:00';
+    // Migration 030: column is token_hash (SHA-256). Direct INSERT
+    // bypasses createInvitation()'s hashing, so we hash the test
+    // fixture token here. This row's lookup-via-token is not exercised
+    // by this test (only findActiveInvitationByEmail), so any 64-hex
+    // string would do — we hash for correctness.
+    const { hashInvitationToken } = require('../server/repositories/family.repo');
     server.repos._db
       .prepare(
         `INSERT INTO family_invitations
-           (family_id, token, assigned_role, invited_by, expires_at, invited_email, locale)
-         VALUES (?, 'expired-tok', 'adult', ?, ?, 'expired@test.no', 'no')`
+           (family_id, token_hash, assigned_role, invited_by, expires_at, invited_email, locale)
+         VALUES (?, ?, 'adult', ?, ?, 'expired@test.no', 'no')`
       )
-      .run(owner.familyId, owner.userId, past);
+      .run(owner.familyId, hashInvitationToken('expired-tok'), owner.userId, past);
     const found = server.repos.family.findActiveInvitationByEmail(
       owner.familyId,
       'expired@test.no'

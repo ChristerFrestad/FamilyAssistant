@@ -96,14 +96,25 @@ describe('Family invitation · per-family create-rate-limit', () => {
 
     // 20 rows with created_at backdated 2 hours so they fall outside
     // the 60-min sliding window; the next create should still pass.
+    //
+    // Migration 030: column is token_hash; hash the fixture tokens so
+    // direct INSERTs are storage-shape-correct (this test doesn't
+    // exercise lookup-by-token, but the column constraint still applies).
+    const { hashInvitationToken } = require('../server/repositories/family.repo');
     const past = new Date(Date.now() - 2 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
     const ins = server.repos._db.prepare(
       `INSERT INTO family_invitations
-         (family_id, token, assigned_role, invited_by, expires_at, invited_email, locale, created_at)
+         (family_id, token_hash, assigned_role, invited_by, expires_at, invited_email, locale, created_at)
        VALUES (?, ?, 'adult', ?, datetime('now', '+7 days'), ?, 'no', ?)`
     );
     for (let i = 0; i < 20; i += 1) {
-      ins.run(owner.familyId, `old-${i}`, owner.userId, `old-${i}@test.no`, past);
+      ins.run(
+        owner.familyId,
+        hashInvitationToken(`old-${i}`),
+        owner.userId,
+        `old-${i}@test.no`,
+        past
+      );
     }
 
     const r = await request(server.baseUrl, 'POST', '/api/family/invitations', {

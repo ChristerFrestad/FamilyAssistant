@@ -162,7 +162,12 @@ describe('Family invitation · resend', () => {
     assert.strictEqual(aList.status, 200);
     const aInv = aList.body.invitations.find((i) => i.id === inv.id);
     assert.ok(aInv, 'A still owns the invitation');
-    assert.strictEqual(aInv.token, inv.token, 'A token must not be rotated by B');
+    // Migration 030: listActive no longer exposes `token` (sha256-
+    // hashed at rest). The "B did not rotate A's token" guarantee is
+    // instead enforced by the resend route returning 404 to B above
+    // — if B's resend had succeeded the route would have returned
+    // the rotated token in its 200 response.
+    assert.strictEqual(aInv.token, undefined, 'token must not leak in listing');
   });
 
   test('non-owner adult cannot resend', async () => {

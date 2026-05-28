@@ -9,6 +9,18 @@
 // caller with the wrong id from mutating another family's rows even if
 // the auth layer ever lets something through.
 
+const { sha256 } = require('../auth/crypto');
+
+// Family-invitation tokens are stored as SHA-256 hashes at rest
+// (migration 030). The plain token is only available at create- and
+// resend-time, returned one-shot to the caller for the email link.
+// Centralised here so both the write-side (INSERT/UPDATE) and the
+// read-side (findInvitationByToken WHERE lookup) derive the same
+// digest from the same input.
+function hashInvitationToken(plain) {
+  return sha256(plain);
+}
+
 function createFamilyRepo(db) {
   // ============================================================
   // families
@@ -325,18 +337,25 @@ function createFamilyRepo(db) {
   // chars) and locale (NOT NULL DEFAULT 'no', CHECK in 'no'|'en'). The
   // INSERT writes both columns explicitly so the row owns its own
   // language choice and any personal note from the inviter.
+  //
+  // Migration 030 renames the `token` column to `token_hash`. The
+  // INSERT here writes the SHA-256 digest; the repo is the only layer
+  // that knows about the hashing — handlers always pass plain tokens.
   const insertInvitationStmt = db.prepare(
     `INSERT INTO family_invitations
-       (family_id, token, assigned_role, profile_member_id, invited_by,
+       (family_id, token_hash, assigned_role, profile_member_id, invited_by,
         expires_at, invited_email, invitation_message, locale)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
-  const findInvitationByTokenStmt = db.prepare(
+  // Lookup goes via the hash. Callers pass plain tokens and the repo
+  // hashes them before the WHERE-comparison so the storage shape is
+  // invisible to handlers.
+  const findInvitationByTokenHashStmt = db.prepare(
     `SELECT fi.*, f.name AS family_name, u.name AS inviter_name, u.email AS inviter_email
        FROM family_invitations fi
        JOIN families f ON f.id = fi.family_id
        LEFT JOIN users u ON u.id = fi.invited_by
-      WHERE fi.token = ?`
+      WHERE fi.token_hash = ?`
   );
   const findInvitationByIdStmt = db.prepare(
     'SELECT * FROM family_invitations WHERE id = ? AND family_id = ?'
@@ -345,8 +364,16 @@ function createFamilyRepo(db) {
   // the owner-only pending-list UI. assigned_role is intentionally
   // included so the row can render "Voksen" vs "Barn" without a
   // second fetch.
+  //
+  // Migration 030: the `token` column is renamed to `token_hash` and
+  // the plain token is unrecoverable after creation (sha256 is
+  // one-way). The listing endpoint therefore no longer carries the
+  // token or the URL — both are returned one-shot from the
+  // create-/resend-handlers via the InvitationWithSecret response
+  // shape. The owner-facing PendingInvitationsList UI never
+  // rendered them anyway.
   const listActiveForFamilyStmt = db.prepare(
-    `SELECT id, token, assigned_role AS assignedRole,
+    `SELECT id, assigned_role AS assignedRole,
             profile_member_id AS profileMemberId,
             invited_by AS invitedBy,
             invited_email AS invitedEmail,
@@ -378,17 +405,24 @@ function createFamilyRepo(db) {
   // same invite again") would be violated by silently re-localising or
   // dropping their personal note. The WHERE clause enforces both
   // family-scoping (DEL 14) and pending-only state.
+  //
+  // Migration 030: the column is `token_hash`; the repo hashes the
+  // new plain token before UPDATE.
   const resendInvitationStmt = db.prepare(
     `UPDATE family_invitations
-        SET token = ?, expires_at = ?
+        SET token_hash = ?, expires_at = ?
       WHERE id = ? AND family_id = ?
         AND accepted_at IS NULL AND revoked_at IS NULL`
   );
   // Pre-validation lookup: is there a still-active invitation for this
   // email already? Family-scoped on purpose — the same email being
   // invited to a different family is fine and should not block.
+  //
+  // Migration 030: drop the token column from the SELECT — the caller
+  // (handleCreateInvitation) only consumes `id` and `expiresAt` for
+  // its duplicate-detection error path.
   const findActiveInvitationByEmailStmt = db.prepare(
-    `SELECT id, token, expires_at AS expiresAt
+    `SELECT id, expires_at AS expiresAt
        FROM family_invitations
       WHERE family_id = ? AND invited_email = ?
         AND accepted_at IS NULL AND revoked_at IS NULL
@@ -447,9 +481,10 @@ function createFamilyRepo(db) {
       .toISOString()
       .replace('T', ' ')
       .slice(0, 19);
+    const tokenHash = hashInvitationToken(token);
     insertInvitationStmt.run(
       familyId,
-      token,
+      tokenHash,
       assignedRole,
       profileMemberId,
       invitedBy,
@@ -458,12 +493,12 @@ function createFamilyRepo(db) {
       messageToStore,
       locale
     );
-    return findInvitationByTokenStmt.get(token);
+    return findInvitationByTokenHashStmt.get(tokenHash);
   }
 
   function findInvitationByToken(token) {
     if (!token) return null;
-    return findInvitationByTokenStmt.get(token) || null;
+    return findInvitationByTokenHashStmt.get(hashInvitationToken(token)) || null;
   }
 
   function listActiveInvitations(familyId) {
@@ -508,9 +543,10 @@ function createFamilyRepo(db) {
       .toISOString()
       .replace('T', ' ')
       .slice(0, 19);
-    const info = resendInvitationStmt.run(newToken, expiresAt, invitationId, familyId);
+    const newTokenHash = hashInvitationToken(newToken);
+    const info = resendInvitationStmt.run(newTokenHash, expiresAt, invitationId, familyId);
     if (info.changes === 0) return null;
-    return findInvitationByTokenStmt.get(newToken);
+    return findInvitationByTokenHashStmt.get(newTokenHash);
   }
 
   return {
@@ -545,4 +581,4 @@ function createFamilyRepo(db) {
   };
 }
 
-module.exports = { createFamilyRepo };
+module.exports = { createFamilyRepo, hashInvitationToken };
