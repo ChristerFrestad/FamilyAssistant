@@ -20,7 +20,7 @@
 ## 1. Copy the files
 
 ```bash
-scp -r Familieassistenten/ pi@raspberrypi.local:~
+scp -r FamilyAssistant/ pi@raspberrypi.local:~
 ```
 
 ## 2. Install Node.js

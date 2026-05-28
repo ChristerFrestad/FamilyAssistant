@@ -77,8 +77,7 @@ Look for the following lines **in order** (timestamps will vary):
 [DB YYYY-MM-DD HH:MM:SS] better-sqlite3 tilkoblet (WAL, FK=ON)
 [MIGRATE YYYY-MM-DD HH:MM:SS] ✓ Applikert 018_reset_stale_bought_at.sql
   ...no NEW migrations (019+) in B1. Pure config change.
-Starter Familieassistenten...
-Familieassistenten kjører på http://localhost:7777
+FamilyAssistant running on http://localhost:7777
 ```
 
 **Critical check for B1:** no stack trace, no `process.exit(1)`,
