@@ -26,6 +26,23 @@ The UI is Norwegian and English; the codebase is English.
 - **GDPR**: data export, soft-delete with 30-day grace, cascade-delete on
   family removal
 
+## Screenshots
+
+Screenshots from the live pilot deploy are added after Sprint 11.
+Drop PNG files in `docs/screenshots/` matching the names below and
+GitHub renders them inline.
+
+| Screen | Path | Purpose |
+|---|---|---|
+| Weekly menu | `docs/screenshots/01-weekly-menu.png` | Main dashboard, day-by-day planner |
+| Shopping list | `docs/screenshots/02-shopping-list.png` | Auto-generated list with pantry-aware filtering |
+| Pantry inventory | `docs/screenshots/03-pantry.png` | What's already in the house, shelf-life learner |
+| Family settings | `docs/screenshots/04-family-settings.png` | Multi-tenant roles + per-member diet |
+| Mobile PWA | `docs/screenshots/05-mobile-pwa.png` | Installed on home-screen, offline read |
+
+See [`docs/screenshots/README.md`](docs/screenshots/README.md) for
+image-size and capture conventions.
+
 ## Quickstart
 
 Two flavours of the same codebase, both targeting the RPi5/Docker
