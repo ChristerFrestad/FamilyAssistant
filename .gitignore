@@ -4,6 +4,8 @@ node_modules/
 # Databaser og persistente data
 data/*.db
 data/*.db-journal
+data/*.db-shm
+data/*.db-wal
 data/*.sqlite
 data/*.sqlite-journal
 data/*.sqlite-shm
