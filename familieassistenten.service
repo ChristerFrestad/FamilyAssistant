@@ -30,7 +30,7 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 
 Environment=NODE_ENV=production
-Environment=PORT=3000
+Environment=PORT=7777
 Environment=OLLAMA_HOST=http://localhost:11434
 Environment=OLLAMA_MODEL=qwen3:4b
 # Remember to set AUTH_TOKEN and ALLOWED_ORIGINS here (see DEPLOY.md §13.4)

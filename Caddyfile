@@ -14,7 +14,7 @@
 #
 # Velg én blokk under. Kommenter ut resten.
 #
-# Forutsetning: Node-serveren kjører på 127.0.0.1:3000 (systemd),
+# Forutsetning: Node-serveren kjører på 127.0.0.1:7777 (systemd),
 #               og env HTTPS_TERMINATED=true er satt så server.js
 #               legger til HSTS-header. NODE_ENV=production krever AUTH_TOKEN.
 #
@@ -46,7 +46,7 @@ familieassistenten.local, raspberrypi.local, 192.168.1.50 {
     encode zstd gzip
 
     # Send alle requests til Node-serveren
-    reverse_proxy 127.0.0.1:3000 {
+    reverse_proxy 127.0.0.1:7777 {
         header_up X-Forwarded-Proto {scheme}
         header_up X-Forwarded-For {remote_host}
         header_up Host {host}
@@ -79,7 +79,7 @@ familieassistenten.local, raspberrypi.local, 192.168.1.50 {
 #         get_certificate tailscale
 #     }
 #     encode zstd gzip
-#     reverse_proxy 127.0.0.1:3000 {
+#     reverse_proxy 127.0.0.1:7777 {
 #         header_up X-Forwarded-Proto {scheme}
 #         header_up X-Forwarded-For {remote_host}
 #         header_up Host {host}
@@ -97,7 +97,7 @@ familieassistenten.local, raspberrypi.local, 192.168.1.50 {
 #
 # familieassistenten.dittdomene.no {
 #     encode zstd gzip
-#     reverse_proxy 127.0.0.1:3000 {
+#     reverse_proxy 127.0.0.1:7777 {
 #         header_up X-Forwarded-Proto {scheme}
 #         header_up X-Forwarded-For {remote_host}
 #         header_up Host {host}

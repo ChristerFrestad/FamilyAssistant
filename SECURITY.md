@@ -266,7 +266,7 @@ Run through this before `systemctl start familieassistenten` in prod:
 - [ ] `HTTPS_TERMINATED=true` if behind Caddy
 - [ ] `BACKUP_REMOTE_PATH` set if off-site backup is desired
 - [ ] Caddyfile configured (LAN internal CA or Tailscale)
-- [ ] `ufw` allows only 80/443, not 3000
+- [ ] `ufw` allows only 80/443, not 7777
 - [ ] `sudo journalctl -u familieassistenten -p warn` shows no
       `AUTH_TOKEN is required` errors
 - [ ] `curl -H "Authorization: Bearer $TOKEN" https://host/api/today`

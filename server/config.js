@@ -7,7 +7,7 @@ const path = require('path');
 const { z } = require('zod');
 
 const envSchema = z.object({
-  PORT: z.coerce.number().int().min(0).max(65535).default(3000),
+  PORT: z.coerce.number().int().min(0).max(65535).default(7777),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
 
   // White-label brand-config. Sprint 10 (PR #122) made these runtime

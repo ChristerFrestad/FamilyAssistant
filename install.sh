@@ -265,7 +265,7 @@ verify() {
   # Health endpoint
   local attempts=5
   while (( attempts-- > 0 )); do
-    if curl -sf http://localhost:3000/health >/dev/null 2>&1; then
+    if curl -sf http://localhost:7777/health >/dev/null 2>&1; then
       ok "/health returned 200"
       break
     fi
@@ -278,7 +278,7 @@ verify() {
 
   # Ready endpoint
   local ready_body
-  ready_body="$(curl -sf http://localhost:3000/ready 2>/dev/null || echo '{}')"
+  ready_body="$(curl -sf http://localhost:7777/ready 2>/dev/null || echo '{}')"
   if echo "$ready_body" | grep -q '"ready":true'; then
     ok "/ready reports OK"
   else
@@ -322,7 +322,7 @@ docker_compose_up() {
 verify_docker() {
   log "Waiting for /health via Docker..."
   for i in 1 2 3 4 5 6 7 8 9 10; do
-    if curl -sf http://localhost:3000/health >/dev/null 2>&1; then
+    if curl -sf http://localhost:7777/health >/dev/null 2>&1; then
       ok "Health check OK after $i sec"
       return
     fi
@@ -359,7 +359,7 @@ ok "Installation complete!"
 echo "============================================"
 echo
 echo "LAN address:"
-echo "   http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost'):3000"
+echo "   http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost'):7777"
 echo
 echo "AUTH_TOKEN is stored in .env (0600, owner $(whoami))"
 echo "   Required to call /api/* endpoints."
@@ -375,5 +375,5 @@ echo
 echo "Useful commands (see RUNBOOK.md):"
 echo "   sudo systemctl status familieassistenten"
 echo "   journalctl -u familieassistenten -f"
-echo "   curl -s http://localhost:3000/api/status | jq"
+echo "   curl -s http://localhost:7777/api/status | jq"
 echo

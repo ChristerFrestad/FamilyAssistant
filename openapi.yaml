@@ -10,7 +10,7 @@ info:
   license:
     name: MIT
 servers:
-  - url: http://localhost:3000
+  - url: http://localhost:7777
     description: Local development
   - url: http://familyassistant.local
     description: RPi5 production

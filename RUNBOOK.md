@@ -27,14 +27,14 @@ day-to-day operation of FamilyAssistant on Raspberry Pi 5.
 
 ```bash
 # Local health check
-curl -s http://localhost:3000/health | jq
+curl -s http://localhost:7777/health | jq
 # { "status": "ok", "uptimeSec": 1234, "pid": 567, "memMB": 128 }
 
 # Ready check (shows DB driver + KB size)
-curl -s http://localhost:3000/ready | jq
+curl -s http://localhost:7777/ready | jq
 
 # Full status (version, breakers, migrations)
-curl -s http://localhost:3000/api/status | jq
+curl -s http://localhost:7777/api/status | jq
 
 # Behind Caddy with AUTH_TOKEN
 curl -s -H "Authorization: Bearer $AUTH_TOKEN" https://familieassistenten.local/api/status | jq
@@ -87,7 +87,7 @@ chown pi:pi $APP_ROOT/data/familieassistenten.db
 sudo systemctl start familieassistenten
 
 # 5. Verify
-curl -s http://localhost:3000/ready | jq
+curl -s http://localhost:7777/ready | jq
 journalctl -u familieassistenten -n 20 --no-pager | grep -i 'migration\|ready\|error'
 ```
 
@@ -121,7 +121,7 @@ several consecutive failures and serves 503 until cooldown is done.
 ### 3.1 Check Breaker Status
 
 ```bash
-curl -s http://localhost:3000/api/status | jq '.breakers'
+curl -s http://localhost:7777/api/status | jq '.breakers'
 ```
 
 Example output:
@@ -218,7 +218,7 @@ sudo systemctl status ollama
 curl -s http://localhost:11434/api/tags | jq '.models[].name'
 
 # Check breaker
-curl -s http://localhost:3000/api/status | jq '.breakers.ollama'
+curl -s http://localhost:7777/api/status | jq '.breakers.ollama'
 ```
 
 If the breaker is OPEN: restart Ollama first, then FamilyAssistant:
@@ -277,7 +277,7 @@ npm ci --omit=dev
 sudo systemctl start familieassistenten
 
 # 4. Verify
-curl -s http://localhost:3000/ready | jq
+curl -s http://localhost:7777/ready | jq
 journalctl -u familieassistenten -n 50 --no-pager
 ```
 
@@ -315,14 +315,14 @@ sudo systemctl restart familieassistenten
 ### 6.1 Prometheus Metrics
 
 ```bash
-curl -s http://localhost:3000/metrics
+curl -s http://localhost:7777/metrics
 # request totals, latency histograms, cache hits/misses, etc.
 ```
 
 ### 6.2 Cache Statistics
 
 ```bash
-curl -s http://localhost:3000/api/cache/stats | jq
+curl -s http://localhost:7777/api/cache/stats | jq
 # { "size": 42, "hits": 1234, "misses": 56 }
 ```
 
@@ -446,17 +446,17 @@ cd $APP_ROOT && npm test
 # 2. Server starts
 sudo systemctl restart familieassistenten
 sleep 3
-curl -sf http://localhost:3000/ready || echo "READY FAILED"
+curl -sf http://localhost:7777/ready || echo "READY FAILED"
 
 # 3. An actual endpoint responds
-curl -sf -H "Authorization: Bearer $AUTH_TOKEN" http://localhost:3000/api/today > /dev/null \
+curl -sf -H "Authorization: Bearer $AUTH_TOKEN" http://localhost:7777/api/today > /dev/null \
   && echo "API OK" || echo "API FAILED"
 
 # 4. Backup is fresh
 ls -lh data/backups/ | tail -5
 
 # 5. Breakers are CLOSED
-curl -s http://localhost:3000/api/status | jq '.breakers | to_entries | .[] | "\(.key): \(.value.state)"'
+curl -s http://localhost:7777/api/status | jq '.breakers | to_entries | .[] | "\(.key): \(.value.state)"'
 ```
 
 If everything is green: good night.
@@ -576,7 +576,7 @@ sudo systemctl status familieassistenten
 sudo systemctl start familieassistenten
 
 # Verify it's still alive after 10s
-sleep 10 && curl -sf http://localhost:3000/health
+sleep 10 && curl -sf http://localhost:7777/health
 ```
 
 **Root-cause Analysis:**
@@ -637,7 +637,7 @@ planner works.
 **First-response:**
 ```bash
 # Find which route is failing
-curl -s http://localhost:3000/metrics | grep _requests_total
+curl -s http://localhost:7777/metrics | grep _requests_total
 
 # Last uncaughtException from the alerting webhook?
 # Check journalctl for the pattern
@@ -664,7 +664,7 @@ fallback message.
 **First-response:**
 ```bash
 # Which breaker?
-curl -s http://localhost:3000/api/status | jq '.breakers'
+curl -s http://localhost:7777/api/status | jq '.breakers'
 
 # Test the integration manually
 # Ollama:
@@ -674,7 +674,7 @@ curl -sf http://localhost:11434/api/tags
 curl -sf -H "Authorization: Bearer $KASSAL_API_KEY" https://kassal.app/api/v1/products?search=melk
 
 # Anthropic/OpenAI/xAI — check /api/integrations/:name/test
-curl -sf http://localhost:3000/api/integrations/anthropic/test
+curl -sf http://localhost:7777/api/integrations/anthropic/test
 ```
 
 **Recovery:** Breaker closes automatically after cooldown (30s–60s)
@@ -696,7 +696,7 @@ within minutes. Warning → not yet critical but a possible leak exists.
 **First-response:**
 ```bash
 # Check current RSS
-curl -s http://localhost:3000/ready | jq '{rssMB, memoryBudgetMB, warnings}'
+curl -s http://localhost:7777/ready | jq '{rssMB, memoryBudgetMB, warnings}'
 
 # How many GC cycles?
 sudo cat /proc/$(pidof -s node)/status | grep VmRSS
@@ -730,7 +730,7 @@ to 26/48 hours.
 **First-response:**
 ```bash
 # Manual backup now
-curl -s -X POST http://localhost:3000/api/backup/now | jq
+curl -s -X POST http://localhost:7777/api/backup/now | jq
 
 # Or via node CLI
 node -e "
@@ -792,7 +792,7 @@ noticeable for the family.
 **First-response:**
 ```bash
 # Which route?
-curl -s http://localhost:3000/metrics | grep -A1 "quantile=\"0.95\"" | grep -B1 -E "[0-9]{3}"
+curl -s http://localhost:7777/metrics | grep -A1 "quantile=\"0.95\"" | grep -B1 -E "[0-9]{3}"
 
 # EXPLAIN QUERY PLAN for hot queries
 # See docs/DB_INDEXES.md
