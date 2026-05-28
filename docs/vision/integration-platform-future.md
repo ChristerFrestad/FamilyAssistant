@@ -1,103 +1,105 @@
-# Integrasjons-plattform — fremtidsvisjon (post-pilot)
+# Integration platform — future vision (post-pilot)
 
-**Status:** VISJON-DOKUMENT. Ikke v1-arbeid. Ingen implementerings-aktivitet
-nå. Dette er et strategisk kart for hvor produktet potensielt beveger seg
-*etter* pilot-fasen (uke 11+), når reelle bruksmønstre er kjent.
+**Status:** VISION DOCUMENT. Not v1 work. No implementation activity
+right now. This is a strategic map for where the product potentially
+moves *after* the pilot phase (week 11+), once real usage patterns are
+known.
 
-**Formål:** Påse at hver integrasjon vi bygger i v1 (Kassal.app først;
-Oda, Meny, etc. senere) bygges med tanke på at den kan bli del av et
-større katalog-system senere. Det betyr gjenbrukbare abstraksjoner,
-tydelig separasjon mellom "hva integrasjonen gjør" og "hvordan den
-kobles inn", og dokumentert metadata per integrasjon.
-
----
-
-## 1. Kjernevisjon
-
-Familieassistenten starter som en norsk familie-app med en håndfull
-ferdige integrasjoner (Kassal.app, senere Oda). Men datamodellen,
-frontend-gating og backend-routing-laget skal fra dag én være bygget
-slik at vi uten store omskrivninger kan bli:
-
-- **En nordisk plattform:** flere land, flere språk (se i18n-strategi
-  i `docs/vision/` — å opprette hvis relevant), flere matvarehandels-
-  integrasjoner (ICA Sverige, Dansk Supermarked, etc.)
-- **Et sentralt vedlikeholdt integrasjons-katalog:** Christer (som
-  operatør) oppgraderer "offisielle" integrasjoner og disse
-  automatisk distribueres til prod-brukere.
-- **Selvbetjent utvidelse for self-host:** en familie som kjører app-en
-  på egen Pi kan manuelt legge til integrasjoner som ikke finnes i det
-  offisielle katalogen — via enten en git-klone-flyt eller et
-  "Installer integrasjon"-UI.
-- **Åpent community-bidrag:** på sikt tar vi imot integrasjons-bidrag
-  fra andre utviklere i en kurert prosess (PR-basert, med review).
-
-**Klar avgrensning mot v1:** ingenting av dette skal bygges nå. Men
-v1-koden skal ikke lage tekniske valg som senere vil blokkere dette.
-Det er hele poenget med dokumentet.
+**Purpose:** Ensure that every integration we build in v1 (Kassal.app
+first; Oda, Meny, etc. later) is built with the awareness that it may
+become part of a larger catalog system later. That means reusable
+abstractions, clear separation between "what the integration does" and
+"how it is wired in", and documented metadata per integration.
 
 ---
 
-## 2. Bruksscenarier vi peker mot
+## 1. Core vision
 
-### 2.1 "Offisielle" integrasjoner (prod, Christers deploy)
+FamilyAssistant starts as a Norwegian family app with a handful of
+ready-made integrations (Kassal.app, later Oda). But the data model,
+frontend gating, and backend routing layer should from day one be
+built so that, without major rewrites, we can become:
 
-Scenario:
-- Christer-prod støtter 5 integrasjoner i pilot: Kassal, Oda, matkasser
-  (f.eks. Godt Levert), Google Calendar, Apple Calendar.
-- Prod-brukere trenger ikke å gjøre noe for å aktivere — de velger fra
-  en liste i Settings, og Christer-prod har kjørende API-nøkler /
-  OAuth-apper for alle på server-nivå.
-- Når en integrasjon oppdateres (feks Kassal-API går fra v1 til v2),
-  ruller Christer ut en ny image, og alle prod-brukere får oppdateringen
-  samtidig.
+- **A Nordic platform:** more countries, more languages (see the i18n
+  strategy in `docs/vision/` — to be created if relevant), more grocery
+  integrations (ICA Sweden, Dansk Supermarked, etc.)
+- **A centrally maintained integration catalog:** Christer (as
+  operator) upgrades "official" integrations and they are
+  automatically distributed to prod users.
+- **Self-service extension for self-host:** a family running the app
+  on their own Pi can manually add integrations that are not in the
+  official catalog — via either a git-clone flow or an
+  "Install integration" UI.
+- **Open community contributions:** eventually we accept integration
+  contributions from other developers in a curated process (PR-based,
+  with review).
 
-### 2.2 Self-host — offisielle integrasjoner
-Scenario:
-- Pilot-familien kjører på egen RPi.
-- De vil koble til Kassal — de registrerer egen Kassal-nøkkel i
-  Settings (ingen Christer-infrastruktur involvert — per D4).
-- Google Calendar krever at de registrerer egen OAuth-app i Google
-  Cloud Console og setter inn client_id + client_secret. UI leder dem
-  gjennom oppsettet via en wizard.
-- Oda / matkasser: hvis disse integrasjonene krever Christer-drevet
-  infrastruktur (f.eks. en proxy-server som gjør kalles mot Oda), må
-  self-host-brukere ha tilgang til denne proxyen eller akseptere at
-  noen integrasjoner kun er tilgjengelige i prod.
-
-### 2.3 Self-host — egen integrasjon
-Scenario:
-- En svensk pilot-familie ønsker å koble appen mot ICA (ikke i
-  katalog). De skriver egen integrasjon i TypeScript, følger
-  integrasjons-malen i `docs/development/integration-template.md`,
-  installerer via `npm install ./local-integration-ica` eller via git-
-  subtree. Integrasjon registrerer seg ved oppstart og blir synlig i
-  Settings.
-
-### 2.4 Community-bidrag (post-pilot)
-Scenario:
-- Svensk familie har kjørt sin ICA-integrasjon i 6 måneder, virker
-  bra. De åpner en PR mot hovedrepoet.
-- Christer reviewer koden, tester mot pilot-data, og merger.
-- Neste prod-release inkluderer ICA som offisiell integrasjon.
+**Clear scope boundary against v1:** none of this is to be built now.
+But v1 code must not make technical choices that would later block
+this. That is the whole point of the document.
 
 ---
 
-## 3. Arkitektur-prinsipper for v1-integrasjoner
+## 2. Use cases we are pointing at
 
-Hver integrasjon vi bygger (i v1: Kassal) skal følge disse prinsippene,
-slik at de senere kan inngå i et katalog-system:
+### 2.1 "Official" integrations (prod, Christer's deploy)
+
+Scenario:
+- Christer-prod supports 5 integrations in pilot: Kassal, Oda, meal
+  kits (e.g. Godt Levert), Google Calendar, Apple Calendar.
+- Prod users don't need to do anything to enable them — they pick from
+  a list in Settings, and Christer-prod has running API keys /
+  OAuth apps for all of them at the server level.
+- When an integration is updated (e.g. the Kassal API goes from v1 to
+  v2), Christer rolls out a new image and all prod users get the
+  update at the same time.
+
+### 2.2 Self-host — official integrations
+Scenario:
+- The pilot family runs on their own RPi.
+- They want to connect to Kassal — they register their own Kassal key
+  in Settings (no Christer infrastructure involved — per D4).
+- Google Calendar requires them to register their own OAuth app in
+  the Google Cloud Console and enter the client_id + client_secret.
+  The UI walks them through the setup via a wizard.
+- Oda / meal kits: if these integrations require Christer-driven
+  infrastructure (e.g. a proxy server that makes calls to Oda),
+  self-host users must have access to that proxy or accept that some
+  integrations are only available in prod.
+
+### 2.3 Self-host — own integration
+Scenario:
+- A Swedish pilot family wants to connect the app to ICA (not in the
+  catalog). They write their own integration in TypeScript, follow
+  the integration template in `docs/development/integration-template.md`,
+  install via `npm install ./local-integration-ica` or via git
+  subtree. The integration registers itself at startup and becomes
+  visible in Settings.
+
+### 2.4 Community contributions (post-pilot)
+Scenario:
+- A Swedish family has run its ICA integration for 6 months and it
+  works well. They open a PR against the main repo.
+- Christer reviews the code, tests against pilot data, and merges.
+- The next prod release includes ICA as an official integration.
+
+---
+
+## 3. Architecture principles for v1 integrations
+
+Every integration we build (in v1: Kassal) should follow these
+principles, so that they can later be part of a catalog system:
 
 ### 3.1 Metadata-first
-Hver integrasjon beskriver seg selv:
+Each integration describes itself:
 
 ```ts
-// Eksempel for Kassal
+// Example for Kassal
 export const integrationMetadata = {
   id: 'kassal',
   version: '1.0.0',
   displayName: 'Kassal.app',
-  description: 'Prissammenligning og tilbud for norske matvarehandler',
+  description: 'Price comparison and offers for Norwegian grocery stores',
   countries: ['NO'],
   category: 'grocery-pricing',
   authType: 'api-key',
@@ -111,133 +113,136 @@ export const integrationMetadata = {
 };
 ```
 
-Dette metadata-objektet er det som katalog-systemet (når vi får det)
-bruker til å liste, filtrere og presentere integrasjoner.
+This metadata object is what the catalog system (once we have it)
+uses to list, filter, and present integrations.
 
-### 3.2 Separasjon: core vs integration
-- `server/integrations/<id>/service.js` — integrasjonens egen kode,
-  API-kall, error-håndtering.
-- `server/integrations/<id>/metadata.js` — objektet over.
-- `server/integrations/<id>/routes.js` — integrasjonens HTTP-ruter
-  (valgfritt — noen integrasjoner eksponerer egne endepunkter).
-- `server/integrations/index.js` — registry som auto-discoverer alle
-  `server/integrations/*/metadata.js` ved oppstart og bygger en
-  "available integrations"-liste som brukes av `/api/config/features`
-  og `/api/integrations/available`.
+### 3.2 Separation: core vs integration
+- `server/integrations/<id>/service.js` — the integration's own code,
+  API calls, error handling.
+- `server/integrations/<id>/metadata.js` — the object above.
+- `server/integrations/<id>/routes.js` — the integration's HTTP routes
+  (optional — some integrations expose their own endpoints).
+- `server/integrations/index.js` — registry that auto-discovers all
+  `server/integrations/*/metadata.js` at startup and builds an
+  "available integrations" list used by `/api/config/features`
+  and `/api/integrations/available`.
 
-### 3.3 Konfig via miljøvariabler, ikke hardkoding
-Hver integrasjon leser sin konfig fra env:
+### 3.3 Config via environment variables, not hardcoding
+Each integration reads its config from env:
 ```
 KASSAL_API_KEY=...
 ODA_API_KEY=...
 GOOGLE_CALENDAR_CLIENT_ID=...
 ```
 
-Og per-familie-nøkler (som Kassal i D4) lagres i `family_llm_config`-
-stil tabell (per-integration-config per familie).
+And per-family keys (like Kassal in D4) are stored in a
+`family_llm_config`-style table (per-integration config per family).
 
-### 3.4 Ikke anta at "internet er tilgjengelig"
-Hver integrasjon skal gracefully håndtere at ekstern tjeneste er nede,
-har endret API, eller krever ny OAuth-refresh. Feilmeldinger må være
-operatørvennlige (RPi-eier skal forstå "Kassal er nede, prisene er fra
-i går").
+### 3.4 Do not assume "internet is available"
+Each integration must gracefully handle the external service being
+down, having changed its API, or requiring a new OAuth refresh.
+Error messages must be operator-friendly (the RPi owner should
+understand "Kassal is down, prices are from yesterday").
 
-### 3.5 Ikke hardkod landstrenger i UI
-Kassal er norsk; Oda er norsk; ICA er svensk. Men UI-en som presenterer
-integrasjonen skal lese land fra metadata, ikke fra hardkodet
-norsk-tekst i komponenten. Dette er forutsetningen for at appen senere
-kan brukes av svenske familier uten full omskriving.
+### 3.5 Do not hardcode country strings in the UI
+Kassal is Norwegian; Oda is Norwegian; ICA is Swedish. But the UI
+that presents the integration should read the country from metadata,
+not from hardcoded Norwegian text in the component. This is the
+prerequisite for the app to later be used by Swedish families
+without a full rewrite.
 
-### 3.6 Version-bevisst
-Integrasjoner er forskjellige komponenter som utvikles parallelt. Hver
-integrasjon har semver-versjon. Katalog-systemet senere kan tilby
-"oppdater ICA fra 1.2 til 1.3" uten å oppgradere resten av appen.
+### 3.6 Version-aware
+Integrations are separate components developed in parallel. Each
+integration has a semver version. The catalog system later can
+offer "update ICA from 1.2 to 1.3" without upgrading the rest of
+the app.
 
 ---
 
-## 4. Katalog-struktur (post-pilot, skisse)
+## 4. Catalog structure (post-pilot, sketch)
 
 ```
-/api/integrations/catalog           → GET liste av tilgjengelige
-/api/integrations/catalog/:id       → GET detaljer
-/api/integrations/installed         → GET hva familie har aktivert
-/api/integrations/installed/:id     → POST/DELETE aktiver/deaktiver
-/api/integrations/installed/:id/config  → GET/PUT per-familie-konfig
+/api/integrations/catalog           → GET list of available
+/api/integrations/catalog/:id       → GET details
+/api/integrations/installed         → GET what the family has enabled
+/api/integrations/installed/:id     → POST/DELETE enable/disable
+/api/integrations/installed/:id/config  → GET/PUT per-family config
 ```
 
-Integrasjoner kan være:
-- **Built-in:** ligger i kodebasen, oppdateres med appen
-- **Remote:** lastes ned fra et katalog-repo ved første aktivering
-- **Local:** installert manuelt av operatør (self-host only)
+Integrations can be:
+- **Built-in:** lives in the codebase, updated with the app
+- **Remote:** downloaded from a catalog repo on first activation
+- **Local:** installed manually by the operator (self-host only)
 
 ---
 
-## 5. Hva IKKE gjøres nå (v1)
+## 5. What is NOT done now (v1)
 
-- **Ingen** katalog-backend
-- **Ingen** integrasjons-upload/download-UI
-- **Ingen** community-submission-flyt
-- **Ingen** remote-loading av integrasjoner
-- **Ingen** per-integrasjon versjonering-UI
+- **No** catalog backend
+- **No** integration upload/download UI
+- **No** community-submission flow
+- **No** remote loading of integrations
+- **No** per-integration versioning UI
 
-V1 har kun: Kassal built-in, aktiverbar via Settings, med per-familie-
-nøkkel.
-
----
-
-## 6. Hva gjøres NÅ for å bevare framtidsvisjonen
-
-V1-arbeidet (uke 3-11) må følge disse retningslinjene slik at post-
-pilot-visjonen er mulig uten større omskriving:
-
-1. **Kassal-integrasjonen** bygges som `server/integrations/kassal/`
-   med metadata.js, service.js, routes.js (hvis nødvendig) — ikke
-   spredt ut i andre filer.
-2. **`/api/config/features` og `/api/integrations/available`** svarer
-   dynamisk basert på `server/integrations/index.js`-registry, ikke en
-   hardkodet liste.
-3. **Frontend bruker metadata** til å rendre integrasjons-kort i
-   Settings. Ingen komponent per integrasjon — én generisk
-   `<IntegrationCard metadata={...} />`-komponent som leser labels fra
-   metadata.
-4. **Database-skjema for integrasjons-konfig** planlegges som
-   generisk: `integration_configs(family_id, integration_id,
-   config_json)` heller enn én spesifikk tabell per integrasjon.
-5. **Setup-instruksjoner** leveres som i18n-nøkler fra metadata, slik
-   at norsk/engelsk/osv kan støttes uten å endre integration-koden
-   selv.
+V1 has only: Kassal built-in, enabled via Settings, with a per-family
+key.
 
 ---
 
-## 7. Beslutnings-triggers (post-pilot)
+## 6. What is done NOW to preserve the future vision
 
-Når vi gjenvurderer denne visjonen (tidligst uke 11), ser vi på:
+V1 work (week 3-11) must follow these guidelines so that the
+post-pilot vision is possible without a major rewrite:
 
-- **Antall pilot-familier som faktisk bruker self-host:** hvis bare
-  Christer-prod brukes, kan katalog-systemet forenkles til built-in-only.
-- **Hvor mange integrasjoner vi har bygget frem til da:** hvis ≥ 5,
-  katalog er meningsfull. Hvis ≤ 2, vent.
-- **Bruksmønstre i pilot:** er det integrasjoner vi ikke hadde
-  forutsett (f.eks. smartklokke-helse, Spotify-playlists, hjemme-
-  automatisering)?
-- **Hvilke integrasjoner som er "stickey" nok** til at community-
-  bidrag er realistisk.
-
----
-
-## 8. Referanser
-
-- `docs/analyses/2026-04-22-multi-tenant-activation.md` — hvordan
-  multi-tenant ble aktivert i uke 2, gir grunnlag for per-familie-
-  integrasjons-konfig.
-- `docs/vision/` — andre visjons-dokumenter i samme serie (å opprette
-  etter behov: internationalization-strategy.md, pilot-to-prod-
-  migration.md, etc.)
-- RUNBOOK.md §13 — B2 LLM som felles ressurs; lignende pattern som
-  integrasjons-konfig (global default + per-familie-override).
+1. **The Kassal integration** is built as `server/integrations/kassal/`
+   with metadata.js, service.js, routes.js (if needed) — not
+   spread across other files.
+2. **`/api/config/features` and `/api/integrations/available`** answer
+   dynamically based on the `server/integrations/index.js` registry,
+   not a hardcoded list.
+3. **Frontend uses metadata** to render integration cards in
+   Settings. No component per integration — one generic
+   `<IntegrationCard metadata={...} />` component that reads labels
+   from metadata.
+4. **Database schema for integration config** is planned as
+   generic: `integration_configs(family_id, integration_id,
+   config_json)` rather than one specific table per integration.
+5. **Setup instructions** are delivered as i18n keys from metadata, so
+   that Norwegian/English/etc. can be supported without changing the
+   integration code itself.
 
 ---
 
-**Sluttnotat:** dette er et *kompass*, ikke et *kart*. Retningen er
-klar; de spesifikke stegene bestemmes i løpet av v1-utvikling og pilot-
-fasen. Når forholdene endres, skal dette dokumentet oppdateres.
+## 7. Decision triggers (post-pilot)
+
+When we reconsider this vision (earliest week 11), we look at:
+
+- **Number of pilot families actually using self-host:** if only
+  Christer-prod is used, the catalog system can be simplified to
+  built-in-only.
+- **How many integrations we have built by then:** if ≥ 5,
+  a catalog is meaningful. If ≤ 2, wait.
+- **Usage patterns in pilot:** are there integrations we did not
+  anticipate (e.g. smartwatch health, Spotify playlists, home
+  automation)?
+- **Which integrations are "sticky" enough** that community
+  contribution is realistic.
+
+---
+
+## 8. References
+
+- `docs/analyses/2026-04-22-multi-tenant-activation.md` — how
+  multi-tenant was enabled in week 2, providing the basis for
+  per-family integration config.
+- `docs/vision/` — other vision documents in the same series (to be
+  created as needed: internationalization-strategy.md,
+  pilot-to-prod-migration.md, etc.)
+- RUNBOOK.md §13 — B2 LLM as a shared resource; similar pattern to
+  integration config (global default + per-family override).
+
+---
+
+**Closing note:** this is a *compass*, not a *map*. The direction is
+clear; the specific steps are decided during v1 development and the
+pilot phase. When conditions change, this document should be updated.

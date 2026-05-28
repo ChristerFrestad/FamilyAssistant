@@ -6,6 +6,100 @@
 
 ---
 
+2026-05-27 – Public-repo prep PR 4: translate public-facing docs to English
+
+Oppgave: Fjerde av 7 PR-er. Oversett all public-facing
+dokumentasjon fra norsk til engelsk slik at repoet blir
+tilgjengelig for internasjonale contributors. Holdt
+`docs/analyses/`, `docs/workflow/`, `AGENT_LOG.md`,
+`docs/baselines/`, samt all source-kode-kommentarer på norsk per
+audit-beslutning 2 (oversettelse av disse er stor jobb og
+addresseres i pre-deploy cleanup-sesjon per CLAUDE.md DEL 7.7).
+
+Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
+(audit §13 beslutning 2 ja-besvart av Christer)
+
+- Reisen: 6 logiske commits — (1) root-docs, (2) deploy/ops-docs,
+  (3) governance/reference-docs, (4) runbooks/known-issues/vision,
+  (5) terms-pages bilingual, (6) policy-test-oppdateringer.
+- Edge-cases: 5 filer ble identifisert som allerede engelsk og
+  ikke rørt (PORTAINER_BRANDING_SETUP.md, architecture/frontend.md,
+  runbooks/llm-cache-key-policy.md, runbooks/wcag-compliance.md,
+  runbooks/ci-cd-pipeline.md). Quoted norske server-log-strings
+  i RUNBOOK.md/DEPLOY.md bevisst bevart (operatører grep-er på
+  dem). Bundle-parity-test for i18n upåvirket (kun no/en-bundles
+  i client/, ikke endret her). 3 policy-tests refererte norske
+  doc-strings og måtte oppdateres per CLAUDE.md DEL 6.5.
+- Beslutninger: audit §13 beslutning 2 (pragmatisk oversettelse,
+  ikke alle 104 .md-filer) drev scope-valget. Christers tilbake-
+  melding "ok, dersom det er greit for å gjøre repo public" satte
+  rammen.
+- Portainer-risiko: nei (kun docs + 3 policy-test-regex, ingen
+  oppstarts-kode).
+
+Plan: dispatch 7 parallelle agenter for å oversette 17 doc-filer
++ opprette 1 ny fil (terms-en.html). Cluster:
+- Agent A: README, package.json, CI.md, DB_INDEXES, BRAND_SYSTEM,
+  frontend/v2-strategy, runbooks/smart-coupling-flow (~1100 linjer)
+- Agent B: SECURITY.md, CONTRIBUTING.md (~590 linjer)
+- Agent C: DEPLOY.md (§1-15), runbooks/deploy-portainer,
+  runbooks/b1-deploy-checklist (~1230 linjer)
+- Agent D: RUNBOOK.md (1137 linjer)
+- Agent E: .env.example, known-issues, vision (~705 linjer)
+- Agent F: DOMAIN_MODEL.md (352 linjer)
+- Agent G: terms.html lang-toggle + ny terms-en.html (~260 linjer)
+Totalt: ~5300 linjer prosa oversatt + 1 ny fil.
+
+Gjort:
+
+- Branch: docs/public-repo-prep-4-translate-public-facing
+  (basert på PR 3-branch i stacked-PR-pattern)
+- Commits: 6 oversettelses-commits + denne AGENT_LOG-commit = 7
+  totalt på denne branchen
+- Filer endret: 19 totalt (18 oversettelser + 3 policy-tester)
+- Ny fil: public/terms-en.html (144 linjer)
+- Test-resultat: 1361 backend pass / 0 fail / 2 skip; 928 client
+  pass / 0 fail. Lint 0 errors. Typecheck (server + client) clean.
+- DOMAIN_MODEL.md oppdatert: ja — oversatt til engelsk
+- Avvik fra plan: 3 policy-tester brøt etter oversettelse fordi
+  de asserterte på norske ord i SECURITY.md/RUNBOOK.md. Oppdatert
+  per DEL 6.5 policy-test-regler med eksplisitt kommentar som
+  refererer audit-doc og PR-nummer.
+
+Sikkerhet: Ingen sikkerhets-endring — docs-only. Bekreftet ingen
+nye PII introdusert under oversettelse (alle agenter ble instruert
+å bevare brand-navn, e-poster, IP-er, paths som-er).
+
+ISO 25010:
+- Vedlikeholdbarhet 8.45 → 8.50 (+0.05, engelsk doc er
+  tilgjengelig for bredere review-base)
+- Portabilitet 8.60 → 8.70 (+0.10, internasjonale forks får
+  dokumentasjon på arbeidsspråket sitt)
+- Andre karakteristikker: ikke berørt
+
+Status: lokalt klart, venter på push fra Christer
+(Christer har sagt at PR 4 skal samles og kjøres som lokal
+commit-batch først, så batch-pushes etter)
+
+Pre-eksisterende observasjoner (uendret fra PR 1):
+
+- 1 ESLint warning i client/.../ErrorBoundary.tsx
+- 56 prettier-format-warnings på Windows (CRLF/LF), ikke berørt
+  på Linux CI
+
+Beslutninger Christer må ta:
+
+1. Når PR 1-4 pushes (krever eksplisitt "push"-ord), squash til
+   4 PR-er eller mindre? ANBEFALING: behold 4 PR-er for tydelig
+   logisk separasjon ved review. Hver PR har 3-7 logiske commits
+   som kan squashes per PR til 1-2 hvis ønsket.
+
+Neste: PR 5 (brand-konsolidering til FamilyAssistant + fiks pilot-
+gate/setup-wizard-bug per beslutning 9) eller PR 6 (CLAUDE.md
+split per beslutning 4). Vent på Christer for ordre.
+
+---
+
 2026-05-27 – Public-repo prep PR 3: genericize user-facing strings
 
 Oppgave: Tredje av 7 PR-er. Fjern operatør-spesifikke referanser

@@ -1,174 +1,174 @@
-# B1 Deploy-sjekkliste: multi-tenant aktivering på Portainer/RPi
+# B1 Deploy Checklist: multi-tenant activation on Portainer/RPi
 
-**Gjelder:** første pull etter at batch 1 (med commits `aff7a83`, `508c204`,
-`586ddc9`) er merget til main. Må ikke hoppes over — Portainer-risiko var
-vurdert HØY i analysen.
+**Applies to:** the first pull after batch 1 (with commits `aff7a83`, `508c204`,
+`586ddc9`) has been merged to main. Must not be skipped — Portainer risk was
+rated HIGH in the analysis.
 
-**Forutsetning:** du har tilgang til Portainer UI og til container-loggen.
+**Precondition:** you have access to the Portainer UI and to the container log.
 
-**Utfør i rekkefølge.** Hvert steg har forventet resultat og rollback-
-kriterium. Stopp og rapporter hvis noe avviker.
+**Execute in order.** Each step has an expected result and a rollback
+criterion. Stop and report if anything deviates.
 
 ---
 
-## Fase 1 — Før pull
+## Phase 1 — Before pull
 
-Disse stegene kjøres på nåværende (pre-B1) container mens den fortsatt
-er oppe.
+These steps run on the current (pre-B1) container while it is still
+up.
 
-### 1.1 Sikkerhetskopier `bootstrap.json`
+### 1.1 Back up `bootstrap.json`
 
 ```bash
-# Via Portainer Console (app-containeren):
+# Via Portainer Console (the app container):
 cp /app/data/bootstrap.json /app/data/bootstrap.json.pre-b1.bak
 ls -la /app/data/bootstrap.json*
 ```
 
-Forventet: to filer med identisk innhold, `bootstrap.json.pre-b1.bak` med
-mtime lik original.
+Expected: two files with identical content, `bootstrap.json.pre-b1.bak` with
+mtime equal to the original.
 
-**Hvorfor:** Self-healing i C1 skriver om `bootstrap.json` ved første boot.
-Hvis migreringen feiler må vi kunne gjenopprette den opprinnelige filen.
+**Why:** Self-healing in C1 rewrites `bootstrap.json` on the first boot.
+If migration fails we must be able to restore the original file.
 
-### 1.2 Noter nåværende schema-versjon
+### 1.2 Note the current schema version
 
 ```bash
 cat /app/data/bootstrap.json | grep version
 ```
 
-Forventet (pilot-installasjonen): `"version": 1` (eldre wizard-output).
-Hvis du ser `"version": 2` er dette en fresh install med C1 allerede
-aktiv — ingen migrering trengs.
+Expected (the pilot install): `"version": 1` (older wizard output).
+If you see `"version": 2` this is a fresh install with C1 already
+active — no migration needed.
 
-Hvis ingen `version`-nøkkel finnes: filen er fra aller første Phase 22-
-wizard (før `version` ble lagt til). C1s self-heal håndterer dette
-likt med versjon 1 — merger inn `sessionSecret` og bumper til `version: 2`.
+If no `version` key is present: the file is from the very first Phase 22
+wizard (before `version` was added). C1's self-heal handles this
+identically to version 1 — it merges in `sessionSecret` and bumps to `version: 2`.
 
-### 1.3 Takt-sjekk: tester og eksisterende funksjon
+### 1.3 Sanity check: tests and existing function
 
 ```bash
 curl -sH "Authorization: Bearer $AUTH_TOKEN" http://localhost:7777/api/auth/me | head
 curl -sH "Authorization: Bearer $AUTH_TOKEN" http://localhost:7777/api/pantry | head
 ```
 
-Forventet: begge returnerer 200 + gyldig JSON. Dette bekrefter at
-"pre-B1"-state er funksjonell, så enhver regresjon vi oppdager etter
-pull kan entydig tilskrives B1.
+Expected: both return 200 + valid JSON. This confirms that the
+"pre-B1" state is functional, so any regression we detect after
+pull can be unambiguously attributed to B1.
 
 ---
 
-## Fase 2 — Pull + restart
+## Phase 2 — Pull + restart
 
-### 2.1 Pull ny image i Portainer
+### 2.1 Pull the new image in Portainer
 
-Stack → Editor → "Pull and redeploy" (eller `docker compose pull && docker
-compose up -d` fra host). Vent ~30-60 sekunder på at den gamle containeren
-stenges og den nye starter.
+Stack → Editor → "Pull and redeploy" (or `docker compose pull && docker
+compose up -d` from the host). Wait ~30-60 seconds for the old container
+to shut down and the new one to start.
 
-### 2.2 Følg oppstart-loggen
+### 2.2 Follow the startup log
 
 ```bash
 docker logs -f familieassistenten 2>&1 | head -100
 ```
 
-Se etter følgende linjer **i rekkefølge** (timestamps vil variere):
+Look for the following lines **in order** (timestamps will vary):
 
 ```
 [DB YYYY-MM-DD HH:MM:SS] better-sqlite3 tilkoblet (WAL, FK=ON)
 [MIGRATE YYYY-MM-DD HH:MM:SS] ✓ Applikert 018_reset_stale_bought_at.sql
-  ...ingen NYE migrations (019+) i B1. Ren config-endring.
+  ...no NEW migrations (019+) in B1. Pure config change.
 Starter Familieassistenten...
 Familieassistenten kjører på http://localhost:7777
 ```
 
-**Kritisk sjekk for B1:** ingen stack-trace, ingen `process.exit(1)`,
-ingen linjer som starter med `⚠️`.
+**Critical check for B1:** no stack trace, no `process.exit(1)`,
+no lines starting with `⚠️`.
 
-### 2.3 Bekreft at SESSION_SECRET er generert og persistert
+### 2.3 Confirm that SESSION_SECRET is generated and persisted
 
 ```bash
 cat /app/data/bootstrap.json
 ```
 
-**Forventet resultat A — upgrade fra versjon 1:**
+**Expected result A — upgrade from version 1:**
 
 ```json
 {
   "completedAt": "2026-XX-XX...",
-  "authToken": "<din uendrede token>",
-  "allowedOrigins": "<uendret>",
+  "authToken": "<your unchanged token>",
+  "allowedOrigins": "<unchanged>",
   "llmBackend": "ollama",
   ...
-  "sessionSecret": "<64 hex-chars — ny linje lagt til>",
-  "sessionSecretGeneratedAt": "<timestamp fra akkurat nå>",
+  "sessionSecret": "<64 hex chars — new line added>",
+  "sessionSecretGeneratedAt": "<timestamp from just now>",
   "version": 1
 }
 ```
 
-MERK: `version` forblir 1 ved self-heal-sti (C1 bumper KUN ved
-wizard-komplett; self-heal kun merger. Dette er med vilje — for å skille
-self-healed fra wizard-fresh installasjoner i debug.)
+NOTE: `version` remains 1 on the self-heal path (C1 bumps ONLY on
+wizard completion; self-heal only merges. This is intentional — to distinguish
+self-healed from wizard-fresh installations in debug.)
 
-**Forventet resultat B — fresh install som var i BOOTSTRAP_MODE:**
+**Expected result B — fresh install that was in BOOTSTRAP_MODE:**
 
-Hvis du deployet denne imagen fra scratch (uten pre-existing bootstrap.json
-på dataobjekt), trenger du først kjøre setup-wizarden på `/setup.html`.
-Etter fullført wizard:
+If you deployed this image from scratch (without a pre-existing bootstrap.json
+on the data volume), you must first run the setup wizard at `/setup.html`.
+After completing the wizard:
 
 ```json
 {
-  "completedAt": "<timestamp fra wizard>",
-  "authToken": "<generert av wizard>",
+  "completedAt": "<timestamp from wizard>",
+  "authToken": "<generated by wizard>",
   "sessionSecret": "<64 hex>",
-  "sessionSecretGeneratedAt": "<samme timestamp>",
+  "sessionSecretGeneratedAt": "<same timestamp>",
   "version": 2,
   ...
 }
 ```
 
-`version: 2` bekrefter at wizarden kjørte C1-oppdaterte handleComplete.
+`version: 2` confirms that the wizard ran the C1-updated handleComplete.
 
-### 2.4 Verifiser at auth fortsatt virker
+### 2.4 Verify that auth still works
 
 ```bash
-# Fra host eller LAN — bør fortsatt gi 200 + samme bruker som før
+# From host or LAN — should still return 200 + the same user as before
 curl -sH "Authorization: Bearer $AUTH_TOKEN" http://<rpi-ip>:7777/api/auth/me
 ```
 
-Forventet: `{"authenticated":true,"user":{"id":0,...,"synthetic":true}}` —
-den syntetiske LOCAL_USER-en for pilot-familien.
+Expected: `{"authenticated":true,"user":{"id":0,...,"synthetic":true}}` —
+the synthetic LOCAL_USER for the pilot family.
 
 ---
 
-## Fase 3 — Logg-linjer som flagger problem
+## Phase 3 — Log lines that flag a problem
 
-### 3.1 Self-heal FEILET (sjelden, men mulig)
+### 3.1 Self-heal FAILED (rare, but possible)
 
-Hvis `bootstrap.json` er read-only eller volum er fullt:
+If `bootstrap.json` is read-only or the volume is full:
 
 ```
 ⚠️  SESSION_SECRET self-heal failed (EACCES: permission denied, ...).
    Set SESSION_SECRET in env or fix file permissions on bootstrap.json.
 ```
 
-**Hva det betyr:** Serveren starter fortsatt, MEN auth-endepunkter som
-trenger HMAC-signering (Google OAuth, magic-link) vil kaste ved første
-bruk (ingen `dev-secret`-fallback i C3).
+**What it means:** The server still starts, BUT auth endpoints that
+need HMAC signing (Google OAuth, magic-link) will throw on first
+use (no `dev-secret` fallback in C3).
 
-**Handling:**
-1. Sjekk filrettigheter: `ls -la /app/data/bootstrap.json` — skal være
-   0600 og eid av samme UID som containeren kjører som.
-2. Sjekk ledig diskplass: `df -h /app/data` — skal ha >10 MB.
-3. Reparer: sett `SESSION_SECRET` manuelt som env-variabel i Portainer-
-   stack (`openssl rand -hex 32`), restart stack.
-4. Etter neste boot — bootstrap.json blir eventuelt oppdatert ved
-   suksessfull self-heal, eller du kan manuelt legge inn `sessionSecret`
-   i filen med `jq` (se RUNBOOK §12.1).
+**Action:**
+1. Check file permissions: `ls -la /app/data/bootstrap.json` — must be
+   0600 and owned by the same UID the container runs as.
+2. Check free disk space: `df -h /app/data` — must have >10 MB.
+3. Repair: set `SESSION_SECRET` manually as an env variable in the Portainer
+   stack (`openssl rand -hex 32`), restart the stack.
+4. After the next boot — bootstrap.json may be updated by a
+   successful self-heal, or you can manually add `sessionSecret`
+   to the file with `jq` (see RUNBOOK §12.1).
 
-### 3.2 Config-validering avslår oppstart
+### 3.2 Config validation rejects startup
 
-Hvis `NODE_ENV=production` og én av `GOOGLE_CLIENT_ID` / `RESEND_API_KEY`
-/ `MAGIC_LINK_CONSOLE` er aktivert UTEN at `SESSION_SECRET` finnes:
+If `NODE_ENV=production` and one of `GOOGLE_CLIENT_ID` / `RESEND_API_KEY`
+/ `MAGIC_LINK_CONSOLE` is enabled WITHOUT `SESSION_SECRET` being present:
 
 ```
 ⚠️  SESSION_SECRET is required in production when Google OAuth, magic-link
@@ -178,124 +178,124 @@ Hvis `NODE_ENV=production` og én av `GOOGLE_CLIENT_ID` / `RESEND_API_KEY`
    — see server/auth/bootstrap-session-secret.js.
 ```
 
-Container exiter med kode 1 og Portainer viser "unhealthy".
+The container exits with code 1 and Portainer shows "unhealthy".
 
-**Handling:**
-1. Dette skjer KUN hvis self-heal også feilet i samme boot. Sjekk forrige
-   feilmelding i logg (3.1).
-2. Akutt-fix: sett `SESSION_SECRET` i Portainer stack env, restart.
-3. Langvarig fix: følg 3.1 for å få self-heal til å virke.
+**Action:**
+1. This only happens if self-heal also failed in the same boot. Check the previous
+   error message in the log (3.1).
+2. Quick fix: set `SESSION_SECRET` in the Portainer stack env, restart.
+3. Long-term fix: follow 3.1 to make self-heal work.
 
-### 3.3 OAuth state-cookie-feil
+### 3.3 OAuth state-cookie error
 
-Hvis en innlogging mislykkes med:
+If a sign-in fails with:
 
 ```
 Error: SESSION_SECRET is not configured. Refusing to sign OAuth state /
        magic-link tokens with a placeholder.
 ```
 
-Dette er C3-hardening som kaster hvis kode-stien når signing-helper uten
-verdi. Skulle IKKE skje i normal drift hvis 2.3 gikk grønt — bekreft at
-`SESSION_SECRET` er populert, kanskje env-var ble overstyrt til tom.
+This is C3 hardening that throws if the code path reaches the signing helper without
+a value. Should NOT happen in normal operation if 2.3 went green — confirm that
+`SESSION_SECRET` is populated; perhaps the env var was overridden to empty.
 
 ---
 
-## Fase 4 — Rollback hvis container ikke starter
+## Phase 4 — Rollback if the container does not start
 
-Hvis container er rød i Portainer > 60 sekunder etter pull:
+If the container is red in Portainer > 60 seconds after pull:
 
-### 4.1 Første redning: env-override
+### 4.1 First rescue: env override
 
-Sett i Portainer stack env og redeploy:
+Set in the Portainer stack env and redeploy:
 
 ```
-SESSION_SECRET=<generer med openssl rand -hex 32>
+SESSION_SECRET=<generate with openssl rand -hex 32>
 ```
 
-Hvis dette fikser det: årsaken var self-heal-feil. Rapporter loggutsnitt
-fra 3.1.
+If this fixes it: the cause was a self-heal failure. Report the log excerpt
+from 3.1.
 
-### 4.2 Andre redning: rull tilbake image
+### 4.2 Second rescue: roll back the image
 
-Hvis env-override ikke hjelper:
+If the env override does not help:
 
 ```bash
-# Finn forrige image-SHA fra `docker images ghcr.io/christerfrestad/familyassistant`
-docker tag ghcr.io/christerfrestad/familyassistant:<forrige-sha> \
+# Find the previous image SHA from `docker images ghcr.io/christerfrestad/familyassistant`
+docker tag ghcr.io/christerfrestad/familyassistant:<previous-sha> \
            ghcr.io/christerfrestad/familyassistant:main
-# Deretter Portainer → restart stack (NB: pull_policy: always vil
-# overskrive tag-en ved neste redeploy, så dette er kun midlertidig)
+# Then Portainer → restart stack (NB: pull_policy: always will
+# overwrite the tag on next redeploy, so this is only temporary)
 ```
 
-Mer robust: bruk `TAG=<forrige-sha>` env i docker-compose.yml:
+More robust: use `TAG=<previous-sha>` env in docker-compose.yml:
 
 ```
 environment:
   TAG: "sha-abc1234"  # override :main
 ```
 
-### 4.3 Tredje redning: gjenopprett pre-B1 bootstrap.json
+### 4.3 Third rescue: restore pre-B1 bootstrap.json
 
-Hvis containeren fortsatt ikke starter og du har forrige image aktiv
-men bootstrap.json er korrupt:
+If the container still does not start and you have the previous image active
+but bootstrap.json is corrupt:
 
 ```bash
 docker exec familieassistenten sh -c "cp /app/data/bootstrap.json.pre-b1.bak /app/data/bootstrap.json"
 docker compose restart app
 ```
 
-### 4.4 Full rollback (siste utvei)
+### 4.4 Full rollback (last resort)
 
-Hvis data-volum er korrupt:
+If the data volume is corrupt:
 
-1. Stopp containeren.
-2. Restaurer `/app/data/` fra siste automatiske backup (se RUNBOOK §2.3).
-3. Tag-pinn til kjent god image før neste forsøk.
-4. Rapporter til Claude: logg + steg du kjørte + hva som faktisk feilet.
+1. Stop the container.
+2. Restore `/app/data/` from the latest automatic backup (see RUNBOOK §2.3).
+3. Tag-pin to a known-good image before the next attempt.
+4. Report to Claude: log + steps you ran + what actually failed.
 
 ---
 
-## Fase 5 — Smoke-test av B1-funksjonalitet
+## Phase 5 — Smoke test of B1 functionality
 
-Etter at containeren er grønn:
+After the container is green:
 
-### 5.1 Multi-tenant skal NÅ være aktiv
+### 5.1 Multi-tenant should NOW be active
 
 ```bash
-# Hent /api/auth/config — viser hvilke auth-backends som er tilgjengelig
+# Fetch /api/auth/config — shows which auth backends are available
 curl -sH "Authorization: Bearer $AUTH_TOKEN" http://<rpi>:7777/api/auth/config
 ```
 
-Forventet respons-shape:
+Expected response shape:
 ```json
 {
   "pilotBypass": false,
   "google": false,
-  "magicLink": false   # eller true hvis MAGIC_LINK_CONSOLE=true
+  "magicLink": false   # or true if MAGIC_LINK_CONSOLE=true
 }
 ```
 
-### 5.2 Hvis du vil kjøre empirisk tenant-isolation-test
+### 5.2 If you want to run an empirical tenant-isolation test
 
-Følg prosedyren i **RUNBOOK §12.6** eller kjør
-`scripts/e2e-tenant-isolation.js` fra repo-roten lokalt mot RPi-
-URL (krever at MAGIC_LINK_CONSOLE er aktivert midlertidig).
+Follow the procedure in **RUNBOOK §12.6** or run
+`scripts/e2e-tenant-isolation.js` from the repo root locally against the RPi
+URL (requires MAGIC_LINK_CONSOLE to be enabled temporarily).
 
-### 5.3 Hvis feilet testen
+### 5.3 If the test failed
 
-Se RUNBOOK §12.3 for debug-steg.
+See RUNBOOK §12.3 for debug steps.
 
 ---
 
-## Referanser
+## References
 
-- `docs/analyses/2026-04-20-multi-tenant-activation.md` — B1-analysen
-- `RUNBOOK.md` §12 — løpende multi-tenant-drift (etter deploy)
-- `server/auth/bootstrap-session-secret.js` — self-heal-modulen
-- `server/config.js` (linjer ~160-200, ~300-330) — validering og bootstrap-load
-- `server/http/bootstrap.js` `handleComplete` — wizard v2 som genererer
-  sessionSecret på fresh install
+- `docs/analyses/2026-04-20-multi-tenant-activation.md` — the B1 analysis
+- `RUNBOOK.md` §12 — ongoing multi-tenant operations (after deploy)
+- `server/auth/bootstrap-session-secret.js` — the self-heal module
+- `server/config.js` (lines ~160-200, ~300-330) — validation and bootstrap load
+- `server/http/bootstrap.js` `handleComplete` — wizard v2 that generates
+  sessionSecret on fresh install
 
-Denne sjekklisten oppdateres hvis Christer finner at et steg mangler
-etter faktisk Portainer-deploy.
+This checklist is updated if Christer finds that a step is missing
+after an actual Portainer deploy.

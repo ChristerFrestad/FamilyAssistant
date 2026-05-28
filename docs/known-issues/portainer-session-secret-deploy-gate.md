@@ -1,17 +1,17 @@
-# Portainer deploy-gate: `SESSION_SECRET` crashloops på fresh install
+# Portainer deploy gate: `SESSION_SECRET` crashloops on fresh install
 
-**Status:** ÅPEN — utsatt til antatt uke 4.
-**Rapportert:** 2026-04-22, rett etter merge av batch 1 (PR #64).
-**Scope:** Infrastruktur / deploy-flyt.
-**Risiko:** HØY — pilot-container nede inntil denne er løst.
+**Status:** OPEN — deferred to estimated week 4.
+**Reported:** 2026-04-22, immediately after merging batch 1 (PR #64).
+**Scope:** Infrastructure / deploy flow.
+**Risk:** HIGH — pilot container down until this is resolved.
 
 ---
 
 ## Symptom
 
-Etter pull av image `ghcr.io/christerfrestad/familyassistant:main`
-post-batch-1-merge, crashlooper containeren under oppstart med følgende
-i loggen:
+After pulling the image `ghcr.io/christerfrestad/familyassistant:main`
+post-batch-1 merge, the container crashloops during startup with the
+following in the log:
 
 ```
 ⚠️  SESSION_SECRET is required in production when Google OAuth,
@@ -21,177 +21,178 @@ i loggen:
    boot — see server/auth/bootstrap-session-secret.js.
 ```
 
-Container exitter med kode 1. Portainer markerer stacken som
-"unhealthy" og starter containeren på nytt i en loop til restart-
-policy gir opp.
+The container exits with code 1. Portainer marks the stack as
+"unhealthy" and restarts the container in a loop until the restart
+policy gives up.
 
 ---
 
-## Rot-årsak
+## Root cause
 
-C3-kode-endringen i PR #64 (`feat(auth): aktiver multi-tenant
-session-flyt`) skjerpet `server/config.js`-validering slik at
-`SESSION_SECRET` er påkrevd i `NODE_ENV=production` når én av disse
-er aktiv:
+The C3 code change in PR #64 (`feat(auth): enable multi-tenant
+session flow`) tightened `server/config.js` validation so that
+`SESSION_SECRET` is required in `NODE_ENV=production` when any of
+these are active:
 
 - `GOOGLE_CLIENT_ID`
 - `RESEND_API_KEY`
 - `MAGIC_LINK_CONSOLE=true`
 
-Samtidig introduserte C1 en **self-heal-modul**
-(`server/auth/bootstrap-session-secret.js`) som fyller inn
-`sessionSecret` i **eksisterende** `bootstrap.json` hvis feltet
-mangler.
+At the same time C1 introduced a **self-heal module**
+(`server/auth/bootstrap-session-secret.js`) which fills in
+`sessionSecret` in an **existing** `bootstrap.json` if the field
+is missing.
 
-Problemet: self-heal forutsetter at `bootstrap.json` **allerede
-eksisterer** med et gyldig `authToken`. Den kode-stien dekker
-upgrade-installasjoner (pilot-RPi som hadde phase 22-wizard kjørt
-tidligere) — men IKKE fresh installs som skal gå gjennom wizarden
-for første gang.
+The problem: self-heal assumes that `bootstrap.json` **already
+exists** with a valid `authToken`. That code path covers upgrade
+installations (a pilot RPi that had the phase 22 wizard run
+previously) — but NOT fresh installs that need to go through the
+wizard for the first time.
 
-Fresh install-sekvensen:
+Fresh install sequence:
 
-1. Container starter med `BOOTSTRAP_ALLOWED=true`, `AUTH_TOKEN=` (tom)
-2. `loadBootstrapFile()` returnerer `null` (ingen fil ennå)
-3. `BOOTSTRAP_MODE` aktiveres fordi (a) tom DB + (b) ingen
-   bootstrap.json + (c) ingen env-AUTH_TOKEN
-4. Validering kjører **før** wizarden har fått lov til å kjøre
-5. Hvis operatøren har satt `MAGIC_LINK_CONSOLE=true` i Portainer-
-   stack-env (som dokumentert eksempel i docs), treffer C3-gaten
-   og kaster pga. manglende SESSION_SECRET
+1. Container starts with `BOOTSTRAP_ALLOWED=true`, `AUTH_TOKEN=` (empty)
+2. `loadBootstrapFile()` returns `null` (no file yet)
+3. `BOOTSTRAP_MODE` activates because (a) empty DB + (b) no
+   bootstrap.json + (c) no env AUTH_TOKEN
+4. Validation runs **before** the wizard has been given a chance to run
+5. If the operator has set `MAGIC_LINK_CONSOLE=true` in the
+   Portainer stack env (as documented in the docs example), it hits
+   the C3 gate and throws due to a missing SESSION_SECRET
 
-Pilot-spesifikt: Christers deploy har `MAGIC_LINK_CONSOLE=true`
-(per `.env.example` og docker-compose.yml) som **ville vært trygt**
-før C3 men nå krever SESSION_SECRET.
+Pilot-specific: Christer's deploy has `MAGIC_LINK_CONSOLE=true`
+(per `.env.example` and docker-compose.yml) which **would have been
+safe** before C3 but now requires SESSION_SECRET.
 
-### Hvorfor self-heal ikke redder fresh install
+### Why self-heal does not rescue fresh install
 
-`ensureSessionSecretInBootstrapFile()` leser fra disk. Returnerer
-`{ generated: false, secret: null }` hvis filen ikke eksisterer.
-Intet å heal'e — det er ikke noe hull å fylle. Filen opprettes
-først når wizarden fullfører, men wizarden kommer aldri i gang
-fordi `config.js`-validering kaster før HTTP-server starter.
-
----
-
-## Hvorfor vi IKKE løser dette med manuell workaround
-
-Christer kunne umiddelbart satt `SESSION_SECRET` i Portainer-stack-
-env som en env-variabel. Det ville løst containeren, men:
-
-1. **Det er ikke en representativ deploy-flyt for eksterne familier.**
-   De 4 neste pilot-familiene skal få installere appen selv. Hvis
-   vi bypasser dette steget manuelt nå, går vi glipp av å teste
-   at fresh-install-flyten faktisk virker end-to-end.
-2. **Det er en midlertidig-i-navnet-evig workaround.** Én
-   env-variabel som "bare må være der" blir lett glemt ved neste
-   deploy eller neste operatør.
-3. **Det skjuler symptomet, ikke årsaken.** Problemet ligger i
-   sekvensen config-validering → bootstrap-wizard. Fiksen må
-   adressere den sekvensen.
-
-Derfor: **containeren er nede inntil vi løser dette ordentlig.**
-Pilot-flyten tester seg selv ved å være realistisk.
+`ensureSessionSecretInBootstrapFile()` reads from disk. It returns
+`{ generated: false, secret: null }` if the file does not exist.
+Nothing to heal — there is no hole to fill. The file is only
+created when the wizard completes, but the wizard never gets going
+because `config.js` validation throws before the HTTP server starts.
 
 ---
 
-## Midlertidig arbeidsflyt
+## Why we are NOT solving this with a manual workaround
 
-Mens fixen venter:
+Christer could immediately set `SESSION_SECRET` in the Portainer
+stack env as an environment variable. That would fix the container,
+but:
 
-- **Test-miljø:** lokal Node-kjøring (`npm start` med `NODE_ENV=
-  development` og evt. `MAGIC_LINK_CONSOLE=true`). SESSION_SECRET
-  auto-genereres i dev-mode (se `server/config.js:299-303`).
-- **CI:** full lokal pyramide per CLAUDE.md DEL 5.2.2 + GitHub
-  Actions som før.
-- **Empirisk verifikasjon** (f.eks. B1 end-to-end tenant-
-  isolation-test, B2 cross-family LLM-flyt) **utsettes** til
-  containeren er oppe igjen. B5 datamodell + repo-tester kan
-  kjøres lokalt.
+1. **It is not a representative deploy flow for external families.**
+   The next 4 pilot families will install the app themselves. If we
+   bypass this step manually now, we miss out on testing that the
+   fresh-install flow actually works end-to-end.
+2. **It is a temporary-in-name-only-forever workaround.** A single
+   environment variable that "just has to be there" is easily
+   forgotten on the next deploy or by the next operator.
+3. **It hides the symptom, not the cause.** The problem lies in the
+   sequence config validation → bootstrap wizard. The fix needs to
+   address that sequence.
 
----
-
-## Når løses
-
-Antatt uke 4 per B4-tidslinjen (Cloudflare Tunnel uke 4-5 →
-eksterne familier kan invites → fresh-install-flyten må virke).
-
-Den første familien som inviteres er også den første ordentlige
-fresh-install-testen.
+Therefore: **the container is down until we solve this properly.**
+The pilot flow tests itself by being realistic.
 
 ---
 
-## Mitigations-alternativer (ikke valgt ennå)
+## Temporary workflow
 
-### (a) Utvid self-heal til å opprette `bootstrap.json` hvis den ikke finnes
+While the fix waits:
 
-Endre `ensureSessionSecretInBootstrapFile()` til å returnere
-et tomt objekt med gen-erert `sessionSecret` hvis filen mangler,
-uten å skrive til disk. Da har `config.js` en valid verdi i env
-mens `BOOTSTRAP_MODE` tar over og wizarden kjører normalt.
-Wizarden's `handleComplete()` (som allerede genererer
-`sessionSecret` via `generateSessionSecret()` i C1) skriver
-endelig fil ved setup-fullførelse.
-
-**Fordel:** Minimal kode-endring. Fresh-install-flyt fungerer
-uten manuell env-config.
-
-**Ulempe:** Midlertidig (pre-wizard) SESSION_SECRET er i
-minne i runtime, men ikke skrevet ned. Hvis wizarden ikke
-fullføres og containeren restarter, genereres nytt — alle
-eventuelle pågående OAuth-state-cookies blir ugyldige.
-Akseptabelt for fresh-install som skal fullføre wizarden
-i én sitting.
-
-### (b) Første-boot-wizard genererer alt før `config.js` validerer
-
-Restrukturer oppstart-flyten slik at `BOOTSTRAP_MODE` sjekkes
-FØR strengt-validering-gaten. Hvis bootstrap-mode er aktiv,
-skippes production-kravene om SESSION_SECRET (og andre) fordi
-wizarden vil populate dem før neste restart.
-
-**Fordel:** Sømløs setup — operatøren ser aldri oppstart-feil
-før han har fullført wizarden.
-
-**Ulempe:** Litt mer invasiv endring i `config.js`-flyten.
-Krever også at wizard-output skriver SESSION_SECRET, som
-allerede er gjort i PR #64 `handleComplete`.
-
-### (c) Dokumentere manuelt SESSION_SECRET-steg i installasjons-guide
-
-Ingen kode-endring. DEPLOY.md forklarer at fresh install må sette
-SESSION_SECRET i Portainer-stack-env før første start, ELLER
-kjøre en dedikert "generate-secrets"-container først.
-
-**Fordel:** Null kode-risiko.
-
-**Ulempe:** Motsier "zero-config Docker deploy"-intensjonen i
-phase 22. Ekstra manuelt steg for hver ny familie. Lett å
-glemme.
+- **Test environment:** local Node run (`npm start` with `NODE_ENV=
+  development` and optionally `MAGIC_LINK_CONSOLE=true`). SESSION_SECRET
+  is auto-generated in dev mode (see `server/config.js:299-303`).
+- **CI:** full local pyramid per CLAUDE.md PART 5.2.2 + GitHub
+  Actions as before.
+- **Empirical verification** (e.g. B1 end-to-end tenant
+  isolation test, B2 cross-family LLM flow) is **deferred** until
+  the container is back up. B5 data model + repo tests can be
+  run locally.
 
 ---
 
-## Foreløpig anbefaling
+## When this gets fixed
 
-Når vi kommer tilbake til dette: **(b) er riktig arkitektonisk**,
-men **(a) er raskeste vei til en fungerende fresh-install uten
-å omstrukturere oppstart-flyten**. Kombinasjon: (a) som første
-fix for å få containeren opp, (b) som del av en større refactor
-hvis vi skalerer til flere tenants med egne deploys.
+Estimated week 4 per the B4 timeline (Cloudflare Tunnel week 4-5 →
+external families can be invited → fresh-install flow has to work).
 
-Endelig beslutning tas når fixen skrives — antatt i rammen av
-uke 4 B4-arbeid.
+The first family invited will also be the first real
+fresh-install test.
 
 ---
 
-## Referanser
+## Mitigation options (not chosen yet)
 
-- PR #64 (batch 1) — der C3 skjerpet validering og C1 la til
-  self-heal. Merged som `d238bf2`.
-- `server/config.js:279-310` — skjerpet produksjons-gate for
-  HMAC-signerende features.
-- `server/auth/bootstrap-session-secret.js` — self-heal-modul.
-- `server/http/bootstrap.js:handleComplete` — wizard v2 som
-  genererer SESSION_SECRET på fresh install.
-- `docs/runbooks/b1-deploy-checklist.md` — deploy-sjekkliste
-  som også må oppdateres når fixen lander.
+### (a) Extend self-heal to create `bootstrap.json` if it does not exist
+
+Change `ensureSessionSecretInBootstrapFile()` to return an empty
+object with a generated `sessionSecret` if the file is missing,
+without writing to disk. Then `config.js` has a valid value in env
+while `BOOTSTRAP_MODE` takes over and the wizard runs normally.
+The wizard's `handleComplete()` (which already generates
+`sessionSecret` via `generateSessionSecret()` in C1) writes the
+final file when setup completes.
+
+**Pro:** Minimal code change. Fresh-install flow works
+without manual env config.
+
+**Con:** Temporary (pre-wizard) SESSION_SECRET is in memory
+at runtime, but not written down. If the wizard is not completed
+and the container restarts, a new one is generated — any
+in-flight OAuth state cookies become invalid. Acceptable for a
+fresh install meant to complete the wizard in one sitting.
+
+### (b) First-boot wizard generates everything before `config.js` validates
+
+Restructure the startup flow so that `BOOTSTRAP_MODE` is checked
+BEFORE the strict validation gate. If bootstrap mode is active,
+the production requirements for SESSION_SECRET (and others) are
+skipped because the wizard will populate them before the next
+restart.
+
+**Pro:** Seamless setup — the operator never sees startup errors
+before they have completed the wizard.
+
+**Con:** Slightly more invasive change in the `config.js` flow.
+Also requires that wizard output writes SESSION_SECRET, which is
+already done in PR #64 `handleComplete`.
+
+### (c) Document manual SESSION_SECRET step in the installation guide
+
+No code change. DEPLOY.md explains that a fresh install must set
+SESSION_SECRET in the Portainer stack env before the first start,
+OR run a dedicated "generate-secrets" container first.
+
+**Pro:** Zero code risk.
+
+**Con:** Contradicts the "zero-config Docker deploy" intent of
+phase 22. Extra manual step for each new family. Easy to
+forget.
+
+---
+
+## Preliminary recommendation
+
+When we return to this: **(b) is the right architectural choice**,
+but **(a) is the fastest path to a working fresh install without
+restructuring the startup flow**. Combination: (a) as the first
+fix to get the container up, (b) as part of a larger refactor
+if we scale to more tenants with their own deploys.
+
+The final decision is made when the fix is written — estimated
+within the scope of week 4 B4 work.
+
+---
+
+## References
+
+- PR #64 (batch 1) — where C3 tightened validation and C1 added
+  self-heal. Merged as `d238bf2`.
+- `server/config.js:279-310` — tightened production gate for
+  HMAC-signing features.
+- `server/auth/bootstrap-session-secret.js` — self-heal module.
+- `server/http/bootstrap.js:handleComplete` — wizard v2 which
+  generates SESSION_SECRET on fresh install.
+- `docs/runbooks/b1-deploy-checklist.md` — deploy checklist
+  that also needs to be updated when the fix lands.

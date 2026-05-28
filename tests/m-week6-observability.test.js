@@ -216,8 +216,12 @@ describe('Uke6 · OBS-7 RUNBOOK §11 alert-runbooks', () => {
   const RB_PATH = path.join(ROOT, 'RUNBOOK.md');
 
   test('RUNBOOK.md har §11 Alert runbooks', () => {
+    // Updated 2026-05-27: RUNBOOK.md translated to English in PR 4
+    // (`docs/analyses/2026-05-27-public-repo-readiness.md` §13 beslutning 2).
+    // Heading capitalization changed to "Alert Runbooks"; loosened to
+    // case-insensitive match. Policy intent unchanged: §11 must still exist.
     const md = fs.readFileSync(RB_PATH, 'utf8');
-    assert.ok(/§11\s+Alert runbooks/.test(md), '§11 mangler');
+    assert.ok(/§11\s+Alert\s+Runbooks/i.test(md), '§11 mangler');
   });
 
   test('Alle 8 alert-runbooks er dekket (§11.1 - §11.8)', () => {

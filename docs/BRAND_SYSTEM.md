@@ -1,74 +1,74 @@
 # Hverdagsplanleggeren / FamilyAssistant — Brand System
 
-White-label brand-system for FamilyAssistant-plattformen. Hver instans (Hverdagsplanleggeren, FamilyAssistant, og fremtidige) deler samme strukturelle DNA, men har egne ord, bokstaver og tagline styrt av env.
+White-label brand system for the FamilyAssistant platform. Each instance (Hverdagsplanleggeren, FamilyAssistant, and future ones) shares the same structural DNA, but has its own words, letters, and tagline controlled by env.
 
-## Designprinsipper
+## Design principles
 
-1. **Wordmark er logoen.** Ikke et symbol pluss tekst — bare ord, satt i en spesifikk stil. Fargedeling i ordet markerer en konseptuell todeling (sammensatt ord på norsk, to-ords-navn på engelsk).
-2. **Favicon er én bokstav.** Første bokstav i `APP_NAME_PRIMARY`, satt i samme typografi som wordmarken, på mørkegrønn container med en liten salviegrønn prikk øvre-høyre.
-3. **System-fonts av prinsipp.** Ingen webfont-loading. Ingen FOIT/FOUT. Native følelse på hvert OS.
-4. **Ingen ikon-illustrasjon.** Ingen kalender, ingen hake, ingen mat-symboler. Logoen sier ikke hva appen gjør — den sier hva appen heter.
-5. **Mørke og lyse modi tenkt parallelt.** Ikke tilpasning — paralleldesign.
+1. **The wordmark is the logo.** Not a symbol plus text — just a word, set in a specific style. The color split in the word marks a conceptual two-part structure (compound word in Norwegian, two-word name in English).
+2. **The favicon is a single letter.** The first letter of `APP_NAME_PRIMARY`, set in the same typography as the wordmark, on a dark-green container with a small sage-green dot in the upper right.
+3. **System fonts on principle.** No webfont loading. No FOIT/FOUT. Native feel on every OS.
+4. **No icon illustration.** No calendar, no checkmark, no food symbols. The logo doesn't say what the app does — it says what the app is called.
+5. **Dark and light modes designed in parallel.** Not adaptation — parallel design.
 
-## Token-tabell
+## Token table
 
-| Token | Hex | Bruk |
+| Token | Hex | Use |
 |---|---|---|
-| `--brand-primary` | `#1F3F26` | Wordmark første del, favicon-bakgrunn, knapper, header-tekst |
-| `--brand-accent` | `#5F8B5C` | Wordmark andre del, hover-states, sekundære lenker |
-| `--brand-dot` | `#7BA05B` | Favicon-prikk, success-states |
-| `--brand-cream` | `#F7F3E8` | Krem-bakgrunn, favicon-tekst |
-| `--brand-muted` | `#5F7A66` | Tagline, sekundær brødtekst |
-| `--brand-dark-bg` | `#1A2620` | Mørk modus container |
-| `--brand-dark-accent` | `#9BC59A` | Mørk modus aksent-grønn |
+| `--brand-primary` | `#1F3F26` | Wordmark first part, favicon background, buttons, header text |
+| `--brand-accent` | `#5F8B5C` | Wordmark second part, hover states, secondary links |
+| `--brand-dot` | `#7BA05B` | Favicon dot, success states |
+| `--brand-cream` | `#F7F3E8` | Cream background, favicon text |
+| `--brand-muted` | `#5F7A66` | Tagline, secondary body text |
+| `--brand-dark-bg` | `#1A2620` | Dark mode container |
+| `--brand-dark-accent` | `#9BC59A` | Dark mode accent green |
 
-## Env-variabler
+## Env variables
 
-| Variabel | Default | Eksempel (Hverdagsplanleggeren) |
+| Variable | Default | Example (Hverdagsplanleggeren) |
 |---|---|---|
 | `APP_NAME` | `FamilyAssistant` | `Hverdagsplanleggeren` |
 | `APP_NAME_PRIMARY` | `Family` | `Hverdags` |
 | `APP_NAME_ACCENT` | `Assistant` | `planleggeren` |
 | `APP_FAVICON_LETTER` | `F` | `h` |
 | `APP_TAGLINE` | `Plan meals, chores and family` | `Planlegg middag, gjøremål og familie` |
-| `APP_PRIMARY_COLOR` | `#1F3F26` | (samme) |
-| `APP_ACCENT_COLOR` | `#5F8B5C` | (samme) |
-| `APP_DOT_COLOR` | `#7BA05B` | (samme) |
+| `APP_PRIMARY_COLOR` | `#1F3F26` | (same) |
+| `APP_ACCENT_COLOR` | `#5F8B5C` | (same) |
+| `APP_DOT_COLOR` | `#7BA05B` | (same) |
 
-Cross-validation ved oppstart:
-- `APP_NAME_PRIMARY + APP_NAME_ACCENT` skal konkatenere til `APP_NAME` (case-insensitive, mellomrom-tolerant). Mismatch = warning ved boot.
-- `APP_FAVICON_LETTER` skal matche første bokstav i `APP_NAME_PRIMARY`. Mismatch = warning ved boot.
+Cross-validation at startup:
+- `APP_NAME_PRIMARY + APP_NAME_ACCENT` must concatenate to `APP_NAME` (case-insensitive, whitespace-tolerant). Mismatch = warning at boot.
+- `APP_FAVICON_LETTER` must match the first letter of `APP_NAME_PRIMARY`. Mismatch = warning at boot.
 
-Begge er warnings, ikke crashes — operatør kan ha bevisste avvik.
+Both are warnings, not crashes — the operator may have deliberate deviations.
 
-## Filer i client/public/branding/
+## Files in client/public/branding/
 
-| Fil | Type | Beskrivelse |
+| File | Type | Description |
 |---|---|---|
-| `favicon.template.svg` | Template | Inneholder `{{LETTER}}` og `{{APP_NAME}}`. Renderes av backend ved request til `/favicon.svg`. |
-| `logo-mark.template.svg` | Template | Samme prinsipp, full-størrelse mark for app-icon, OG-bilde. |
+| `favicon.template.svg` | Template | Contains `{{LETTER}}` and `{{APP_NAME}}`. Rendered by the backend on request to `/favicon.svg`. |
+| `logo-mark.template.svg` | Template | Same principle, full-size mark for app icon, OG image. |
 
-Ingen statiske `.svg`-filer per instans. Alt genereres ved request.
+No static `.svg` files per instance. Everything is generated on request.
 
-## Frontend-rendering
+## Frontend rendering
 
-### Wordmark-komponent
+### Wordmark component
 
-Bruk `<Wordmark size="md" variant="light" />`. Henter automatisk fra `useBrandConfig()`. Aldri hardkode app-navnet i React-komponenter.
+Use `<Wordmark size="md" variant="light" />`. Automatically pulls from `useBrandConfig()`. Never hardcode the app name in React components.
 
 ```tsx
-// Riktig
+// Correct
 <Wordmark size="lg" />
 
-// Feil — hardkodet, går ikke gjennom config
+// Wrong — hardcoded, does not go through config
 <h1>Hverdagsplanleggeren</h1>
 ```
 
 ### Tagline
 
-`useBrandConfig().tagline` brukes i footer, splash, OG-meta. Aldri hardkodet.
+`useBrandConfig().tagline` is used in the footer, splash screen, and OG meta. Never hardcoded.
 
-### Favicon i index.html
+### Favicon in index.html
 
 ```html
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -76,11 +76,11 @@ Bruk `<Wordmark size="md" variant="light" />`. Henter automatisk fra `useBrandCo
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 ```
 
-Disse rutene serveres alle av `branding.routes.ts` — SVG genereres dynamisk, PNG-derivater genereres ved første request og caches.
+These routes are all served by `branding.routes.ts` — SVGs are generated dynamically, PNG derivatives are generated on first request and cached.
 
 ### document.title
 
-Settes ved app-mount fra `config.appName`. Aldri hardkodet i HTML.
+Set at app mount from `config.appName`. Never hardcoded in HTML.
 
 ```tsx
 useEffect(() => {
@@ -88,7 +88,7 @@ useEffect(() => {
 }, [config.appName]);
 ```
 
-## Backend-rendering
+## Backend rendering
 
 ### /api/config endpoint
 
@@ -105,11 +105,11 @@ useEffect(() => {
 }
 ```
 
-Public endpoint (ingen auth). Cachet i CDN i 1 time.
+Public endpoint (no auth). Cached at the CDN for 1 hour.
 
-### Email-templates
+### Email templates
 
-Templates bruker Handlebars-style placeholders som flettes fra config:
+Templates use Handlebars-style placeholders that are interpolated from config:
 
 ```html
 <h1 style="font-family: -apple-system, sans-serif; font-size: 28px; font-weight: 500; letter-spacing: -0.5px;">
@@ -120,35 +120,35 @@ Templates bruker Handlebars-style placeholders som flettes fra config:
 </p>
 ```
 
-Fire templates fra Sprint 9 oppdateres tilsvarende:
+The four templates from Sprint 9 are updated accordingly:
 - `invitation-no.html` / `invitation-no.txt`
 - `invitation-en.html` / `invitation-en.txt`
-- Magic-link-templates (NO/EN)
+- Magic-link templates (NO/EN)
 
-CTA-knapp: `background: {{primaryColor}};` — ikke hardkodet blå.
+CTA button: `background: {{primaryColor}};` — not hardcoded blue.
 
 ### RESEND_FROM
 
-Settes i Portainer per instans:
+Set in Portainer per instance:
 - Hverdagsplanleggeren: `RESEND_FROM=Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>`
-- FamilyAssistant (hvis deployes): `RESEND_FROM=FamilyAssistant <noreply@familyassistant.com>`
+- FamilyAssistant (if deployed): `RESEND_FROM=FamilyAssistant <noreply@familyassistant.com>`
 
-Boot-warning hvis `RESEND_FROM` ikke matcher `APP_NAME` i fra-navn-feltet.
+Boot warning if `RESEND_FROM` does not match `APP_NAME` in the from-name field.
 
-## Forbudt bruk
+## Prohibited use
 
-- Hardkode app-navn i React-komponenter, HTML, eller email-templates
-- Statiske SVG-filer per instans (skal være templates med placeholders)
-- Endre brand-tokens uten PR-review
-- Stretche/squeeze wordmark eller favicon
-- Effekter (skygge, gradient, glow) på logoen
-- Webfonts — system-fonts av prinsipp
+- Hardcoding the app name in React components, HTML, or email templates
+- Static SVG files per instance (must be templates with placeholders)
+- Changing brand tokens without PR review
+- Stretching/squeezing the wordmark or favicon
+- Effects (shadow, gradient, glow) on the logo
+- Webfonts — system fonts on principle
 
-## Ny instans-checklist
+## New-instance checklist
 
-For å lansere en tredje white-label-instans (f.eks. "Husby"):
+To launch a third white-label instance (e.g. "Husby"):
 
-1. Sett env-vars i Portainer:
+1. Set env vars in Portainer:
    ```
    APP_NAME=Husby
    APP_NAME_PRIMARY=Hus
@@ -156,8 +156,8 @@ For å lansere en tredje white-label-instans (f.eks. "Husby"):
    APP_FAVICON_LETTER=h
    APP_TAGLINE=Hjem og hverdag
    ```
-2. Sett `RESEND_FROM` med riktig avsenderdomene
-3. Sett DNS for nytt domene → Cloudflare Tunnel
-4. Deploy. Ingen kode-endringer.
+2. Set `RESEND_FROM` with the correct sender domain
+3. Configure DNS for the new domain → Cloudflare Tunnel
+4. Deploy. No code changes.
 
-Hvis ny instans krever andre farger: oppgrader til "nivå 3" white-label (palette-overrides via env). Logg som tech-debt inntil reelt behov.
+If the new instance requires different colors: upgrade to "level 3" white-label (palette overrides via env). Log as tech debt until there is a real need.

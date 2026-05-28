@@ -110,7 +110,11 @@ describe('Phase 21 · SECURITY.md covers multi-tenant guarantees', () => {
   const SEC = fs.readFileSync(path.join(REPO, 'SECURITY.md'), 'utf8');
 
   test('mentions tenant isolation via AsyncLocalStorage', () => {
-    assert.match(SEC, /tenant.?isolasjon/i);
+    // Updated 2026-05-27: SECURITY.md translated to English in PR 4
+    // (`docs/analyses/2026-05-27-public-repo-readiness.md` §13 beslutning 2).
+    // Norwegian "isolasjon" -> English "isolation". Policy intent unchanged:
+    // SECURITY.md must still document tenant-isolation via AsyncLocalStorage.
+    assert.match(SEC, /tenant.?isolation/i);
     assert.match(SEC, /AsyncLocalStorage/);
   });
 

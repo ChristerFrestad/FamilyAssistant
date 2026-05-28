@@ -107,9 +107,9 @@ npm run dev:client
 # Open http://localhost:7778/v2/  — hot reload works end-to-end
 ```
 
-(Vite-port `7778` (ikke standard `5173`) sitter rett ved backend
-på `7777`. Full port-matrise for utviklermaskinen er i `CLAUDE.md`
-DEL 7.8.)
+(Vite port `7778` (not the default `5173`) sits right next to the
+backend on `7777`. The full port matrix for the developer machine is
+in `CLAUDE.md` PART 7.8.)
 
 Prod-style build:
 ```bash

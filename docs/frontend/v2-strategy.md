@@ -1,49 +1,49 @@
-# Frontend v2 — strategi og rute-design
+# Frontend v2 — strategy and route design
 
-**Status:** Fase 1a ferdig 2026-04-23. Oppdateres etter hver underfase.
+**Status:** Phase 1a completed 2026-04-23. Updated after each subphase.
 
 **Relevant:** `design/2026-04-redesign/extracted/locked-decisions.md`
-(THE REFERENCE for alle design-beslutninger).
+(THE REFERENCE for all design decisions).
 
 ---
 
-## Hva og hvorfor
+## What and why
 
-Familieassistenten bygger ny frontend fra grunnen i **Vite + React 18 +
-TypeScript (strict) + Tailwind v3 + React Router**. Kildekoden ligger i
-`client/`; bygget output havner i `public/v2/` (gitignored).
+FamilyAssistant is building a new frontend from the ground up in **Vite + React 18 +
+TypeScript (strict) + Tailwind v3 + React Router**. The source code lives in
+`client/`; the build output ends up in `public/v2/` (gitignored).
 
-Backend fortsetter uendret. Den gamle appen (vanilla JS i `public/*`)
-fortsetter å fungere byte-identisk på `/`. Den nye appen kjøres på
+The backend remains unchanged. The old app (vanilla JS in `public/*`)
+continues to work byte-identical on `/`. The new app runs on
 **`/v2/*`**.
 
-Når redesignet er komplett (sannsynligvis uke 8-10) byttes rollene:
-`/v2/*` blir til `/`, og gammel app flyttes til `/v1/*` i en
-overgangsperiode før den fjernes.
+When the redesign is complete (likely week 8-10), the roles swap:
+`/v2/*` becomes `/`, and the old app moves to `/v1/*` during a
+transition period before being removed.
 
 ---
 
-## Rute-strategi
+## Route strategy
 
-### Hva blir servert fra hvor?
+### What is served from where?
 
-| URL-mønster | Kilde | Serveres av |
+| URL pattern | Source | Served by |
 |---|---|---|
-| `/api/*` | Express-ruter i `server/routes.js` + `server/auth/*` | Eksisterende backend |
-| `/metrics`, `/health`, `/ready` | Eksisterende backend | Eksisterende backend |
-| `/v2` | `public/v2/index.html` | Ny `tryServeV2App`-handler |
-| `/v2/` | `public/v2/index.html` | Ny `tryServeV2App`-handler |
-| `/v2/<filnavn>` | `public/v2/<filnavn>` | Ny `tryServeV2App`-handler (direct hit) |
-| `/v2/<client-side-route>` | `public/v2/index.html` (fallback) | Ny `tryServeV2App`-handler (SPA-fallback) |
-| `/` | `public/index.html` | Eksisterende `tryServeSpaFallback` |
-| `/<asset>` | `public/<asset>` (hvis finnes) | Eksisterende `tryServeSpaFallback` |
-| Ukjent path | `public/index.html` (legacy) | Eksisterende `tryServeSpaFallback` |
+| `/api/*` | Express routes in `server/routes.js` + `server/auth/*` | Existing backend |
+| `/metrics`, `/health`, `/ready` | Existing backend | Existing backend |
+| `/v2` | `public/v2/index.html` | New `tryServeV2App` handler |
+| `/v2/` | `public/v2/index.html` | New `tryServeV2App` handler |
+| `/v2/<filename>` | `public/v2/<filename>` | New `tryServeV2App` handler (direct hit) |
+| `/v2/<client-side-route>` | `public/v2/index.html` (fallback) | New `tryServeV2App` handler (SPA fallback) |
+| `/` | `public/index.html` | Existing `tryServeSpaFallback` |
+| `/<asset>` | `public/<asset>` (if it exists) | Existing `tryServeSpaFallback` |
+| Unknown path | `public/index.html` (legacy) | Existing `tryServeSpaFallback` |
 
-### `tryServeV2App`-handleren
+### The `tryServeV2App` handler
 
-Definert i `server/http/server.js`. Kalles **før** `tryServeSpaFallback`
-i request-flyten. Matcher **KUN** `/v2` og `/v2/*` — ingen generisk
-prefix-matching. Når vi legger til `/v3` senere, får den egen handler.
+Defined in `server/http/server.js`. Called **before** `tryServeSpaFallback`
+in the request flow. Matches **ONLY** `/v2` and `/v2/*` — no generic
+prefix matching. When we later add `/v3`, it gets its own handler.
 
 ```js
 // Pseudocode
@@ -58,118 +58,118 @@ function tryServeV2App(pathname, res) {
 }
 ```
 
-### Hvorfor eksplisitt over generisk?
+### Why explicit over generic?
 
-Christer valgte (2026-04-23) en dedikert handler i stedet for å utvide
-eksisterende `tryServeSpaFallback` med generisk sub-app-logic. Tre
-grunner:
+Christer chose (2026-04-23) a dedicated handler instead of extending
+the existing `tryServeSpaFallback` with generic sub-app logic. Three
+reasons:
 
-1. **Eksplisitt over implisitt:** Generisk prefix-matching er "magisk"
-   — hvem som helst som lager `public/foo/index.html` ville utilsiktet
-   opprette en ny sub-app.
-2. **Minimal regresjonsrisiko:** Eksisterende `tryServeSpaFallback`
-   er uendret. Testsuite for legacy-serving påvirkes ikke.
-3. **Enkel test-isolering:** Ny test `tests/v2-app-serving.test.js`
-   tester kun `tryServeV2App` + sam-eksistens med legacy. Ingen
-   kopplinger på tvers.
+1. **Explicit over implicit:** Generic prefix matching is "magical"
+   — anyone who creates `public/foo/index.html` would accidentally
+   create a new sub-app.
+2. **Minimal regression risk:** The existing `tryServeSpaFallback`
+   is unchanged. The test suite for legacy serving is not affected.
+3. **Easy test isolation:** The new test `tests/v2-app-serving.test.js`
+   tests only `tryServeV2App` + coexistence with legacy. No
+   cross-couplings.
 
 ---
 
-## Utviklings-flyt
+## Development flow
 
-### Starter du frontend-arbeid?
+### Starting frontend work?
 
 ```bash
-# Backend (egen terminal)
-npm start                    # Express på :7777
+# Backend (separate terminal)
+npm start                    # Express on :7777
 
-# Frontend (ny terminal)
-npm run dev:client           # Vite dev-server på :7778 med /api-proxy
+# Frontend (new terminal)
+npm run dev:client           # Vite dev server on :7778 with /api proxy
 ```
 
-Åpne `http://localhost:7778/v2/` — Vite server HMR med automatisk
-re-rendering. API-kall til `/api/*` proxies til backend på 7777.
+Open `http://localhost:7778/v2/` — Vite serves HMR with automatic
+re-rendering. API calls to `/api/*` are proxied to the backend on 7777.
 
-> Vite-port `7778` (ikke standard `5173`) er valgt for å sitte rett
-> ved siden av backend på `7777`. Hele port-matrisen for utvikler-
-> maskinen er dokumentert i `CLAUDE.md` DEL 7.8.
+> Vite port `7778` (not the default `5173`) was chosen to sit right
+> next to the backend on `7777`. The full port matrix for the developer
+> machine is documented in `CLAUDE.md` PART 7.8.
 
-### Vil du se hvordan prod-bygget ser ut?
+### Want to see what the prod build looks like?
 
 ```bash
-npm run build:client         # bygger public/v2/
-npm start                    # Express på :7777
-# Åpne http://localhost:7777/v2/
+npm run build:client         # builds public/v2/
+npm start                    # Express on :7777
+# Open http://localhost:7777/v2/
 ```
 
 ### Typecheck
 
 ```bash
 npm run typecheck:client     # tsc --noEmit for client/
-npm run typecheck            # tsc --noEmit for server/ (som før)
+npm run typecheck            # tsc --noEmit for server/ (as before)
 ```
 
 ---
 
-## Hvor legger man ting?
+## Where do you put things?
 
 ```
 client/
   index.html                  # Vite entry HTML
-  vite.config.ts              # Vite-config (base: '/v2/', outDir: ../public/v2)
-  tsconfig.json               # TS-config for client (strict mode)
-  tailwind.config.ts          # Tailwind v3-config (fylles i Fase 1b)
+  vite.config.ts              # Vite config (base: '/v2/', outDir: ../public/v2)
+  tsconfig.json               # TS config for client (strict mode)
+  tailwind.config.ts          # Tailwind v3 config (filled in during Phase 1b)
   postcss.config.js           # Tailwind + Autoprefixer
 
   src/
     main.tsx                  # React entry + BrowserRouter(basename="/v2")
-    App.tsx                   # Router + Routes (placeholder for nå)
+    App.tsx                   # Router + Routes (placeholder for now)
     index.css                 # Tailwind base/components/utilities
-    screens/                  # Top-level route-komponenter (kommer)
-    components/               # Gjenbrukbare UI-komponenter (kommer)
-    lib/                      # Utilities, hooks, services (kommer)
+    screens/                  # Top-level route components (coming)
+    components/               # Reusable UI components (coming)
+    lib/                      # Utilities, hooks, services (coming)
 ```
 
-**Regler:**
+**Rules:**
 
-- Importer relative til `@/` alias (`@/components/Button`) — konfigurert i `tsconfig.json`
-- Tailwind-utilities i JSX; egen CSS kun for tokens/keyframes
-- Design-tokens fra `design/2026-04-redesign/extracted/design-system.md` §13 — kommer i Fase 1b
-- **Ingen inline styles** i produksjons-komponenter — kun i placeholder-kode eller svært dynamiske kartlegginger
+- Import relative to the `@/` alias (`@/components/Button`) — configured in `tsconfig.json`
+- Tailwind utilities in JSX; custom CSS only for tokens/keyframes
+- Design tokens from `design/2026-04-redesign/extracted/design-system.md` §13 — coming in Phase 1b
+- **No inline styles** in production components — only in placeholder code or highly dynamic mappings
 
 ---
 
-## Co-existence-periode
+## Coexistence period
 
-| Fase | Gammel app på `/` | Ny app på `/v2/` |
+| Phase | Old app on `/` | New app on `/v2/` |
 |---|---|---|
-| Fase 1 (toolchain, design-system, shell) | Full funksjonalitet | "Hello v2" + design-tokens + shell |
-| Fase 2 (skjermer mot eksisterende backend) | Full funksjonalitet | Dashboard, Meals, Shopping, Chores basic |
-| Fase 3 (utvidelser) | Full funksjonalitet | Pantry-location, unpreferred, Settings |
-| Fase 4 (nye features) | Full funksjonalitet | Kalender, achievements, week-goals |
-| **Overgang** | Flyttes til `/v1/` temporarily | Blir `/` |
-| **Nedfasing** | Fjernes | Er appen |
+| Phase 1 (toolchain, design system, shell) | Full functionality | "Hello v2" + design tokens + shell |
+| Phase 2 (screens against existing backend) | Full functionality | Dashboard, Meals, Shopping, Chores basic |
+| Phase 3 (extensions) | Full functionality | Pantry location, unpreferred, Settings |
+| Phase 4 (new features) | Full functionality | Calendar, achievements, week goals |
+| **Transition** | Moved to `/v1/` temporarily | Becomes `/` |
+| **Decommissioning** | Removed | Is the app |
 
-Denne strukturen gjør at vi kan gradvis teste ny app med pilot-familier
-(de får lenken `/v2/`) mens produksjons-bruk fortsetter på `/`.
-
----
-
-## Hva IKKE er i Fase 1a
-
-- Design-tokens (OKLCH-farger, typografi, glassmorphism) — kommer Fase 1b
-- i18n-oppsett — kommer Fase 1c
-- Responsiv navigasjon (bunnmeny mobil, sidemeny desktop) — kommer Fase 1d
-- Skjermer (Dashboard, Meals, ...) — kommer Fase 2+
-- Auth-flyt — venter på claude.ai/design-oppfølging (D1)
+This structure lets us gradually test the new app with pilot families
+(they get the `/v2/` link) while production usage continues on `/`.
 
 ---
 
-## Referanser
+## What is NOT in Phase 1a
 
-- `client/vite.config.ts` — Vite-oppsett
+- Design tokens (OKLCH colors, typography, glassmorphism) — coming in Phase 1b
+- i18n setup — coming in Phase 1c
+- Responsive navigation (bottom menu on mobile, side menu on desktop) — coming in Phase 1d
+- Screens (Dashboard, Meals, ...) — coming in Phase 2+
+- Auth flow — waiting on claude.ai/design follow-up (D1)
+
+---
+
+## References
+
+- `client/vite.config.ts` — Vite setup
 - `server/http/server.js` — `tryServeV2App` + `tryServeSpaFallback`
-- `tests/v2-app-serving.test.js` — serving-tester
-- `design/2026-04-redesign/extracted/locked-decisions.md` — låste valg (D1-D6)
-- `design/2026-04-redesign/extracted/architecture-fit.md` — kjør-overalt-krav
-- `docs/vision/integration-platform-future.md` — post-pilot visjon
+- `tests/v2-app-serving.test.js` — serving tests
+- `design/2026-04-redesign/extracted/locked-decisions.md` — locked choices (D1-D6)
+- `design/2026-04-redesign/extracted/architecture-fit.md` — run-anywhere requirements
+- `docs/vision/integration-platform-future.md` — post-pilot vision

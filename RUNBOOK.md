@@ -1,42 +1,42 @@
-# Familieassistenten — Runbook
+# FamilyAssistant — Runbook
 
-**Sist oppdatert:** 2026-04-10
-**Målgruppe:** Operatør. Dette dokumentet er for feilsøking og
-daglig drift av Familieassistenten på Raspberry Pi 5.
+**Last updated:** 2026-04-10
+**Audience:** Operator. This document is for troubleshooting and
+day-to-day operation of Familieassistenten on Raspberry Pi 5.
 
-> **Stier:** `$APP_ROOT` = installasjonssti (standard: `$APP_ROOT`)
+> **Paths:** `$APP_ROOT` = install path (default: `$APP_ROOT`)
 
-> For førstegangs-installasjon, se [DEPLOY.md](./DEPLOY.md).
+> For first-time installation, see [DEPLOY.md](./DEPLOY.md).
 
 ---
 
-## 1. Daglige kommandoer
+## 1. Daily Commands
 
-| Hva | Kommando |
+| What | Command |
 |---|---|
-| Sjekk status | `sudo systemctl status familieassistenten` |
+| Check status | `sudo systemctl status familieassistenten` |
 | Start | `sudo systemctl start familieassistenten` |
-| Stopp | `sudo systemctl stop familieassistenten` |
+| Stop | `sudo systemctl stop familieassistenten` |
 | Restart | `sudo systemctl restart familieassistenten` |
-| Følg logger | `journalctl -u familieassistenten -f` |
-| Siste 200 linjer | `journalctl -u familieassistenten -n 200 --no-pager` |
-| Kun feil | `journalctl -u familieassistenten -p err -n 100 --no-pager` |
-| Vis nåværende miljø | `systemctl show familieassistenten --property=Environment` |
+| Follow logs | `journalctl -u familieassistenten -f` |
+| Last 200 lines | `journalctl -u familieassistenten -n 200 --no-pager` |
+| Errors only | `journalctl -u familieassistenten -p err -n 100 --no-pager` |
+| Show current environment | `systemctl show familieassistenten --property=Environment` |
 
-### Helsesjekker
+### Health Checks
 
 ```bash
-# Lokal helsesjekk
+# Local health check
 curl -s http://localhost:3000/health | jq
 # { "status": "ok", "uptimeSec": 1234, "pid": 567, "memMB": 128 }
 
-# Ready-sjekk (viser DB-driver + KB-størrelse)
+# Ready check (shows DB driver + KB size)
 curl -s http://localhost:3000/ready | jq
 
-# Full status (versjon, breakers, migrasjoner)
+# Full status (version, breakers, migrations)
 curl -s http://localhost:3000/api/status | jq
 
-# Bak Caddy med AUTH_TOKEN
+# Behind Caddy with AUTH_TOKEN
 curl -s -H "Authorization: Bearer $AUTH_TOKEN" https://familieassistenten.local/api/status | jq
 ```
 
@@ -44,87 +44,87 @@ curl -s -H "Authorization: Bearer $AUTH_TOKEN" https://familieassistenten.local/
 
 ## 2. Backup + Restore
 
-### 2.1 Backup-lokasjoner
+### 2.1 Backup Locations
 
-- **Lokal:** `$APP_ROOT/data/backups/familieassistenten-YYYY-MM-DD.db`
-- **Off-site:** avhenger av `BACKUP_REMOTE_PATH` i service-env (NAS-mount, SSH-host, rsync-daemon)
-- **Schedule:** daglig kl. 03:00, beholder 14 dager
-- **På shutdown:** en siste backup tas automatisk før DB stenger
+- **Local:** `$APP_ROOT/data/backups/familieassistenten-YYYY-MM-DD.db`
+- **Off-site:** depends on `BACKUP_REMOTE_PATH` in service env (NAS mount, SSH host, rsync daemon)
+- **Schedule:** daily at 03:00, retains 14 days
+- **On shutdown:** a final backup is taken automatically before the DB closes
 
-### 2.2 Ta backup manuelt
+### 2.2 Take a Manual Backup
 
 ```bash
-# Enkleste — kaller samme backupNow() som cron
+# Simplest — calls the same backupNow() as cron
 sudo systemctl stop familieassistenten
 cp $APP_ROOT/data/familieassistenten.db \
    $APP_ROOT/data/backups/manual-$(date +%F).db
 sudo systemctl start familieassistenten
 ```
 
-Eller via en SQL-konsoll mot live DB (trygt på better-sqlite3):
+Or via a SQL console against the live DB (safe on better-sqlite3):
 
 ```bash
 sqlite3 $APP_ROOT/data/familieassistenten.db \
   "VACUUM INTO '$APP_ROOT/data/backups/manual-$(date +%F).db'"
 ```
 
-### 2.3 Restore fra backup
+### 2.3 Restore From Backup
 
 ```bash
-# 1. Stopp serveren
+# 1. Stop the server
 sudo systemctl stop familieassistenten
 
-# 2. Lag en safety-kopi av nåværende DB (før du skriver over)
+# 2. Make a safety copy of the current DB (before you overwrite)
 cp $APP_ROOT/data/familieassistenten.db \
    $APP_ROOT/data/familieassistenten.db.pre-restore
 
-# 3. Kopier backupen inn
+# 3. Copy the backup in
 cp $APP_ROOT/data/backups/familieassistenten-YYYY-MM-DD.db \
    $APP_ROOT/data/familieassistenten.db
 chown pi:pi $APP_ROOT/data/familieassistenten.db
 
-# 4. Start serveren
+# 4. Start the server
 sudo systemctl start familieassistenten
 
-# 5. Verifiser
+# 5. Verify
 curl -s http://localhost:3000/ready | jq
-journalctl -u familieassistenten -n 20 --no-pager | grep -i 'migrasjon\|ready\|error'
+journalctl -u familieassistenten -n 20 --no-pager | grep -i 'migration\|ready\|error'
 ```
 
-**Hvis restore feiler:** flytt tilbake safety-kopien:
+**If restore fails:** move the safety copy back:
 ```bash
 mv $APP_ROOT/data/familieassistenten.db.pre-restore \
    $APP_ROOT/data/familieassistenten.db
 sudo systemctl start familieassistenten
 ```
 
-### 2.4 Verifiser off-site backup
+### 2.4 Verify Off-site Backup
 
 ```bash
-# Hvis BACKUP_REMOTE_PATH er en NAS-mount:
+# If BACKUP_REMOTE_PATH is a NAS mount:
 ls -lh /mnt/nas/familieassistenten/ | tail
 
-# Hvis SSH:
+# If SSH:
 ssh user@backup-host 'ls -lh /remote/path/familieassistenten/'
 
-# Se om siste lokale backup lyktes
+# Check whether the latest local backup succeeded
 journalctl -u familieassistenten --since "24 hours ago" | grep -i backup
 ```
 
 ---
 
-## 3. Circuit breakers
+## 3. Circuit Breakers
 
-LLM/Kassal/Anthropic går gjennom en circuit breaker som åpnes etter
-flere påfølgende feil og serverer 503 til cooldown er ferdig.
+LLM/Kassal/Anthropic go through a circuit breaker that opens after
+several consecutive failures and serves 503 until cooldown is done.
 
-### 3.1 Sjekk breaker-status
+### 3.1 Check Breaker Status
 
 ```bash
 curl -s http://localhost:3000/api/status | jq '.breakers'
 ```
 
-Eksempel-output:
+Example output:
 ```json
 {
   "kassal":   { "state": "CLOSED",   "failures": 0, "totalCalls": 42 },
@@ -134,39 +134,39 @@ Eksempel-output:
 ```
 
 - `CLOSED` = normal
-- `OPEN` = kortslutter requests til cooldown (30s–60s)
-- `HALF_OPEN` = prober neste request, en suksess = CLOSED igjen
+- `OPEN` = short-circuits requests until cooldown (30s–60s)
+- `HALF_OPEN` = probes the next request; one success = CLOSED again
 
-### 3.2 Hvorfor er breakeren OPEN?
+### 3.2 Why Is the Breaker OPEN?
 
-| Breaker | Typisk årsak |
+| Breaker | Typical cause |
 |---|---|
-| `ollama` | Ollama-prosess hengt, modell ikke lastet, eller `systemctl status ollama` viser feil |
-| `kassal` | API-nøkkel utløpt, rate limit truffet, eller kassal.app nede |
-| `anthropic` | API-nøkkel ugyldig, kvote brukt opp, eller nett nede |
+| `ollama` | Ollama process hung, model not loaded, or `systemctl status ollama` shows an error |
+| `kassal` | API key expired, rate limit hit, or kassal.app is down |
+| `anthropic` | API key invalid, quota used up, or network is down |
 
-### 3.3 Reset manuell
+### 3.3 Manual Reset
 
-En restart av serveren resetter alle breakers:
+Restarting the server resets all breakers:
 ```bash
 sudo systemctl restart familieassistenten
 ```
 
 ---
 
-## 4. Vanlige problemer
+## 4. Common Problems
 
-### 4.1 "Serveren starter ikke i produksjon"
+### 4.1 "Server Won't Start in Production"
 
-Se etter en av disse i loggen:
-- `AUTH_TOKEN er påkrevd når NODE_ENV=production` → sett token i systemd-env
-- `ALLOWED_ORIGINS=* er ikke tillatt i production` → erstatt med konkrete origins
-- `Ugyldig miljø-konfigurasjon` → Zod har validert feil, les feltet
+Look for one of these in the log:
+- `AUTH_TOKEN er påkrevd når NODE_ENV=production` → set the token in the systemd env
+- `ALLOWED_ORIGINS=* er ikke tillatt i production` → replace with concrete origins
+- `Ugyldig miljø-konfigurasjon` → Zod has flagged an invalid field; read it
 
 ```bash
-# Rediger service-env
+# Edit service env
 sudo systemctl edit familieassistenten
-# Legg til i [Service]:
+# Add to [Service]:
 #   Environment=AUTH_TOKEN=<32-hex>
 #   Environment=ALLOWED_ORIGINS=https://familieassistenten.local
 
@@ -174,108 +174,109 @@ sudo systemctl daemon-reload
 sudo systemctl restart familieassistenten
 ```
 
-### 4.2 "Serveren blir killet av systemd"
+### 4.2 "Server Gets Killed by systemd"
 
-Se etter `watchdog` i logg:
+Look for `watchdog` in the log:
 ```bash
 journalctl -u familieassistenten | grep -i 'watchdog\|killed'
 ```
 
-Mulige årsaker:
-1. **Event loop blokkert** — Ollama-kall uten timeout. Sjekk LLM-timeouts.
-2. **sd-notify sender ikke WATCHDOG=1** — sjekk at `systemd-notify` binary er
-   installert: `which systemd-notify`
-3. **WatchdogSec for kort** — øk i service-filen til 120s hvis RPi er under last
+Possible causes:
+1. **Event loop blocked** — Ollama call without timeout. Check LLM timeouts.
+2. **sd-notify not sending WATCHDOG=1** — confirm the `systemd-notify`
+   binary is installed: `which systemd-notify`
+3. **WatchdogSec too short** — increase in the service file to 120s if the RPi is under load
 
-Midlertidig løsning:
+Temporary workaround:
 ```bash
-# Kommenter ut WatchdogSec i /etc/systemd/system/familieassistenten.service
+# Comment out WatchdogSec in /etc/systemd/system/familieassistenten.service
 sudo systemctl daemon-reload
 sudo systemctl restart familieassistenten
 ```
 
-### 4.3 "Kan ikke legge til vare — 401 Unauthorized"
+### 4.3 "Can't Add Item — 401 Unauthorized"
 
-Frontend har ikke AUTH_TOKEN. Sjekk at token er satt i et sted som frontend
-bruker (localStorage eller proxy-injection). For familiebruk på LAN: sett en
-fast token i localStorage via DevTools eller bruk Caddy til å injisere header.
+Frontend doesn't have AUTH_TOKEN. Confirm the token is set somewhere
+the frontend can use (localStorage or proxy injection). For family use
+on a LAN: set a fixed token in localStorage via DevTools or use Caddy
+to inject the header.
 
-Temporært: deaktiver auth ved å fjerne AUTH_TOKEN (bare på isolert LAN!):
+Temporary: disable auth by removing AUTH_TOKEN (only on an isolated LAN!):
 ```bash
 sudo systemctl edit familieassistenten
-# Kommenter Environment=AUTH_TOKEN=...
+# Comment out Environment=AUTH_TOKEN=...
 sudo systemctl restart familieassistenten
 ```
 
-### 4.4 "LLM svarer ikke"
+### 4.4 "LLM Not Responding"
 
 ```bash
-# Sjekk ollama-service
+# Check ollama service
 sudo systemctl status ollama
 
-# Sjekk at modellen er lastet
+# Check that the model is loaded
 curl -s http://localhost:11434/api/tags | jq '.models[].name'
 
-# Sjekk breaker
+# Check breaker
 curl -s http://localhost:3000/api/status | jq '.breakers.ollama'
 ```
 
-Hvis breakeren er OPEN: restart Ollama først, så Familieassistenten:
+If the breaker is OPEN: restart Ollama first, then Familieassistenten:
 ```bash
 sudo systemctl restart ollama
 sleep 5
 sudo systemctl restart familieassistenten
 ```
 
-### 4.5 "Disk full"
+### 4.5 "Disk Full"
 
-Familieassistenten bruker typisk <100 MB DB + backups. Hvis disken fylles opp:
+Familieassistenten typically uses <100 MB DB + backups. If the disk fills up:
 
 ```bash
-# Mest sannsynlig journald — begrens
+# Most likely journald — cap it
 sudo journalctl --vacuum-size=200M
 
-# Gamle backups (automatisk cleanup skulle beholde 14)
+# Old backups (automatic cleanup should retain 14)
 ls -lh $APP_ROOT/data/backups/
 
-# Ollama-modeller
+# Ollama models
 du -sh ~/.ollama/models/
-# Slett ubrukte: ollama rm <navn>
+# Remove unused: ollama rm <name>
 ```
 
-### 4.6 "CSP-feil i nettleser"
+### 4.6 "CSP Error in Browser"
 
-Åpne DevTools → Console. Hvis du ser `Refused to execute inline script`,
-betyr det at CSP er for streng for ny inline-kode. Familieassistenten
-tillater `'unsafe-inline'` for script og style, så dette burde ikke skje
-før M5 modulariserer frontend.
+Open DevTools → Console. If you see `Refused to execute inline script`,
+it means CSP is too strict for new inline code. Familieassistenten
+allows `'unsafe-inline'` for script and style, so this shouldn't happen
+until M5 modularizes the frontend.
 
-Midlertidig: endre `CSP_POLICY` i `server/http/security.js`, restart.
+Temporary: change `CSP_POLICY` in `server/http/security.js`, then restart.
 
 ---
 
-## 5. Oppgradering
+## 5. Upgrade
 
-### 5.1 Standard upgrade-flow
+### 5.1 Standard Upgrade Flow
 
 ```bash
 cd $APP_ROOT
 
-# 1. Ta en safety-backup
+# 1. Take a safety backup
 sqlite3 data/familieassistenten.db \
   "VACUUM INTO 'data/backups/pre-upgrade-$(date +%F).db'"
 
-# 2. Hent endringer
+# 2. Fetch changes
 git fetch origin
-git log --oneline HEAD..origin/main    # se hva som kommer
+git log --oneline HEAD..origin/main    # see what's coming
 
-# 3. Stopp, pull, installer, start
+# 3. Stop, pull, install, start
 sudo systemctl stop familieassistenten
 git pull
 npm ci --omit=dev
 sudo systemctl start familieassistenten
 
-# 4. Verifiser
+# 4. Verify
 curl -s http://localhost:3000/ready | jq
 journalctl -u familieassistenten -n 50 --no-pager
 ```
@@ -284,24 +285,24 @@ journalctl -u familieassistenten -n 50 --no-pager
 
 ```bash
 sudo systemctl stop familieassistenten
-git reset --hard <commit-før-upgrade>
+git reset --hard <commit-before-upgrade>
 npm ci --omit=dev
-# Restore DB hvis migrasjoner ble kjørt:
+# Restore DB if migrations were applied:
 cp data/backups/pre-upgrade-2026-04-10.db data/familieassistenten.db
 sudo systemctl start familieassistenten
 ```
 
-### 5.3 API-nøkkel-rotasjon
+### 5.3 API Key Rotation
 
-API-nøkler lagres i `.env` via Settings-UI eller manuelt:
+API keys are stored in `.env` via the Settings UI or manually:
 
 ```bash
-# Les uten å vise (bare finnes/ikke)
+# Read without revealing (only whether present)
 grep -E '^(KASSAL|OPENAI|ANTHROPIC|XAI)_API_KEY=' $APP_ROOT/.env | cut -d= -f1
 
-# Rediger trygt
+# Edit safely
 sudo nano $APP_ROOT/.env
-# Permissions skal være 600 og eier pi:pi
+# Permissions should be 600 and owner pi:pi
 ls -l $APP_ROOT/.env
 
 sudo systemctl restart familieassistenten
@@ -311,76 +312,76 @@ sudo systemctl restart familieassistenten
 
 ## 6. Observability
 
-### 6.1 Prometheus-metrics
+### 6.1 Prometheus Metrics
 
 ```bash
 curl -s http://localhost:3000/metrics
 # request totals, latency histograms, cache hits/misses, etc.
 ```
 
-### 6.2 Cache-statistikk
+### 6.2 Cache Statistics
 
 ```bash
 curl -s http://localhost:3000/api/cache/stats | jq
 # { "size": 42, "hits": 1234, "misses": 56 }
 ```
 
-### 6.3 Request-logger
+### 6.3 Request Logger
 
 ```bash
 journalctl -u familieassistenten -f | grep -v '"level":10\|"level":20'
-# Hver linje er strukturert JSON fra pino — bruk jq:
+# Each line is structured JSON from pino — use jq:
 journalctl -u familieassistenten -o cat | jq -r 'select(.msg) | "\(.time) \(.level) \(.msg) \(.path // "")"'
 ```
 
 ---
 
-## 7. Katastrofe-scenarier
+## 7. Disaster Scenarios
 
-### 7.1 "Hele RPi5 er død (SD-kort feilet)"
+### 7.1 "The Whole RPi5 Is Dead (SD Card Failed)"
 
-1. Hent siste off-site-backup fra NAS/SSH-host
-2. Flash ny SD med Raspberry Pi OS
-3. Kjør installasjonen (se DEPLOY.md §1–§7)
-4. Stopp serveren: `sudo systemctl stop familieassistenten`
-5. Kopier backup inn: `cp backup.db $APP_ROOT/data/familieassistenten.db`
-6. Gjenopprett `.env`, `AUTH_TOKEN` og Caddy-config
+1. Fetch the latest off-site backup from NAS/SSH host
+2. Flash a new SD with Raspberry Pi OS
+3. Run the install (see DEPLOY.md §1–§7)
+4. Stop the server: `sudo systemctl stop familieassistenten`
+5. Copy the backup in: `cp backup.db $APP_ROOT/data/familieassistenten.db`
+6. Restore `.env`, `AUTH_TOKEN`, and Caddy config
 7. Start: `sudo systemctl start familieassistenten`
 
-### 7.2 "DB er korrupt"
+### 7.2 "DB Is Corrupt"
 
 ```bash
-# Sjekk integritet
+# Check integrity
 sqlite3 $APP_ROOT/data/familieassistenten.db "PRAGMA integrity_check;"
 
-# Hvis feil: restore fra siste backup (se §2.3)
-# Eller forsøk reparasjon:
+# If errors: restore from latest backup (see §2.3)
+# Or attempt repair:
 sqlite3 corrupt.db ".recover" | sqlite3 recovered.db
 ```
 
-### 7.3 "Glemt AUTH_TOKEN"
+### 7.3 "Forgot AUTH_TOKEN"
 
 ```bash
 sudo systemctl cat familieassistenten | grep AUTH_TOKEN
-# Hvis satt via `systemctl edit`:
+# If set via `systemctl edit`:
 sudo cat /etc/systemd/system/familieassistenten.service.d/override.conf
 ```
 
 ---
 
-## 8. Load-baseline på RPi5 (M3.4)
+## 8. Load Baseline on RPi5 (M3.4)
 
-Belastningstest med null eksterne avhengigheter — `scripts/load-baseline.js`
-bruker kun `node:http`, så det kjører på en ren RPi5-installasjon.
+Load test with zero external dependencies — `scripts/load-baseline.js`
+uses only `node:http`, so it runs on a clean RPi5 install.
 
-### 8.1 Kjør baseline
+### 8.1 Run the Baseline
 
 ```bash
-# Høy rate-limit så vi måler handler-tid i stedet for 429:
+# High rate limit so we measure handler time instead of 429:
 RATE_LIMIT_MAX=100000 sudo systemctl restart familieassistenten
 sleep 2
 
-# Fra en annen maskin på LAN:
+# From another machine on the LAN:
 node scripts/load-baseline.js \
   --url=https://familieassistenten.local \
   --token=$AUTH_TOKEN \
@@ -389,22 +390,22 @@ node scripts/load-baseline.js \
   --profile=read
 ```
 
-Tilgjengelige profiler:
-- `smoke` — små sample of 5 endpoints, rask
-- `read` — realistisk lesemønster (today/meals/chores/recipes/calendar/status)
-- `mixed` — read + én write (meals/status)
+Available profiles:
+- `smoke` — small sample of 5 endpoints, fast
+- `read` — realistic read pattern (today/meals/chores/recipes/calendar/status)
+- `mixed` — read + one write (meals/status)
 
-### 8.2 Forventede resultater på RPi5 8 GB (uten last fra HA/Ollama)
+### 8.2 Expected Results on RPi5 8 GB (without load from HA/Ollama)
 
-| Metrikk | Mål | Kommentar |
+| Metric | Target | Comment |
 |---|---|---|
-| p95 latency (read) | < 200 ms | sql.js fallback kan være 2× bedre enn dette |
-| p95 latency (write) | < 800 ms | inkluderer DB commit |
-| RPS (read, 10 workers) | > 150 | bottleneck er JSON serialisering |
-| Error rate | < 0.1 % | alle 5xx er bugs å undersøke |
-| RSS etter 60s | < 250 MB | inkl. sql.js buffer + cache |
+| p95 latency (read) | < 200 ms | sql.js fallback may be 2× better than this |
+| p95 latency (write) | < 800 ms | includes DB commit |
+| RPS (read, 10 workers) | > 150 | bottleneck is JSON serialization |
+| Error rate | < 0.1 % | every 5xx is a bug worth investigating |
+| RSS after 60s | < 250 MB | incl. sql.js buffer + cache |
 
-### 8.3 Tolkning av rapporten
+### 8.3 Interpreting the Report
 
 ```
 === GRADE ===
@@ -415,120 +416,121 @@ Tilgjengelige profiler:
 🟢 BASELINE OK
 ```
 
-Hvis grade feiler: se per-endepunkt-tabellen for å finne treg rute, og sjekk
-`curl /api/status | jq '.breakers'` for å se om en ekstern backend er i OPEN-tilstand.
+If the grade fails: check the per-endpoint table to find the slow route,
+and inspect `curl /api/status | jq '.breakers'` to see whether an external
+backend is in the OPEN state.
 
-### 8.4 Reset rate-limit etter baseline
+### 8.4 Reset Rate Limit After Baseline
 
 ```bash
 sudo systemctl edit --full familieassistenten
-# Fjern evt. RATE_LIMIT_MAX-override
+# Remove any RATE_LIMIT_MAX override
 sudo systemctl restart familieassistenten
 ```
 
-### 8.5 Perf-regresjonstest
+### 8.5 Perf Regression Test
 
-Lagre baseline-resultatet i `docs/perf-baseline-YYYY-MM-DD.md` etter hver større
-endring. Sammenlign p50/p95/p99 før du merger ny kode som skal i prod.
+Save the baseline result in `docs/perf-baseline-YYYY-MM-DD.md` after every
+major change. Compare p50/p95/p99 before merging new code destined for prod.
 
 ---
 
-## 9. Test før du sover rolig
+## 9. Test Before You Sleep Soundly
 
-Etter en endring bør disse alltid sjekkes:
+After a change, these should always be checked:
 
 ```bash
-# 1. Tester grønne
+# 1. Tests green
 cd $APP_ROOT && npm test
 
-# 2. Server starter
+# 2. Server starts
 sudo systemctl restart familieassistenten
 sleep 3
-curl -sf http://localhost:3000/ready || echo "READY FEILET"
+curl -sf http://localhost:3000/ready || echo "READY FAILED"
 
-# 3. En faktisk endepoint svarer
+# 3. An actual endpoint responds
 curl -sf -H "Authorization: Bearer $AUTH_TOKEN" http://localhost:3000/api/today > /dev/null \
-  && echo "API OK" || echo "API FEILET"
+  && echo "API OK" || echo "API FAILED"
 
-# 4. Backup er fersk
+# 4. Backup is fresh
 ls -lh data/backups/ | tail -5
 
-# 5. Breakers er CLOSED
+# 5. Breakers are CLOSED
 curl -s http://localhost:3000/api/status | jq '.breakers | to_entries | .[] | "\(.key): \(.value.state)"'
 ```
 
-Hvis alt er grønt: god natt.
+If everything is green: good night.
 
 ---
 
-## §10 Service Level Objectives (SLO) — uke 5 PERF-7
+## §10 Service Level Objectives (SLO) — week 5 PERF-7
 
-Formelle ytelses-targets for Familieassistenten. SLO-ene brukes som
-grunnlag for alerting (uke 6) og regression-gate i CI-en
+Formal performance targets for Familieassistenten. The SLOs are used as
+the basis for alerting (week 6) and as the regression gate in CI
 (`.github/workflows/performance.yml`).
 
-### Latency-mål
+### Latency Targets
 
-| Operasjon | Mål p95 | Mål p99 | Kilde |
+| Operation | Target p95 | Target p99 | Source |
 |---|---|---|---|
-| `/health` | <5 ms | <10 ms | Proof-of-life, ingen DB |
-| `/ready` | <50 ms | <100 ms | DB-stat + fs.statfs |
+| `/health` | <5 ms | <10 ms | Proof-of-life, no DB |
+| `/ready` | <50 ms | <100 ms | DB stat + fs.statfs |
 | `/api/today` | <50 ms | <100 ms | Cached 5s (response-cache) |
 | `/api/meals/current` | <50 ms | <100 ms | Cached |
-| `/api/meals/swap` (PUT) | <300 ms | <800 ms | Skrive-endpoint |
+| `/api/meals/swap` (PUT) | <300 ms | <800 ms | Write endpoint |
 | `/api/shopping/list/current` | <100 ms | <200 ms | JOIN meal_plans + inventory |
 | `/api/chores/current` | <50 ms | <100 ms | Cached |
-| `/api/recipes` | <100 ms | <200 ms | Full-scan over ~50 rader |
+| `/api/recipes` | <100 ms | <200 ms | Full scan over ~50 rows |
 | `/api/recipes/:id` | <20 ms | <50 ms | PRIMARY KEY lookup |
 | `/api/audit` | <100 ms | <200 ms | idx_audit_log_timestamp |
-| `/api/llm/chat` | — | — | Bundet til Ollama, ikke server-SLO |
-| `/api/llm/warm` | <20 ms | <50 ms | SQL DELETE med index |
+| `/api/llm/chat` | — | — | Bound to Ollama, not a server SLO |
+| `/api/llm/warm` | <20 ms | <50 ms | SQL DELETE with index |
 
-### Resource-mål
+### Resource Targets
 
-| Ressurs | Mål | Terskel (warn) | Terskel (fail) |
+| Resource | Target | Threshold (warn) | Threshold (fail) |
 |---|---|---|---|
-| RSS (Node-prosess) | <150 MB | >460 MB | >512 MB (`MEMORY_BUDGET_MB`) |
-| Disk fri | >5 GB | <500 MB | <100 MB (blokker `/ready`) |
-| DB-fil størrelse | <100 MB | >500 MB | — |
-| Backup-alder | <24 h | >30 h | — |
-| Error-rate 5xx | <0.1% | >1% | >5% |
+| RSS (Node process) | <150 MB | >460 MB | >512 MB (`MEMORY_BUDGET_MB`) |
+| Disk free | >5 GB | <500 MB | <100 MB (block `/ready`) |
+| DB file size | <100 MB | >500 MB | — |
+| Backup age | <24 h | >30 h | — |
+| Error rate 5xx | <0.1% | >1% | >5% |
 
-### Gjeldende baseline (2026-04-11)
+### Current Baseline (2026-04-11)
 
-Kjørt med `scripts/load-baseline.js --concurrency=5 --duration=15`:
+Run with `scripts/load-baseline.js --concurrency=5 --duration=15`:
 
-| Metrikk | Verdi |
+| Metric | Value |
 |---|---|
-| Total requests | 96 759 |
-| RPS | 6 450 |
+| Total requests | 96,759 |
+| RPS | 6,450 |
 | Global p50 | 0.6 ms |
 | Global p95 | **1.5 ms** |
 | Global p99 | 2.1 ms |
 | Errors | 0 |
-| RSS etter 15s | 129 MB |
+| RSS after 15s | 129 MB |
 
-**Konklusjon:** Alle read-endepunkter kjører langt under SLO-ene. Det er
-rikelig headroom for reell familie-bruk (typisk 10-50 requests/minutt).
-Regressions-gaten tillater p95 opp til +20% før CI feiler.
+**Conclusion:** All read endpoints run far below the SLOs. There is
+plenty of headroom for real family usage (typically 10–50 requests/minute).
+The regression gate allows p95 up to +20% before CI fails.
 
-### Runtime-overvåkning
+### Runtime Monitoring
 
-- **Live RSS i `/ready`-respons:** `rssMB`, `memoryBudgetMB`-feltene
-- **Warnings-array:**
-  - `rss_near_budget_<N>mb` når RSS >90% av budget
-  - `rss_over_budget_<N>mb` når RSS >100% av budget
-  - `disk_under_100mb` (blokker ready → 503)
+- **Live RSS in the `/ready` response:** `rssMB`, `memoryBudgetMB` fields
+- **Warnings array:**
+  - `rss_near_budget_<N>mb` when RSS >90% of budget
+  - `rss_over_budget_<N>mb` when RSS >100% of budget
+  - `disk_under_100mb` (blocks ready → 503)
   - `db_size_over_500mb`
   - `backup_stale_over_30h`
   - `breakers_open_<N>`
-- **Prometheus-metrics:** `/metrics` eksponerer histogrammer per endpoint
-  med p50/p95/p99 (custom implementering, ikke prom-client).
+- **Prometheus metrics:** `/metrics` exposes histograms per endpoint
+  with p50/p95/p99 (custom implementation, not prom-client).
 
-### Hvis SLO brytes
+### If an SLO Is Breached
 
-1. **Latency-regresjon i CI:** performance.yml feiler med liste over endepunkter
-   som overskrider +20%. Debug-kommando:
+1. **Latency regression in CI:** performance.yml fails with a list of endpoints
+   that exceed +20%. Debug command:
    ```bash
    cat perf-current.json | node -e "
      const d = JSON.parse(require('fs').readFileSync('/dev/stdin'));
@@ -538,199 +540,199 @@ Regressions-gaten tillater p95 opp til +20% før CI feiler.
    "
    ```
 
-2. **RSS over budget i prod:**
-   - Sjekk `/ready` og se `rssMB`
+2. **RSS over budget in prod:**
+   - Check `/ready` and look at `rssMB`
    - `systemctl status familieassistenten` for memory
-   - Nødfallback: `systemctl restart familieassistenten` — DB persisterer
-   - Gjenopprett med `backupNow()` hvis state er rart
-   - Root-cause: sannsynlig memory leak i nyere kode
+   - Emergency fallback: `systemctl restart familieassistenten` — DB persists
+   - Recover with `backupNow()` if state is off
+   - Root cause: likely memory leak in newer code
 
-3. **Breaker OPEN i >5 min:**
-   - Sjekk relevant ekstern tjeneste (Ollama, Kassal, etc.)
-   - Breaker lukker automatisk etter cooldown (30-60s)
-   - Ved persistent OPEN: deaktiver midlertidig via env-store-innstillinger
+3. **Breaker OPEN for >5 min:**
+   - Check the relevant external service (Ollama, Kassal, etc.)
+   - Breaker closes automatically after cooldown (30–60s)
+   - On persistent OPEN: temporarily disable via env-store settings
 
 ---
 
-## §11 Alert runbooks — uke 6 OBS-7
+## §11 Alert Runbooks — week 6 OBS-7
 
-Matcher `docs/monitoring/alert-rules.yml`. Hver alert viser til
-`RUNBOOK.md §11.N`. Alle prosedyrer antar at operatør har SSH-tilgang
-til RPi5 og sudo-rettigheter.
+Matches `docs/monitoring/alert-rules.yml`. Each alert points to
+`RUNBOOK.md §11.N`. All procedures assume the operator has SSH access
+to the RPi5 and sudo rights.
 
 ### §11.1 ServerDown
 
-**Alert:** `up{job="familieassistenten"} == 0` i 1+ minutt.
+**Alert:** `up{job="familieassistenten"} == 0` for 1+ minute.
 
-**Impact:** Full tjenestebortfall. Ingen family-member kan bruke
-Familieassistenten (ikke lese, ikke skrive).
+**Impact:** Full service outage. No family member can use
+Familieassistenten (no reads, no writes).
 
 **First-response (≤5 min):**
 ```bash
-# Sjekk systemd-status
+# Check systemd status
 sudo systemctl status familieassistenten
 
-# Om prosessen er down, start den
+# If the process is down, start it
 sudo systemctl start familieassistenten
 
-# Sjekk at den fortsatt lever etter 10s
+# Verify it's still alive after 10s
 sleep 10 && curl -sf http://localhost:3000/health
 ```
 
-**Root-cause analyse:**
+**Root-cause Analysis:**
 ```bash
-# Siste 100 linjer fra journalctl
+# Last 100 lines from journalctl
 sudo journalctl -u familieassistenten -n 100 --no-pager
 
-# Se etter uncaughtException/unhandledRejection
+# Look for uncaughtException/unhandledRejection
 sudo journalctl -u familieassistenten --since "1 hour ago" | grep -i "fatal\|uncaught\|unhandled"
 
-# Verifiser DB-integritet
+# Verify DB integrity
 sqlite3 $APP_ROOT/data/familieassistenten.db "PRAGMA integrity_check"
 ```
 
-**Escalation:** Hvis restart ikke hjelper → restore fra siste backup
-(se §4 DR-scenarier).
+**Escalation:** If restart doesn't help → restore from the latest backup
+(see §4 disaster recovery).
 
 ---
 
 ### §11.2 WatchdogMiss
 
-**Alert:** systemd-watchdog har restartet servicen 2+ ganger på 5 min.
+**Alert:** systemd watchdog has restarted the service 2+ times in 5 min.
 
-**Impact:** Tjenesten er i restart-loop. Familiemedlemmer får sporadisk
-tjeneste, potensielt korrupt state.
+**Impact:** The service is in a restart loop. Family members get sporadic
+service, potentially corrupt state.
 
 **First-response:**
 ```bash
-# Sjekk hvor mange ganger prosessen har restartet
+# Check how many times the process has restarted
 sudo journalctl -u familieassistenten --since "15 min ago" | grep -c "Started Familieassistenten"
 
-# Kjør i foreground for å se hele feilmeldingen
+# Run in foreground to see the full error message
 sudo systemctl stop familieassistenten
 cd $APP_ROOT
 sudo -u pi NODE_ENV=production node server/index.js
-# (Ctrl-C når du har sett feilen)
+# (Ctrl-C once you've seen the error)
 
-# Restart når root-cause er identifisert
+# Restart when root cause is identified
 sudo systemctl start familieassistenten
 ```
 
-**Kontroller:** Siste deploy, ny avhengighet, DB-lock, minne-leak.
+**Check:** Latest deploy, new dependency, DB lock, memory leak.
 
-**Escalation:** Rulle tilbake siste release (`git checkout v1.2.0`
-og restart), eller switch til sql.js fallback hvis better-sqlite3
-segfaulter.
+**Escalation:** Roll back the latest release (`git checkout v1.2.0`
+and restart), or switch to the sql.js fallback if better-sqlite3
+segfaults.
 
 ---
 
 ### §11.3 High5xxRate / Critical5xxRate
 
-**Alert:** 5xx-rate >1% (warning) eller >5% (critical).
+**Alert:** 5xx rate >1% (warning) or >5% (critical).
 
-**Impact:** En del av brukerflyten er brutt. Avhengig av hvilken
-endpoint som feiler — for eksempel kan chat være nede mens meal-planner
-fungerer.
+**Impact:** Part of the user flow is broken. Depends on which
+endpoint is failing — for example, chat may be down while the meal
+planner works.
 
 **First-response:**
 ```bash
-# Finn hvilken route som feiler
+# Find which route is failing
 curl -s http://localhost:3000/metrics | grep _requests_total
 
-# Siste uncaughtException fra alerting-webhook?
-# Sjekk journalctl for mønster
+# Last uncaughtException from the alerting webhook?
+# Check journalctl for the pattern
 sudo journalctl -u familieassistenten --since "15 min ago" | grep -E "level.*:.*50" | tail -20
 ```
 
-**Kontroller:**
-- Breaker open for Ollama/Kassal (se §11.4)?
-- DB-lock pga. stort backup-restore?
-- Diskplass full (se §11.7)?
+**Check:**
+- Breaker open for Ollama/Kassal (see §11.4)?
+- DB lock from a large backup restore?
+- Disk space full (see §11.7)?
 
-**Escalation:** Restart servicen + overvåk 5 min etter restart.
+**Escalation:** Restart the service + monitor for 5 min after restart.
 
 ---
 
 ### §11.4 CircuitBreakerOpen
 
-**Alert:** En breaker er `OPEN` i 5+ minutter.
+**Alert:** A breaker is `OPEN` for 5+ minutes.
 
-**Impact:** En ekstern integrasjon er nede. Appen fungerer fortsatt,
-men funksjonen som bruker den integrasjonen returnerer graceful
-fallback-melding.
+**Impact:** An external integration is down. The app still works,
+but the feature that uses the integration returns a graceful
+fallback message.
 
 **First-response:**
 ```bash
-# Hvilken breaker?
+# Which breaker?
 curl -s http://localhost:3000/api/status | jq '.breakers'
 
-# Test integrasjonen manuelt
+# Test the integration manually
 # Ollama:
 curl -sf http://localhost:11434/api/tags
 
-# Kassal (hvis API-nøkkel er satt):
+# Kassal (if API key is set):
 curl -sf -H "Authorization: Bearer $KASSAL_API_KEY" https://kassal.app/api/v1/products?search=melk
 
-# Anthropic/OpenAI/xAI — sjekk /api/integrations/:name/test
+# Anthropic/OpenAI/xAI — check /api/integrations/:name/test
 curl -sf http://localhost:3000/api/integrations/anthropic/test
 ```
 
-**Recovery:** Breaker lukker automatisk etter cooldown (30s-60s)
-ved én vellykket probe. Hvis backend fortsatt feiler → dokumentert
-brudd, ikke prosess-feil.
+**Recovery:** Breaker closes automatically after cooldown (30s–60s)
+on one successful probe. If the backend is still failing → documented
+outage, not a process error.
 
-**Escalation:** Midlertidig deaktiver integrasjon via Kontrollrommet
-→ LLM-motor → bytt til annen backend.
+**Escalation:** Temporarily disable the integration via the Control
+Room → LLM engine → switch to another backend.
 
 ---
 
 ### §11.5 HighMemoryUsage / CriticalMemoryUsage
 
-**Alert:** RSS >460 MB (warn) eller >512 MB (critical).
+**Alert:** RSS >460 MB (warn) or >512 MB (critical).
 
-**Impact:** Critical → systemd/OOM-killer vil kutte prosessen
-sannsynligvis innen minutter. Warning → enda ikke kritisk men du har
-mulig lekkasje.
+**Impact:** Critical → systemd/OOM killer will likely cut the process
+within minutes. Warning → not yet critical but a possible leak exists.
 
 **First-response:**
 ```bash
-# Sjekk nåværende RSS
+# Check current RSS
 curl -s http://localhost:3000/ready | jq '{rssMB, memoryBudgetMB, warnings}'
 
-# Hvor mange GC-sykluser?
+# How many GC cycles?
 sudo cat /proc/$(pidof -s node)/status | grep VmRSS
 
-# Takk Node: sjekk heap med --inspect (krever restart)
+# Thanks Node: inspect heap with --inspect (requires restart)
 ```
 
 **Recovery:**
 ```bash
-# Nødrestart (DB persistert, state-snapshot hydrerer metrics)
+# Emergency restart (DB persisted, state snapshot rehydrates metrics)
 sudo systemctl restart familieassistenten
 ```
 
-**Root-cause (etter restart):** Kjør load-baseline mot produksjon og
-se om RSS vokser monotont. Hvis ja → leak-analyse påkrevet. Sjekk
-siste deploy for suspect endringer.
+**Root cause (after restart):** Run load-baseline against production and
+see whether RSS grows monotonically. If yes → leak analysis required. Check
+the latest deploy for suspect changes.
 
-**Escalation:** Hvis leak er i en spesifikk feature → deaktiver den
-midlertidig via env-variabel (f.eks. `LLM_BACKEND=none`).
+**Escalation:** If the leak is in a specific feature → disable it
+temporarily via env variable (e.g. `LLM_BACKEND=none`).
 
 ---
 
 ### §11.6 BackupStale / BackupCriticallyStale
 
-**Alert:** Siste backup er >26h (warn) eller >48h (critical) gammel.
+**Alert:** Latest backup is >26h (warn) or >48h (critical) old.
 
-**Impact:** DR-scenario har vokst `RPO` (recovery point objective)
-over akseptabelt. Ved datatap mister du opp til 26/48 timer.
+**Impact:** The disaster-recovery scenario has grown `RPO` (recovery
+point objective) above the acceptable bar. On data loss, you lose up
+to 26/48 hours.
 
 **First-response:**
 ```bash
-# Manuell backup nå
+# Manual backup now
 curl -s -X POST http://localhost:3000/api/backup/now | jq
 
-# Eller via node-cli
+# Or via node CLI
 node -e "
   const { backupNow } = require('./server/backup');
   const { initDB } = require('./server/db');
@@ -740,366 +742,367 @@ node -e "
   })();
 "
 
-# Sjekk cron-jobben
+# Check the cron job
 sudo systemctl list-timers | grep familieassistenten
 ```
 
-**Root-cause:** Systemd timer disabled? Cron-tab slettet? Disk full?
+**Root cause:** Systemd timer disabled? Crontab deleted? Disk full?
 
-**Escalation:** Hvis off-site backup (`BACKUP_REMOTE_PATH`) ikke
-fungerer → verifiser SSH-nøkler og mount-tilgjengelighet til remote.
+**Escalation:** If off-site backup (`BACKUP_REMOTE_PATH`) isn't
+working → verify SSH keys and mount availability against the remote.
 
 ---
 
 ### §11.7 DiskLow / DiskCritical
 
-**Alert:** Disk fri <500 MB (warn) eller <100 MB (critical).
+**Alert:** Disk free <500 MB (warn) or <100 MB (critical).
 
-**Impact:** Critical → SQLite-skriving vil feile umiddelbart. `/ready`
-returnerer 503 ved <100 MB.
+**Impact:** Critical → SQLite writes will fail immediately. `/ready`
+returns 503 at <100 MB.
 
 **First-response:**
 ```bash
-# Hvor går plassen?
+# Where is space going?
 sudo du -sh $APP_ROOT/data/*
 df -h
 
-# Prune gamle backups hvis >14 dager
+# Prune old backups if >14 days
 find $APP_ROOT/data/backups -name "*.db" -mtime +14 -print -delete
 
-# Prune journalctl hvis stort
+# Prune journalctl if large
 sudo journalctl --vacuum-time=7d
 
-# Rens npm-cache og gamle logs
+# Clean npm cache and old logs
 npm cache clean --force 2>&1 || true
 sudo rm -rf /var/log/*.gz
 ```
 
-**Escalation:** Hvis disken er <1% → vurder å flytte data/ til SD
-eller ekstern USB.
+**Escalation:** If disk is <1% → consider moving data/ to SD or
+external USB.
 
 ---
 
 ### §11.8 HighP95Latency
 
-**Alert:** p95-latens >500 ms for en route i 10+ min.
+**Alert:** p95 latency >500 ms for a route in 10+ min.
 
-**Impact:** Brukeropplevelse er tregere enn SLO. Ikke kritisk, men
-merkbart for familie.
+**Impact:** User experience is slower than the SLO. Not critical, but
+noticeable for the family.
 
 **First-response:**
 ```bash
-# Hvilken route?
+# Which route?
 curl -s http://localhost:3000/metrics | grep -A1 "quantile=\"0.95\"" | grep -B1 -E "[0-9]{3}"
 
-# EXPLAIN QUERY PLAN for hot spørringer
-# Se docs/DB_INDEXES.md
+# EXPLAIN QUERY PLAN for hot queries
+# See docs/DB_INDEXES.md
 
-# Er DB full?
+# Is the DB full?
 ls -lh $APP_ROOT/data/familieassistenten.db
 ```
 
-**Root-cause kandidater:**
-- N+1-queries i ny kode
-- Manglende index etter ny migration
-- DB-lock fra backup-kjøring
-- CPU-konkurranse fra LLM (Ollama-inferens)
+**Root-cause candidates:**
+- N+1 queries in new code
+- Missing index after a new migration
+- DB lock from a backup run
+- CPU contention from LLM (Ollama inference)
 
-**Escalation:** Rulle tilbake siste deploy hvis regresjon etter
-release. Kjør `scripts/load-baseline.js --compare=perf-baseline.json`
-for å kvantifisere.
+**Escalation:** Roll back the latest deploy if the regression appeared
+after a release. Run `scripts/load-baseline.js --compare=perf-baseline.json`
+to quantify.
 
 ---
 
-## §12 Multi-tenant drift (uke 2 B1, 2026-04-20)
+## §12 Multi-tenant Operations (week 2 B1, 2026-04-20)
 
-Multi-tenant-auth er aktiv fra og med commit `feat(auth): aktiver
-multi-tenant session-flyt`. Dette avsnittet dekker de vanligste
-drifts-oppgavene.
+Multi-tenant auth is active from commit `feat(auth): aktiver
+multi-tenant session-flyt`. This section covers the most common
+operations tasks.
 
-### §12.1 SESSION_SECRET — rotasjon
+### §12.1 SESSION_SECRET — Rotation
 
-`SESSION_SECRET` signerer OAuth-state-cookies og magic-link-
-tokener. Rotering invaliderer alle aktive sessions og alle
-pågående innlogginger.
+`SESSION_SECRET` signs OAuth state cookies and magic-link
+tokens. Rotating invalidates all active sessions and all
+in-progress sign-ins.
 
-**Når rotere:**
-- Hemmeligheten har lekket (logget til Sentry, committet i feil
-  fil, delt i chat)
-- Rutine-rotering (årlig anbefalt; ingen pålagt frekvens ennå)
+**When to rotate:**
+- The secret has leaked (logged to Sentry, committed in the wrong
+  file, shared in chat)
+- Routine rotation (annually recommended; no mandated cadence yet)
 
-**Rotere uten å rive hele appen:**
+**Rotate without tearing the whole app down:**
 
 ```bash
-# 1. Generer ny hemmelighet
+# 1. Generate a new secret
 NEW=$(openssl rand -hex 32)
 
-# 2. Oppdater bootstrap.json (beholder alle andre felt)
-cd /var/lib/familyassistant/data   # eller der bootstrap.json ligger
+# 2. Update bootstrap.json (preserves all other fields)
+cd /var/lib/familyassistant/data   # or wherever bootstrap.json lives
 jq --arg s "$NEW" '.sessionSecret = $s | .sessionSecretGeneratedAt = now | todate' bootstrap.json > bootstrap.json.new
 chmod 600 bootstrap.json.new
 mv bootstrap.json.new bootstrap.json
 
-# 3. Restart container. Alle eksisterende sessions invalideres;
-#    brukere må logge inn på nytt.
+# 3. Restart container. All existing sessions are invalidated;
+#    users must log in again.
 docker compose restart app
 ```
 
-**Verifikasjon:** `GET /api/auth/me` fra en gammel browser-session
-skal returnere `{authenticated: false}`.
+**Verification:** `GET /api/auth/me` from an old browser session
+should return `{authenticated: false}`.
 
-### §12.2 Invitere en ny familie
+### §12.2 Invite a New Family
 
-Nye familier onboardes via invitasjon fra en eksisterende
-familie-eier (owner-role).
+New families are onboarded via an invitation from an existing
+family owner (owner role).
 
 ```bash
-# Som owner i family A:
+# As owner in family A:
 curl -X POST http://<rpi>:7777/api/family/invitations \
   -H "Cookie: fa_session=<owner-session-id>" \
   -H "Content-Type: application/json" \
-  -d '{"email": "ny-bruker@example", "role": "adult"}'
+  -d '{"email": "new-user@example", "role": "adult"}'
 
-# Responsen inneholder { token }. Send lenken:
+# The response contains { token }. Send the link:
 #   http://<rpi>:7777/invite/<token>
-# til brukeren. De åpner den, logger inn (magic-link eller
-# Google OAuth), og blir automatisk lagt til family A.
+# to the user. They open it, sign in (magic link or
+# Google OAuth), and are automatically added to family A.
 ```
 
-**Edge-case:** Hvis brukeren allerede er i en annen familie,
-returnerer `POST /api/auth/onboarding/complete` 409 Conflict.
-Brukeren må forlate sin gamle familie først (eller eieren
-sletter den).
+**Edge case:** If the user is already in another family,
+`POST /api/auth/onboarding/complete` returns 409 Conflict.
+The user must leave their old family first (or the owner
+deletes it).
 
-### §12.3 Debug "tenant-mismatch" — bruker ser feil familie
+### §12.3 Debug "tenant-mismatch" — User Sees the Wrong Family
 
-Symptom: Bruker B logger inn, ser data fra familie A.
+Symptom: User B logs in, sees data from family A.
 
-Mulige årsaker i rekkefølge av sannsynlighet:
+Possible causes, in order of likelihood:
 
-1. **Gammel service-worker-cache.** Bruker har ikke lastet
-   nettleseren etter deploy. Be om hard-refresh (Ctrl+F5) eller
-   inkognito-test.
-2. **Feil session-cookie.** Sjekk DevTools → Application →
-   Cookies → `fa_session`. Sammenlign med
+1. **Stale service-worker cache.** User hasn't reloaded the
+   browser after a deploy. Ask for a hard refresh (Ctrl+F5) or
+   incognito test.
+2. **Wrong session cookie.** Check DevTools → Application →
+   Cookies → `fa_session`. Compare against
    `SELECT user_id, family_id FROM sessions WHERE id='<sid>'`
-   i DB.
-3. **AsyncLocalStorage-lekkasje.** Hvis middleware ikke wrapper
-   handler i `runWithFamily(familyId, ...)`, kan forrige
-   requests family_id "lekke" inn. Se `server/auth/family-context.js`
-   og søk etter ruter som ikke går gjennom authenticate().
+   in the DB.
+3. **AsyncLocalStorage leak.** If middleware doesn't wrap the
+   handler in `runWithFamily(familyId, ...)`, the previous
+   request's family_id can "leak" through. See
+   `server/auth/family-context.js` and search for routes that
+   don't go through authenticate().
 
-### §12.4 Slette en familie
+### §12.4 Delete a Family
 
-Kun owner kan slette. Alle data kaskade-slettes via
-`repos.family.deleteFamily(id)` — inkludert shopping_lists,
+Only the owner can delete. All data cascades via
+`repos.family.deleteFamily(id)` — including shopping_lists,
 pantry, meal_plans, chores, etc.
 
 ```bash
-# Som owner:
+# As owner:
 curl -X DELETE http://<rpi>:7777/api/family \
   -H "Cookie: fa_session=<owner-session-id>"
 ```
 
-**Advarsel:** irreversibelt. Ingen soft-delete. Hvis en familie
-inneholder verdifulle oppskrifter (`source='family-modified'`),
-vurder å eksportere dem via `GET /api/gdpr/export` først.
+**Warning:** irreversible. No soft delete. If a family
+contains valuable recipes (`source='family-modified'`),
+consider exporting them via `GET /api/gdpr/export` first.
 
-### §12.5 Når session er utløpt midt i bruk
+### §12.5 When a Session Expires Mid-use
 
-User A sitter på UI, session utløper bakgrunnen. Neste request
-bør returnere 401 og `public/js/auth.js` skal da dirigere
-brukeren tilbake til `/login.html`. Verifiser at service-worker
-evicter API-cachen ved 401 (se `public/sw.js:149`) slik at
-forrige users data ikke lekker over.
+User A is sitting on the UI, session expires in the background. The next
+request should return 401 and `public/js/auth.js` should redirect the
+user back to `/login.html`. Verify that the service worker evicts the
+API cache on 401 (see `public/sw.js:149`) so that the previous user's
+data doesn't leak over.
 
-### §12.6 Verifisere empirisk tenant-isolation
+### §12.6 Verify Empirical Tenant Isolation
 
-Etter hver auth-endring (C3 eller senere): gjennomfør
-end-to-end-testen:
+After every auth change (C3 or later): run the
+end-to-end test:
 
-1. Åpne Chrome i normal modus, logg inn som User A, opprett
-   Family A, legg til `banana` i pantry.
-2. Åpne Firefox (eller Chrome inkognito med fresh cookies), logg
-   inn som User B, opprett Family B, legg til `apple` i pantry.
-3. Bytt tilbake til Chrome: `GET /api/pantry` skal kun vise
-   banana, ikke apple.
-4. Bytt til Firefox: `GET /api/pantry` skal kun vise apple, ikke
-   banana.
+1. Open Chrome in normal mode, sign in as User A, create
+   Family A, add `banana` to pantry.
+2. Open Firefox (or Chrome incognito with fresh cookies), sign
+   in as User B, create Family B, add `apple` to pantry.
+3. Switch back to Chrome: `GET /api/pantry` should show only
+   banana, not apple.
+4. Switch to Firefox: `GET /api/pantry` should show only apple,
+   not banana.
 5. Via SQLite:
    ```sql
    SELECT family_id, product_key, qty FROM inventory ORDER BY family_id;
    ```
-   Skal vise to rader med forskjellige `family_id`.
+   Should show two rows with different `family_id`.
 
-Hvis 1-4 viser kryss-kontaminasjon: STOPP og rapporter. Det er
-et regresjon i auth-middleware eller AsyncLocalStorage-wrapping.
+If 1–4 show cross-contamination: STOP and report. That is
+a regression in auth middleware or AsyncLocalStorage wrapping.
 
 ---
 
-## §13 LLM-backend — felles Ollama + per-familie-override (uke 2 B2, 2026-04-22)
+## §13 LLM-backend — shared Ollama + per-family override (week 2 B2, 2026-04-22)
 
-Christers beslutning B2 (Issue #62): én felles Ollama på RPi for
-alle pilot-familier. Dette speiler nåværende kode-oppførsel, og
-avsnittet dekker drifts-aspektene operatøren må være klar over.
+Christer's decision B2 (Issue #62): one shared Ollama on the RPi for
+all pilot families. This mirrors current code behavior, and the
+section covers the operations aspects the operator needs to be aware of.
 
-> **Merk:** Ingen empirisk cross-family-verifikasjon er gjort
-> 2026-04-22 — pilot-containeren er nede pga.
-> SESSION_SECRET-deploy-gate
+> **Note:** No empirical cross-family verification has been done as of
+> 2026-04-22 — the pilot container is down due to the
+> SESSION_SECRET deploy gate
 > ([`docs/known-issues/portainer-session-secret-deploy-gate.md`](known-issues/portainer-session-secret-deploy-gate.md)).
-> Verifiseringen kjøres når containeren er oppe igjen (antatt uke 4).
-> Se **§13.7** for test-prosedyre.
+> Verification will run when the container is back up (expected week 4).
+> See **§13.7** for the test procedure.
 
-### §13.1 Dagens kode-oppførsel
+### §13.1 Current Code Behavior
 
-Chat og meal-suggestion i `POST /api/llm/chat` ([routes.js:2011](../server/routes.js#L2011))
-kaller `chat()` i [`server/llm.js`](../server/llm.js) som bruker
-**globalt** `OLLAMA_HOST` fra `config.js`. Alle familier treffer
-samme Ollama-instans uavhengig av eventuell per-familie-config.
+Chat and meal-suggestion in `POST /api/llm/chat` ([routes.js:2011](../server/routes.js#L2011))
+call `chat()` in [`server/llm.js`](../server/llm.js) which uses the
+**global** `OLLAMA_HOST` from `config.js`. All families hit the
+same Ollama instance regardless of any per-family config.
 
-Per-familie-config lagres i `llm_configs`-tabellen
-(migrasjon 014, `server/repositories/llm-config.repo.js`) og
-eksponeres via `/api/family/llm`-endepunkter
-([`server/auth/llm-routes.js`](../server/auth/llm-routes.js)), men
-brukes **kun** av test-endepunktet `POST /api/family/llm/test` —
-ikke av selve chat-flyten ennå.
+Per-family config is stored in the `llm_configs` table
+(migration 014, `server/repositories/llm-config.repo.js`) and
+exposed via the `/api/family/llm` endpoints
+([`server/auth/llm-routes.js`](../server/auth/llm-routes.js)), but
+is **only** used by the test endpoint `POST /api/family/llm/test` —
+not by the actual chat flow yet.
 
-**Konsekvens for pilot:** Alle 5 familier bruker Christers Ollama
-direkte. Ingen isolasjon på LLM-laget; ingen familiesspesifikk
-modell-valg eller API-nøkler i praksis (selv om DB-en ser ut til å
-støtte det).
+**Pilot consequence:** All 5 families use Christer's Ollama
+directly. No isolation at the LLM layer; no family-specific
+model choice or API keys in practice (even though the DB appears
+to support it).
 
-### §13.2 Operatør-flyt: konfigurere LLM per familie
+### §13.2 Operator Flow: Configure LLM Per Family
 
-> **Scope-varsel:** Dette dekker UI-flyten operatøren kan bruke,
-> men per §13.1 tar ikke chat-flyten hensyn til resultatet enda.
-> Dvs. å sette familie-spesifikk config per i dag gir bare
-> test-muligheten + lagring-i-DB; ingen runtime-effekt på chat.
+> **Scope warning:** This covers the UI flow the operator can use,
+> but per §13.1 the chat flow does not take the result into account yet.
+> That is, setting family-specific config today only gives you the
+> test capability + storage in the DB; no runtime effect on chat.
 
-**Som owner for en familie:**
+**As owner of a family:**
 
 ```bash
-# Hent nåværende config (alltid trygt — viser aldri API-nøkkel)
+# Get current config (always safe — never reveals the API key)
 curl -s -H "Cookie: fa_session=<owner-sid>" \
   http://<host>:7777/api/family/llm
 
-# Eksempel-respons:
+# Example response:
 # { "config": { "backend": "ollama", "model": "qwen2.5:3b",
 #               "baseUrl": "http://host.docker.internal:11434",
 #               "hasKey": false } }
 
-# Sett familie-spesifikk config (owner-only)
+# Set family-specific config (owner-only)
 curl -X PUT -H "Cookie: fa_session=<owner-sid>" \
   -H "Content-Type: application/json" \
   -d '{"backend":"anthropic","model":"claude-sonnet-4-5","apiKey":"<anthropic-key>"}' \
   http://<host>:7777/api/family/llm
 
-# Test at config-en fungerer (any authed member)
+# Test that the config works (any authed member)
 curl -X POST -H "Cookie: fa_session=<member-sid>" \
   http://<host>:7777/api/family/llm/test
 # { "ok": true, "backend": "anthropic", "model": "...", "result": "..." }
 ```
 
-**Tilgjengelige backends** (fra `SUPPORTED_BACKENDS` i
+**Available backends** (from `SUPPORTED_BACKENDS` in
 `llm-config.repo.js:21`):
 
-- `ollama` — default; `baseUrl` peker til Ollama-instans
-- `llamacpp` — alternativ lokal runtime
-- `anthropic` — Claude API (krever `apiKey`)
-- `openai` — GPT-4/5 (krever `apiKey`)
-- `xai` — Grok (krever `apiKey`)
+- `ollama` — default; `baseUrl` points to the Ollama instance
+- `llamacpp` — alternative local runtime
+- `anthropic` — Claude API (requires `apiKey`)
+- `openai` — GPT-4/5 (requires `apiKey`)
+- `xai` — Grok (requires `apiKey`)
 
-**Nøkkel-håndtering:**
+**Key handling:**
 
-- API-nøkler AES-256-GCM-krypteres med `ENCRYPTION_KEY` før lagring
-  i `llm_configs.api_key_ciphertext`.
-- `apiKey: undefined` → behold eksisterende.
-- `apiKey: ''` → slett eksisterende.
-- `apiKey: '<streng>'` → krypter og lagre.
-- Chiffertekst leses aldri tilbake til klient — `/api/family/llm`
-  returnerer kun `hasKey: boolean`.
+- API keys are AES-256-GCM encrypted with `ENCRYPTION_KEY` before being stored
+  in `llm_configs.api_key_ciphertext`.
+- `apiKey: undefined` → keep existing.
+- `apiKey: ''` → delete existing.
+- `apiKey: '<string>'` → encrypt and store.
+- Ciphertext is never read back to the client — `/api/family/llm`
+  returns only `hasKey: boolean`.
 
-### §13.3 Fallback når Ollama er nede
+### §13.3 Fallback When Ollama Is Down
 
-**Symptom:** Chat returnerer 503 eller "LLM ikke tilgjengelig".
+**Symptom:** Chat returns 503 or "LLM unavailable".
 
-**Sjekk:**
+**Check:**
 
 ```bash
-# Fra appens kontainer:
+# From the app container:
 curl -sf http://host.docker.internal:11434/api/tags
-# Tom respons = Ollama nede. JSON med modell-liste = OK.
+# Empty response = Ollama down. JSON with a model list = OK.
 
-# App-status:
+# App status:
 curl -s http://localhost:7777/api/status | jq '.breakers.ollama,.llm'
 ```
 
-**Circuit breaker-state:** Hvis Ollama kontinuerlig feiler, åpner
-breakeren og serverer 503 i cooldown-perioden (se §3).
+**Circuit breaker state:** If Ollama keeps failing, the breaker
+opens and serves 503 during the cooldown period (see §3).
 
-**Rot-årsaker for Ollama nede:**
+**Root causes for Ollama being down:**
 
-1. Ollama-service ikke startet på RPi-hosten:
+1. Ollama service not started on the RPi host:
    `sudo systemctl status ollama`
-2. Modellen ikke lastet: `ollama list` viser ikke `qwen2.5:3b`.
+2. Model not loaded: `ollama list` doesn't show `qwen2.5:3b`.
    Fix: `ollama pull qwen2.5:3b`
-3. Port 11434 blokkert mellom container og host —
-   `host.docker.internal:host-gateway` må være satt i
-   docker-compose.yml (allerede satt, linje 117-118).
-4. RAM-utmattelse: qwen2.5:3b trenger ~2 GB. Hvis RPi-en
-   samtidig kjører andre ML-tjenester kan OOM-killer ta Ollama.
-   Sjekk `free -m` og `journalctl -u ollama -n 50`.
+3. Port 11434 blocked between container and host —
+   `host.docker.internal:host-gateway` must be set in
+   docker-compose.yml (already set, lines 117-118).
+4. RAM exhaustion: qwen2.5:3b needs ~2 GB. If the RPi
+   is concurrently running other ML services, the OOM killer
+   can take Ollama. Check `free -m` and `journalctl -u ollama -n 50`.
 
-**Ingen automatisk fallback** til andre backends i dagens kode.
-Chat returnerer 503 til familien til Ollama er oppe igjen.
+**No automatic fallback** to other backends in current code.
+Chat returns 503 to the family until Ollama is back up.
 
-### §13.4 Ressurs-hensyn ved samtidig bruk fra flere familier
+### §13.4 Resource Considerations Under Concurrent Use From Multiple Families
 
-Ollama på RPi5 8 GB håndterer seriell chat godt, men parallell bruk
-fra 5 familier kan bli en flaskehals.
+Ollama on RPi5 8 GB handles serial chat well, but parallel use
+from 5 families can become a bottleneck.
 
-**Ressurs-budsjett (grovestimat):**
+**Resource budget (rough estimate):**
 
-| Komponent | RAM |
+| Component | RAM |
 |---|---|
-| qwen2.5:3b-modell lastet | ~2.0 GB |
-| Ollama-prosess overhead | ~0.3 GB |
-| Familieassistenten-container | ~0.5 GB (cap 512 MB per docker-compose) |
-| HomeAssistant (hvis samlokert) | ~0.8 GB |
-| OS + øvrig | ~1.0 GB |
-| **Sum** | ~4.6 GB |
+| qwen2.5:3b model loaded | ~2.0 GB |
+| Ollama process overhead | ~0.3 GB |
+| Familieassistenten container | ~0.5 GB (cap 512 MB per docker-compose) |
+| HomeAssistant (if co-located) | ~0.8 GB |
+| OS + other | ~1.0 GB |
+| **Total** | ~4.6 GB |
 
-Gjenstående ~3.4 GB brukes til inferens-context-caching og
-konkurrerende requests.
+Remaining ~3.4 GB is used for inference context caching and
+concurrent requests.
 
-**Teoretisk latens** (ikke målt for 5-familie-scenario; basert på
-generell Ollama-oppførsel + eksisterende load-baseline):
+**Theoretical latency** (not measured for the 5-family scenario;
+based on general Ollama behavior + the existing load-baseline):
 
-- Seriell chat (én familie): p95 < 2 sekunder for 200-ord-respons
-- 2 parallelle: p95 øker typisk til ~4 sekunder (Ollama kø)
-- 3+ parallelle: p95 > 6 sekunder forventet
+- Serial chat (one family): p95 < 2 seconds for a 200-word response
+- 2 in parallel: p95 typically rises to ~4 seconds (Ollama queue)
+- 3+ in parallel: p95 > 6 seconds expected
 
-**Målinger er ikke gjort for 5 samtidige familier** — verifiseres
-i §13.7-prosedyren når containeren er oppe.
+**Measurements have not been taken for 5 concurrent families** —
+to be verified by the §13.7 procedure once the container is up.
 
-**Mitigation hvis kapasitet blir problem:**
+**Mitigation if capacity becomes an issue:**
 
-- Bytt til mindre modell: `qwen2.5:1.5b` (halv RAM, ~3x raskere)
-- Aktiver per-familie cloud-backend via `/api/family/llm` (betalt
-  av familien selv) — krever først kode-endring per §13.1-gap
-- Kjøp kraftigere RPi / NUC (RAM-begrenset, ikke CPU)
+- Switch to a smaller model: `qwen2.5:1.5b` (half the RAM, ~3x faster)
+- Enable per-family cloud backend via `/api/family/llm` (paid
+  by the family itself) — first requires a code change per the §13.1 gap
+- Buy a more powerful RPi / NUC (RAM-bound, not CPU)
 
-### §13.5 LLM-cache som buffer mot gjentatte spørsmål
+### §13.5 LLM Cache as a Buffer Against Repeated Questions
 
 [server/services/llm-cache.service.js](../server/services/llm-cache.service.js)
-lagrer samme (user-query + context) → samme svar i 7 dager.
-Sparer roundtrips til Ollama ved gjentatte spørsmål. Treff-rate
-sjekkes via `GET /api/status`-breakers-feltet.
+stores the same (user-query + context) → same answer for 7 days.
+Saves round trips to Ollama on repeated questions. Hit rate
+is checked via the `GET /api/status` breakers field.
 
-### §13.6 Endring av global LLM-backend
+### §13.6 Change the Global LLM Backend
 
-I nåværende pilot-oppsett styres default via Portainer-stack-env
-(docker-compose.yml linje 73-75):
+In the current pilot setup the default is controlled via the Portainer stack env
+(docker-compose.yml lines 73-75):
 
 ```
 LLM_BACKEND: ${LLM_BACKEND:-ollama}
@@ -1107,31 +1110,31 @@ OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
 OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
 ```
 
-Endring krever:
+Change requires:
 
-1. Oppdater Portainer-stack-env-vars.
+1. Update the Portainer stack env vars.
 2. Redeploy (Portainer → "Update the stack")
-3. Verifiser via `GET /api/status` → `backend: 'ollama'` og
+3. Verify via `GET /api/status` → `backend: 'ollama'` and
    `backend-health: up`.
 
-### §13.7 Empirisk verifikasjons-prosedyre (TODO — utsatt til post-deploy-gate)
+### §13.7 Empirical Verification Procedure (TODO — deferred until post-deploy-gate)
 
-**TODO:** kjøres når `portainer-session-secret-deploy-gate`
-er løst (antatt uke 4).
+**TODO:** run when `portainer-session-secret-deploy-gate`
+is resolved (expected week 4).
 
-1. Containeren oppe + 2 familier inviteres og logger inn.
-2. Begge familier sender `POST /api/llm/chat` med forskjellige
-   meldinger samtidig (to separate cookie-jars).
-3. Verifiser:
-   - Begge får svar innen rimelig tid (< 10 sek p95).
-   - Familiene ser ikke hverandres chat-historikk
-     (`repos.kb` skal være family-scoped).
-   - Ollama-host-log viser to separate requests (ikke én).
-4. Dokumenter faktisk latens og RAM-forbruk i §13.4 og i neste
-   uke-baseline.
+1. Container up + 2 families invited and signed in.
+2. Both families send `POST /api/llm/chat` with different
+   messages concurrently (two separate cookie jars).
+3. Verify:
+   - Both get a response within reasonable time (< 10 sec p95).
+   - The families do not see each other's chat history
+     (`repos.kb` should be family-scoped).
+   - The Ollama host log shows two separate requests (not one).
+4. Document actual latency and RAM usage in §13.4 and in the next
+   week-baseline.
 
-**Hvis pilot viser uakseptabel latens:** aktiver per-familie-
-config ved å wire `getClientForFamily()` inn i chat-handleren —
-krever kode-endring i `server/routes.js:2011-2042` og ny
-analyse-PR per CLAUDE.md DEL 3.
+**If the pilot shows unacceptable latency:** enable the per-family
+config by wiring `getClientForFamily()` into the chat handler —
+requires a code change in `server/routes.js:2011-2042` and a new
+analysis PR per CLAUDE.md DEL 3.
 
