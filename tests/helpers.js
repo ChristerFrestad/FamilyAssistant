@@ -142,7 +142,15 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
               /* keep as text */
             }
           }
-          resolve({ status: res.statusCode, headers: res.headers, body: parsed, raw: text });
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            body: parsed,
+            raw: text,
+            // Raw buffer for binary responses (PNG endpoints etc.)
+            // — the UTF-8 conversion in `raw` mangles bytes ≥ 0x80.
+            bodyBuffer: buf,
+          });
         });
       }
     );

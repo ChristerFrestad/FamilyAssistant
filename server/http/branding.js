@@ -35,15 +35,25 @@
 const fs = require('fs');
 const path = require('path');
 
+const pngRenderer = require('../branding/png-renderer');
+
 const TEMPLATES_DIR = path.join(__dirname, '..', 'branding', 'templates');
 const FAVICON_TEMPLATE = fs.readFileSync(path.join(TEMPLATES_DIR, 'favicon.template.svg'), 'utf8');
 const LOGO_MARK_TEMPLATE = fs.readFileSync(
   path.join(TEMPLATES_DIR, 'logo-mark.template.svg'),
   'utf8'
 );
+const OG_IMAGE_TEMPLATE = fs.readFileSync(
+  path.join(TEMPLATES_DIR, 'og-image.template.svg'),
+  'utf8'
+);
 
 const SVG_CACHE = 'public, max-age=3600';
 const CONFIG_CACHE = 'public, max-age=300';
+// PNGs are expensive to regenerate (50 ms favicon → 400 ms og-image)
+// and change only when an operator flips brand env-vars and
+// redeploys, so a longer browser cache is appropriate.
+const PNG_CACHE = 'public, max-age=86400';
 
 function escapeXml(input) {
   return String(input)
@@ -69,7 +79,9 @@ function renderTemplate(template, config) {
     .split('{{LETTER}}')
     .join(escapeXml(letter))
     .split('{{APP_NAME}}')
-    .join(escapeXml(config.APP_NAME));
+    .join(escapeXml(config.APP_NAME))
+    .split('{{APP_TAGLINE}}')
+    .join(escapeXml(config.APP_TAGLINE || ''));
 }
 
 function handleFavicon(ctx, config) {
@@ -90,6 +102,60 @@ function handleLogoMark(ctx, config) {
     'Content-Length': Buffer.byteLength(svg, 'utf8'),
   });
   ctx.res.end(svg);
+}
+
+// PNG handlers. Each one renders the source SVG with the current
+// brand-config, then sharp-rasterises it to the target dimensions.
+// Cache + ETag come from png-renderer; the handler maps result to
+// HTTP response headers.
+async function handlePng({ ctx, config, template, width, height, endpoint }) {
+  try {
+    const ifNoneMatch = ctx.req.headers['if-none-match'];
+    const svg = renderTemplate(template, config);
+    const { buffer, etag } = await pngRenderer.renderPng({
+      endpoint,
+      config,
+      svg,
+      width,
+      height,
+    });
+
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      ctx.res.writeHead(304, {
+        ETag: etag,
+        'Cache-Control': PNG_CACHE,
+      });
+      ctx.res.end();
+      return;
+    }
+
+    ctx.res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': PNG_CACHE,
+      ETag: etag,
+      'Content-Length': buffer.length,
+    });
+    ctx.res.end(buffer);
+  } catch (err) {
+    // Sharp not loaded → 503 with a clear reason. Frontend falls back
+    // to the SVG favicon/logo-mark, which always works. Any other
+    // failure propagates as 500 via the central error handler.
+    if (err.code === 'SHARP_UNAVAILABLE') {
+      ctx.res.writeHead(503, {
+        'Content-Type': 'application/problem+json',
+        'Cache-Control': 'no-store',
+      });
+      ctx.res.end(
+        JSON.stringify({
+          title: 'PNG renderer unavailable',
+          detail: err.message,
+          status: 503,
+        })
+      );
+      return;
+    }
+    throw err;
+  }
 }
 
 // Public brand-config snapshot. Only fields that drive UI/branding are
@@ -143,6 +209,22 @@ function handleManifest(ctx, config) {
         type: 'image/svg+xml',
         purpose: 'maskable',
       },
+      // Sprint-11 / issue #123 — PNG fallbacks for Android adaptive
+      // icons. Browsers that don't honour SVG manifest icons (some
+      // older Android versions, certain PWA install flows) pick
+      // these up by size.
+      {
+        src: '/android-chrome-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/android-chrome-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
     ],
   };
   const body = JSON.stringify(manifest);
@@ -160,6 +242,58 @@ function registerBrandingRoutes(router, { config }) {
   router.get('/logo-mark.svg', (ctx) => handleLogoMark(ctx, config));
   router.get('/api/config', (ctx) => handleApiConfig(ctx, config));
   router.get('/manifest.json', (ctx) => handleManifest(ctx, config));
+
+  // Sprint-11 / issue #123 — PNG raster derivatives.
+  router.get('/favicon-32.png', (ctx) =>
+    handlePng({
+      ctx,
+      config,
+      template: FAVICON_TEMPLATE,
+      width: 32,
+      height: 32,
+      endpoint: 'favicon-32',
+    })
+  );
+  router.get('/apple-touch-icon.png', (ctx) =>
+    handlePng({
+      ctx,
+      config,
+      template: LOGO_MARK_TEMPLATE,
+      width: 180,
+      height: 180,
+      endpoint: 'apple-touch-icon',
+    })
+  );
+  router.get('/android-chrome-192.png', (ctx) =>
+    handlePng({
+      ctx,
+      config,
+      template: LOGO_MARK_TEMPLATE,
+      width: 192,
+      height: 192,
+      endpoint: 'android-chrome-192',
+    })
+  );
+  router.get('/android-chrome-512.png', (ctx) =>
+    handlePng({
+      ctx,
+      config,
+      template: LOGO_MARK_TEMPLATE,
+      width: 512,
+      height: 512,
+      endpoint: 'android-chrome-512',
+    })
+  );
+  router.get('/og-image.png', (ctx) =>
+    handlePng({
+      ctx,
+      config,
+      template: OG_IMAGE_TEMPLATE,
+      width: 1200,
+      height: 630,
+      endpoint: 'og-image',
+    })
+  );
 }
 
 module.exports = {
@@ -169,4 +303,5 @@ module.exports = {
   __renderTemplate: renderTemplate,
   __FAVICON_TEMPLATE: FAVICON_TEMPLATE,
   __LOGO_MARK_TEMPLATE: LOGO_MARK_TEMPLATE,
+  __OG_IMAGE_TEMPLATE: OG_IMAGE_TEMPLATE,
 };

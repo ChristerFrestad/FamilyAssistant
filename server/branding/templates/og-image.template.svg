@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <title>{{APP_NAME}}</title>
+  <!-- Cream background matching the app's canvas-0 token. -->
+  <rect x="0" y="0" width="1200" height="630" fill="#F7F3E8"/>
+
+  <!-- Brand mark on the left: dark green tile with the favicon letter. -->
+  <rect x="120" y="190" width="250" height="250" rx="46" fill="#1F3F26"/>
+  <text x="245" y="370" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="180" font-weight="500" fill="#F7F3E8" text-anchor="middle">{{LETTER}}</text>
+  <!-- Mint accent dot in the upper-right corner of the tile. -->
+  <circle cx="345" cy="215" r="12" fill="#7BA05B"/>
+
+  <!-- Wordmark + tagline on the right. -->
+  <text x="430" y="305" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="74" font-weight="600" fill="#1F3F26">{{APP_NAME}}</text>
+  <text x="430" y="385" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="34" font-weight="400" fill="#1F3F26" opacity="0.75">{{APP_TAGLINE}}</text>
+</svg>
