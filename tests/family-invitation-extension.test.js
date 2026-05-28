@@ -117,8 +117,11 @@ describe('Family invitation · cross-tenant isolation (DEL 14)', () => {
     const aInvites = repos.family.listActiveInvitations(famA.id);
     const bInvites = repos.family.listActiveInvitations(famB.id);
 
-    assert.ok(aInvites.every((i) => i.token === 'tok-a'));
-    assert.ok(bInvites.every((i) => i.token === 'tok-b'));
+    // Migration 030: listActive no longer exposes `token` (sha256-
+    // hashed at rest, plain unrecoverable). Tenant isolation is
+    // proved here via the invited_email which is family-scoped.
+    assert.ok(aInvites.every((i) => i.invitedEmail === 'invited-a@test'));
+    assert.ok(bInvites.every((i) => i.invitedEmail === 'invited-b@test'));
     assert.strictEqual(aInvites.length, 1);
     assert.strictEqual(bInvites.length, 1);
   });
@@ -140,8 +143,9 @@ describe('Family invitation · cross-tenant isolation (DEL 14)', () => {
     // Family B tries to revoke family A's invitation
     const ok = repos.family.revokeInvitation(famB.id, inv.id);
     assert.strictEqual(ok, false, 'cross-family revoke should fail');
-    // Verify still active for family A
+    // Verify still active for family A (by id; token no longer exposed
+    // in listing post-migration 030).
     const aActive = repos.family.listActiveInvitations(famA.id);
-    assert.ok(aActive.some((i) => i.token === 'tok-rev'));
+    assert.ok(aActive.some((i) => i.id === inv.id));
   });
 });

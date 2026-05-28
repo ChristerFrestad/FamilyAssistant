@@ -20,10 +20,11 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
+// Migration 030: the listing-shape Invitation no longer carries
+// `token`/`url`. The pending-list UI never rendered them anyway —
+// the fixture drops both fields so the type-check is happy.
 const SAMPLE: Invitation = {
   id: 7,
-  token: 'tok-7',
-  url: '/v2/invite/tok-7',
   assignedRole: 'adult',
   profileMemberId: null,
   invitedEmail: 'invitee@test.no',

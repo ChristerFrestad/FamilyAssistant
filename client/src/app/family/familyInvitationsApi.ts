@@ -35,10 +35,12 @@ export class FamilyInvitationsApiError extends Error {
 export type InvitationLocale = 'no' | 'en';
 export type InvitationRole = 'adult' | 'child';
 
+// Listing shape (GET /api/family/invitations). Post-migration 030 the
+// plain token is unrecoverable after creation (sha256 at rest), so the
+// listing endpoint deliberately omits both `token` and `url`. The
+// pending-invitations UI uses only id/email/dates anyway.
 export interface Invitation {
   id: number;
-  token: string;
-  url: string;
   assignedRole: InvitationRole;
   profileMemberId: number | null;
   invitedEmail: string | null;
@@ -46,6 +48,15 @@ export interface Invitation {
   locale: InvitationLocale;
   expiresAt: string;
   createdAt: string;
+}
+
+// One-shot create- and resend-response shape. Carries the plain token
+// and the share-URL — these are the only moments the plain token
+// exists in memory, so the caller is responsible for using them
+// immediately (e.g. send the email, copy to clipboard).
+export interface InvitationWithSecret extends Invitation {
+  token: string;
+  url: string;
 }
 
 export interface CreateInvitationRequest {
@@ -57,7 +68,7 @@ export interface CreateInvitationRequest {
 
 export interface CreateInvitationResponse {
   ok: true;
-  invitation: Invitation;
+  invitation: InvitationWithSecret;
 }
 
 export interface ListInvitationsResponse {

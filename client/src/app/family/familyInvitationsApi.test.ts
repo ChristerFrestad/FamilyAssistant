@@ -112,13 +112,14 @@ describe('createInvitation', () => {
 
 describe('listInvitations', () => {
   test('GETs /api/family/invitations and returns invitations array', async () => {
+    // Migration 030: the listing endpoint no longer carries `token`
+    // or `url` (sha256 at rest, plain unrecoverable). Mock reflects
+    // the actual response shape.
     fetchSpy.mockResolvedValueOnce(
       jsonResponse(200, {
         invitations: [
           {
             id: 1,
-            token: 't1',
-            url: '/v2/invite/t1',
             assignedRole: 'adult',
             profileMemberId: null,
             invitedEmail: 'a@test.no',

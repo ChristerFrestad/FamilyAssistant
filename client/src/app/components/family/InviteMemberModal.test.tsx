@@ -13,7 +13,7 @@
 import { test, expect, vi, describe, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { InviteMemberModal } from './InviteMemberModal';
-import type { Invitation } from '../../family/familyInvitationsApi';
+import type { InvitationWithSecret } from '../../family/familyInvitationsApi';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -22,7 +22,11 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
-const SAMPLE_INVITATION: Invitation = {
+// Migration 030: the create-response carries `token` + `url` one-shot
+// (InvitationWithSecret), while the listing-shape Invitation does not.
+// SAMPLE here mocks the create-response, so InvitationWithSecret is
+// the right type.
+const SAMPLE_INVITATION: InvitationWithSecret = {
   id: 1,
   token: 'tok',
   url: '/v2/invite/tok',

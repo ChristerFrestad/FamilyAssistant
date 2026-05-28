@@ -1,0 +1,46 @@
+-- Migration 030: hash family-invitation tokens at rest
+--                 (defense-in-depth, mirrors migration 022)
+--
+-- Background. Sprint 9 (PR #119) introduced the family-invitation
+-- flow with `family_invitations.token` stored as plain text. The
+-- token has 256 bits of entropy and a 7-day TTL but operator-level
+-- DB read access enabled token replay before expiry — same threat
+-- vector that magic-link tokens addressed via migration 022.
+--
+-- This migration is pilot-safe (Christer-only operator) but closes
+-- the window before any flow that puts the DB file in less trusted
+-- hands: support copy, backup leak, future managed/SaaS offering,
+-- or multi-tenant deploy where each new operator gains read access
+-- to their own DB but is not necessarily fully trusted.
+--
+-- Design:
+--   * The token sent to the invited user (via email link or copy-
+--     paste URL returned in the create-response) stays a 256-bit
+--     random string. Only SHA-256(token) is stored server-side as
+--     the lookup key. Hash is deterministic so the accept-handler
+--     can hash an incoming token and look it up the same way.
+--   * Column is renamed `token` -> `token_hash` to make the storage
+--     contract explicit. SQLite >= 3.25 supports `ALTER TABLE …
+--     RENAME COLUMN`; better-sqlite3 12.x ships with SQLite >= 3.49.
+--   * Existing rows from before this migration would have unusable
+--     plain-text values (no longer match the hash-based lookup),
+--     so we truncate the table as part of the migration. The side
+--     effect is that any in-flight invitations sent immediately
+--     before deploy stop working; the owner can re-send.
+--   * Behaviour change in GET /api/family/invitations: the response
+--     no longer carries `token` or `url` for listed invitations.
+--     The plain token is irrecoverable after creation, so any
+--     attempt to expose it from the listing endpoint would either
+--     leak the hash (broken — the accept route would re-hash and
+--     find nothing) or require a different storage strategy
+--     (encrypt-at-rest with ENCRYPTION_KEY, deliberately rejected
+--     here as overkill for the threat model). The owner-facing
+--     pending-list UI does not render the URL anyway; the original
+--     copy-affordance was tied to the create-response one-shot.
+
+DELETE FROM family_invitations;
+ALTER TABLE family_invitations RENAME COLUMN token TO token_hash;
+
+-- Existing indexes were on family_id / invited_email / expires_at;
+-- none referenced the column we just renamed, so no index work is
+-- needed here.
