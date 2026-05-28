@@ -54,25 +54,25 @@ describe('appName default', () => {
 
 describe('appName override (white-label deploys)', () => {
   test('addResource on common.appName flips Norwegian resolution', () => {
-    i18n.addResource('no', 'common', 'appName', 'Hverdagsplanleggeren');
-    expect(i18n.t('common:appName')).toBe('Hverdagsplanleggeren');
+    i18n.addResource('no', 'common', 'appName', 'Husby');
+    expect(i18n.t('common:appName')).toBe('Husby');
   });
 
   test('addResource on common.appName flips English resolution', () => {
-    i18n.addResource('en', 'common', 'appName', 'Hverdagsplanleggeren');
+    i18n.addResource('en', 'common', 'appName', 'Husby');
     i18n.changeLanguage('en');
-    expect(i18n.t('common:appName')).toBe('Hverdagsplanleggeren');
+    expect(i18n.t('common:appName')).toBe('Husby');
   });
 
   test('logoLabel interpolation picks up the override', () => {
-    i18n.addResource('no', 'common', 'appName', 'Hverdagsplanleggeren');
-    expect(i18n.t('common:appShell.logoLabel')).toBe('Hverdagsplanleggeren — til startsiden');
+    i18n.addResource('no', 'common', 'appName', 'Husby');
+    expect(i18n.t('common:appShell.logoLabel')).toBe('Husby — til startsiden');
   });
 
   test('overriding both languages keeps key parity (no missing key on either side)', () => {
-    i18n.addResource('no', 'common', 'appName', 'Hverdagsplanleggeren');
-    i18n.addResource('en', 'common', 'appName', 'Hverdagsplanleggeren');
-    expect(i18n.t('common:appName', { lng: 'no' })).toBe('Hverdagsplanleggeren');
-    expect(i18n.t('common:appName', { lng: 'en' })).toBe('Hverdagsplanleggeren');
+    i18n.addResource('no', 'common', 'appName', 'Husby');
+    i18n.addResource('en', 'common', 'appName', 'Husby');
+    expect(i18n.t('common:appName', { lng: 'no' })).toBe('Husby');
+    expect(i18n.t('common:appName', { lng: 'en' })).toBe('Husby');
   });
 });

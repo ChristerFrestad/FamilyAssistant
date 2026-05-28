@@ -69,20 +69,20 @@ describe('Branding routes · /api/config', () => {
     }
   });
 
-  test('returns Hverdagsplanleggeren when env overrides are set', async () => {
+  test('returns Husby when env overrides are set', async () => {
     const { server, request, restore } = await startServerWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
-      APP_NAME_PRIMARY: 'Hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'Husby',
+      APP_NAME_PRIMARY: 'Hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'h',
       APP_TAGLINE: 'Planlegg middag, gjøremål og familie',
     });
     try {
       const r = await request(server.baseUrl, 'GET', '/api/config', {});
       assert.equal(r.status, 200);
-      assert.equal(r.body.appName, 'Hverdagsplanleggeren');
-      assert.equal(r.body.namePrimary, 'Hverdags');
-      assert.equal(r.body.nameAccent, 'planleggeren');
+      assert.equal(r.body.appName, 'Husby');
+      assert.equal(r.body.namePrimary, 'Hus');
+      assert.equal(r.body.nameAccent, 'by');
       assert.equal(r.body.faviconLetter, 'h');
       assert.equal(r.body.tagline, 'Planlegg middag, gjøremål og familie');
     } finally {

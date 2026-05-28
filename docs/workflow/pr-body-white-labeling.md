@@ -4,7 +4,7 @@ Sprint 2.5 — kort arkitektur-fase mellom Fase 1d (App-shell) og Prompt 5 (Auth
 
 ## Hvorfor
 
-FamilyAssistant er open-source. Forks som Christer's pilot på `hverdagsplanleggeren.com` skal kunne bytte ut produktnavnet i hver bruker-vendt streng (header, login-skjerm, magic-link-e-post, page-title) uten å vedlikeholde en patch-fork. Mønsteret må også sikre at framtidige feature-tekster bruker samme white-label-vei fra første commit.
+FamilyAssistant er open-source. Forks som Christer's pilot på `familyassistant.com` skal kunne bytte ut produktnavnet i hver bruker-vendt streng (header, login-skjerm, magic-link-e-post, page-title) uten å vedlikeholde en patch-fork. Mønsteret må også sikre at framtidige feature-tekster bruker samme white-label-vei fra første commit.
 
 ## Hva — to ENV-vars
 
@@ -39,11 +39,11 @@ Begge skal settes til samme verdi i en deploy. Frontend leser sin egen via `impo
 
 ### Konfig + docs
 
-- **`.env.example`**: ny "White-label (valgfritt)"-seksjon med begge variabler + Hverdagsplanleggeren-eksempel. Også `ALLOWED_ORIGINS`-eksempel oppdatert fra `familieassistenten.local` til `familyassistant.local`.
+- **`.env.example`**: ny "White-label (valgfritt)"-seksjon med begge variabler + Husby-eksempel. Også `ALLOWED_ORIGINS`-eksempel oppdatert fra `familieassistenten.local` til `familyassistant.local`.
 - **`.env.local`** (gitignored, ikke i PR): Christer's instans-config:
   ```
-  VITE_APP_NAME=Hverdagsplanleggeren
-  APP_NAME=Hverdagsplanleggeren
+  VITE_APP_NAME=Husby
+  APP_NAME=Husby
   ```
 - **`CLAUDE.md` DEL 7.12** (ny): full white-label-policy med scope-tabell.
 - **`README.md`**: ny "Branding (white-label)"-seksjon med peker til CLAUDE.md.
@@ -53,7 +53,7 @@ Begge skal settes til samme verdi i en deploy. Frontend leser sin egen via `impo
 | Fil | Tester | Tema |
 |-----|-------:|------|
 | `client/src/app/i18n/app-name.test.ts` | **7** | Default i NO + EN + logoLabel-interpolering, override via `addResource` på begge språk + parity |
-| `tests/email-service-app-name.test.js` | **3** | Default subject "Logg inn på FamilyAssistant", override "Logg inn på Hverdagsplanleggeren", HTML-escape som defense-in-depth |
+| `tests/email-service-app-name.test.js` | **3** | Default subject "Logg inn på FamilyAssistant", override "Logg inn på Husby", HTML-escape som defense-in-depth |
 | `AppShell.test.tsx`, `screens.test.tsx` | (oppdatert) | Resolved appName "FamilyAssistant" i test-env |
 
 **Sum:** +10 nye tester. Klient: 250 → **257**. Server: 1306 → **1309**.
@@ -69,15 +69,15 @@ npm run dev:client
 
 **Lokalt med override (.env.local satt):**
 ```bash
-# .env.local inneholder VITE_APP_NAME=Hverdagsplanleggeren
+# .env.local inneholder VITE_APP_NAME=Husby
 npm run dev:client
-# Header skal vise "Hverdagsplanleggeren"
-# Bytt språk — fortsatt "Hverdagsplanleggeren"
+# Header skal vise "Husby"
+# Bytt språk — fortsatt "Husby"
 ```
 
 **Backend e-post-test:**
 ```bash
-APP_NAME=Hverdagsplanleggeren npm test -- email-service-app-name
+APP_NAME=Husby npm test -- email-service-app-name
 # Verifiserer at sendMagicLinkEmail bruker overstyrt APP_NAME
 ```
 
@@ -95,8 +95,8 @@ APP_NAME=Hverdagsplanleggeren npm test -- email-service-app-name
 
 ```bash
 # .env.local (gitignored)
-VITE_APP_NAME=Hverdagsplanleggeren
-APP_NAME=Hverdagsplanleggeren
+VITE_APP_NAME=Husby
+APP_NAME=Husby
 ```
 
 Begge SKAL være identiske. Frontend og backend leser hver sin variabel — divergens vil føre til at e-post sier én ting og web-grensesnittet noe annet.

@@ -81,7 +81,7 @@
      FamilyAssistant brand. Runtime override via main.tsx
      applyBrandTokens() emits a higher-specificity inline <style>
      tag with values from /api/config so white-label deploys (e.g.
-     Hverdagsplanleggeren) re-color without rebuilding.
+     Husby) re-color without rebuilding.
 
      The seven base tokens below are FIXED-IDENTITY brand colors —
      used wherever the brand-color appears regardless of the active

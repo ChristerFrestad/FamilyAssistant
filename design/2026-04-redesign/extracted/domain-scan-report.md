@@ -2,14 +2,14 @@
 
 **Scope:** Skanne `server/`, `public/`, `scripts/`, `.github/` og root-
 konfig for hardkodede domener og absolute URL-konstruksjoner. Mål: sikre
-at domene-bytte (fra f.eks. `hverdagsplanleggeren.com` til noe annet)
+at domene-bytte (fra f.eks. `familyassistant.com` til noe annet)
 er konfig-drevet, ikke kode-endring.
 
 **Dato:** 2026-04-23. **Branch:** `analysis/frontend-redesign-2026-04`.
 
 **TL;DR:** Eksisterende kodebase bruker allerede `APP_URL` som primær
 domene-nøkkel for OAuth, magic-link, og invitasjoner. Det er **ingen
-forekomster av `hverdagsplanleggeren`** i koden. Hovedrisikoen er at
+forekomster av `familyassistant`** i koden. Hovedrisikoen er at
 frontend og andre hjelpe-verktøy bygger URLer løst eller bruker
 placeholders som kan bli misvisende. Anbefalt: en sentralisert
 `urlBuilder`-utility + klient-side sanering.
@@ -39,8 +39,8 @@ er allerede domene-uavhengig.
 kan ha `APP_URL=https://familieassistenten.local` men også akseptere
 forespørsler fra `https://raspberrypi.local`. Designet støtter dette.
 
-### 1.3 Ingen forekomster av `hverdagsplanleggeren`
-`grep -R "hverdagsplanleggeren" .` returnerer null treff. Domenet er
+### 1.3 Ingen forekomster av `familyassistant`
+`grep -R "familyassistant" .` returnerer null treff. Domenet er
 ikke embedded noen steder — ren konfig via `APP_URL`.
 
 ### 1.4 `public/manifest.json` bruker relative paths

@@ -2,9 +2,9 @@
 
 **Slug:** `2026-05-05-sprint-10-white-label-brand`
 **Branch:** `feat/sprint-10-white-label-brand`
-**Trigger:** Pilot-bruker (kona) skal onboardes til Hverdagsplanleggeren-
+**Trigger:** Pilot-bruker (kona) skal onboardes til Husby-
 instansen. White-label-mekanikken fra DEL 7.12 fungerer ikke ende-til-
-ende: server-side `APP_NAME=Hverdagsplanleggeren` virker for email-
+ende: server-side `APP_NAME=Husby` virker for email-
 subject/body, men frontend viser "FamilyAssistant" fordi
 `VITE_APP_NAME` er en build-time-variabel som ikke ble satt i
 GHCR-imaget. Sprint 10 flytter brand-config til runtime via
@@ -18,11 +18,11 @@ til et komplett brand-system (wordmark, favicon, email-redesign).
 ### 1.A — Operatør deployer en ny brand-instans
 
 1. Operatør setter env-vars i Portainer
-   1.1. `APP_NAME=Hverdagsplanleggeren`
+   1.1. `APP_NAME=Husby`
    1.2. `APP_NAME_PRIMARY=Hverdags`, `APP_NAME_ACCENT=planleggeren`
    1.3. `APP_FAVICON_LETTER=h`
    1.4. `APP_TAGLINE=Planlegg middag, gjøremål og familie`
-   1.5. `RESEND_FROM=Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>`
+   1.5. `RESEND_FROM=Husby <noreply@familyassistant.com>`
 2. Container starter
    2.1. Zod validerer alle env-vars; defaults reflekterer FamilyAssistant
    2.2. Cross-validation kjører: `APP_NAME_PRIMARY+APP_NAME_ACCENT` vs
@@ -38,7 +38,7 @@ til et komplett brand-system (wordmark, favicon, email-redesign).
    3.5. CSS-tokens (`--brand-primary`, `--brand-accent`) oppdateres
         via inline `<style>`-injeksjon
 4. Bruker ser
-   4.1. Browser-tab: "Hverdagsplanleggeren" (ikke "FamilyAssistant — v2")
+   4.1. Browser-tab: "Husby" (ikke "FamilyAssistant — v2")
    4.2. Favicon: bokstaven "h" på mørkegrønn med salviegrønn prikk
    4.3. AppShell-header: `<Wordmark />` rendrer "Hverdags" + "planleggeren"
         med fargedeling
@@ -58,7 +58,7 @@ til et komplett brand-system (wordmark, favicon, email-redesign).
 
 ### 1.C — Bruker bytter brand-instans (samme image, ulike domener)
 
-1. Domener: `hverdagsplanleggeren.com` og `familyassistant.com` peker
+1. Domener: `familyassistant.com` og `familyassistant.com` peker
    til samme Docker-image men ulike Portainer-stacks med ulike env-vars
 2. Hver stack starter sin egen container; brand-config kommer fra
    stackens env-vars
@@ -223,7 +223,7 @@ til et komplett brand-system (wordmark, favicon, email-redesign).
     'common', 'appName', config.appName)` ved mount.
 13. **Privacy/terms-sider hardkodet:** `public/privacy.html` viser
     "FamilyAssistant" / "Familieassistenten" for default-deploy. For
-    Hverdagsplanleggeren er det misvisende. Se Beslutning B7.
+    Husby er det misvisende. Se Beslutning B7.
 14. **VITE_APP_NAME backward-compat:** Eksisterende deploys med
     `VITE_APP_NAME` satt vil fortsatt fungere som override hvis vi
     holder på det. Ny mekanisme tar prioritet.
@@ -256,7 +256,7 @@ til et komplett brand-system (wordmark, favicon, email-redesign).
   - `tests/brand-config-validation.test.js` (ny — cross-validation)
   - `tests/branding-routes.test.js` (ny — favicon, logo-mark, config, manifest)
   - `tests/email-service-app-name.test.js` (utvid)
-  - `tests/email-snapshot-hverdagsplanleggeren.test.js` (ny — snapshot)
+  - `tests/email-snapshot-husby.test.js` (ny — snapshot)
   - `tests/email-snapshot-familyassistant.test.js` (ny — snapshot)
   - Frontend: `Wordmark.test.tsx`, `useBrandConfig.test.ts`
   - E2E: `tests/e2e-white-label-isolation.test.js` (ny)
@@ -381,13 +381,13 @@ forvente fil-baserte templates.
 **ANBEFALING:** **Ikke endre i denne PR-en.** Logg som tech-debt
 (post-pilot). Pilot-bruker (kona) ser disse sidene som
 "FamilyAssistant"-merke selv om resten av appen er
-"Hverdagsplanleggeren". Personvernerklæringen er juridisk dokument
-som krever Christer's review uansett før "Hverdagsplanleggeren"-
+"Husby". Personvernerklæringen er juridisk dokument
+som krever Christer's review uansett før "Husby"-
 versjon publiseres.
 
 **HVORFOR:** Personvern + bruksvilkår er juridisk innhold. Direkte
 template-substitusjon kan bryte semantikken (f.eks. "FamilyAssistant
-operates as private owner..." byttes til "Hverdagsplanleggeren
+operates as private owner..." byttes til "Husby
 operates as..." — krever juridisk re-vurdering). Pilot-scope er
 intern bruk; juridisk publisering er post-pilot.
 

@@ -175,7 +175,7 @@ choice.
 
 ### BR-BRAND-1: Brand config comes only from env variables
 
-**What:** Each white-label instance (Hverdagsplanleggeren,
+**What:** Each white-label instance (Husby,
 FamilyAssistant, and future ones) gets brand config (app name,
 wordmark split, favicon letter, tagline, primary/accent/dot colors)
 from eight env variables. No hardcoded app names, taglines, or
@@ -238,7 +238,7 @@ via env.
    no `'FamilyAssistant'` fallback during cold load
 3. When config arrives: `<span style="color:primary">{namePrimary}</span><span style="color:accent">{nameAccent}</span>`
 4. `aria-label` is set to the concatenation so screen-readers read
-   "Hverdagsplanleggeren" as one word
+   "Husby" as one word
 
 **Affected files:**
 - `client/src/app/components/brand/Wordmark.tsx`

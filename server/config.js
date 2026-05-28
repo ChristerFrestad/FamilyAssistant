@@ -13,8 +13,8 @@ const envSchema = z.object({
   // White-label brand-config. Sprint 10 (PR #122) made these runtime
   // env-vars and removed the old build-time-only VITE_APP_NAME path.
   // Defaults reflect the open-source FamilyAssistant brand. Operators
-  // that run their own brand (e.g. Christer's Hverdagsplanleggeren
-  // pilot) override every field below in their Portainer stack so the
+  // that run their own brand (e.g. the canonical Husby white-label
+  // example) override every field below in their Portainer stack so the
   // same image serves any brand without rebuilding.
   //
   // See docs/BRAND_SYSTEM.md for design rules and

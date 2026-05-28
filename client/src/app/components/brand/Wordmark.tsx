@@ -6,7 +6,7 @@
 // first paint), the component renders an invisible width-reserved
 // placeholder so the layout doesn't shift when the real wordmark
 // resolves — better than rendering "FamilyAssistant" briefly for a
-// Hverdagsplanleggeren-deploy.
+// Husby-deploy.
 //
 // Use cases:
 //   - AppShell logo / "back to home" link
@@ -35,7 +35,7 @@ export interface WordmarkProps {
 
 // Per-size metrics. Christer's verification flagged that a hardcoded
 // minWidth lies about the actual brand width — "FamilyAssistant" at
-// md=26px is roughly 195px, "Hverdagsplanleggeren" is roughly 260px.
+// md=26px is roughly 195px, "Husby" is roughly 65px.
 // Reserving a fixed 130px placeholder either oversizes the FOUC for
 // short brands or under-reserves for long ones, both visually wrong.
 //

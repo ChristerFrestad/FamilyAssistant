@@ -2,7 +2,7 @@
 //
 // `tokens.css` ships defaults that match the FamilyAssistant brand
 // (--brand-primary: #1F3F26, etc.). For deploys that override the
-// brand at runtime (Hverdagsplanleggeren and friends) we re-emit the
+// brand at runtime (Husby and friends) we re-emit the
 // token block from the /api/config response and inject it as an
 // inline <style> tag in <head>. CSS custom-property cascading lets
 // the runtime override beat the static defaults without rewriting

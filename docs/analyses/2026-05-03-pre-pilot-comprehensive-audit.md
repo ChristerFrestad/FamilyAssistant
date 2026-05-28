@@ -65,7 +65,7 @@ forbedringer.
    disse er ferdige eller anerkjenn at pilot er "kun for Christer's
    familie" og GDPR-eksponering er minimal.
 9. **H6 — Cloudflare Tunnel + custom domene er ikke aktivert.**
-   `app.hverdagsplanleggeren.com` finnes ikke ennå. Pilot-flyten
+   `app.familyassistant.com` finnes ikke ennå. Pilot-flyten
    krever beslutning: LAN-only via Tailscale, eller aktivere
    Tunnel før 13. mai?
 10. **H7 — Backup-verifisering.** Backup kjører automatisk til
@@ -301,7 +301,7 @@ family_id=1 (som er orphan). Beslutning C1 er beslektet.
 
 **Anbefaling:** Verifiser at pilot-deploy enten har gyldig
 `AUTH_TOKEN` (RPi-mode) eller at `SESSION_SECRET` er satt og
-`hverdagsplanleggeren.com` ikke er åpen mot internett før session
+`familyassistant.com` ikke er åpen mot internett før session
 er etablert. Bootstrap-wizard genererer begge ved første run, så
 dette er sannsynligvis allerede OK.
 
@@ -602,7 +602,7 @@ fange hardkodet norsk, men er ikke aktivert.
 
 `VITE_APP_NAME` (frontend) + `APP_NAME` (backend) støttes. Default
 = `FamilyAssistant`. Christer setter
-`VITE_APP_NAME=Hverdagsplanleggeren` i prod-env.
+`VITE_APP_NAME=Husby` i prod-env.
 `tests/email-service-app-name.test.js` +
 `client/src/app/i18n/app-name.test.ts` håndhever pattern.
 
@@ -646,7 +646,7 @@ HTTP). Etter wizard er fullført, aktiver Caddy + sett
 ### 8.2 Cloudflare Tunnel — **IKKE AKTIVERT**
 
 **HIGH-issue H6.** Repoet har ingen `cloudflared`-konfig i
-`docker-compose.yml`. `app.hverdagsplanleggeren.com` er ikke koblet
+`docker-compose.yml`. `app.familyassistant.com` er ikke koblet
 til pilot-RPi.
 
 **Beslutning kreves:** For pilot 13. mai:
@@ -655,10 +655,10 @@ til pilot-RPi.
 |---|---|---|
 | **A: LAN-only via Tailscale** (Christer's Mac/Mobil → RPi via Tailscale-IP) | Lav; allerede setup | 0 timer |
 | **B: Aktiver Cloudflare Tunnel før pilot** | Medium (DNS, cert, første-deploy) | 2–4 timer |
-| **C: Utsett Tunnel til post-pilot** | Lav | 0 timer (men `hverdagsplanleggeren.com` blir ubrukt) |
+| **C: Utsett Tunnel til post-pilot** | Lav | 0 timer (men `familyassistant.com` blir ubrukt) |
 
 **Anbefaling: A eller C.** Pilot er for Christer's egen familie —
-LAN/Tailscale er nok. `app.hverdagsplanleggeren.com` aktiveres
+LAN/Tailscale er nok. `app.familyassistant.com` aktiveres
 post-pilot når flere familier skal joine.
 
 ### 8.3 RPi5-spesifikt — **OK**
@@ -1100,7 +1100,7 @@ gjør én manuell restore-test før pilot. Estimat: 30 min.
 | **H3** | Calendar-skjerm er placeholder | Ingen kalender i pilot | 0 (acceptable) eller 8t |
 | **H4** | Settings: 5 disabled "Coming soon"-rows | UX-forventning | 0 (acceptable) |
 | **H5** | Privacy + terms-tekst stemmer ikke med faktisk drift (Backblaze B2, Sentry, Google OAuth nevnes men er ikke aktivert) | GDPR-presisjon | 20 min (rens dokumenter) eller aktiver tjenestene |
-| **H6** | Cloudflare Tunnel ikke aktivert | hverdagsplanleggeren.com peker ingensteder | 0 (LAN-only OK) eller 4t |
+| **H6** | Cloudflare Tunnel ikke aktivert | familyassistant.com peker ingensteder | 0 (LAN-only OK) eller 4t |
 | **H7** | Backup-restore ikke testet | Recovery-risk hvis pilot-DB korruptes | 30 min |
 | **H8** | Sentry ikke aktivert | Manglende error-monitoring | 15 min |
 

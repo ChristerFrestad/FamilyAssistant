@@ -9,7 +9,7 @@
 - RPi5 8 GB with Raspberry Pi OS Lite (64-bit)
 - Docker + Docker Compose installed
 - Portainer CE installed (port 9000)
-- Cloudflare account + tunnel configured to `app.hverdagsplanleggeren.com`
+- Cloudflare account + tunnel configured to `app.familyassistant.com`
 - Persistent volume mounted at `/srv/familyassistant-data/`
 
 ## Step 1 — Volume setup (one-time)
@@ -42,17 +42,17 @@ volumes:
 |---|---|---|
 | `NODE_ENV` | `production` | |
 | `PORT` | `7777` | Internal listen port |
-| `APP_URL` | `https://app.hverdagsplanleggeren.com` | For magic-link absolute URLs |
-| `APP_NAME` | `Hverdagsplanleggeren` | White-label (AGENTS.md DEL 7.12) |
+| `APP_URL` | `https://app.familyassistant.com` | For magic-link absolute URLs |
+| `APP_NAME` | `Husby` | White-label (AGENTS.md DEL 7.12) |
 | `PILOT_MODE` | `true` | Enables pre-auth gate |
 | `PILOT_PASSWORD` | `<chosen-string>` | Pilot user receives this separately |
 | `APP_ADMIN_EMAIL` | `admin@example.com` | Admin-bootstrap target — first user matching this email becomes admin |
 | `RESEND_API_KEY` | `<from Resend dashboard>` | Magic-link email |
-| `RESEND_FROM` | `noreply@hverdagsplanleggeren.com` | Verified sender domain |
+| `RESEND_FROM` | `noreply@familyassistant.com` | Verified sender domain |
 | `SESSION_SECRET` | `<openssl rand -hex 32>` | Or let the wizard generate |
 | `AUTH_TOKEN` | (leave empty) | Bootstrap wizard generates |
 | `BOOTSTRAP_ALLOWED` | `true` | (already set in compose) |
-| `ALLOWED_ORIGINS` | `https://app.hverdagsplanleggeren.com` | CORS strict |
+| `ALLOWED_ORIGINS` | `https://app.familyassistant.com` | CORS strict |
 | `HTTPS_TERMINATED` | `true` (Cloudflare) / `false` (LAN) | See "HTTPS_TERMINATED Guidance" below |
 | `TRUST_PROXY` | `true` | For real client IP |
 
@@ -75,7 +75,7 @@ volumes:
 
 In the Cloudflare Zero Trust dashboard:
 1. Create tunnel `familyassistant-pilot`
-2. Public hostname: `app.hverdagsplanleggeren.com` → `http://<RPi-IP>:7777`
+2. Public hostname: `app.familyassistant.com` → `http://<RPi-IP>:7777`
 3. Copy the tunnel token (does not go in compose; runs as a separate service)
 
 On the RPi:
@@ -97,28 +97,28 @@ Wait for the healthcheck to turn green (~30 sec). Check the logs in Portainer.
 curl http://<RPi-IP>:7777/health
 
 # Via Cloudflare Tunnel
-curl https://app.hverdagsplanleggeren.com/health
+curl https://app.familyassistant.com/health
 ```
 
 Should return `{"status":"ok",...}`.
 
 Test the pilot gate:
 ```bash
-curl -i https://app.hverdagsplanleggeren.com/api/pilot/status
+curl -i https://app.familyassistant.com/api/pilot/status
 # → { pilotMode: true, pilotAuthenticated: false }
 
-curl -i -X POST https://app.hverdagsplanleggeren.com/api/auth/pilot-password \
+curl -i -X POST https://app.familyassistant.com/api/auth/pilot-password \
   -H 'Content-Type: application/json' \
   -d '{"password":"WRONG"}'
 # → 401 + { code: "wrong_password", attemptsRemaining: 4 }
 
-curl -i -X POST https://app.hverdagsplanleggeren.com/api/auth/pilot-password \
+curl -i -X POST https://app.familyassistant.com/api/auth/pilot-password \
   -H 'Content-Type: application/json' \
   -d '{"password":"<actual-password>"}'
 # → 200 + Set-Cookie: fa_pilot=...
 ```
 
-Open `https://app.hverdagsplanleggeren.com/v2/` in a browser → you see the PilotPasswordGate.
+Open `https://app.familyassistant.com/v2/` in a browser → you see the PilotPasswordGate.
 
 ## Step 7 — Onboarding
 
@@ -169,7 +169,7 @@ node scripts/cleanup-orphan-family-1.js            # execute
 - [ ] /api/pilot/status returns `pilotMode: true`
 - [ ] /v2/ shows the PilotPasswordGate
 - [ ] The correct password sets the cookie and lets the user through
-- [ ] Magic-link email arrives from `noreply@hverdagsplanleggeren.com`
+- [ ] Magic-link email arrives from `noreply@familyassistant.com`
 - [ ] Christer becomes admin on the first onboarding
 - [ ] Backup cron runs at 03:00 UTC (check the next day)
 

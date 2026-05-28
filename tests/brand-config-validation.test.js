@@ -59,14 +59,14 @@ describe('Brand config · cross-validation', () => {
     }
   });
 
-  test('Hverdagsplanleggeren full set produces zero warnings', () => {
+  test('Husby full set produces zero warnings', () => {
     const { config, restore } = loadConfigWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
-      APP_NAME_PRIMARY: 'Hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'Husby',
+      APP_NAME_PRIMARY: 'Hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'h',
       APP_TAGLINE: 'Planlegg middag, gjøremål og familie',
-      RESEND_FROM: 'Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>',
+      RESEND_FROM: 'Husby <noreply@familyassistant.com>',
     });
     try {
       assert.deepStrictEqual(config.BRAND_WARNINGS, []);
@@ -77,7 +77,7 @@ describe('Brand config · cross-validation', () => {
 
   test('APP_NAME mismatch with PRIMARY+ACCENT produces a warning', () => {
     const { config, restore } = loadConfigWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
+      APP_NAME: 'Husby',
       APP_NAME_PRIMARY: 'Some',
       APP_NAME_ACCENT: 'thing',
       APP_FAVICON_LETTER: 'S',
@@ -92,9 +92,9 @@ describe('Brand config · cross-validation', () => {
 
   test('APP_FAVICON_LETTER mismatch with PRIMARY[0] produces a warning', () => {
     const { config, restore } = loadConfigWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
-      APP_NAME_PRIMARY: 'Hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'Husby',
+      APP_NAME_PRIMARY: 'Hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'X',
     });
     try {
@@ -124,9 +124,9 @@ describe('Brand config · cross-validation', () => {
 
   test('Cross-check is case-insensitive', () => {
     const { config, restore } = loadConfigWithEnv({
-      APP_NAME: 'HVERDAGSPLANLEGGEREN',
-      APP_NAME_PRIMARY: 'hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'HUSBY',
+      APP_NAME_PRIMARY: 'hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'H',
     });
     try {
@@ -138,9 +138,9 @@ describe('Brand config · cross-validation', () => {
 
   test('RESEND_FROM mismatch with APP_NAME produces a warning', () => {
     const { config, restore } = loadConfigWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
-      APP_NAME_PRIMARY: 'Hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'Husby',
+      APP_NAME_PRIMARY: 'Hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'h',
       RESEND_FROM: 'FamilyAssistant <noreply@example.com>',
     });
@@ -148,7 +148,7 @@ describe('Brand config · cross-validation', () => {
       assert.equal(config.BRAND_WARNINGS.length, 1);
       assert.match(config.BRAND_WARNINGS[0], /RESEND_FROM display-name/);
       assert.match(config.BRAND_WARNINGS[0], /FamilyAssistant/);
-      assert.match(config.BRAND_WARNINGS[0], /Hverdagsplanleggeren/);
+      assert.match(config.BRAND_WARNINGS[0], /Husby/);
     } finally {
       restore();
     }
@@ -156,9 +156,9 @@ describe('Brand config · cross-validation', () => {
 
   test('Bare-address RESEND_FROM (no display-name) does not warn', () => {
     const { config, restore } = loadConfigWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
-      APP_NAME_PRIMARY: 'Hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'Husby',
+      APP_NAME_PRIMARY: 'Hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'h',
       RESEND_FROM: 'noreply@example.com',
     });
@@ -171,7 +171,7 @@ describe('Brand config · cross-validation', () => {
 
   test('multiple warnings collected together', () => {
     const { config, restore } = loadConfigWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
+      APP_NAME: 'Husby',
       APP_NAME_PRIMARY: 'Other',
       APP_NAME_ACCENT: 'thing',
       APP_FAVICON_LETTER: 'X',
@@ -233,10 +233,7 @@ describe('parseFromName · RFC 5322 mailbox edge-cases', () => {
   });
 
   test('"Display Name <addr@domain>" returns "Display Name"', () => {
-    assert.equal(
-      parseFromName('Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>'),
-      'Hverdagsplanleggeren'
-    );
+    assert.equal(parseFromName('Husby <noreply@familyassistant.com>'), 'Husby');
   });
 
   test('whitespace-padded display-name is trimmed', () => {

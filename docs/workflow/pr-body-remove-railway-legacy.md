@@ -4,7 +4,7 @@ Sprint 2.6 — fjerner legacy Railway-deploy-arkitektur. Master-planen til pilot
 
 ## Hvorfor
 
-Før denne PR-en hadde repoet to deploy-fortellinger ved siden av hverandre: en aktiv Docker/Portainer-vei og en fryst (men eksisterende) Railway-vei med egen `railway.json`, `.github/workflows/deploy.yml` og `DEPLOY.md §15`. Frysingen var dokumentert i CLAUDE.md DEL 6 og holdt Railway-løpet i live "i tilfelle". Med Sprint 2.5 (white-labeling) ferdig og Christer's pilot-deploy fastsatt på `hverdagsplanleggeren.com` via Cloudflare Tunnel, finnes det ingen reell vei fremover som inkluderer Railway. Fortsatt frysing er aktiv vedlikeholdslast uten verdi — det er på tide å rydde.
+Før denne PR-en hadde repoet to deploy-fortellinger ved siden av hverandre: en aktiv Docker/Portainer-vei og en fryst (men eksisterende) Railway-vei med egen `railway.json`, `.github/workflows/deploy.yml` og `DEPLOY.md §15`. Frysingen var dokumentert i CLAUDE.md DEL 6 og holdt Railway-løpet i live "i tilfelle". Med Sprint 2.5 (white-labeling) ferdig og Christer's pilot-deploy fastsatt på `familyassistant.com` via Cloudflare Tunnel, finnes det ingen reell vei fremover som inkluderer Railway. Fortsatt frysing er aktiv vedlikeholdslast uten verdi — det er på tide å rydde.
 
 Multi-tenant auth-koden (`server/auth/`) selv blir IKKE fjernet. Den er fortsatt under utvikling for fremtidige multi-tenant-deploys (mulig sky-comeback senere), bare ikke via Railway. DEL 6-frysing flyttes derfor fra "Railway / multi-tenant frys" til "Multi-tenant auth frys" — samme sikkerhetsnett, mindre forvirrende ramme.
 

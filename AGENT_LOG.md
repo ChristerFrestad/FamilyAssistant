@@ -559,7 +559,7 @@ DEL 7.7 ingen-drive-by-cleanup):
 
 Beslutninger Christer må ta (med anbefaling):
 
-1. Roter pilot-passordet i Portainer-stack `app.hverdagsplanleggeren.com`
+1. Roter pilot-passordet i Portainer-stack `app.familyassistant.com`
    nå (ANBEFALING: gjør det før neste push, uavhengig av om vi
    pusher PR 1-3 før eller etter).
 

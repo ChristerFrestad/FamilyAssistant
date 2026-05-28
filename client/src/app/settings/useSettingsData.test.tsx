@@ -72,7 +72,7 @@ describe('useSettingsData — renameFamily', () => {
       ok: true,
       family: {
         id: 1,
-        name: 'Hverdagsplanleggeren',
+        name: 'Husby',
         ownerUserId: 1,
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-05-01T00:00:00Z',
@@ -85,11 +85,11 @@ describe('useSettingsData — renameFamily', () => {
 
     let success: boolean | undefined;
     await act(async () => {
-      success = await result.current.renameFamily('Hverdagsplanleggeren');
+      success = await result.current.renameFamily('Husby');
     });
     expect(success).toBe(true);
-    expect(renameFn).toHaveBeenCalledWith('Hverdagsplanleggeren');
-    expect(result.current.family?.family.name).toBe('Hverdagsplanleggeren');
+    expect(renameFn).toHaveBeenCalledWith('Husby');
+    expect(result.current.family?.family.name).toBe('Husby');
   });
 
   test('rolls back name on failure', async () => {

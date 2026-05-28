@@ -1,6 +1,6 @@
-# Hverdagsplanleggeren / FamilyAssistant — Brand System
+# FamilyAssistant — Brand System
 
-White-label brand system for the FamilyAssistant platform. Each instance (Hverdagsplanleggeren, FamilyAssistant, and future ones) shares the same structural DNA, but has its own words, letters, and tagline controlled by env.
+White-label brand system for the FamilyAssistant platform. Each instance (FamilyAssistant, Husby, and future ones) shares the same structural DNA, but has its own words, letters, and tagline controlled by env.
 
 ## Design principles
 
@@ -24,11 +24,11 @@ White-label brand system for the FamilyAssistant platform. Each instance (Hverda
 
 ## Env variables
 
-| Variable | Default | Example (Hverdagsplanleggeren) |
+| Variable | Default | Example (Husby) |
 |---|---|---|
-| `APP_NAME` | `FamilyAssistant` | `Hverdagsplanleggeren` |
-| `APP_NAME_PRIMARY` | `Family` | `Hverdags` |
-| `APP_NAME_ACCENT` | `Assistant` | `planleggeren` |
+| `APP_NAME` | `FamilyAssistant` | `Husby` |
+| `APP_NAME_PRIMARY` | `Family` | `Hus` |
+| `APP_NAME_ACCENT` | `Assistant` | `by` |
 | `APP_FAVICON_LETTER` | `F` | `h` |
 | `APP_TAGLINE` | `Plan meals, chores and family` | `Planlegg middag, gjøremål og familie` |
 | `APP_PRIMARY_COLOR` | `#1F3F26` | (same) |
@@ -61,7 +61,7 @@ Use `<Wordmark size="md" variant="light" />`. Automatically pulls from `useBrand
 <Wordmark size="lg" />
 
 // Wrong — hardcoded, does not go through config
-<h1>Hverdagsplanleggeren</h1>
+<h1>Husby</h1>
 ```
 
 ### Tagline
@@ -94,9 +94,9 @@ useEffect(() => {
 
 ```json
 {
-  "appName": "Hverdagsplanleggeren",
-  "namePrimary": "Hverdags",
-  "nameAccent": "planleggeren",
+  "appName": "Husby",
+  "namePrimary": "Hus",
+  "nameAccent": "by",
   "faviconLetter": "h",
   "tagline": "Planlegg middag, gjøremål og familie",
   "primaryColor": "#1F3F26",
@@ -130,8 +130,8 @@ CTA button: `background: {{primaryColor}};` — not hardcoded blue.
 ### RESEND_FROM
 
 Set in Portainer per instance:
-- Hverdagsplanleggeren: `RESEND_FROM=Hverdagsplanleggeren <noreply@hverdagsplanleggeren.com>`
-- FamilyAssistant (if deployed): `RESEND_FROM=FamilyAssistant <noreply@familyassistant.com>`
+- FamilyAssistant: `RESEND_FROM=FamilyAssistant <noreply@familyassistant.com>`
+- Husby (example white-label): `RESEND_FROM=Husby <noreply@familyassistant.com>`
 
 Boot warning if `RESEND_FROM` does not match `APP_NAME` in the from-name field.
 
@@ -146,7 +146,7 @@ Boot warning if `RESEND_FROM` does not match `APP_NAME` in the from-name field.
 
 ## New-instance checklist
 
-To launch a third white-label instance (e.g. "Husby"):
+To launch a new white-label instance (e.g. "Husby"):
 
 1. Set env vars in Portainer:
    ```

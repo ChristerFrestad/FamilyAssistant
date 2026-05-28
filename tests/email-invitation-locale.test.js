@@ -61,9 +61,9 @@ function loadEmailServiceWithEnv(envPatch = {}) {
 describe('Email invitation · template rendering', () => {
   test('NO template substitutes recipient + brand variables', () => {
     const { emailService, restore } = loadEmailServiceWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
-      APP_NAME_PRIMARY: 'Hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'Husby',
+      APP_NAME_PRIMARY: 'Hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'h',
       APP_TAGLINE: 'Planlegg middag, gjøremål og familie',
     });
@@ -77,15 +77,15 @@ describe('Email invitation · template rendering', () => {
         expiresInDays: 7,
       });
       assert.match(r.subject, /Christer inviterer deg til Frestad/);
-      assert.match(r.subject, /Hverdagsplanleggeren/);
+      assert.match(r.subject, /Husby/);
       assert.match(r.html, /Bli med i Frestad/);
       // Wordmark header in HTML carries the configured split
-      assert.match(r.html, /<span style="color:#1F3F26;">Hverdags<\/span>/);
-      assert.match(r.html, /<span style="color:#5F8B5C;">planleggeren<\/span>/);
+      assert.match(r.html, /<span style="color:#1F3F26;">Hus<\/span>/);
+      assert.match(r.html, /<span style="color:#5F8B5C;">by<\/span>/);
       assert.match(r.text, /Christer inviterer deg til Frestad/);
       assert.match(r.text, /Lenken er gyldig i 7 dager/);
       // Footer line in plain-text shows brand + tagline
-      assert.match(r.text, /Hverdagsplanleggeren · Planlegg middag/);
+      assert.match(r.text, /Husby · Planlegg middag/);
     } finally {
       restore();
     }
@@ -252,9 +252,9 @@ describe('Email invitation · template rendering', () => {
 
   test('magic-link template renders subject + body with brand', () => {
     const { emailService, restore } = loadEmailServiceWithEnv({
-      APP_NAME: 'Hverdagsplanleggeren',
-      APP_NAME_PRIMARY: 'Hverdags',
-      APP_NAME_ACCENT: 'planleggeren',
+      APP_NAME: 'Husby',
+      APP_NAME_PRIMARY: 'Hus',
+      APP_NAME_ACCENT: 'by',
       APP_FAVICON_LETTER: 'h',
       APP_TAGLINE: 'Planlegg middag, gjøremål og familie',
     });
@@ -263,10 +263,10 @@ describe('Email invitation · template rendering', () => {
         locale: 'no',
         url: 'https://example.com/auth/cb?token=t',
       });
-      assert.equal(r.subject, 'Logg inn på Hverdagsplanleggeren');
-      assert.match(r.text, /Klikk lenken under for å logge inn på Hverdagsplanleggeren\./);
-      assert.match(r.html, /<span style="color:#1F3F26;">Hverdags<\/span>/);
-      assert.match(r.html, /<span style="color:#5F8B5C;">planleggeren<\/span>/);
+      assert.equal(r.subject, 'Logg inn på Husby');
+      assert.match(r.text, /Klikk lenken under for å logge inn på Husby\./);
+      assert.match(r.html, /<span style="color:#1F3F26;">Hus<\/span>/);
+      assert.match(r.html, /<span style="color:#5F8B5C;">by<\/span>/);
     } finally {
       restore();
     }

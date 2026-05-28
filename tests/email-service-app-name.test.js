@@ -84,7 +84,8 @@ test('sendMagicLinkEmail subject defaults to "Logg inn på FamilyAssistant" when
 });
 
 test('sendMagicLinkEmail uses APP_NAME override when set (white-label deploy)', async () => {
-  const { emailService, restore } = loadEmailServiceWithEnv({ APP_NAME: 'Hverdagsplanleggeren' });
+  // Husby is the canonical white-label example.
+  const { emailService, restore } = loadEmailServiceWithEnv({ APP_NAME: 'Husby' });
   try {
     let captured = null;
     emailService.__setSenderForTests((args) => {
@@ -95,9 +96,9 @@ test('sendMagicLinkEmail uses APP_NAME override when set (white-label deploy)', 
       to: 'user@example.com',
       url: 'https://example.com/auth/magic?token=abc',
     });
-    assert.equal(captured.subject, 'Logg inn på Hverdagsplanleggeren');
-    assert.match(captured.text, /Klikk lenken under for å logge inn på Hverdagsplanleggeren\./);
-    assert.match(captured.html, /<h2[^>]*>Logg inn på Hverdagsplanleggeren<\/h2>/);
+    assert.equal(captured.subject, 'Logg inn på Husby');
+    assert.match(captured.text, /Klikk lenken under for å logge inn på Husby\./);
+    assert.match(captured.html, /<h2[^>]*>Logg inn på Husby<\/h2>/);
   } finally {
     restore();
   }
