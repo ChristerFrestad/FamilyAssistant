@@ -26,7 +26,7 @@ Eksempler fra pre-pilot-audit (PR #96):
 
 Disse representerer ikke aktive feil, men de er teknisk gjeld som må
 adresseres systematisk **etter** pilot-launch — ikke under, fordi
-endringer i auth-/observability-stien er fryst per CLAUDE.md DEL 6.
+endringer i auth-/observability-stien er fryst per AGENTS.md DEL 6.
 
 ---
 
@@ -108,7 +108,7 @@ Pilot kjører på Christers RPi5 uten cloud observability. `SENTRY_DSN` er ikke 
   - `SENTRY_DSN` fra `server/config.js`
   - `public/privacy.html`-referanse
 
-**Process-frys:** `server/observability/sentry.js` er listet i CLAUDE.md DEL 6.1 som "fullt frosset". Endring krever eksplisitt Christer-godkjenning. Cleanup-sprint må respektere denne.
+**Process-frys:** `server/observability/sentry.js` er listet i AGENTS.md DEL 6.1 som "fullt frosset". Endring krever eksplisitt Christer-godkjenning. Cleanup-sprint må respektere denne.
 
 **Estimert tid:** 30 min hvis REMOVE (test, dep, config, init, middleware, privacy-html-rad, alle samtidig). 5 min hvis ACTIVATE.
 
@@ -147,7 +147,7 @@ Pilot er kun magic-link via Resend (`MAGIC_LINK_CONSOLE=true` som fallback). Goo
 
 Anbefaling B hvis multi-tenant ikke krever Google. PRIVACY-html må uansett oppdateres for pilot (PR A4) — Google-rad fjernes der.
 
-**Process-frys:** `server/auth/` er per CLAUDE.md DEL 6.1b "soft-thaw" — endring krever Christer-godkjenning per PR. Inkluderer Google-OAuth-koden.
+**Process-frys:** `server/auth/` er per AGENTS.md DEL 6.1b "soft-thaw" — endring krever Christer-godkjenning per PR. Inkluderer Google-OAuth-koden.
 
 **Estimert tid:** 1–2 timer hvis REMOVE (mer en migrasjon enn enkel sletting fordi DB-kolonner finnes). 30 min hvis ACTIVATE (krever ekstern Cloud Console + Christer-tester). 5 min hvis BEHOLDE (kun privacy-html-rensing).
 
@@ -358,7 +358,7 @@ Pino-konfig har ikke vært gjennomgått for produksjon-deployment. Lokal dev-mod
 **Cleanup-handling for post-pilot:**
 1. Audit hvilke andre auth-paths som kun testes uten `AUTH_TOKEN`
 2. Vurdere å introdusere et "production-env" test-suite-flag som setter `AUTH_TOKEN` for at tester skal kjøres mot den faktiske prod-stien
-3. Dokumentere i CLAUDE.md at integration-tester bør dekke begge `AUTH_TOKEN` set/unset varianter
+3. Dokumentere i AGENTS.md at integration-tester bør dekke begge `AUTH_TOKEN` set/unset varianter
 
 **Estimat:** 1–2 timer for prod-env-test-suite + audit av andre auth-paths.
 
@@ -452,7 +452,7 @@ nødvendig for cookie-fix-en.
 
 ---
 
-### Entry 12: Pre-deploy smoke-test for cookie-flow (CLAUDE.md DEL 16)
+### Entry 12: Pre-deploy smoke-test for cookie-flow (AGENTS.md DEL 16)
 
 - **Kategori:** Test-coverage
 - **Severity:** MEDIUM
@@ -471,7 +471,7 @@ adresserte. Vi mangler en pre-deploy-prosedyre som verifiserer
 ende-til-ende at en faktisk Portainer-deploy med produksjons-env
 fungerer for pilot-flowen.
 
-**Foreslått form (CLAUDE.md DEL 16):**
+**Foreslått form (AGENTS.md DEL 16):**
 
 Definer pre-deploy-sjekkliste som kjøres MANUELT av Christer eller
 automatisk av CI mot et test-image:
@@ -492,7 +492,7 @@ automatisk av CI mot et test-image:
 **Cleanup-handling for post-pilot:**
 1. Skriv `scripts/pre-deploy-smoke-test.sh` som kjører ovennevnte
 2. Legg til som GitHub Actions-job som trigger på release-tags
-3. Dokumenter i CLAUDE.md DEL 16 som obligatorisk pre-deploy-step
+3. Dokumenter i AGENTS.md DEL 16 som obligatorisk pre-deploy-step
 4. Vurder å integrere i `docker.yml`-workflow som verify-step
    etter image-build (parallelt med eksisterende v2-bundle-verify)
 
@@ -547,7 +547,7 @@ Faser:
    - `tryServeSpaFallback()` i server.js (kun v2 igjen)
    - DEL 6.1-frosne tester (frontend-auth, family-ui-assets) som
      tester v1 — flytt til v2-ekvivalenter eller slette
-   - Update CLAUDE.md DEL 6.1 til å reflektere ny arkitektur
+   - Update AGENTS.md DEL 6.1 til å reflektere ny arkitektur
 
 4. **Verifisering:**
    - Bundle-size-budsjett (v1 fjerning sparer ~200 KB statisk innhold)
@@ -679,7 +679,7 @@ SaaS-pattern er ren URL: `/login`, `/dashboard`, `/family`.
 **Estimat:** 1-2 dager + grundig testing.
 
 **Risiko:** Medium. Berører Dockerfile + server-routing + Vite-config
-samtidig. Krever ny PORTAINER-RISIKO-review per CLAUDE.md DEL 3 Steg 3b.
+samtidig. Krever ny PORTAINER-RISIKO-review per AGENTS.md DEL 3 Steg 3b.
 
 **Avhengigheter:** Sprint 8 må være merget og pilot-launch fullført før
 denne refactoren startes.

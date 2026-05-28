@@ -16,7 +16,7 @@
 
 - **Aktiv:** Docker → Portainer → RPi5, + andre familier via HAOS/egen Portainer
 - **Følsom kode under utvikling:** multi-tenant auth (`server/auth/`)
-  + observability (`sentry.js`) — se CLAUDE.md DEL 6
+  + observability (`sentry.js`) — se AGENTS.md DEL 6
 - **Fremtidig:** Cloudflare Tunnel + eget domene
   (`hverdagsplanleggeren.com`), internett-produksjon mot pilot
 

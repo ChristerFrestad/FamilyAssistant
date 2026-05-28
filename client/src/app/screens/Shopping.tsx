@@ -88,7 +88,7 @@ function ShoppingListView(): JSX.Element {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
 
   // Currency formatter. Uses Intl per i18n.language to avoid hardcoded
-  // separators (CLAUDE.md DEL 7.11). Norwegian uses NOK; en-US falls
+  // separators (AGENTS.md DEL 7.11). Norwegian uses NOK; en-US falls
   // back to a localized "kr" suffix to match the underlying data.
   const formatPrice = useMemo(() => {
     const lang = i18n.language || 'no';

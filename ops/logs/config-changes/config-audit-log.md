@@ -3,7 +3,7 @@
 This log tracks every edit to a file listed in
 `docs/workflow/config-protected-files.md` while the
 `pre:config-protection` hook is disabled (Fase 1 of the
-config-protection governance model — see `CLAUDE.md` DEL 7.9).
+config-protection governance model — see `AGENTS.md` DEL 7.9).
 
 When Fase 2 lands, the hook itself will resume automatic blocking
 plus codeword-based one-shot bypass with hook-managed audit logging.
@@ -51,7 +51,7 @@ detail. It is NOT a real audit entry. Real entries start in the
 - **Why this change was needed:** Phase 1b.1 surfaced that
   `client/src/**/*.{ts,tsx}` files are not lint-covered at all. New
   client-side code in the upcoming design-system phases must be
-  lint-clean from the first commit per CLAUDE.md DEL 7.7, which
+  lint-clean from the first commit per AGENTS.md DEL 7.7, which
   requires TypeScript-aware linting that this config block enables.
 - **What changed (one-line summary):** Added flat-config block
   registering `@typescript-eslint/parser` + recommended rules and
@@ -82,7 +82,7 @@ detail. It is NOT a real audit entry. Real entries start in the
   `client/src/**/*.{ts,tsx}` files are not lint-covered at all because
   no `files`-pattern in `eslint.config.mjs` matched them. New
   client-side code in the upcoming design-system phases must be
-  lint-clean from the first commit per `CLAUDE.md` DEL 7.7, which
+  lint-clean from the first commit per `AGENTS.md` DEL 7.7, which
   requires TypeScript-aware linting that this config block enables.
 - **What changed (one-line summary):** Added flat-config block
   registering `@typescript-eslint/parser` + recommended rules and

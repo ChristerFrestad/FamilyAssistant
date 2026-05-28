@@ -43,7 +43,7 @@ volumes:
 | `NODE_ENV` | `production` | |
 | `PORT` | `7777` | Internal listen port |
 | `APP_URL` | `https://app.hverdagsplanleggeren.com` | For magic-link absolute URLs |
-| `APP_NAME` | `Hverdagsplanleggeren` | White-label (CLAUDE.md DEL 7.12) |
+| `APP_NAME` | `Hverdagsplanleggeren` | White-label (AGENTS.md DEL 7.12) |
 | `PILOT_MODE` | `true` | Enables pre-auth gate |
 | `PILOT_PASSWORD` | `<chosen-string>` | Pilot user receives this separately |
 | `APP_ADMIN_EMAIL` | `admin@example.com` | Admin-bootstrap target — first user matching this email becomes admin |

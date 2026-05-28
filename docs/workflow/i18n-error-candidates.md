@@ -1,6 +1,6 @@
 # i18n error-string candidates
 
-Created during Sprint 6 Phase 3B (English-conversion) per CLAUDE.md
+Created during Sprint 6 Phase 3B (English-conversion) per AGENTS.md
 DEL 7.11. These are error strings currently emitted by the backend
 that bubble up to API responses. They were converted from Norwegian
 to English for developer-readability and consistency, but ultimately

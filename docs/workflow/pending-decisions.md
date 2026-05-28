@@ -425,7 +425,7 @@ mellom familier eller åpner appen for misbruk.
     multi-instance) — full kontroll, krever Redis (eller in-memory
     for single-instance pilot)
   - Reverse-proxy (Nginx Proxy Manager — Christer kjører dette
-    allerede på utviklermaskin per CLAUDE.md DEL 7.8) — enklere,
+    allerede på utviklermaskin per AGENTS.md DEL 7.8) — enklere,
     mindre granular
   - **Anbefaling:** middleware for granularitet. Kan starte med
     in-memory store for pilot, flytte til Redis hvis vi går
@@ -575,7 +575,7 @@ diett-tagger, gamification-progresjon, AI-historikk)?
   trenger en `member_id` eller `user_id` for å spore hvem som
   faktisk gjorde hva. Dette tvinger fram beslutningen i nær
   fremtid.
-- **Auth-frys i `CLAUDE.md` DEL 6** krever eksplisitt unntak for
+- **Auth-frys i `AGENTS.md` DEL 6** krever eksplisitt unntak for
   ny user-scoping — beslutningen må tas før implementasjon.
 
 ### Tre alternativer

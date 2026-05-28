@@ -64,19 +64,29 @@ describe('Phase 21 · Stale docs removed', () => {
 
 describe('Phase 21 · Kept docs are exactly the intended set', () => {
   test('root-level docs match expected whitelist', () => {
-    const rootMds = fs
-      .readdirSync(REPO)
-      .filter((f) => f.endsWith('.md'))
+    // Use git ls-files so gitignored docs (CHRISTER.md, etc.) do not
+    // count against the whitelist. PR 6 introduced the gitignored
+    // CHRISTER.md alongside CLAUDE.md / AGENTS.md and the previous
+    // readdirSync() saw it on disk and failed the assertion.
+    const { execSync } = require('child_process');
+    const rootMds = execSync('git ls-files "*.md"', { cwd: REPO, encoding: 'utf8' })
+      .split('\n')
+      .filter((p) => p && !p.includes('/'))
       .sort();
-    // Whitelist extended for the CLAUDE.md workflow (see CLAUDE.md section
-    // 6.5 — policy-tests vs code-tests). AGENT_LOG, CLAUDE, CONTEXT, and
-    // REFERENCES are intentional root-level governance docs; they live in
-    // root per CLAUDE.md DEL 0 and REFERENCES.md "Toppnivå-dokumentasjon".
+    // Whitelist extended for the agent-instructions workflow (see
+    // AGENTS.md section 6.5 — policy-tests vs code-tests). AGENT_LOG,
+    // AGENTS, CONTEXT, and REFERENCES are intentional root-level
+    // governance docs; they live in root per AGENTS.md DEL 0 and
+    // REFERENCES.md "Toppnivå-dokumentasjon".
+    //
+    // PR 6 of public-repo-prep split CLAUDE.md into AGENTS.md (public,
+    // English) + CHRISTER.md (gitignored, Norwegian, operator-specific).
+    // CHRISTER.md is not in this list because it is gitignored.
     assert.deepEqual(rootMds, [
+      'AGENTS.md',
       'AGENT_LOG.md',
       'CHANGELOG.md',
       'CI.md',
-      'CLAUDE.md',
       'CONTEXT.md',
       'CONTRIBUTING.md',
       'DEPLOY.md',

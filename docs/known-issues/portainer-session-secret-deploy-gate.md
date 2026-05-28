@@ -103,7 +103,7 @@ While the fix waits:
 - **Test environment:** local Node run (`npm start` with `NODE_ENV=
   development` and optionally `MAGIC_LINK_CONSOLE=true`). SESSION_SECRET
   is auto-generated in dev mode (see `server/config.js:299-303`).
-- **CI:** full local pyramid per CLAUDE.md PART 5.2.2 + GitHub
+- **CI:** full local pyramid per AGENTS.md PART 5.2.2 + GitHub
   Actions as before.
 - **Empirical verification** (e.g. B1 end-to-end tenant
   isolation test, B2 cross-family LLM flow) is **deferred** until

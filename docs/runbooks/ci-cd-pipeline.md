@@ -19,7 +19,7 @@
 - `SBOM generation` — main-push + schedule
 - `OSV vulnerability scan` — main-push + schedule
 
-Pipeline policy + cost-reduction rationale: see CLAUDE.md DEL 5.2.
+Pipeline policy + cost-reduction rationale: see AGENTS.md DEL 5.2.
 
 ### `.github/workflows/docker.yml` — Image build + GHCR push
 
@@ -107,6 +107,6 @@ Optional (informational on PR, blocking on main-push):
 
 ## Local-first workflow reminder
 
-Per CLAUDE.md DEL 5.2: developers run full lint + tests locally before
+Per AGENTS.md DEL 5.2: developers run full lint + tests locally before
 pushing. CI is a backstop, not a substitute for local verification.
 Push only when local CI is green and Christer says "push".

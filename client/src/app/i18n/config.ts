@@ -12,7 +12,7 @@
 // than one monolithic dictionary.
 //
 // Keys never appear bare in JSX; the `t()` hook resolves them at render
-// time. See CLAUDE.md DEL 7.11 for the full policy.
+// time. See AGENTS.md DEL 7.11 for the full policy.
 //
 // Test note: this module imports from JSON files via Vite/Vitest's
 // JSON-resolution. Tests that exercise translated components import
@@ -117,7 +117,7 @@ i18n
       // Reading dynamically each time means an `addResource(...)`
       // override (the VITE_APP_NAME white-label path) takes effect
       // immediately even on strings cached before the override
-      // was applied. See CLAUDE.md DEL 7.12.
+      // was applied. See AGENTS.md DEL 7.12.
       defaultVariables: Object.defineProperties(
         {},
         {

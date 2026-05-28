@@ -12,7 +12,7 @@
 //   is_admin grants access to /api/admin/* endpoints (system stats and
 //   future admin UI). It does NOT grant cross-family read/write access.
 //   Admin sees other families' AGGREGATES; cannot see their CONTENT.
-//   See CLAUDE.md DEL 14.
+//   See AGENTS.md DEL 14.
 
 const { config } = require('../config');
 

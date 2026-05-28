@@ -18,7 +18,7 @@
 
 ### Optional
 - `sql.js` – fallback når better-sqlite3 ikke kan kompileres
-- `@sentry/node` – observability (frosset, se CLAUDE.md DEL 6)
+- `@sentry/node` – observability (frosset, se AGENTS.md DEL 6)
 
 ### Frontend
 - Plain HTML/CSS/JS
@@ -70,7 +70,7 @@ Undermapper:
 - `server/services/` – forretningslogikk, `<name>.service.js`-mønster
 - `server/http/` – HTTP-infrastruktur (router, middleware, errors,
   validate, metrics, cache, security, bootstrap)
-- `server/auth/` – multi-tenant auth (**FROSSET**, se CLAUDE.md DEL 6)
+- `server/auth/` – multi-tenant auth (**FROSSET**, se AGENTS.md DEL 6)
 - `server/migrations/` – SQL-migrasjoner, nummerert
 - `server/observability/` – Sentry-integrasjon
 - `server/llm/` – LLM-backend-adaptere
@@ -109,7 +109,7 @@ Helpers: `tests/helpers.js` eksporterer `startTestServer()` og `request()`.
 
 - `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `CI.md`, `DEPLOY.md`,
   `RUNBOOK.md`, `SECURITY.md`, `BRUKERGUIDE.md`
-- `CLAUDE.md`, `CONTEXT.md`, `REFERENCES.md`, `AGENT_LOG.md` – nye
+- `AGENTS.md`, `CONTEXT.md`, `REFERENCES.md`, `AGENT_LOG.md` – nye
 
 ---
 
@@ -221,7 +221,7 @@ med `// @ts-check` i topp og JSDoc på public exports.
 
 Sky-/SaaS-deploy (Railway-stien som tidligere lå i `DEPLOY.md §15`)
 er retired pr. Sprint 2.6 (2026-04-29). Multi-tenant auth-koden i
-`server/auth/` består og er fortsatt under DEL 6-frys (se CLAUDE.md).
+`server/auth/` består og er fortsatt under DEL 6-frys (se AGENTS.md).
 
 ---
 
@@ -269,7 +269,7 @@ Alle eksterne kall beskyttet av `server/services/circuit-breaker.js`.
 - Ikke legg inn analytics, sporing, eller tredjepartsskript
 - Ikke refaktorer kode som ikke er del av gjeldende oppgave
 - Ikke oppgrader avhengigheter i feature-PR – egen `deps/`-PR
-- Ikke endre i `server/auth/` uten godkjenning (frosset, se CLAUDE.md DEL 6)
+- Ikke endre i `server/auth/` uten godkjenning (frosset, se AGENTS.md DEL 6)
 - Ikke bruk emojis i kode eller commits
 - Ikke skriv kommentarer som smisker med koden eller med Christer
 - Ikke introduser nye test-fil-konvensjoner

@@ -11,7 +11,7 @@
 --      with bootstrap_method = 'first_user'.
 -- See server/services/admin-bootstrap.service.js for the state machine.
 --
--- Multi-tenant policy (CLAUDE.md DEL 14):
+-- Multi-tenant policy (AGENTS.md DEL 14):
 --   is_admin=true does NOT grant cross-family access. Admins can see
 --   system-level settings and aggregated stats, but cannot read or
 --   modify other families' private data. The /api/admin/* endpoints
