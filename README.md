@@ -1,11 +1,11 @@
 # FamilyAssistant
 
-Self-hosted household assistant for Norwegian families — plans the weekly
+Self-hosted household assistant for initially Norwegian families — plans the weekly
 menu, shopping list, pantry inventory, and chore rotation. Designed to run
 on a Raspberry Pi 5 (or any Docker host) behind Cloudflare Tunnel; the
 deploy story is `Docker → Portainer → RPi5 → Cloudflare Tunnel`.
 
-The UI is Norwegian; the codebase is English.
+The UI is Norwegian and English; the codebase is English.
 
 ## Features
 
