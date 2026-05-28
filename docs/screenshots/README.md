@@ -39,9 +39,13 @@ links and the README stay stable.
 - Architecture diagrams are ASCII inside `docs/ARCHITECTURE.md`.
 - Brand-system colour palettes are in `docs/BRAND_SYSTEM.md`.
 
-## Pending captures
+## Last refreshed
 
-The four entries in the README table — Dashboard, Meals/weekplan,
-Shopping list, Pantry — are pending the live pilot deploy. Once
-captured, this README's "Pending" section gets removed and replaced
-with the date the screenshots were last refreshed.
+2026-05-28 — initial set captured from the live pilot deploy
+(`01-dashboard` mobile, `02-meals-weekplan` desktop with rich
+ingredient breakdown, `03-shopping-list` desktop, `04-pantry`
+desktop). The Meals screenshot has the white-label brand-string in
+the top-left header blurred out with a Gaussian filter (radius 18)
+because the pilot deploy runs with a private `APP_NAME` override
+that should not appear in the public README. All other regions are
+untouched.
