@@ -6,6 +6,87 @@
 
 ---
 
+2026-05-27 – Public-repo prep PR 1: stop acute leakage
+
+Oppgave: Første av 7 PR-er for å gjøre repo public. Stopp akutt
+lekkasje: scrub pilot-passord-fixture, slett untracked db-scripts
+med hardkodet e-post, utvid .gitignore, og skift git author fra
+personlig Gmail til GitHub noreply for fremtidige commits.
+
+Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
+(950 linjer, full repo-dekning via 6 parallelle agenter)
+
+- Reisen: 5 commits — audit-doc → test fixture-bytte →
+  untracked-sletting → gitignore-utvidelse → AGENT_LOG.
+- Edge-cases: 8 forekomster av Andromeda måtte byttes konsistent
+  så symmetric-fixture-pattern (env + body) holder; .gitignore-
+  utvidelser måtte ikke fjerne dekning for noe; git author-skift
+  per repo (ikke global) så andre prosjekter ikke berøres.
+- Beslutninger: 12 dokumentert i analyse §13, alle besvart av
+  Christer 2026-05-27.
+- Portainer-risiko: nei (kun test-fixtures + ignore-regler +
+  lokal git config, ingen oppstarts-kode endret).
+
+Plan: (1) commit audit-doc, (2) bytt 'Andromeda' →
+'test-pilot-password' i 2 test-filer, (3) slett db-check.js +
+db-pantry-check.js fra arbeidstreet, (4) gitignore db-*.js,
+inspect-*.js, CHRISTER.md, sqlite-shm/wal, (5) skift git author
+lokalt til 82406432+ChristerFrestad@users.noreply.github.com.
+
+Gjort:
+
+- Branch: chore/public-repo-prep-1-andromeda-and-untracked
+- Commits: 3 (audit-doc + test fixture + gitignore; AGENT_LOG-
+  innlegg blir commit 4)
+- Filer endret: 4 (2 test-filer, .gitignore, denne loggen)
+- Filer slettet fra arbeidstre (untracked, aldri committet):
+  db-check.js, db-pantry-check.js
+- Tester lagt til: 0 (mekanisk fixture-bytte, alle 1361 backend-
+  tester passerer fortsatt — 0 fail, 2 skip)
+- DOMAIN_MODEL.md oppdatert: nei
+- Avvik fra plan: ingen
+- Git author skiftet lokalt for dette repo-et:
+  `kommik303030@gmail.com` → `82406432+ChristerFrestad@users.noreply.github.com`.
+  Eksisterende 175 commits med Gmail forblir (force-push forbudt
+  per DEL 1 #7). user.name uendret ("Christer Frestad").
+
+Sikkerhet: Andromeda-fixture var det eneste mulige passord-
+literalfunnet i hele repoet. Christer bekreftet det var
+midlertidig pilot-gate-passord — må roteres i Portainer-stack
+før repo flippes public uansett (selv test-stuben i tidligere
+commits lekker den gamle verdien i git-historikken). Ingen ekte
+hemmeligheter funnet i utvidet skann (AKIA/sk_live/ghp_/JWT/PEM
+alle returnerte 0 treff).
+
+ISO 25010:
+- Sikkerhet 8.2 → 8.25 (+0.05, ett potensielt passord-literal
+  fjernet, gitignore strammere, author-skift stopper Gmail-
+  lekkasje fremover)
+- Andre karakteristikker: ikke berørt
+
+Status: lokalt klart, venter på push fra Christer
+(per DEL 5.2.1 — push krever eksplisitt "push"-ord fra Christer)
+
+Pre-eksisterende observasjoner (ikke addressert i denne PR-en per
+DEL 7.7 ingen-drive-by-cleanup):
+
+- 1 ESLint warning (no-console disable-direktiv) i client/.../ErrorBoundary.tsx
+- 56 prettier-format-warnings på lokal Windows (line-endings CRLF
+  vs LF). CI på Linux er ikke berørt. Mest sannsynlig en gammel
+  .gitattributes-config-issue, ikke ny.
+
+Beslutninger Christer må ta (med anbefaling):
+
+1. Roter pilot-passordet i Portainer-stack `app.hverdagsplanleggeren.com`
+   nå (ANBEFALING: gjør det før neste push, uavhengig av om vi
+   pusher PR 1-3 før eller etter).
+
+Neste: PR 2 og 3 ligger som branch-chain etter denne. Skal
+kjøres umiddelbart etter denne. Push når Christer eksplisitt sier
+det med ordet "push".
+
+---
+
 2026-05-02 – Sprint 6 finalize: smart-coupling Pantry-Måltider-Handleliste
 
 Oppgave: Mulighet A — bygg full kjede i én PR. Inkluder

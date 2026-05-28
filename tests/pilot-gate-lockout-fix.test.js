@@ -35,7 +35,7 @@ const assert = require('node:assert/strict');
 process.env.AUTH_TOKEN = 'test-auth-token-1234567890abcdef1234567890abcdef';
 process.env.SESSION_SECRET = 'test-session-secret-1234567890abcdef1234567890abcdef';
 process.env.PILOT_MODE = 'true';
-process.env.PILOT_PASSWORD = 'Andromeda';
+process.env.PILOT_PASSWORD = 'test-pilot-password';
 process.env.MAGIC_LINK_CONSOLE = 'true';
 process.env.ALLOWED_ORIGINS = 'http://localhost:7777';
 
@@ -157,7 +157,7 @@ describe('Pilot-gate lockout regression (production-like env)', () => {
     test('correct password → cookie → /api/auth/me reachable', async () => {
       // 1. Submit correct password
       const loginRes = await request(baseUrl, 'POST', '/api/auth/pilot-password', {
-        body: { password: 'Andromeda' },
+        body: { password: 'test-pilot-password' },
       });
       assert.strictEqual(loginRes.status, 200);
       const setCookie = loginRes.headers['set-cookie'];
@@ -178,7 +178,7 @@ describe('Pilot-gate lockout regression (production-like env)', () => {
 
     test('correct password → cookie → /api/meals/current resumes auth chain', async () => {
       const loginRes = await request(baseUrl, 'POST', '/api/auth/pilot-password', {
-        body: { password: 'Andromeda' },
+        body: { password: 'test-pilot-password' },
       });
       const setCookie = loginRes.headers['set-cookie'];
       const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : setCookie;
