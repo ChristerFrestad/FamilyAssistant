@@ -4,7 +4,7 @@
 //
 // Bug: cookies were emitted with `Secure` whenever `NODE_ENV=production`,
 // which made browsers silently drop them on plain-HTTP deploys (LAN
-// pilot at http://192.168.50.123:7777). Pilot users solved the gate
+// pilot at http://<rpi-lan-ip>:7777). Pilot users solved the gate
 // password but the cookie never persisted, so the next request was
 // rejected by the pilot-gate.
 //

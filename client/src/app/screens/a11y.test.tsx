@@ -24,7 +24,7 @@ import { Settings } from './Settings';
 
 const TEST_USER: AuthUser = {
   id: 1,
-  email: 'pilot@frestad.com',
+  email: 'peder@example.com',
   name: 'Christer',
   role: 'owner',
   avatarUrl: null,
@@ -136,7 +136,7 @@ const FAMILY_DATA = {
   users: [
     {
       id: 1,
-      email: 'pilot@frestad.com',
+      email: 'peder@example.com',
       name: 'Christer',
       role: 'owner' as const,
       avatarUrl: null,

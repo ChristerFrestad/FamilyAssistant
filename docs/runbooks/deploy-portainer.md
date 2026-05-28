@@ -10,14 +10,14 @@
 - Docker + Docker Compose installert
 - Portainer CE installert (port 9000)
 - Cloudflare-konto + tunnel konfigurert til `app.hverdagsplanleggeren.com`
-- Persistent volume mounted på `/home/christer/familieassistenten-data/`
+- Persistent volume mounted på `/srv/familyassistant-data/`
 
 ## Steg 1 — Volume-oppsett (én gang)
 
 ```bash
-sudo mkdir -p /home/christer/familieassistenten-data/data
-sudo mkdir -p /home/christer/familieassistenten-data/backups
-sudo chown -R 65532:65532 /home/christer/familieassistenten-data
+sudo mkdir -p /srv/familyassistant-data/data
+sudo mkdir -p /srv/familyassistant-data/backups
+sudo chown -R 65532:65532 /srv/familyassistant-data
 ```
 
 UID 65532 = distroless `nonroot`. Container-prosessen må kunne skrive til volumet.
@@ -30,8 +30,8 @@ Lim inn `docker-compose.yml` fra repoet. Endre volume-mountene til absolute path
 
 ```yaml
 volumes:
-  - /home/christer/familieassistenten-data/data:/app/data
-  - /home/christer/familieassistenten-data/backups:/app/backups
+  - /srv/familyassistant-data/data:/app/data
+  - /srv/familyassistant-data/backups:/app/backups
 ```
 
 ## Steg 3 — Environment variables (Portainer → Stack → Environment)
@@ -46,7 +46,7 @@ volumes:
 | `APP_NAME` | `Hverdagsplanleggeren` | White-label (CLAUDE.md DEL 7.12) |
 | `PILOT_MODE` | `true` | Aktiverer pre-auth gate |
 | `PILOT_PASSWORD` | `<chosen-string>` | Pilot-bruker får denne separat |
-| `APP_ADMIN_EMAIL` | `christer@frestad.com` | Admin-bootstrap target |
+| `APP_ADMIN_EMAIL` | `admin@example.com` | Admin-bootstrap target — first user matching this email becomes admin |
 | `RESEND_API_KEY` | `<from Resend dashboard>` | Magic-link email |
 | `RESEND_FROM` | `noreply@hverdagsplanleggeren.com` | Verified sender domain |
 | `SESSION_SECRET` | `<openssl rand -hex 32>` | Eller la wizard generere |
@@ -143,8 +143,8 @@ docker exec familieassistenten node -e "require('./server/backup').backupNow().t
 Restore (krever app-down):
 ```bash
 docker compose down
-sudo cp /home/christer/familieassistenten-data/backups/<file>.db \
-        /home/christer/familieassistenten-data/data/familieassistenten.db
+sudo cp /srv/familyassistant-data/backups/<file>.db \
+        /srv/familyassistant-data/data/familieassistenten.db
 docker compose up -d
 ```
 

@@ -8,7 +8,7 @@ Severity: **CRITICAL — pilot-launch blocker**
 
 After PR #114 (pilot-gate auth fix) and PR #115 (v2-bundle in image)
 landed, Christer redeployed to RPi5 over LAN HTTP
-(`http://192.168.50.123:7777`). The pilot-password gate now renders
+(`http://&lt;rpi-lan-ip&gt;:7777`). The pilot-password gate now renders
 correctly (`/v2/` serves the React shell, `PilotPasswordGate` mounts,
 `/api/pilot/status` is reachable). The pilot password is accepted —
 `POST /api/auth/pilot-password` returns 200.
@@ -17,7 +17,7 @@ But the very next request (`POST /api/auth/magic-link/start`) returns
 **403 "Pilot password required."** The pilot-gate sees no `fa_pilot`
 cookie on the incoming request and rejects.
 
-Browser inspection (Application → Cookies → http://192.168.50.123:7777)
+Browser inspection (Application → Cookies → http://&lt;rpi-lan-ip&gt;:7777)
 shows that **`fa_pilot` is not in the cookie jar at all**. Only
 unrelated Portainer cookies are present.
 
@@ -69,7 +69,7 @@ covered by an integration test.
 
 1. Visitor opens app on LAN
    1.1. Cloudflare not in path (LAN-only deploy)
-   1.2. Plain HTTP to `192.168.50.123:7777`
+   1.2. Plain HTTP to `&lt;rpi-lan-ip&gt;:7777`
 2. PilotPasswordGate renders (PR #114 + #115 working)
    2.1. `GET /v2/` serves the React bundle
    2.2. React fetches `/api/pilot/status` → `pilotMode: true`

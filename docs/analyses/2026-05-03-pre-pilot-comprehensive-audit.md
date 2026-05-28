@@ -191,7 +191,7 @@ Edge-cases håndtert:
 
 ```sql
 -- USERS
-id=1  email=christer@frestad.com  family_id=3  onboarding_completed=1  role=owner
+id=1  email=admin@example.com  family_id=3  onboarding_completed=1  role=owner
 
 -- FAMILIES
 id=1  name='Default Family'  owner_user_id=NULL  created_at=2026-04-29 14:18:54

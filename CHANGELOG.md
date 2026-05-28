@@ -185,7 +185,7 @@ Tracking:
 ### Fixed — Cookies dropped by browser on HTTP deploys (2026-05-04, CRITICAL)
 
 **Symptom:** After PR #114 + #115 landed, Christer redeployed to RPi5
-on plain-HTTP LAN (`http://192.168.50.123:7777`). The
+on plain-HTTP LAN (`http://<rpi-lan-ip>:7777`). The
 `PilotPasswordGate` rendered, the password was accepted (`POST
 /api/auth/pilot-password` → 200), but the very next request hit the
 pilot-gate again with **403 "Pilot password required."** Browser

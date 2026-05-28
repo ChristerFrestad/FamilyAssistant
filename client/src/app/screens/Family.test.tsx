@@ -21,7 +21,7 @@ import type { AuthUser } from '../auth/authApi';
 
 const TEST_USER: AuthUser = {
   id: 1,
-  email: 'christer@frestad.com',
+  email: 'peder@example.com',
   name: 'Christer',
   role: 'owner',
   avatarUrl: null,
@@ -34,7 +34,7 @@ const TEST_USER: AuthUser = {
 const CHILD_USER: AuthUser = {
   ...TEST_USER,
   id: 2,
-  email: 'kid@frestad.com',
+  email: 'barn@example.com',
   name: 'Storebror',
   role: 'child',
   profileMemberId: 11,
@@ -125,7 +125,7 @@ const FAMILY_DATA = {
   users: [
     {
       id: 1,
-      email: 'christer@frestad.com',
+      email: 'peder@example.com',
       name: 'Christer',
       avatarUrl: null,
       role: 'owner',
@@ -309,7 +309,7 @@ describe('Family — child viewer', () => {
       users: [
         {
           id: 2,
-          email: 'kid@frestad.com',
+          email: 'barn@example.com',
           name: 'Storebror',
           avatarUrl: null,
           role: 'child' as const,
