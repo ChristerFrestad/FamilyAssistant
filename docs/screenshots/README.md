@@ -29,7 +29,7 @@ links and the README stay stable.
   data.
 - **Size budget**: keep individual PNGs under 200 KB after
   compression (`pngquant --quality 70-85` is a reasonable default).
-  The README renders five screenshots; total budget is 1 MB so
+  The README renders four screenshots; total budget is 800 KB so
   page load on slow connections stays usable.
 
 ## What is *not* a screenshot
@@ -41,7 +41,7 @@ links and the README stay stable.
 
 ## Pending captures
 
-The five entries in the README table are pending Christer's pilot
-launch (Sprint 11). Once captured, this README's "Pending" section
-gets removed and replaced with the date the screenshots were last
-refreshed.
+The four entries in the README table — Dashboard, Meals/weekplan,
+Shopping list, Pantry — are pending the live pilot deploy. Once
+captured, this README's "Pending" section gets removed and replaced
+with the date the screenshots were last refreshed.
