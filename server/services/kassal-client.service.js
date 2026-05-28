@@ -147,7 +147,7 @@ async function fetchWithTimeout(url, { apiKey, timeoutMs = KASSAL_TIMEOUT_MS }) 
       headers: {
         Authorization: `Bearer ${apiKey}`,
         Accept: 'application/json',
-        'User-Agent': 'Familieassistenten/1.0',
+        'User-Agent': 'FamilyAssistant/1.0',
       },
       signal: controller.signal,
     });
