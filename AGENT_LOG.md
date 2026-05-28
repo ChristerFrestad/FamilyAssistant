@@ -6,6 +6,88 @@
 
 ---
 
+2026-05-28 – Public-repo prep PR 6: split CLAUDE.md → AGENTS.md + CHRISTER.md
+
+Oppgave: Sjette av 7 PR-er. CLAUDE.md (1291 linjer norsk) blandet
+generelle agent-prinsipper med operatør-spesifikke detaljer
+(port-mapping for utviklermaskinen, ECC config-protection-hook-
+workaround, literal norsk push-trigger-frase, rpi-memory MCP).
+Public-repo-lesere trenger de generelle delene; operatør-spesifikt
+hører i en per-operatør lokal fil. Per audit-doc §13 beslutning 4
+(Christer-godkjent 2026-05-27).
+
+Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
+
+- Reisen: 3 logiske commits — (1) AGENTS.md + CLAUDE.md sletting
+  + phase21-test, (2) cross-reference-sveip i 22 aktive filer,
+  (3) gitignore-fix for *.db-shm/wal som ble accidentally
+  tracked via `git add -A`.
+- Edge-cases: phase21-repo-hygiene.test.js måtte byttes fra
+  readdirSync til `git ls-files "*.md"` så CHRISTER.md (gitignored,
+  men på disk) ikke teller mot whitelist. SQLite WAL/SHM-filer
+  (.db-shm/.db-wal, ikke .sqlite-shm/.sqlite-wal som PR 1 dekket)
+  ble accidentally tracked og måtte fjernes + gitignore utvidet.
+- Beslutninger: audit §13 beslutning 4 (split CLAUDE.md) drev
+  hele PR-en. Historiske filer (docs/analyses, docs/workflow,
+  AGENT_LOG, CHANGELOG, design/) beholder originale CLAUDE.md-
+  referanser per append-only-prinsipp.
+- Portainer-risiko: nei (docs + test-policy + 2 client/server
+  kode-kommentarer, ingen oppstarts-kode endret).
+
+Plan: (1) dispatch translation-agent for AGENTS.md (1268 linjer
+EN) + CHRISTER.md (149 linjer NO, gitignored), (2) slett CLAUDE.md,
+(3) oppdater phase21-test, (4) sveip aktive filer for CLAUDE.md
+DEL X.Y → AGENTS.md DEL X.Y refs, (5) fiks gitignore for db-shm/
+wal, (6) AGENT_LOG.
+
+Gjort:
+
+- Branch: docs/public-repo-prep-6-split-claude-md (basert på
+  PR 5-branch i stacked-PR-pattern)
+- Commits: 3 split-commits + denne AGENT_LOG-commit = 4 totalt
+  på denne branchen
+- Filer endret: 35 totalt (AGENTS.md + CLAUDE.md deletion +
+  phase21-test + 22 aktive cross-ref-oppdateringer + 8
+  utracked-fjerninger + AGENT_LOG)
+- Ny fil: AGENTS.md (1268 linjer, engelsk)
+- Slettet fra git: CLAUDE.md, 8 *.db-shm/*.db-wal-filer
+- Test-resultat: 1361 backend pass / 0 fail / 2 skip; 928
+  client pass / 0 fail. Lint 0 errors. Typecheck (server +
+  client) clean.
+- DOMAIN_MODEL.md oppdatert: nei
+- Avvik fra plan: accidentally tracked 8 SQLite WAL/SHM-filer
+  via `git add -A`. Fanget før push og ryddet i commit 3.
+
+Sikkerhet: ingen sikkerhets-endring — kun docs-split + ref-
+sveip. Bekreftet ingen nye PII introdusert. CHRISTER.md er
+fortsatt gitignored (verifisert via `git check-ignore CHRISTER.md`).
+
+ISO 25010:
+- Vedlikeholdbarhet 8.55 → 8.65 (+0.10, AGENTS.md som engelsk
+  agent-instruks gjør repoet tilgjengelig for forks som vil
+  reproduce arbeidsflyten)
+- Portabilitet 8.75 → 8.80 (+0.05, operatør-spesifikke detaljer
+  separert fra produktet)
+- Andre karakteristikker: ikke berørt
+
+Status: lokalt klart, venter på push fra Christer
+
+Beslutninger Christer må ta:
+
+1. Claude Code auto-laster typisk `CLAUDE.md` ved sesjons-start.
+   Nå er CLAUDE.md borte og AGENTS.md tar over. Hvis Christer's
+   Claude Code-versjon støtter AGENTS.md (industry-standard
+   konvensjon i nyere versjoner), kontekst auto-lastes uten
+   endring. Hvis ikke: Christer kan lokalt symlinke
+   `ln -s AGENTS.md CLAUDE.md` (lokalt, ikke committet) eller
+   beholde sin egen lokale CLAUDE.md som peker til AGENTS.md.
+
+Neste: PR 7 (SLSA-flagg + CODE_OF_CONDUCT + GitHub-templates +
+fjern CONTEXT.md fra tracked + slett 28 stale branches) starter
+umiddelbart.
+
+---
+
 2026-05-28 – Public-repo prep PR 5: brand consolidation to FamilyAssistant
 
 Oppgave: Femte av 7 PR-er. Konsolider open-source-brand default til
