@@ -48,6 +48,9 @@ public/index.html.pre-*.bak
 # Personal agent instructions (split from CLAUDE.md — operator-specific)
 CHRISTER.md
 
+# Per-operator scratch context (current task, pending decisions)
+CONTEXT.md
+
 # Ad-hoc database diagnostic scripts dropped at repo root
 db-*.js
 inspect-*.js

@@ -81,15 +81,12 @@ jobs:
       base64-subjects: ${{ needs.build.outputs.hashes }}
       upload-assets: false
       provenance-name: familyassistant-${{ github.ref_name }}.intoto.jsonl
-      # Week 10 REL-6 note: the repo was private when this workflow was
-      # written. The SLSA generator defaults to halting for private repos
-      # to avoid exposing the repo name in Sigstore Rekor's public
-      # transparency log. Explicit opt-in means repo URL + commit SHAs
-      # are permanently logged to Rekor (metadata only, not content).
-      # Owner has approved this privacy trade-off. Re-evaluate when the
-      # repo flips public — `private-repository: false` may then be the
-      # correct value (PR 7 of the public-repo-prep series handles this).
-      private-repository: true
+      # PR 7 of public-repo-prep flipped this to false because the repo
+      # is now public. With a public repo the SLSA generator does the
+      # standard Sigstore Rekor logging without needing the
+      # private-repository opt-in. Keep the line as a documentation
+      # marker so a future privacy-flip back to private is explicit.
+      private-repository: false
 
   # ---------------------------------------------------------------------------
   # 3. Publish GitHub Release with all artifacts and provenance

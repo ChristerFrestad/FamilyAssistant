@@ -6,6 +6,86 @@
 
 ---
 
+2026-05-28 – Public-repo prep PR 7: finalize for public flip
+
+Oppgave: Syvende og siste av 7 PR-er. Public-repo-artefakter +
+SLSA-flagg-flip + gitignore av operatør-scratchpad. Etter denne
+PR-en er repoet klart til å flippes til public via GitHub UI.
+
+Analyse: docs/analyses/2026-05-27-public-repo-readiness.md
+
+- Reisen: 4 logiske commits — (1) SLSA flag flip,
+  (2) GitHub-templates + untrack CONTEXT.md, (3) gitignore +
+  phase21-test, (4) denne AGENT_LOG.
+- Edge-cases: CODE_OF_CONDUCT.md ble eksplisitt utelatt etter
+  Christer's beslutning (org policy block via GitHub UI). Husky
+  v9→v10 ble skipt fordi .husky/pre-commit allerede er v10-
+  kompatibel (bare `npx lint-staged`, ingen .husky/_/husky.sh-
+  source). phase21-test må oppdateres når CONTEXT.md untrackes —
+  whitelist måtte krympe med én entry.
+- Beslutninger: Christer-godkjente: utelat CODE_OF_CONDUCT, gjør
+  alt annet i den planlagte PR 7-scopen. Blank check på 7
+  Dependabot-PRs (#137, #136, #130, #129, #128, #134) for
+  autonom merge når CI grønn.
+- Portainer-risiko: nei (kun GitHub-meta-filer + SLSA-flagg +
+  gitignore + test-whitelist).
+
+Plan: (1) SLSA-flip (allerede gjort tidligere på PR 7-branch),
+(2) opprett .github/PULL_REQUEST_TEMPLATE.md +
+.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.md,
+(3) `git rm --cached CONTEXT.md` + .gitignore-utvidelse,
+(4) oppdater phase21-test whitelist, (5) AGENT_LOG.
+
+Gjort:
+
+- Branch: chore/public-repo-prep-7-finalize (basert på PR 6-branch)
+- Commits: 4 PR 7-commits totalt (b526e31 SLSA + 2c60d68
+  templates+CONTEXT-untrack + e46b3b8 gitignore+test +
+  denne AGENT_LOG)
+- Filer endret: 8 (release.yml + 4 nye GitHub-templates + CONTEXT.md
+  delete + .gitignore + phase21-test + AGENT_LOG)
+- Nye filer: .github/PULL_REQUEST_TEMPLATE.md,
+  .github/ISSUE_TEMPLATE/{bug_report.md,feature_request.md,
+  config.yml}
+- Slettet fra git: CONTEXT.md (forblir på disk som operatør-
+  scratchpad)
+- Test-resultat: 1361 backend pass / 0 fail / 2 skip. Lint
+  0 errors. Typecheck (server + client) clean.
+- DOMAIN_MODEL.md oppdatert: nei
+- Avvik fra plan: CODE_OF_CONDUCT.md utelatt (Christer-beslutning).
+  Husky v10-upgrade utelatt (allerede kompatibel).
+
+Sikkerhet:
+- SLSA-flagg flippet til `private-repository: false` — riktig
+  for public repo. Provenance vil nå loggføres standard i
+  Sigstore Rekor uten det private-repo-flagget.
+- ISSUE_TEMPLATE config.yml redirecter sikkerhetsrapporter til
+  GitHub Security Advisories (private disclosure) per
+  SECURITY.md §5.
+- PR-template har full sikkerhetssjekkliste fra AGENTS.md DEL 4.
+
+ISO 25010:
+- Vedlikeholdbarhet 8.65 → 8.70 (+0.05, bidragsfriksjon
+  redusert via templates)
+- Andre karakteristikker: ikke berørt
+
+Status: lokalt klart, venter på push.
+
+Christer-godkjent for fortsettelsen:
+1. Blank check for autonom merge av 7 Dependabot-PR-er
+   (#137 dev-minor, #136 runtime-minor, #130 osv-scanner,
+   #129 gh-release v3, #128 qemu-action v4, #134 lint-staged v17)
+   når CI grønn.
+2. PR #135 (react-router-dom v6→v7) og #133 (react-dom) er
+   høyrisiko majors — anbefales close + koordinert migrasjon
+   senere. Venter på endelig "ja close dem" fra Christer.
+
+Neste: push PR 7, vent CI grønn, merge alle 6 (PR 2-7) i
+rekkefølge, merge 7 godkjente Dependabot. Deretter Christer
+flipper repo til public via GitHub Settings.
+
+---
+
 2026-05-28 – Public-repo prep PR 6: split CLAUDE.md → AGENTS.md + CHRISTER.md
 
 Oppgave: Sjette av 7 PR-er. CLAUDE.md (1291 linjer norsk) blandet

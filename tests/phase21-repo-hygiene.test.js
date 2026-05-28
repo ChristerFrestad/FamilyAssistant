@@ -75,19 +75,20 @@ describe('Phase 21 · Kept docs are exactly the intended set', () => {
       .sort();
     // Whitelist extended for the agent-instructions workflow (see
     // AGENTS.md section 6.5 — policy-tests vs code-tests). AGENT_LOG,
-    // AGENTS, CONTEXT, and REFERENCES are intentional root-level
-    // governance docs; they live in root per AGENTS.md DEL 0 and
-    // REFERENCES.md "Toppnivå-dokumentasjon".
+    // AGENTS, and REFERENCES are intentional root-level governance
+    // docs; they live in root per AGENTS.md DEL 0 and REFERENCES.md
+    // "Toppnivå-dokumentasjon".
     //
     // PR 6 of public-repo-prep split CLAUDE.md into AGENTS.md (public,
     // English) + CHRISTER.md (gitignored, Norwegian, operator-specific).
-    // CHRISTER.md is not in this list because it is gitignored.
+    // PR 7 also gitignored CONTEXT.md (per-operator scratch context for
+    // the active task). Neither CHRISTER.md nor CONTEXT.md is in this
+    // list because they are gitignored.
     assert.deepEqual(rootMds, [
       'AGENTS.md',
       'AGENT_LOG.md',
       'CHANGELOG.md',
       'CI.md',
-      'CONTEXT.md',
       'CONTRIBUTING.md',
       'DEPLOY.md',
       'README.md',
