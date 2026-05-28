@@ -4,7 +4,7 @@
 // optional progress-bar (only when total is known), low-stock badge,
 // expiry warning, and the two action buttons ("Marker brukt" + delete).
 //
-// Defensive null-handling per CLAUDE.md philosophy:
+// Defensive null-handling per AGENTS.md philosophy:
 //   - unit missing  → fall back to remainingNoUnit
 //   - total missing → hide progress-bar, show remainingNoTotal
 //   - total < remaining (edge — should not happen but render defensively)

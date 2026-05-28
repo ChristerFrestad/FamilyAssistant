@@ -15,7 +15,7 @@
 // version uses a different localStorage key (`fa:dev-preview:theme`)
 // so the preview page's theme setting does not bleed into the live
 // app. We deliberately accept a small amount of duplication to keep
-// the dev/ → app/ import boundary clean (see CLAUDE.md DEL 7.7).
+// the dev/ → app/ import boundary clean (see AGENTS.md DEL 7.7).
 
 import { useTranslation } from 'react-i18next';
 import { useTheme, type ThemeChoice } from '../../theme/ThemeContext';

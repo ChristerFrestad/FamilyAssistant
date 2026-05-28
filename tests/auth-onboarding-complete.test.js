@@ -19,7 +19,7 @@
 //     "already in family" guard, no new rows are created)
 //
 // Owner approval for retiring the previous flag-flip tests is
-// documented in PR #77 (CLAUDE.md DEL 6.5 explicit approval).
+// documented in PR #77 (AGENTS.md DEL 6.5 explicit approval).
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');

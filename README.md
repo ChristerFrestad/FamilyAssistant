@@ -108,8 +108,9 @@ npm run dev:client
 ```
 
 (Vite port `7778` (not the default `5173`) sits right next to the
-backend on `7777`. The full port matrix for the developer machine is
-in `CLAUDE.md` PART 7.8.)
+backend on `7777`. Agent-instruction conventions live in `AGENTS.md`;
+operator-specific overrides (port mappings, hook configs) live in a
+gitignored `CHRISTER.md`-style file per operator.)
 
 Prod-style build:
 ```bash

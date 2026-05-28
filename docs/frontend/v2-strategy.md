@@ -92,7 +92,7 @@ re-rendering. API calls to `/api/*` are proxied to the backend on 7777.
 
 > Vite port `7778` (not the default `5173`) was chosen to sit right
 > next to the backend on `7777`. The full port matrix for the developer
-> machine is documented in `CLAUDE.md` PART 7.8.
+> machine is documented in `AGENTS.md` PART 7.8.
 
 ### Want to see what the prod build looks like?
 

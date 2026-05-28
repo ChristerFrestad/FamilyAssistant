@@ -9,7 +9,7 @@
 // max-w-sm). The component is fully translation-driven through the
 // `auth:welcome.*` namespace; the {{appName}} interpolation flips
 // from "FamilyAssistant" to "Hverdagsplanleggeren" via the white-
-// label override (see CLAUDE.md DEL 7.12).
+// label override (see AGENTS.md DEL 7.12).
 
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

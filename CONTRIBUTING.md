@@ -175,7 +175,7 @@ If you find yourself in a situation where code in `dev/` would be useful
 in production, move it to `client/src/app/lib/` first — and then import
 it from both places. Don't reach across the boundary.
 
-See also `client/src/dev/README.md` for details and CLAUDE.md section 7.7
+See also `client/src/dev/README.md` for details and AGENTS.md section 7.7
 for the broader rule about technical debt that this boundary is one
 manifestation of.
 

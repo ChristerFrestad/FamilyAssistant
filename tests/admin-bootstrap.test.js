@@ -7,7 +7,7 @@
 //   - APP_ADMIN_EMAIL set but mismatch → no admin yet, second matching user wins
 //   - APP_ADMIN_EMAIL unset → first user wins regardless of email
 //   - Idempotency: second user never gets admin once bootstrap already ran
-//   - Cross-tenant isolation (CLAUDE.md DEL 14): admin in family A cannot
+//   - Cross-tenant isolation (AGENTS.md DEL 14): admin in family A cannot
 //     read family B private data via /api/admin/* endpoints
 
 const { test, describe, before, after, beforeEach } = require('node:test');
@@ -122,7 +122,7 @@ describe('admin-bootstrap.service · first-user fallback', () => {
 });
 
 // Integration tests against the live server — verifies multi-tenant
-// isolation per CLAUDE.md DEL 14.
+// isolation per AGENTS.md DEL 14.
 describe('admin endpoints · multi-tenant isolation', () => {
   let server;
   let baseUrl;

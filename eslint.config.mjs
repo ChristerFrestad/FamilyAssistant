@@ -156,7 +156,7 @@ export default [
   // free to import FROM app/ (a preview page for `Button` should
   // obviously import the real Button).
   //
-  // See client/src/dev/README.md and CLAUDE.md DEL 7.7 for the
+  // See client/src/dev/README.md and AGENTS.md DEL 7.7 for the
   // boundary's rationale.
   {
     files: ['client/src/app/**/*.{ts,tsx}'],

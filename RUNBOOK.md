@@ -1136,5 +1136,5 @@ is resolved (expected week 4).
 **If the pilot shows unacceptable latency:** enable the per-family
 config by wiring `getClientForFamily()` into the chat handler —
 requires a code change in `server/routes.js:2011-2042` and a new
-analysis PR per CLAUDE.md DEL 3.
+analysis PR per AGENTS.md DEL 3.
 
