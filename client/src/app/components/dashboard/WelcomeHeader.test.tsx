@@ -6,6 +6,7 @@
 //   2. The component renders the greeting that matches the injected
 //      `now` and pulls the name from useAuth().user.name.
 
+import type { JSX } from 'react';
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe, vi } from 'vitest';
 import { WelcomeHeader, pickGreetingKey, displayNameFromUser } from './WelcomeHeader';

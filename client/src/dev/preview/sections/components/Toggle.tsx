@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Toggle preview — sizes, on/off pairs, label/description, disabled,
 // and a useState-backed interactive group so the user can click each
 // toggle and watch the track-color and thumb-translate animation.

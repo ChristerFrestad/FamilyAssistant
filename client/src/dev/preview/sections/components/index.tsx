@@ -3,6 +3,7 @@
 // turning into a 600-line dump. The hash anchor `#components` matches
 // the entry in PreviewPage.tsx's nav.
 
+import type { JSX } from 'react';
 import AppShellPreview from './AppShell';
 import AvatarPreview from './Avatar';
 import BadgePreview from './Badge';

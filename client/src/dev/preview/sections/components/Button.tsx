@@ -7,6 +7,7 @@
 // theme changes propagate the moment the consumer toggles light /
 // dark / system in the page header.
 
+import type { JSX } from 'react';
 import { Button, type ButtonVariant } from '../../../../app/components/base/Button';
 
 const VARIANTS: ButtonVariant[] = ['primary', 'secondary', 'ghost'];

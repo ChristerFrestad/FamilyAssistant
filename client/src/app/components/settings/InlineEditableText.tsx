@@ -13,6 +13,7 @@
 // it does. On failure the input stays mounted so the user can fix
 // the value without retyping.
 
+import type { JSX } from 'react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Button } from '../base/Button';
 

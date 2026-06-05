@@ -4,6 +4,7 @@
 // mint blocks so the eye reads the spacing/alignment, not the
 // children themselves.
 
+import type { JSX } from 'react';
 import { Stack, type StackAlign, type StackGap } from '../../../../app/components/layout/Stack';
 
 const GAPS: StackGap[] = ['xs', 'sm', 'md', 'lg', 'xl'];

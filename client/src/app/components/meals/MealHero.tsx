@@ -12,6 +12,7 @@
 //                             title, "Marker tilberedt", "Bytt middag"
 //                             (opens picker), "Open source" link.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../layout/Card';
 import { Badge } from '../display/Badge';

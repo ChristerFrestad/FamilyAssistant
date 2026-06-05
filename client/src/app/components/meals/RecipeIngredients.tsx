@@ -21,6 +21,7 @@
 // useMealsData.ts so the component does not have to know about
 // the family fetch state.
 
+import type { JSX } from 'react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '../display/Badge';

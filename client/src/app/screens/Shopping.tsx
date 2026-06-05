@@ -29,6 +29,7 @@
 // renders. Auth is handled by AuthGuard at the route level.
 // ErrorBoundary at the route wraps both sub-views.
 
+import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';

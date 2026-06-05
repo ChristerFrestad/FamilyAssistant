@@ -14,6 +14,7 @@
 // (alphabetical 'nb' locale). Categories themselves render in the order
 // they first appear in items[]. Pilot scope — no manual ordering yet.
 
+import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Refrigerator } from 'lucide-react';

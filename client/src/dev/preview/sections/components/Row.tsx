@@ -2,6 +2,7 @@
 // wrap. Same dashed-border + uniform-block pattern as Stack so the
 // layout property under demonstration is the only visual variable.
 
+import type { JSX } from 'react';
 import {
   Row,
   type RowAlign,

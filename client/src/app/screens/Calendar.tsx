@@ -3,6 +3,7 @@
 // (Sprint 5 / Prompt 10). See pending-decisions.md "Kalender-
 // arkitektur" for the hybrid model.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export function Calendar(): JSX.Element {

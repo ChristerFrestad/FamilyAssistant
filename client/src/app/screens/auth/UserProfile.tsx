@@ -17,6 +17,7 @@
 // always set to 'owner' by the backend regardless of the category
 // chosen here, because the user is creating the family.
 
+import type { JSX } from 'react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

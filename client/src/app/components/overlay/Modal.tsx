@@ -53,6 +53,7 @@
 // (so a parent that already locked scrolling for another reason is
 // not silently unlocked when this modal closes).
 
+import type { JSX } from 'react';
 import { type MouseEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';

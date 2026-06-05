@@ -15,6 +15,7 @@
 //      transient 5xx looks like a successful logout from the user's
 //      perspective.
 
+import type { JSX } from 'react';
 import { LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../base/Button';

@@ -4,6 +4,7 @@
 // so the preview surfaces what users see if a profile picture
 // fails to load.
 
+import type { JSX } from 'react';
 import {
   Avatar,
   type AvatarShape,

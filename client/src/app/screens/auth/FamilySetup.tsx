@@ -17,6 +17,7 @@
 // step 1 of 2 (FamilyMembers is dropped from the initial pilot per
 // Sprint 3 scope — the second/last step is UserProfile).
 
+import type { JSX } from 'react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

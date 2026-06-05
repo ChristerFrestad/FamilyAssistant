@@ -28,6 +28,7 @@
 // readers see one consistent name regardless of which surface is
 // rendered.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, forwardRef, useEffect, useState } from 'react';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';

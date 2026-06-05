@@ -11,6 +11,7 @@
 // from "FamilyAssistant" to "Husby" via the white-
 // label override (see AGENTS.md DEL 7.12).
 
+import type { JSX } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../../components/layout/PageShell';

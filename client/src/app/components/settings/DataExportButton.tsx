@@ -13,6 +13,7 @@
 // `loading` prop). Error surface is the parent's userFacingError
 // toast — we just return early when onExport returns null.
 
+import type { JSX } from 'react';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../base/Button';

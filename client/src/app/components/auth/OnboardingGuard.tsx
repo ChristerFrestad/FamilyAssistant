@@ -31,6 +31,7 @@
 // into two guards keeps each one's predicate single-purpose and
 // the route table reads top-down.
 
+import type { JSX } from 'react';
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

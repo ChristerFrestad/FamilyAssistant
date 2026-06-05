@@ -12,6 +12,7 @@
 // hook and passes onSelect so the strip can stay testable without
 // spinning up the full hook.
 
+import type { JSX } from 'react';
 import type { MealSlot } from '../../meals/mealsApi';
 
 export interface DayStripProps {

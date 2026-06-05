@@ -15,6 +15,7 @@
 // render that one line. The other three cards (meals, chores,
 // events) render their actual list entries.
 
+import type { JSX } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { WelcomeHeader } from '../components/dashboard/WelcomeHeader';

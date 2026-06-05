@@ -2,6 +2,7 @@
 // Button.test.tsx — explicit imports from 'vitest' (globals: false),
 // userEvent for interaction, jest-dom matchers for assertions.
 
+import type { JSX } from 'react';
 import { createRef, useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

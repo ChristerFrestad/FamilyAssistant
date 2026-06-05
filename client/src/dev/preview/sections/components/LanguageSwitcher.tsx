@@ -3,6 +3,7 @@
 // Useful for verifying that i18n keys resolve in both bundles
 // without booting the full app.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../../../../app/components/form/LanguageSwitcher';
 

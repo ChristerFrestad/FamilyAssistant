@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
 // Three states match the locked theme contract in

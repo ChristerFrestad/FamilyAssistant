@@ -15,6 +15,7 @@
 //   - ratio < 0.40  → amber
 //   - ratio >= 0.40 → mint
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2, MinusCircle } from 'lucide-react';
 import { ExpiryBadge } from './ExpiryBadge';

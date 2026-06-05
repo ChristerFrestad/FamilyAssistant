@@ -21,6 +21,7 @@
 // (`/meals`). The dashboard exception is special-cased to equality
 // because `/dashboard` should NOT match `/`.
 
+import type { JSX } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PRIMARY_NAV_ITEMS, type NavItem } from './nav-items';

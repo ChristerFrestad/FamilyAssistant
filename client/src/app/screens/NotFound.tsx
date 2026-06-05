@@ -8,6 +8,7 @@
 // universal HTTP-status convention is more recognizable than any
 // translated word would be.
 
+import type { JSX } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 

@@ -26,6 +26,7 @@
 //   correct: AuthContext = session-long, OnboardingContext = visit
 //   to the onboarding screens only.
 
+import type { JSX } from 'react';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { completeOnboarding as apiCompleteOnboarding } from './authApi';
 import type { OnboardingCompleteResponse } from './authApi';

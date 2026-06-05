@@ -15,6 +15,7 @@
 // attempts" in the lockout message — once rate-limited, even the right
 // password is rejected, so showing one message is honest.
 
+import type { JSX } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { submitPilotPassword } from '../../auth/pilotApi';

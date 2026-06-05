@@ -7,6 +7,7 @@
 // surfaces the user-visible promise of that contract: bought + manual
 // rows are kept, new ingredients from the current meal plan are added.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '../overlay/Modal';
 import { Button } from '../base/Button';

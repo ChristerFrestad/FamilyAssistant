@@ -2,6 +2,7 @@
 // Pill examples use short Norwegian status copy so the preview
 // reads the way a real screen would.
 
+import type { JSX } from 'react';
 import { Badge, type BadgeVariant } from '../../../../app/components/display/Badge';
 
 const VARIANTS: BadgeVariant[] = ['mint', 'cyan', 'amber', 'coral', 'rose'];

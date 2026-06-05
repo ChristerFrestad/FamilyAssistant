@@ -18,6 +18,7 @@
 // (issue #121). Backend stores the chosen value on the row so resend
 // reuses it.
 
+import type { JSX } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '../overlay/Modal';

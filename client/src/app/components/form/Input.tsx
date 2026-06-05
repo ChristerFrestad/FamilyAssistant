@@ -26,6 +26,7 @@
 // used standalone on a canvas-0 page, the border still defines the
 // boundary even though the bg matches the page.
 
+import type { JSX } from 'react';
 import { type InputHTMLAttributes, forwardRef } from 'react';
 
 export type InputSize = 'sm' | 'md' | 'lg';

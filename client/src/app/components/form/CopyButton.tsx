@@ -20,6 +20,7 @@
 //   not setState on an unmounted instance (silent in React 18, but
 //   leaks the timer reference until it fires).
 
+import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, type ButtonSize, type ButtonVariant } from '../base/Button';

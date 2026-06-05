@@ -8,6 +8,7 @@
 // the network layer (already covered by authApi-level fetch
 // mocks in AuthContext.test.tsx).
 
+import type { JSX } from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';

@@ -23,6 +23,7 @@
 // unchanged so the component degrades gracefully when used in a way it
 // was not designed for.
 
+import type { JSX } from 'react';
 import { useId, cloneElement, isValidElement, type ReactNode } from 'react';
 
 // Subset of props that Field may inject into the wrapped child. All

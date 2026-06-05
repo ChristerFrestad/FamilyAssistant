@@ -12,6 +12,7 @@
 // also flexbox's default, so we omit the class entirely instead of
 // emitting a redundant `flex-nowrap` utility.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, forwardRef } from 'react';
 import { type StackAlign, type StackGap } from './Stack';
 

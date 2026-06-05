@@ -4,6 +4,7 @@
 // it is a real checkbox under the hood), and the label/description
 // rendering.
 
+import type { JSX } from 'react';
 import { createRef, useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

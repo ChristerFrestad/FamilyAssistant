@@ -19,6 +19,7 @@
 // passes isCurrentUser as a boolean prop so this component stays
 // trivially testable without provider scaffolding.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../layout/Card';
 import { Avatar } from '../display/Avatar';

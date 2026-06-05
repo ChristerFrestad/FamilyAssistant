@@ -2,6 +2,7 @@
 // inside a dashed-border so the shell boundary is visible. Compact
 // is shown as its own row to demonstrate the py-4 vs py-8 swap.
 
+import type { JSX } from 'react';
 import { PageShell, type PageShellMaxWidth } from '../../../../app/components/layout/PageShell';
 
 const TIERS: PageShellMaxWidth[] = ['sm', 'md', 'lg'];

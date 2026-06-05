@@ -45,6 +45,7 @@
 // matches the expectation that ticks read as "evenly distributed
 // scale markers" rather than "exact value coordinates".
 
+import type { JSX } from 'react';
 import { type InputHTMLAttributes, type CSSProperties, forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 

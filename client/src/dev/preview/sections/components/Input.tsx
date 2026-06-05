@@ -3,6 +3,7 @@
 // shown on the same row so a designer can compare vertical rhythm
 // against Button at the same size scale.
 
+import type { JSX } from 'react';
 import { Input } from '../../../../app/components/form/Input';
 
 export default function InputPreview(): JSX.Element {

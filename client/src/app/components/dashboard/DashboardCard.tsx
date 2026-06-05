@@ -11,6 +11,7 @@
 // computed here so each consumer doesn't have to repeat the
 // slice-and-count dance.
 
+import type { JSX } from 'react';
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../layout/Card';

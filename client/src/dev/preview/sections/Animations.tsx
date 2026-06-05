@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import { useState } from 'react';
 
 // The four mockup animations as utility classes. Each animation has

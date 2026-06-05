@@ -17,6 +17,7 @@
 // and the next screen says "if the address is valid you'll get an
 // email" rather than confirming a specific account.
 
+import type { JSX } from 'react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

@@ -15,6 +15,7 @@
 // "Steg X av Y" so assistive tech announces a single coherent
 // progress statement instead of N nameless circles.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, forwardRef } from 'react';
 
 export type ProgressDotsSize = 'sm' | 'md' | 'lg';

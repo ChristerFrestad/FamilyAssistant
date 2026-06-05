@@ -12,6 +12,7 @@
 // mutation through usePantryDeduction. We render whatever the parent
 // passes via the `state` prop.
 
+import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '../overlay/Modal';

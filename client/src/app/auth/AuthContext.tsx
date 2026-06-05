@@ -17,6 +17,7 @@
 // existing useAuth() consumers keep their import path the same;
 // this provider just wraps the real implementation behind it.
 
+import type { JSX } from 'react';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   AuthApiError,

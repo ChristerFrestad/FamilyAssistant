@@ -23,6 +23,7 @@
 // a Card look like a Card and not a flat background section. Pass
 // border={false} for full-bleed variants.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, forwardRef } from 'react';
 
 export type CardVariant = 'default' | 'strong' | 'glass';
