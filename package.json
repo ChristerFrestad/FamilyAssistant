@@ -44,7 +44,7 @@
     "typecheck:client": "tsc --noEmit --project client/tsconfig.json"
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0",
+    "better-sqlite3": "^12.11.1",
     "i18next": "26.3.0",
     "i18next-browser-languagedetector": "8.2.1",
     "lucide-react": "1.17.0",
