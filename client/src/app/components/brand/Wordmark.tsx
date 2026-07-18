@@ -17,6 +17,7 @@
 // `useBrandConfig().config?.appName` directly instead of rendering
 // this component.
 
+import type { JSX } from 'react';
 import { useBrandConfig } from '../../hooks/useBrandConfig';
 
 export type WordmarkSize = 'sm' | 'md' | 'lg' | 'xl';

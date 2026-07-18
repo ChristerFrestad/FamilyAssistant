@@ -8,6 +8,7 @@
 // Komponenten er ren presentation; den vet ingenting om backend. Parent
 // (PantryView) eier mutasjons-kallet og lukker dialogen ved suksess.
 
+import type { JSX } from 'react';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '../overlay/Modal';

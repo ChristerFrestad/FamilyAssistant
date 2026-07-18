@@ -22,6 +22,7 @@
 // matches user expectation that the menu disappears the instant the
 // user starts a click somewhere else.
 
+import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

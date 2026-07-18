@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Modal preview — five interactive examples that exercise the
 // behavior of every prop on a real DOM. The modal mounts to
 // document.body via createPortal, so opening one in the preview

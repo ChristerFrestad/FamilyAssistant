@@ -7,6 +7,7 @@
 // catalog or falls back to 'stk'). Name is required; the others are
 // optional and pass straight to backend.
 
+import type { JSX } from 'react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';

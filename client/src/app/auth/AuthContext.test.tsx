@@ -16,6 +16,7 @@
 // and asserting on the rendered text. This avoids the (much more
 // brittle) approach of directly importing the context object.
 
+import type { JSX } from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { AuthProvider, useAuthContext } from './AuthContext';

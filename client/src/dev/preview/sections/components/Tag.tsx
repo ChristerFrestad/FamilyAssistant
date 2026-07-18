@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Tag preview — variants, removable mode, and a small interactive
 // example that wires onRemove to local state so the user can click
 // X and watch the tag disappear from the preview itself.

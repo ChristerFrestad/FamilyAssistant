@@ -9,6 +9,7 @@
 // strongest typographic anchor inside the card, matching the
 // hierarchy used by Family / Pantry summary cards.
 
+import type { JSX } from 'react';
 import { type ReactNode } from 'react';
 import { Card } from '../layout/Card';
 

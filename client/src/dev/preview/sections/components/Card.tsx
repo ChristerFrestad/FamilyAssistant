@@ -2,6 +2,7 @@
 // scale. Each example uses simple text content so the visual focus
 // stays on the surface itself rather than the children.
 
+import type { JSX } from 'react';
 import { Card } from '../../../../app/components/layout/Card';
 
 export default function CardPreview(): JSX.Element {

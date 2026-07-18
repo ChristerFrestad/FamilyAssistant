@@ -11,6 +11,7 @@
 // and the standard ARIA attributes works as a child. A future
 // Textarea component will replace it without changing Field.
 
+import type { JSX } from 'react';
 import { Field } from '../../../../app/components/form/Field';
 import { Input } from '../../../../app/components/form/Input';
 

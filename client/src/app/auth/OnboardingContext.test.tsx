@@ -10,6 +10,7 @@
 //      the trimmed family + user payload and returns the parsed body.
 //   4. resetOnboarding clears both state slices back to empty.
 
+import type { JSX } from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import {

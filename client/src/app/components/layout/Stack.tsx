@@ -13,6 +13,7 @@
 // stack of full-width children (form fields, list items). Override
 // to 'center' for vertically-centered hero stacks.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, forwardRef } from 'react';
 
 export type StackGap = 'xs' | 'sm' | 'md' | 'lg' | 'xl';

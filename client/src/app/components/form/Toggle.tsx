@@ -29,6 +29,7 @@
 // visible mint ring on keyboard focus only — mouse clicks do not
 // trigger the ring (matches the focus-visible UX in Button).
 
+import type { JSX } from 'react';
 import { type InputHTMLAttributes, forwardRef } from 'react';
 
 export type ToggleSize = 'sm' | 'md' | 'lg';

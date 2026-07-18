@@ -18,6 +18,7 @@
 // The "sm" alias is still narrower than the others, but a 384 px
 // shell would feel cramped even on a phone in landscape.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, forwardRef } from 'react';
 
 export type PageShellMaxWidth = 'sm' | 'md' | 'lg';

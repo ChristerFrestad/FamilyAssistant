@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Shadow scale visualisation. Each card uses surface-strong + a
 // thicker bottom margin so the shadow does not get clipped by the
 // next row. shadow-glow is theme-dependent: muted in light, neon

@@ -8,6 +8,7 @@
 // Disabled when there is no active list — the parent surfaces a
 // hint that says "generate from meals first".
 
+import type { JSX } from 'react';
 import { type FormEvent, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '../form/Input';

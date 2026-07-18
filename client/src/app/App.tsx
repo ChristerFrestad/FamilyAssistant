@@ -25,6 +25,7 @@
 // written as path="/dashboard" therefore matches the URL
 // /v2/dashboard in the browser.
 
+import type { JSX } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { OnboardingGuard } from './components/auth/OnboardingGuard';

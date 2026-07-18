@@ -11,6 +11,7 @@
 // a recipe fires onSelect(recipeId); parent issues the swap call
 // and closes the dialog after success.
 
+import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '../overlay/Modal';

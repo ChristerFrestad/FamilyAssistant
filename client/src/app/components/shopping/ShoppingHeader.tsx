@@ -6,6 +6,7 @@
 // provided. Stats are rendered as plain text — the progress-ring
 // from the mockup is intentionally deferred (see analysis B9).
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ShoppingStats } from '../../shopping/useShoppingData';
 

@@ -1,6 +1,7 @@
 // Tests for ShoppingViewToggle — verifies URL-state pattern, default
 // behaviour, and click handling.
 
+import type { JSX } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 import { I18nextProvider } from 'react-i18next';

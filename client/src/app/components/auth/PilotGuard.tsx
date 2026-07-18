@@ -10,6 +10,7 @@
 // cached for the lifetime of the page so app-shell navigation does
 // not retrigger the check.
 
+import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { fetchPilotStatus } from '../../auth/pilotApi';
 import { PilotPasswordGate } from './PilotPasswordGate';

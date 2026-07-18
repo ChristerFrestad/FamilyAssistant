@@ -12,6 +12,7 @@
 //   - text shows strikethrough purely visually when bought, but the
 //     aria-checked state is what assistive tech announces
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ShoppingItem } from '../../shopping/shoppingApi';
 import {

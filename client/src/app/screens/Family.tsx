@@ -24,6 +24,7 @@
 //     backend enforces this with 403, but we also pre-disable the
 //     slider so they get an immediate visual cue.
 
+import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';

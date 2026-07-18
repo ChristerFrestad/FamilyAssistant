@@ -18,6 +18,7 @@
 // (and screen readers) treat these as monospace literal content,
 // which matches what we render visually.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, type ReactNode, forwardRef } from 'react';
 
 export type TermVariant = 'inline' | 'block';

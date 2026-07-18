@@ -8,6 +8,7 @@
 // row gets a mint accent border so it visually pairs with the
 // active day-pill above.
 
+import type { JSX } from 'react';
 import type { MealSlot } from '../../meals/mealsApi';
 
 export interface WeekListProps {

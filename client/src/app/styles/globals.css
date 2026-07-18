@@ -1,7 +1,6 @@
-/* Tailwind directives. Body baseline + design tokens live in
- * tokens.css and apply on top of Tailwind's reset. Order in main.tsx
- * matters: import this file first so the reset is in place before
- * tokens.css writes the body baseline. */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 entry point. Config file location is declared via @config
+ * so the PostCSS plugin can find tailwind.config.ts.
+ * Body baseline + design tokens live in tokens.css; import order in
+ * main.tsx matters — this file first so Tailwind's reset is in place. */
+@import 'tailwindcss';
+@config "../../../tailwind.config.ts";

@@ -21,6 +21,7 @@
 // callback and the resulting state update so the entrance-animation
 // classes settle before assertions run.
 
+import type { JSX } from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useState } from 'react';

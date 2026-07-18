@@ -10,6 +10,7 @@
 // (the ink/ink-contrast invariant from Button) carries across every
 // accent surface and stays correct in both themes.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, type ReactNode, forwardRef } from 'react';
 
 export type BadgeVariant = 'mint' | 'cyan' | 'amber' | 'coral' | 'rose';

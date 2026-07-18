@@ -1,6 +1,7 @@
 // Term preview — inline usage inside flowing prose, block usage for
 // CLI snippets and tokens, all three sizes for both variants.
 
+import type { JSX } from 'react';
 import { Term, type TermSize } from '../../../../app/components/display/Term';
 
 const SIZES: TermSize[] = ['sm', 'md', 'lg'];

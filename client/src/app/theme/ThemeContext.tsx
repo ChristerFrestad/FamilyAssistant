@@ -17,6 +17,7 @@
 // not have to import the context object directly. The hook throws
 // when used outside a ThemeProvider — same pattern as AuthContext.
 
+import type { JSX } from 'react';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 export type ThemeChoice = 'system' | 'light' | 'dark';

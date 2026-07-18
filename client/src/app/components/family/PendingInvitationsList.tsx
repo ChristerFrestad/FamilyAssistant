@@ -13,6 +13,7 @@
 // parent (it knows the request lifecycle) and rendered around this
 // component.
 
+import type { JSX } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';

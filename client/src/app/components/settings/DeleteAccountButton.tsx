@@ -14,6 +14,7 @@
 // for pilot scope. A bespoke confirm-dialog is a Sprint 7 polish
 // task once Resend lands and we redesign the GDPR-flow holistically.
 
+import type { JSX } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../base/Button';

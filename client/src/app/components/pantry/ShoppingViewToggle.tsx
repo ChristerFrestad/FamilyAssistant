@@ -9,6 +9,7 @@
 // Default: when ?view is absent or unrecognised, list-view renders.
 // This keeps deep-links to /v2/shopping pointing at the dominant flow.
 
+import type { JSX } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ShoppingCart, Refrigerator } from 'lucide-react';

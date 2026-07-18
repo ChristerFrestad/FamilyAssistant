@@ -2,6 +2,7 @@
 // representative current step in each, plus all three sizes shown
 // at the same step count so the dimensions are comparable.
 
+import type { JSX } from 'react';
 import {
   ProgressDots,
   type ProgressDotsSize,

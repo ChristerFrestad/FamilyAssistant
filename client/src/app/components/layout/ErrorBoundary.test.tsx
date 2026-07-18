@@ -1,5 +1,6 @@
 // Tests for ErrorBoundary.
 
+import type { JSX } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';

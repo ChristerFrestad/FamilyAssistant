@@ -15,6 +15,7 @@
 // authContext.logout() and routes back to /v2/login with a redirect
 // param so the magic-link flow returns to /v2/invite/:token.
 
+import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

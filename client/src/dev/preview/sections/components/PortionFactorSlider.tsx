@@ -3,6 +3,7 @@
 // description, and an interactive section where the user can drag
 // the thumb and watch the numeric/label/fill update in lockstep.
 
+import type { JSX } from 'react';
 import { useState } from 'react';
 import {
   PortionFactorSlider,

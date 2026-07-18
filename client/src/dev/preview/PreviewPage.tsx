@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import Animations from './sections/Animations';
 import Colors from './sections/Colors';
 import Components from './sections/components';

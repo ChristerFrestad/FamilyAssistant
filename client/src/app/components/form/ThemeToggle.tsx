@@ -17,6 +17,7 @@
 // app. We deliberately accept a small amount of duplication to keep
 // the dev/ → app/ import boundary clean (see AGENTS.md DEL 7.7).
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme, type ThemeChoice } from '../../theme/ThemeContext';
 

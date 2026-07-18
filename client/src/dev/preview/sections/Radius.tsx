@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Border-radius scale visualisation. Each box has the same
 // dimensions so the radius is the only varying property.
 

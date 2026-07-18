@@ -21,6 +21,7 @@
 // Variant text color follows Badge: `text-ink-contrast` on the
 // accent surface — same theme-safe pattern Button proved out.
 
+import type { JSX } from 'react';
 import { type HTMLAttributes, type ReactNode, forwardRef } from 'react';
 
 export type TagVariant = 'mint' | 'cyan' | 'amber' | 'coral' | 'rose';

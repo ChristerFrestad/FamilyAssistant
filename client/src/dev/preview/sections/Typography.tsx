@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Visualises the three font families and the type scale. The pangram
 // "The quick brown fox" exercises common ascender/descender shapes;
 // a Norwegian sentence with æøå proves the Latin Extended subset

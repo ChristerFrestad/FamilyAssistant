@@ -14,6 +14,7 @@
 // has negative value — it drowns critical signals in noise. Only ≤ 7
 // days + expired trigger the badge.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export interface ExpiryBadgeProps {

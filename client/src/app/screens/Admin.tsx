@@ -4,6 +4,7 @@
 // is_admin=true via AuthContext. Fully-fledged admin UI (system stats,
 // user management, Kassal status) lands post-pilot.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { useAuthContext } from '../auth/AuthContext';

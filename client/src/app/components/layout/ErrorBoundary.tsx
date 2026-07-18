@@ -11,6 +11,7 @@
 // state is reset by the route change. The "Reload" button
 // triggers a hard reload to recover from corrupt module state.
 
+import type { JSX } from 'react';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -41,7 +42,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // Single console.error call so the dev console surfaces the cause
     // without polluting the page; production telemetry can plug in here
     // later (Sprint 7 observability).
-    // eslint-disable-next-line no-console
     console.error('[ErrorBoundary]', error, info.componentStack);
   }
 

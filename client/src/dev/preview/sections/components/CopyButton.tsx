@@ -2,6 +2,7 @@
 // to the user's clipboard so you can paste elsewhere and verify
 // the value made it across. Variants and sizes mirror Button.
 
+import type { JSX } from 'react';
 import { CopyButton } from '../../../../app/components/form/CopyButton';
 import { Term } from '../../../../app/components/display/Term';
 

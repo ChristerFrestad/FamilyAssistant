@@ -11,6 +11,7 @@
 // profile sees "Hei Peder" instead of "Hei peder@example.com".
 // Same heuristic as UserProfile.tsx.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../auth/useAuth';
 

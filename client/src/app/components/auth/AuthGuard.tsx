@@ -19,6 +19,7 @@
 // { isAuthenticated, isLoading } shape regardless of which
 // implementation is mounted.
 
+import type { JSX } from 'react';
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

@@ -11,6 +11,7 @@
 // in a `aria-disabled`-marked container. Tab order skips disabled
 // rows by setting tabIndex={-1} on the wrapper.
 
+import type { JSX } from 'react';
 import { type ReactNode } from 'react';
 
 export interface SettingsRowProps {

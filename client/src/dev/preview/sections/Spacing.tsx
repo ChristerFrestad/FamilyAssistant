@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Tailwind's default 4 px base unit (1 = 0.25 rem) maps 1:1 to
 // tokens.css's --space-* scale, so the visualisation here uses
 // Tailwind's `w-N` width utility directly. The label shows both

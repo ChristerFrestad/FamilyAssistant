@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 // Visual swatches for every color token mapped in tailwind.config.ts.
 // Background swatches sit on top of bg-1 cards so even near-bg
 // surfaces stay readable. Stroke tokens render as borders on

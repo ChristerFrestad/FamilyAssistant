@@ -24,6 +24,7 @@
 //   query.error=invalid   -> "invalid"
 //   any other / no token  -> "invalid"
 
+import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

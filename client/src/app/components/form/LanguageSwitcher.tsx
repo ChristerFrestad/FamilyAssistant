@@ -19,6 +19,7 @@
 // semantics: each button is a "pressed" / "unpressed" toggle, not a
 // nav link to a different document.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, type ButtonSize } from '../base/Button';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../../i18n/config';

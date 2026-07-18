@@ -17,6 +17,7 @@
 // `disabled` and `loading` themselves. Children stay visible so the
 // action label remains readable.
 
+import type { JSX } from 'react';
 import { type ButtonHTMLAttributes, type ReactNode, forwardRef } from 'react';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost';

@@ -12,6 +12,7 @@
 // responsible for that surface so this component does not need to
 // know about generation failure paths.
 
+import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../layout/Card';
 import { Button } from '../base/Button';

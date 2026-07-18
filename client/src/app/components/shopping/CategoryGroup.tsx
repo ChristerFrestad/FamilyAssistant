@@ -5,6 +5,7 @@
 // dot-marker on the left mirrors the mockup's accent system: stable
 // colour-mapping per category with a deterministic fallback.
 
+import type { JSX } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../layout/Card';

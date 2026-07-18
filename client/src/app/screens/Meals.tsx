@@ -20,6 +20,7 @@
 //   - Loading → skeleton (DayStrip + hero placeholders).
 //   - Meal-plan fetch error → full error-card with retry.
 
+import type { JSX } from 'react';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
