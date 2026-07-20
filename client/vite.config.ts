@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import enforceDevIsolation from './vite-plugins/enforce-isolation';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // Frontend v2 — built into <repo>/public/v2 so the existing Express
 // static handler can serve it via the /v2/* route prefix. See
@@ -18,12 +19,62 @@ import enforceDevIsolation from './vite-plugins/enforce-isolation';
 //
 // Build: `npm run build:client` — writes public/v2/. That folder is
 //        gitignored; CI rebuilds it before serving.
+//
+// PWA (Phase 1): vite-plugin-pwa adds installable offline-capable app
+// with auto-updating service worker and Workbox caching. Icons and
+// further offline flows for shopping list / pantry come in later cycles.
 
 export default defineConfig({
   // enforceDevIsolation() MUST run in every Vite invocation (dev + build
   // alike). Its `enforce: 'pre'` makes it fire before react()'s resolver
   // so an illegal app -> dev import fails fast with a clear error.
-  plugins: [enforceDevIsolation(), react()],
+  plugins: [
+    enforceDevIsolation(),
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'robots.txt'],
+      manifest: {
+        name: 'FamilyAssistant',
+        short_name: 'FamilyAssistant',
+        description: 'Din personlige familieassistent - måltider, handleliste og pantry',
+        theme_color: '#2563eb',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/v2/',
+        scope: '/v2/',
+        icons: [
+          {
+            src: '/v2/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/v2/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+        ],
+      },
+    }),
+  ],
 
   // Base URL for all emitted asset paths. Must match the route prefix
   // the backend serves on, otherwise <script src="/assets/..."> breaks.
