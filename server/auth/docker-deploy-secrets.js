@@ -1,12 +1,10 @@
 // Zero-config Docker / Portainer deploy secrets.
 //
-// Goal: the container MUST bind :7777 on first boot without any stack env
-// secrets. AUTH_TOKEN + SESSION_SECRET are generated once, persisted to
-// /app/data/bootstrap.json, and reloaded on every subsequent boot.
-//
-// Login / magic-link / OAuth still use these secrets at runtime — they are
-// just not something the operator has to invent in Portainer before the
-// app will start. Cloudflare Tunnel only needs a listening port.
+// Portainer "GitHub URL → Deploy" must work with zero stack env vars.
+// This module always runs inside a container and ensures AUTH_TOKEN +
+// SESSION_SECRET exist BEFORE production gates can kill the process.
+// Magic-link / OAuth use these secrets later at login — they must never
+// block binding :7777.
 
 'use strict';
 
@@ -18,14 +16,45 @@ function hex(bytes) {
   return crypto.randomBytes(bytes).toString('hex');
 }
 
+function envTruthy(name) {
+  const v = process.env[name];
+  if (v === undefined || v === null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
+/** True when we should auto-provision secrets and never crash-loop. */
+function isZeroConfigDeploy() {
+  if (envTruthy('BOOTSTRAP_ALLOWED')) return true;
+  try {
+    if (fs.existsSync('/.dockerenv')) return true;
+  } catch {
+    // ignore
+  }
+  // Dockerfile WORKDIR + DB_PATH defaults
+  if (process.cwd() === '/app') return true;
+  if (typeof process.env.DB_PATH === 'string' && process.env.DB_PATH.startsWith('/app/data')) {
+    return true;
+  }
+  return false;
+}
+
 function resolveBootstrapPath(explicitPath) {
   if (explicitPath) return explicitPath;
   const dockerPath = '/app/data/bootstrap.json';
   try {
-    fs.accessSync(path.dirname(dockerPath), fs.constants.W_OK);
+    const dir = path.dirname(dockerPath);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.accessSync(dir, fs.constants.W_OK);
     return dockerPath;
   } catch {
-    return path.resolve(process.cwd(), 'data', 'bootstrap.json');
+    const local = path.resolve(process.cwd(), 'data', 'bootstrap.json');
+    try {
+      fs.mkdirSync(path.dirname(local), { recursive: true });
+    } catch {
+      // ignore
+    }
+    return local;
   }
 }
 
@@ -48,18 +77,43 @@ function writeBootstrap(bootstrapPath, data) {
 }
 
 /**
- * Ensure process.env has AUTH_TOKEN + SESSION_SECRET for a Docker deploy.
+ * Clear empty / too-short secret env vars that Portainer often injects as
+ * blank stack fields — those would otherwise fail length gates.
+ */
+function scrubWeakSecretEnv() {
+  const token = process.env.AUTH_TOKEN;
+  if (token !== undefined && String(token).trim().length < 16) {
+    delete process.env.AUTH_TOKEN;
+  }
+  const session = process.env.SESSION_SECRET;
+  if (session !== undefined && String(session).trim().length < 32) {
+    delete process.env.SESSION_SECRET;
+  }
+  // Magic-link console must never be required for deploy. If someone left
+  // MAGIC_LINK_CONSOLE=true in an old stack without understanding it, secrets
+  // are auto-created below — still, do not let blank/weird values explode.
+  if (process.env.MAGIC_LINK_CONSOLE !== undefined) {
+    const s = String(process.env.MAGIC_LINK_CONSOLE).trim().toLowerCase();
+    if (s === '' || s === '0' || s === 'false' || s === 'no' || s === 'off') {
+      process.env.MAGIC_LINK_CONSOLE = 'false';
+    }
+  }
+}
+
+/**
+ * Ensure process.env has AUTH_TOKEN + SESSION_SECRET.
  * Idempotent. Never throws for missing secrets — generates them.
  *
- * @returns {{ path: string, generated: string[] }}
+ * @returns {{ path: string, generated: string[], zeroConfig: boolean }}
  */
 function ensureDockerDeploySecrets({ bootstrapFile } = {}) {
+  scrubWeakSecretEnv();
+
   const bootstrapPath = resolveBootstrapPath(bootstrapFile || process.env.BOOTSTRAP_FILE);
   const existing = readBootstrap(bootstrapPath);
   const generated = [];
   let dirty = false;
 
-  // Prefer explicit env, then file, then generate.
   let authToken =
     (typeof process.env.AUTH_TOKEN === 'string' && process.env.AUTH_TOKEN.trim()) ||
     (typeof existing.authToken === 'string' && existing.authToken.trim()) ||
@@ -84,8 +138,6 @@ function ensureDockerDeploySecrets({ bootstrapFile } = {}) {
     (typeof process.env.ALLOWED_ORIGINS === 'string' && process.env.ALLOWED_ORIGINS.trim()) ||
     (typeof existing.allowedOrigins === 'string' && existing.allowedOrigins.trim()) ||
     '';
-  // Keep * only as last resort for LAN/tunnel first boot; Cloudflare can
-  // set APP_URL / ALLOWED_ORIGINS later. Do not block bind.
   if (!allowedOrigins) {
     allowedOrigins = '*';
     if (!existing.allowedOrigins) dirty = true;
@@ -93,8 +145,12 @@ function ensureDockerDeploySecrets({ bootstrapFile } = {}) {
 
   process.env.AUTH_TOKEN = authToken;
   process.env.SESSION_SECRET = sessionSecret;
-  if (!process.env.ALLOWED_ORIGINS || !process.env.ALLOWED_ORIGINS.trim()) {
+  if (!process.env.ALLOWED_ORIGINS || !String(process.env.ALLOWED_ORIGINS).trim()) {
     process.env.ALLOWED_ORIGINS = allowedOrigins;
+  }
+  // Ensure Docker path is marked for config.js even if compose forgot it.
+  if (!envTruthy('BOOTSTRAP_ALLOWED')) {
+    process.env.BOOTSTRAP_ALLOWED = 'true';
   }
 
   if (dirty || !fs.existsSync(bootstrapPath)) {
@@ -111,12 +167,15 @@ function ensureDockerDeploySecrets({ bootstrapFile } = {}) {
     writeBootstrap(bootstrapPath, payload);
   }
 
-  return { path: bootstrapPath, generated };
+  return { path: bootstrapPath, generated, zeroConfig: true };
 }
 
 module.exports = {
   ensureDockerDeploySecrets,
+  isZeroConfigDeploy,
+  envTruthy,
   resolveBootstrapPath,
+  scrubWeakSecretEnv,
   readBootstrap,
   writeBootstrap,
 };

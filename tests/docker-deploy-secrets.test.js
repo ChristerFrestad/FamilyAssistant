@@ -7,9 +7,30 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { ensureDockerDeploySecrets } = require('../server/auth/docker-deploy-secrets');
+const {
+  ensureDockerDeploySecrets,
+  isZeroConfigDeploy,
+  scrubWeakSecretEnv,
+} = require('../server/auth/docker-deploy-secrets');
 
 const REPO_ROOT = path.join(__dirname, '..');
+
+describe('isZeroConfigDeploy / scrub', () => {
+  test('scrubWeakSecretEnv drops short SESSION_SECRET and AUTH_TOKEN', () => {
+    process.env.AUTH_TOKEN = 'short';
+    process.env.SESSION_SECRET = 'tooshort';
+    process.env.MAGIC_LINK_CONSOLE = 'false';
+    scrubWeakSecretEnv();
+    assert.equal(process.env.AUTH_TOKEN, undefined);
+    assert.equal(process.env.SESSION_SECRET, undefined);
+  });
+
+  test('BOOTSTRAP_ALLOWED=true is zero-config', () => {
+    process.env.BOOTSTRAP_ALLOWED = 'true';
+    assert.equal(isZeroConfigDeploy(), true);
+    delete process.env.BOOTSTRAP_ALLOWED;
+  });
+});
 
 describe('ensureDockerDeploySecrets', () => {
   test('generates AUTH_TOKEN + SESSION_SECRET and writes bootstrap.json', () => {
@@ -65,6 +86,23 @@ function loadConfigInChild(env) {
     timeout: 10_000,
   });
 }
+
+describe('isZeroConfigDeploy / scrub', () => {
+  test('scrubWeakSecretEnv drops short SESSION_SECRET and AUTH_TOKEN', () => {
+    process.env.AUTH_TOKEN = 'short';
+    process.env.SESSION_SECRET = 'tooshort';
+    process.env.MAGIC_LINK_CONSOLE = 'false';
+    scrubWeakSecretEnv();
+    assert.equal(process.env.AUTH_TOKEN, undefined);
+    assert.equal(process.env.SESSION_SECRET, undefined);
+  });
+
+  test('BOOTSTRAP_ALLOWED=true is zero-config', () => {
+    process.env.BOOTSTRAP_ALLOWED = 'true';
+    assert.equal(isZeroConfigDeploy(), true);
+    delete process.env.BOOTSTRAP_ALLOWED;
+  });
+});
 
 describe('Docker zero-config boot', () => {
   test('BOOTSTRAP_ALLOWED + MAGIC_LINK_CONSOLE + no secrets → starts with auto secrets', () => {

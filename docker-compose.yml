@@ -1,43 +1,38 @@
-# FamilyAssistant — Docker / Portainer (zero-config)
+# FamilyAssistant — Portainer / Docker (GitHub URL → Deploy)
 #
-# Deploy with NO secrets. The app auto-creates AUTH_TOKEN + SESSION_SECRET
-# into the data volume on first boot and binds :7777 immediately so
-# Cloudflare Tunnel / Portainer can route traffic.
+# No secrets. No MAGIC_LINK_CONSOLE. No manual tokens.
+# First boot writes AUTH_TOKEN + SESSION_SECRET to the data volume
+# and binds 0.0.0.0:7777 for Cloudflare Tunnel.
 #
-# Portainer: Stacks → Web editor → paste this file → Deploy.
-# Then point Cloudflare Tunnel at http://<rpi-ip>:7777
+# Portainer: Stacks → Add stack → Repository
+#   URL:  https://github.com/ChristerFrestad/FamilyAssistant
+#   Path: docker-compose.yml
+#   Ref:  refs/heads/main
+# Then Deploy. Point tunnel at http://<host>:7777
 
 services:
   app:
-    image: ghcr.io/christerfrestad/familyassistant:${TAG:-main}
+    image: ghcr.io/christerfrestad/familyassistant:main
     pull_policy: always
     container_name: familieassistenten
     restart: unless-stopped
     ports:
-      # Plain mapping only — Portainer breaks ${HOST_PORT:-7777} when unset.
       - '7777:7777'
     volumes:
       - familyassistant_data:/app/data
     environment:
       NODE_ENV: production
       PORT: '7777'
-      # Enables silent secret auto-create on first boot (required for RPi).
       BOOTSTRAP_ALLOWED: 'true'
-      # Cloudflare Tunnel terminates TLS in front of the container.
-      HTTPS_TERMINATED: ${HTTPS_TERMINATED:-true}
-      TRUST_PROXY: ${TRUST_PROXY:-true}
-      # Optional: set after tunnel hostname is known, e.g.
-      #   ALLOWED_ORIGINS=https://app.example.com
-      #   APP_URL=https://app.example.com
-      ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-*}'
-      APP_URL: ${APP_URL:-}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      LLM_BACKEND: ${LLM_BACKEND:-ollama}
-      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
-      APP_NAME: ${APP_NAME:-FamilyAssistant}
+      HTTPS_TERMINATED: 'true'
+      TRUST_PROXY: 'true'
+      ALLOWED_ORIGINS: '*'
+      LOG_LEVEL: info
+      # Explicitly off — never require magic-link secrets at deploy time.
+      MAGIC_LINK_CONSOLE: 'false'
+      PILOT_BYPASS: 'false'
+      PILOT_MODE: 'false'
     mem_limit: 768m
-    cpus: 1.5
     healthcheck:
       test:
         [
@@ -52,13 +47,6 @@ services:
       retries: 5
     extra_hosts:
       - 'host.docker.internal:host-gateway'
-    networks:
-      - familieass
 
 volumes:
   familyassistant_data:
-    driver: local
-
-networks:
-  familieass:
-    driver: bridge

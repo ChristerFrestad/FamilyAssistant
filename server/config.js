@@ -213,30 +213,42 @@ function loadBootstrapFile(explicitPath) {
 function loadConfig() {
   autoDetectTestEnv();
 
-  // Docker / Portainer zero-config: BEFORE any production gate runs, ensure
-  // AUTH_TOKEN + SESSION_SECRET exist (generate + persist if needed). The
-  // container must bind :7777 so Cloudflare Tunnel / Portainer can route
-  // traffic. Secrets are not something the operator invents at deploy time.
-  // Skipped in test so fixtures stay deterministic.
-  const bootstrapAllowedEarly =
-    process.env.BOOTSTRAP_ALLOWED === 'true' ||
-    process.env.BOOTSTRAP_ALLOWED === '1' ||
-    process.env.BOOTSTRAP_ALLOWED === 'yes';
+  // Zero-config container deploy (Portainer GitHub URL → Deploy):
+  // Detect Docker via /.dockerenv OR BOOTSTRAP_ALLOWED OR /app paths, then
+  // ALWAYS create AUTH_TOKEN + SESSION_SECRET before any production gate.
+  // Magic-link flags must never prevent the process from binding :7777.
+  // Skipped only in unit tests.
   let dockerSecretsPath = null;
-  if (bootstrapAllowedEarly && process.env.NODE_ENV !== 'test' && !process.env.NODE_TEST_CONTEXT) {
+  let zeroConfigDeploy = false;
+  const inTest = process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+  if (!inTest) {
     try {
-      const { ensureDockerDeploySecrets } = require('./auth/docker-deploy-secrets');
-      const result = ensureDockerDeploySecrets({
-        bootstrapFile: process.env.BOOTSTRAP_FILE,
-      });
-      dockerSecretsPath = result.path;
-      if (result.generated.length) {
-        console.warn(
-          `⚠️  Docker deploy auto-created ${result.generated.join(', ')} → ${result.path}`
-        );
+      const {
+        isZeroConfigDeploy,
+        ensureDockerDeploySecrets,
+        scrubWeakSecretEnv,
+      } = require('./auth/docker-deploy-secrets');
+      scrubWeakSecretEnv();
+      zeroConfigDeploy = isZeroConfigDeploy();
+      if (zeroConfigDeploy) {
+        const result = ensureDockerDeploySecrets({
+          bootstrapFile: process.env.BOOTSTRAP_FILE,
+        });
+        dockerSecretsPath = result.path;
+        if (result.generated.length) {
+          console.warn(
+            `⚠️  Docker deploy auto-created ${result.generated.join(', ')} → ${result.path}`
+          );
+        }
       }
     } catch (err) {
       console.warn(`⚠️  Docker deploy secret auto-create failed (${err.message})`);
+      // Still mark zero-config if we look like a container so gates below skip.
+      try {
+        zeroConfigDeploy = require('./auth/docker-deploy-secrets').isZeroConfigDeploy();
+      } catch {
+        zeroConfigDeploy = false;
+      }
     }
   }
 
@@ -294,27 +306,27 @@ function loadConfig() {
           .map((s) => s.trim())
           .filter(Boolean);
 
-  // Docker deploys never use the interactive bootstrap wizard as a hard
-  // gate anymore — secrets are auto-provisioned above. Keep BOOTSTRAP_MODE
-  // false so the full app (incl. /v2, auth, tunnel) starts immediately.
-  // /setup.html remains available for operators who want to rotate tokens.
+  // Full app starts immediately — no interactive deploy wizard gate.
   cfg.BOOTSTRAP_MODE = false;
   cfg.BOOTSTRAP_FILE_PATH = bootstrap?.path || dockerSecretsPath || null;
 
-  // Production gates — skipped when BOOTSTRAP_ALLOWED (Docker/Portainer).
-  // Bare-metal systemd still requires explicit secrets.
-  const dockerDeploy = Boolean(cfg.BOOTSTRAP_ALLOWED);
+  // Container path: never crash-loop. Bare-metal systemd stays strict.
+  const dockerDeploy = Boolean(cfg.BOOTSTRAP_ALLOWED) || zeroConfigDeploy;
 
-  if (
-    cfg.NODE_ENV === 'production' &&
-    !cfg.AUTH_TOKEN &&
-    !cfg.BOOTSTRAP_MODE &&
-    !cfg.PILOT_BYPASS &&
-    !dockerDeploy
-  ) {
+  // Heal weak/missing secrets in Docker (Portainer blank env fields).
+  if (dockerDeploy) {
+    if (!cfg.SESSION_SECRET || cfg.SESSION_SECRET.length < 32) {
+      cfg.SESSION_SECRET = require('crypto').randomBytes(32).toString('hex');
+      process.env.SESSION_SECRET = cfg.SESSION_SECRET;
+    }
+    if (!cfg.AUTH_TOKEN || cfg.AUTH_TOKEN.length < 16) {
+      cfg.AUTH_TOKEN = require('crypto').randomBytes(32).toString('hex');
+      process.env.AUTH_TOKEN = cfg.AUTH_TOKEN;
+    }
+  }
+
+  if (cfg.NODE_ENV === 'production' && !cfg.AUTH_TOKEN && !cfg.PILOT_BYPASS && !dockerDeploy) {
     console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
-    console.error('   Sett en sterk token (minst 32 tegn) i .env eller systemd.');
-    console.error('   Eksempel: openssl rand -hex 32 > token.txt');
     process.exit(1);
   }
   if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN.length < 16 && !dockerDeploy) {
@@ -322,40 +334,35 @@ function loadConfig() {
     process.exit(1);
   }
 
-  // CORS: Docker first-boot may keep * until the public tunnel URL is known.
   if (
     cfg.NODE_ENV === 'production' &&
     cfg.ALLOWED_ORIGINS_LIST === '*' &&
-    !cfg.BOOTSTRAP_MODE &&
     !cfg.PILOT_BYPASS &&
     !dockerDeploy
   ) {
     console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
-    console.error('   Sett en komma-separert liste med tillatte origins.');
     process.exit(1);
   }
 
-  // Multi-tenant auth: validate key lengths when provided.
-  if (cfg.SESSION_SECRET && cfg.SESSION_SECRET.length < 32) {
+  if (cfg.SESSION_SECRET && cfg.SESSION_SECRET.length < 32 && !dockerDeploy) {
     console.error('⚠️  SESSION_SECRET must be at least 32 hex chars (16 bytes).');
     process.exit(1);
   }
-  if (cfg.ENCRYPTION_KEY && cfg.ENCRYPTION_KEY.length !== 64) {
+  if (cfg.ENCRYPTION_KEY && cfg.ENCRYPTION_KEY.length !== 64 && !dockerDeploy) {
     console.error('⚠️  ENCRYPTION_KEY must be exactly 64 hex chars (32 bytes).');
-    console.error('   Generate with: openssl rand -hex 32');
     process.exit(1);
   }
-  if (cfg.GOOGLE_CLIENT_ID && !cfg.GOOGLE_CLIENT_SECRET) {
+  // Incomplete Google env must not block Docker / Portainer deploys.
+  if (cfg.GOOGLE_CLIENT_ID && !cfg.GOOGLE_CLIENT_SECRET && !dockerDeploy) {
     console.error('⚠️  GOOGLE_CLIENT_ID is set but GOOGLE_CLIENT_SECRET is missing.');
     process.exit(1);
   }
-  if (cfg.GOOGLE_CLIENT_ID && !cfg.APP_URL) {
+  if (cfg.GOOGLE_CLIENT_ID && !cfg.APP_URL && !dockerDeploy) {
     console.error('⚠️  GOOGLE_CLIENT_ID requires APP_URL for redirect URI construction.');
     process.exit(1);
   }
 
-  // HMAC features need SESSION_SECRET. Docker already auto-provisioned above.
-  // Bare-metal still hard-fails if missing.
+  // MAGIC_LINK_CONSOLE / RESEND never block Docker — secrets always exist above.
   const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
   if (cfg.NODE_ENV === 'production' && hmacSigningEnabled && !cfg.SESSION_SECRET && !dockerDeploy) {
     console.error(
@@ -364,21 +371,13 @@ function loadConfig() {
     );
     process.exit(1);
   }
-  // Last-resort Docker: if somehow still missing after auto-provision, invent
-  // an in-memory secret so the process never crash-loops without a port.
-  if (dockerDeploy && !cfg.SESSION_SECRET) {
-    cfg.SESSION_SECRET = require('crypto').randomBytes(32).toString('hex');
-    process.env.SESSION_SECRET = cfg.SESSION_SECRET;
-    console.warn('⚠️  SESSION_SECRET in-memory fallback (Docker) — data volume not writable?');
-  }
-  if (dockerDeploy && !cfg.AUTH_TOKEN) {
-    cfg.AUTH_TOKEN = require('crypto').randomBytes(32).toString('hex');
-    process.env.AUTH_TOKEN = cfg.AUTH_TOKEN;
-    console.warn('⚠️  AUTH_TOKEN in-memory fallback (Docker) — data volume not writable?');
-  }
 
-  // ENCRYPTION_KEY remains Google-OAuth-specific.
-  if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID && !cfg.ENCRYPTION_KEY) {
+  if (
+    cfg.NODE_ENV === 'production' &&
+    cfg.GOOGLE_CLIENT_ID &&
+    !cfg.ENCRYPTION_KEY &&
+    !dockerDeploy
+  ) {
     console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
     process.exit(1);
   }
