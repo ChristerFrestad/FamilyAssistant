@@ -59,8 +59,13 @@ services:
     # After bootstrap + Caddy activation this can be narrowed to
     # "127.0.0.1:7777:7777" to funnel all traffic through the reverse
     # proxy.
+    #
+    # IMPORTANT (Portainer): use a plain mapping, not ${HOST_PORT:-7777}.
+    # Portainer CE stack env substitution often turns missing HOST_PORT
+    # into an empty left-hand side (" :7777") which fails to publish any
+    # port. Override host port by editing this line (e.g. "8765:7777").
     ports:
-      - '${HOST_PORT:-7777}:7777'
+      - '7777:7777'
     volumes:
       # Named volume — Portainer-safe. See header comment for bind-mount.
       - familyassistant_data:/app/data
@@ -69,12 +74,12 @@ services:
       # Internal server listen-port. The Dockerfile bakes in PORT=7777 so
       # this is redundant but explicit, and protects against stale images
       # that still default to 3000.
-      PORT: ${PORT:-7777}
+      PORT: '7777'
       # Bootstrap mode: when AUTH_TOKEN is missing AND
-      # /app/data/bootstrap.json is missing AND the data volume has no
-      # SQLite file yet, the server boots a setup wizard at /setup.html.
-      # BOOTSTRAP_ALLOWED=true signals that the runtime is a container
-      # with a data volume, so persisting the generated token is safe.
+      # /app/data/bootstrap.json is missing, the server boots the setup
+      # wizard at /setup.html (also recovers when a DB already exists
+      # but secrets were never persisted — prevents crash-loop / empty
+      # Published Ports in Portainer).
       BOOTSTRAP_ALLOWED: 'true'
       # AUTH_TOKEN is optional on first deploy — the wizard generates
       # and persists it. Set this variable to skip the wizard.
@@ -85,7 +90,8 @@ services:
       # activation get it self-healed on next boot. Override here only
       # if you want to rotate it manually.
       SESSION_SECRET: ${SESSION_SECRET:-}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      # Quoted so bare `*` is not a YAML alias token.
+      ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-*}'
       AUTH_TOKEN_CREATED_AT: ${AUTH_TOKEN_CREATED_AT:-}
       # LLM backend (optional — a single-family deploy can use Ollama
       # running on the host).
@@ -141,11 +147,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 768M
           cpus: '1.5'
         reservations:
           memory: 128M
-    mem_limit: 512m
+    # 768m: sharp + better-sqlite3 + Node can peak above 512m on cold
+    # start on RPi5; OOM-kill looks exactly like "no Published Ports".
+    mem_limit: 768m
     cpus: 1.5
     # The slim runtime has node on PATH. The Docker healthcheck calls
     # node -e with a fetch to /health. Matches the HEALTHCHECK directive
@@ -161,8 +169,8 @@ services:
         ]
       interval: 30s
       timeout: 5s
-      start_period: 45s
-      retries: 3
+      start_period: 60s
+      retries: 5
     # Lets the container reach a Linux host's Ollama instance.
     extra_hosts:
       - 'host.docker.internal:host-gateway'

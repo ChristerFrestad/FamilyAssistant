@@ -117,6 +117,28 @@ describe('Portainer bootstrap · SESSION_SECRET gate in BOOTSTRAP_MODE', () => {
     assert.equal(parsed.bootstrapMode, true);
   });
 
+  test('production + BOOTSTRAP_ALLOWED + existing DB without secrets → recovery BOOTSTRAP_MODE', () => {
+    // Simulates Portainer redeploy after a half-finished first boot left a
+    // SQLite file but no AUTH_TOKEN / bootstrap.json (empty Published Ports).
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fa-cfg-db-'));
+    const dbPath = path.join(tmp, 'familieassistenten.db');
+    fs.writeFileSync(dbPath, 'not-a-real-db-but-exists');
+    const result = loadConfigInChild({
+      NODE_ENV: 'production',
+      BOOTSTRAP_ALLOWED: 'true',
+      ALLOWED_ORIGINS: '*',
+      DB_PATH: dbPath,
+      BOOTSTRAP_FILE: path.join(tmp, 'bootstrap.json'),
+    });
+    assert.strictEqual(
+      result.status,
+      0,
+      `expected clean exit in recovery bootstrap, got ${result.status}\nstderr=${result.stderr}\nstdout=${result.stdout}`
+    );
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.bootstrapMode, true);
+  });
+
   test('production + MAGIC_LINK_CONSOLE + AUTH_TOKEN set + no SESSION_SECRET → exits 1', () => {
     const result = loadConfigInChild({
       NODE_ENV: 'production',

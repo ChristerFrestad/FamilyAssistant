@@ -294,24 +294,32 @@ function loadConfig() {
           .map((s) => s.trim())
           .filter(Boolean);
 
-  // Phase 22 — zero-config Docker deploy path. Activate BOOTSTRAP_MODE
-  // only when ALL of these hold:
+  // Phase 22 — zero-config Docker deploy path. Activate BOOTSTRAP_MODE when:
   //   1. Container signalled BOOTSTRAP_ALLOWED=true (docker-compose.yml sets this)
   //   2. AUTH_TOKEN is missing from env + bootstrap.json
   //   3. No pre-existing bootstrap.json was loaded above
-  //   4. Data volume is empty (no SQLite DB file yet)
-  // This keeps the bare-metal / non-Docker path strict — missing
-  // AUTH_TOKEN still refuses to start.
+  //
+  // Previously we also required an empty data volume (no SQLite file). That
+  // caused a Portainer crash-loop with empty Published Ports after a failed
+  // first deploy left a DB file but no bootstrap.json / AUTH_TOKEN — the
+  // server exited with "AUTH_TOKEN er påkrevd" before binding :7777.
+  //
+  // Recovery: if BOOTSTRAP_ALLOWED and secrets are missing, enter the setup
+  // wizard even when a DB already exists. SQLite data is kept; the wizard
+  // only writes bootstrap.json. Bare-metal (BOOTSTRAP_ALLOWED=false) is
+  // unchanged and still refuses to start without AUTH_TOKEN.
   cfg.BOOTSTRAP_MODE = false;
   cfg.BOOTSTRAP_FILE_PATH = bootstrap?.path || null;
-  if (
-    cfg.BOOTSTRAP_ALLOWED &&
-    !cfg.AUTH_TOKEN &&
-    !bootstrap &&
-    dataVolumeLooksEmpty(cfg.DB_PATH) &&
-    cfg.NODE_ENV !== 'test'
-  ) {
+  const volumeEmpty = dataVolumeLooksEmpty(cfg.DB_PATH);
+  if (cfg.BOOTSTRAP_ALLOWED && !cfg.AUTH_TOKEN && !bootstrap && cfg.NODE_ENV !== 'test') {
     cfg.BOOTSTRAP_MODE = true;
+    if (!volumeEmpty) {
+      console.warn(
+        '⚠️  BOOTSTRAP recovery: SQLite data exists but AUTH_TOKEN/bootstrap.json ' +
+          'are missing. Serving /setup.html so you can re-bind secrets without ' +
+          'wiping the data volume. (Portainer: empty Published Ports = crash loop.)'
+      );
+    }
   }
 
   // Production requirement: AUTH_TOKEN MUST be set when NODE_ENV=production,
@@ -328,6 +336,17 @@ function loadConfig() {
     console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
     console.error('   Sett en sterk token (minst 32 tegn) i .env eller systemd.');
     console.error('   Eksempel: openssl rand -hex 32 > token.txt');
+    console.error(
+      '   Docker/Portainer: either set AUTH_TOKEN in the stack env, or enable ' +
+        'BOOTSTRAP_ALLOWED=true with an empty/missing bootstrap.json so /setup.html can run.'
+    );
+    if (!volumeEmpty) {
+      console.error(
+        '   Detected an existing DB at ' +
+          (cfg.DB_PATH || 'DB_PATH') +
+          ' without AUTH_TOKEN — this used to crash-loop with blank Published Ports.'
+      );
+    }
     process.exit(1);
   }
   if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN.length < 16) {
