@@ -4,7 +4,7 @@ import type { JSX } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router';
 import { ErrorBoundary } from './ErrorBoundary';
 
 function Boom(): JSX.Element {

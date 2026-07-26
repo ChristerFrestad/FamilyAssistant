@@ -22,7 +22,7 @@
 
 import { describe, it } from 'vitest';
 import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { expectNoAxeViolations } from '../../test-helpers/axe';
 import { ThemeProvider } from '../theme/ThemeContext';
 

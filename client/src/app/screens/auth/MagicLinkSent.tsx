@@ -12,7 +12,7 @@
 // right address.
 
 import type { JSX } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../../components/layout/PageShell';
 

@@ -14,7 +14,7 @@
 
 import { test, expect, vi, describe, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { InviteAccept } from './InviteAccept';
 
 function jsonResponse(status: number, body: unknown): Response {

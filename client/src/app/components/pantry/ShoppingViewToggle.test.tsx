@@ -5,7 +5,7 @@ import type { JSX } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 import { I18nextProvider } from 'react-i18next';
-import { MemoryRouter, Routes, Route, useSearchParams } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useSearchParams } from 'react-router';
 import i18n from '../../i18n/config';
 import { ShoppingViewToggle, readShoppingView } from './ShoppingViewToggle';
 

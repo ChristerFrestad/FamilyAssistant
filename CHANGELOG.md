@@ -6,6 +6,27 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Security — Clear all open OSV / Security & Quality alerts (2026-07-26)
+
+Resolved the 14 open GitHub code-scanning (osv-scanner) findings on
+`package-lock.json`, plus remaining `npm audit` highs:
+
+| Package | Was | Fixed to | Alerts |
+|---|---|---|---|
+| `undici` (transitive) | 7.25.0 | **7.29.0** (override) | CVE-2026-12151, 9697, 9678, 9679, 6734, 11525, 6733 |
+| `tar` (transitive) | ≤7.5.13 | **7.5.22** (override) | CVE-2026-53655 |
+| `@cyclonedx/cyclonedx-npm` | 4.2.1 | **6.0.0** | CVE-2026-55849 |
+| `launch-editor` (via vite) | vulnerable | **2.14.1** (override) | CVE-2026-53632 |
+| `js-yaml` (transitive) | 4.1.1 | **4.3.0** (override) | CVE-2026-53550 |
+| `vite` | 6.4.2 | **6.4.3** | CVE-2026-53571 |
+| `@opentelemetry/core` (via Sentry) | 1.30.1 | **2.10.0** (override) | CVE-2026-54285 |
+| `@babel/core` (transitive) | 7.29.0 | **7.29.7** (override) | CVE-2026-49356 |
+| `@sentry/node` (optional) | ^8 | **^10.68.0** | OTEL chain |
+| `react-router-dom` | 7.18.1 | replaced by **`react-router@8.3.0`** | RSC CSRF / open-redirect suite |
+
+Client imports migrated from `react-router-dom` → `react-router` (v8
+collapsed the DOM package). `npm audit` reports **0 vulnerabilities**.
+
 ### Removed — Legacy v1 frontend (Sprint 8, 2026-05-05)
 
 After PR #114-117 unblocked the pilot deploy, Christer identified a class

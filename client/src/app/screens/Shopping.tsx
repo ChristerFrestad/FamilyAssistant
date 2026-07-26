@@ -32,7 +32,7 @@
 import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { ShoppingHeader } from '../components/shopping/ShoppingHeader';

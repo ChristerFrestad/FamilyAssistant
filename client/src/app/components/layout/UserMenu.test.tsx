@@ -18,7 +18,7 @@
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { UserMenu } from './UserMenu';
 import { AuthProvider } from '../../auth/AuthContext';
 import type { AuthUser } from '../../auth/authApi';

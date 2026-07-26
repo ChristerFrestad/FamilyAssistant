@@ -9,7 +9,7 @@
 // translated word would be.
 
 import type { JSX } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 
 export function NotFound(): JSX.Element {

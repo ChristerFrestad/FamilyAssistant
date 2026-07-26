@@ -10,7 +10,7 @@
 // This keeps deep-links to /v2/shopping pointing at the dominant flow.
 
 import type { JSX } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ShoppingCart, Refrigerator } from 'lucide-react';
 

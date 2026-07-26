@@ -16,7 +16,7 @@
 // events) render their actual list entries.
 
 import type { JSX } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { WelcomeHeader } from '../components/dashboard/WelcomeHeader';
 import { DashboardCard } from '../components/dashboard/DashboardCard';

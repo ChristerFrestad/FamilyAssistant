@@ -8,7 +8,7 @@
 
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { BottomNav } from './BottomNav';
 import { PRIMARY_NAV_ITEMS } from './nav-items';
 

@@ -26,7 +26,7 @@
 // /v2/dashboard in the browser.
 
 import type { JSX } from 'react';
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes } from 'react-router';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { OnboardingGuard } from './components/auth/OnboardingGuard';
 import { PilotGuard } from './components/auth/PilotGuard';

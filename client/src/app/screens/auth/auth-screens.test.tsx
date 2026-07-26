@@ -11,7 +11,7 @@
 import type { JSX } from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { AuthProvider } from '../../auth/AuthContext';
 import { OnboardingProvider } from '../../auth/OnboardingContext';
 import type { AuthUser } from '../../auth/authApi';

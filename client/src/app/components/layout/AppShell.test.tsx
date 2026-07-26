@@ -8,7 +8,7 @@
 
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { AppShell } from './AppShell';
 import { AuthProvider } from '../../auth/AuthContext';
 import { ThemeProvider } from '../../theme/ThemeContext';

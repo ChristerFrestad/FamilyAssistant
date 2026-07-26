@@ -5,7 +5,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { I18nextProvider } from 'react-i18next';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import i18n from '../../i18n/config';
 import { PantryView } from './PantryView';
 import type { PantryItem as PantryItemType } from '../../pantry/pantryApi';

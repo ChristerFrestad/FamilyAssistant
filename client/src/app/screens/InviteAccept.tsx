@@ -17,7 +17,7 @@
 
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';

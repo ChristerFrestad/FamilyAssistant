@@ -6,7 +6,7 @@
 
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { OnboardingGuard } from './OnboardingGuard';
 import type { AuthUser } from '../../auth/authApi';
 

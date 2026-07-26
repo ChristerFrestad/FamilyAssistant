@@ -14,7 +14,7 @@
 // browser viewport is below 768 px.
 
 import type { JSX } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { AppShell } from '../../../../app/components/layout/AppShell';
 
 function PageBody({ label }: { label: string }): JSX.Element {

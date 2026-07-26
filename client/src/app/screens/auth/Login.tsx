@@ -19,7 +19,7 @@
 
 import type { JSX } from 'react';
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../../components/layout/PageShell';
 import { Field } from '../../components/form/Field';

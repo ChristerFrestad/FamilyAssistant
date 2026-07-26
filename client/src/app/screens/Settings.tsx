@@ -20,7 +20,7 @@
 import type { JSX } from 'react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { LanguageSwitcher } from '../components/form/LanguageSwitcher';

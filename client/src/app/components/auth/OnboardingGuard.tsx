@@ -33,7 +33,7 @@
 
 import type { JSX } from 'react';
 import { type ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../layout/PageShell';
 import { useAuth } from '../../auth/useAuth';

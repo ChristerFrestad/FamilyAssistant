@@ -12,7 +12,7 @@
 // label override (see AGENTS.md DEL 7.12).
 
 import type { JSX } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../../components/layout/PageShell';
 

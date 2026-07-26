@@ -8,7 +8,7 @@
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { QuickActions } from './QuickActions';
 
 function renderQuickActions(): void {

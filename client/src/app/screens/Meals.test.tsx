@@ -16,7 +16,7 @@
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { Meals } from './Meals';
 
 function jsonResponse(status: number, body: unknown): Response {

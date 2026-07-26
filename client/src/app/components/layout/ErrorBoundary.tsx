@@ -13,7 +13,7 @@
 
 import type { JSX } from 'react';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Card } from './Card';
 import { Button } from '../base/Button';

@@ -24,7 +24,7 @@
 
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { LogOut } from 'lucide-react';
 import { Avatar } from '../display/Avatar';

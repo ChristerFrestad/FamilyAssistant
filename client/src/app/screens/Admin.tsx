@@ -6,7 +6,7 @@
 
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import { useAuthContext } from '../auth/AuthContext';
 import { Card } from '../components/layout/Card';
 

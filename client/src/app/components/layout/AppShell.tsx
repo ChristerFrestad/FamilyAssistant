@@ -32,7 +32,7 @@
 
 import type { JSX } from 'react';
 import { type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ThemeToggle } from '../form/ThemeToggle';
 import { LanguageSwitcher } from '../form/LanguageSwitcher';

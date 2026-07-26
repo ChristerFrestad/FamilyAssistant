@@ -5,7 +5,7 @@
 
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { SideNav } from './SideNav';
 import { PRIMARY_NAV_ITEMS, SECONDARY_NAV_ITEMS } from './nav-items';
 

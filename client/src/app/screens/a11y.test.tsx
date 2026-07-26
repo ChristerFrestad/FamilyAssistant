@@ -11,7 +11,7 @@
 
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { expectNoAxeViolations } from '../../test-helpers/axe';
 import { AuthProvider } from '../auth/AuthContext';
 import { ThemeProvider } from '../theme/ThemeContext';
