@@ -89,13 +89,20 @@ function scrubWeakSecretEnv() {
   if (session !== undefined && String(session).trim().length < 32) {
     delete process.env.SESSION_SECRET;
   }
-  // Magic-link console must never be required for deploy. If someone left
-  // MAGIC_LINK_CONSOLE=true in an old stack without understanding it, secrets
-  // are auto-created below — still, do not let blank/weird values explode.
-  if (process.env.MAGIC_LINK_CONSOLE !== undefined) {
-    const s = String(process.env.MAGIC_LINK_CONSOLE).trim().toLowerCase();
+  // Normalize false-y string flags Portainer injects (and strip empty).
+  for (const key of [
+    'MAGIC_LINK_CONSOLE',
+    'PILOT_BYPASS',
+    'PILOT_BYPASS_PRODUCTION_ACK',
+    'PILOT_MODE',
+    'LOG_PRETTY',
+  ]) {
+    if (process.env[key] === undefined) continue;
+    const s = String(process.env[key]).trim().toLowerCase();
     if (s === '' || s === '0' || s === 'false' || s === 'no' || s === 'off') {
-      process.env.MAGIC_LINK_CONSOLE = 'false';
+      process.env[key] = 'false';
+    } else if (s === '1' || s === 'true' || s === 'yes' || s === 'on') {
+      process.env[key] = 'true';
     }
   }
 }

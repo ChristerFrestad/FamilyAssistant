@@ -152,15 +152,36 @@ VOLUME ["/app/data"]
 # because 3000 is commonly occupied by Grafana and other self-hosted apps.
 EXPOSE 7777
 
-# Default environment. AUTH_TOKEN and ALLOWED_ORIGINS must be set at runtime.
+# Runtime defaults for Portainer / RPi zero-config deploy.
+# Secrets (AUTH_TOKEN, SESSION_SECRET) are auto-created on first boot into
+# /app/data/bootstrap.json — operators do not set them in Portainer.
 ENV NODE_ENV=production
 ENV PORT=7777
 ENV DB_PATH=/app/data/familieassistenten.db
 ENV BACKUP_DIR=/app/data/backups
 ENV LOG_LEVEL=info
+ENV BOOTSTRAP_ALLOWED=true
+ENV MAGIC_LINK_CONSOLE=false
+ENV PILOT_BYPASS=false
+ENV PILOT_MODE=false
+ENV HTTPS_TERMINATED=true
+ENV TRUST_PROXY=true
+ENV ALLOWED_ORIGINS="*"
+
+# Smoke-test production config load inside the image so a bad gate can never
+# ship. Uses a throwaway data dir (not the volume mount).
+RUN mkdir -p /tmp/fa-cfg-smoke \
+  && DB_PATH=/tmp/fa-cfg-smoke/t.db \
+     BOOTSTRAP_FILE=/tmp/fa-cfg-smoke/bootstrap.json \
+     NODE_ENV=production \
+     BOOTSTRAP_ALLOWED=true \
+     PILOT_BYPASS=false \
+     MAGIC_LINK_CONSOLE=false \
+     node -e "const {config}=require('./server/config'); if(!config.AUTH_TOKEN||config.AUTH_TOKEN.length<16) process.exit(2); if(!config.SESSION_SECRET||config.SESSION_SECRET.length<32) process.exit(3); if(config.PILOT_BYPASS) process.exit(4); console.log('config-smoke-ok port='+config.PORT);" \
+  && rm -rf /tmp/fa-cfg-smoke
 
 # Healthcheck via node-internal fetch — no wget/curl needed.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
   CMD ["node", "-e", "fetch('http://localhost:7777/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
 
 # tini (PID 1) → entrypoint script (root, fixes perms, gosu-drops) → CMD

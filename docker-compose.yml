@@ -1,14 +1,14 @@
-# FamilyAssistant — Portainer / Docker (GitHub URL → Deploy)
+# FamilyAssistant — Portainer GitHub URL deploy (zero-config)
 #
-# No secrets. No MAGIC_LINK_CONSOLE. No manual tokens.
-# First boot writes AUTH_TOKEN + SESSION_SECRET to the data volume
-# and binds 0.0.0.0:7777 for Cloudflare Tunnel.
+# Stacks → Add stack → Repository
+#   Repository URL: https://github.com/ChristerFrestad/FamilyAssistant
+#   Compose path:   docker-compose.yml
+#   Reference:      refs/heads/main
+# Deploy with NO environment variables.
+# Cloudflare Tunnel service URL: http://192.168.50.123:7777
 #
-# Portainer: Stacks → Add stack → Repository
-#   URL:  https://github.com/ChristerFrestad/FamilyAssistant
-#   Path: docker-compose.yml
-#   Ref:  refs/heads/main
-# Then Deploy. Point tunnel at http://<host>:7777
+# Image bakes BOOTSTRAP_ALLOWED + safe pilot flags; first boot writes
+# AUTH_TOKEN/SESSION_SECRET to the data volume automatically.
 
 services:
   app:
@@ -20,18 +20,11 @@ services:
       - '7777:7777'
     volumes:
       - familyassistant_data:/app/data
+    # Minimal overrides only — do not set PILOT_BYPASS / MAGIC_LINK_CONSOLE
+    # / AUTH_TOKEN / SESSION_SECRET here (image defaults + auto-create).
     environment:
       NODE_ENV: production
       PORT: '7777'
-      BOOTSTRAP_ALLOWED: 'true'
-      HTTPS_TERMINATED: 'true'
-      TRUST_PROXY: 'true'
-      ALLOWED_ORIGINS: '*'
-      LOG_LEVEL: info
-      # Explicitly off — never require magic-link secrets at deploy time.
-      MAGIC_LINK_CONSOLE: 'false'
-      PILOT_BYPASS: 'false'
-      PILOT_MODE: 'false'
     mem_limit: 768m
     healthcheck:
       test:

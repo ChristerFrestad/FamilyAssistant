@@ -324,11 +324,15 @@ function loadConfig() {
   cfg.BOOTSTRAP_MODE = false;
   cfg.BOOTSTRAP_FILE_PATH = bootstrap?.path || dockerSecretsPath || null;
 
-  // Container path: never crash-loop. Bare-metal systemd stays strict.
+  // -------------------------------------------------------------------------
+  // CONTAINER PATH (Portainer / Docker / Cloudflare Tunnel)
+  // Never process.exit(1) for missing secrets or leftover pilot flags.
+  // Operator goal: GitHub URL → Deploy → :7777 listens.
+  // -------------------------------------------------------------------------
   const dockerDeploy = Boolean(cfg.BOOTSTRAP_ALLOWED) || zeroConfigDeploy;
 
-  // Heal weak/missing secrets in Docker (Portainer blank env fields).
   if (dockerDeploy) {
+    // Secrets must always exist so magic-link / sessions work later.
     if (!cfg.SESSION_SECRET || cfg.SESSION_SECRET.length < 32) {
       cfg.SESSION_SECRET = require('crypto').randomBytes(32).toString('hex');
       process.env.SESSION_SECRET = cfg.SESSION_SECRET;
@@ -337,74 +341,79 @@ function loadConfig() {
       cfg.AUTH_TOKEN = require('crypto').randomBytes(32).toString('hex');
       process.env.AUTH_TOKEN = cfg.AUTH_TOKEN;
     }
+    // Leftover Portainer env PILOT_BYPASS=true (or the old "false"→true
+    // coerce bug) must not kill the container. Force off unless ACK is set.
+    if (cfg.PILOT_BYPASS && !cfg.PILOT_BYPASS_PRODUCTION_ACK) {
+      console.warn(
+        '⚠️  PILOT_BYPASS ignored in container deploy (no PRODUCTION_ACK) — forced false so :7777 can bind.'
+      );
+      cfg.PILOT_BYPASS = false;
+      process.env.PILOT_BYPASS = 'false';
+    }
+    // Incomplete Google OAuth env is ignored in container (don't exit).
+    if (cfg.GOOGLE_CLIENT_ID && (!cfg.GOOGLE_CLIENT_SECRET || !cfg.APP_URL)) {
+      console.warn(
+        '⚠️  Incomplete Google OAuth env ignored in container deploy (missing secret or APP_URL).'
+      );
+    }
+    if (cfg.ENCRYPTION_KEY && cfg.ENCRYPTION_KEY.length !== 64) {
+      console.warn('⚠️  Invalid ENCRYPTION_KEY length ignored in container deploy.');
+      delete process.env.ENCRYPTION_KEY;
+      cfg.ENCRYPTION_KEY = undefined;
+    }
+  } else {
+    // -----------------------------------------------------------------------
+    // BARE-METAL PATH — strict production gates
+    // -----------------------------------------------------------------------
+    if (cfg.NODE_ENV === 'production' && !cfg.AUTH_TOKEN && !cfg.PILOT_BYPASS) {
+      console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
+      process.exit(1);
+    }
+    if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN.length < 16) {
+      console.error('\u26a0\ufe0f  AUTH_TOKEN er for kort (minst 16 tegn, helst 32+)');
+      process.exit(1);
+    }
+    if (cfg.NODE_ENV === 'production' && cfg.ALLOWED_ORIGINS_LIST === '*' && !cfg.PILOT_BYPASS) {
+      console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
+      process.exit(1);
+    }
+    if (cfg.SESSION_SECRET && cfg.SESSION_SECRET.length < 32) {
+      console.error('⚠️  SESSION_SECRET must be at least 32 hex chars (16 bytes).');
+      process.exit(1);
+    }
+    if (cfg.ENCRYPTION_KEY && cfg.ENCRYPTION_KEY.length !== 64) {
+      console.error('⚠️  ENCRYPTION_KEY must be exactly 64 hex chars (32 bytes).');
+      process.exit(1);
+    }
+    if (cfg.GOOGLE_CLIENT_ID && !cfg.GOOGLE_CLIENT_SECRET) {
+      console.error('⚠️  GOOGLE_CLIENT_ID is set but GOOGLE_CLIENT_SECRET is missing.');
+      process.exit(1);
+    }
+    if (cfg.GOOGLE_CLIENT_ID && !cfg.APP_URL) {
+      console.error('⚠️  GOOGLE_CLIENT_ID requires APP_URL for redirect URI construction.');
+      process.exit(1);
+    }
+    const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
+    if (cfg.NODE_ENV === 'production' && hmacSigningEnabled && !cfg.SESSION_SECRET) {
+      console.error(
+        '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +
+          'magic-link email, or MAGIC_LINK_CONSOLE is enabled.'
+      );
+      process.exit(1);
+    }
+    if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID && !cfg.ENCRYPTION_KEY) {
+      console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
+      process.exit(1);
+    }
+    // Bare-metal: refuse unacked PILOT_BYPASS in production.
+    if (cfg.PILOT_BYPASS && cfg.NODE_ENV === 'production' && !cfg.PILOT_BYPASS_PRODUCTION_ACK) {
+      console.error('⚠️  PILOT_BYPASS=true is refused in NODE_ENV=production.');
+      console.error('   This disables all auth — set PILOT_BYPASS_PRODUCTION_ACK=true');
+      console.error('   ONLY if you deliberately want an unauthenticated server.');
+      process.exit(1);
+    }
   }
 
-  if (cfg.NODE_ENV === 'production' && !cfg.AUTH_TOKEN && !cfg.PILOT_BYPASS && !dockerDeploy) {
-    console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
-    process.exit(1);
-  }
-  if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN.length < 16 && !dockerDeploy) {
-    console.error('\u26a0\ufe0f  AUTH_TOKEN er for kort (minst 16 tegn, helst 32+)');
-    process.exit(1);
-  }
-
-  if (
-    cfg.NODE_ENV === 'production' &&
-    cfg.ALLOWED_ORIGINS_LIST === '*' &&
-    !cfg.PILOT_BYPASS &&
-    !dockerDeploy
-  ) {
-    console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
-    process.exit(1);
-  }
-
-  if (cfg.SESSION_SECRET && cfg.SESSION_SECRET.length < 32 && !dockerDeploy) {
-    console.error('⚠️  SESSION_SECRET must be at least 32 hex chars (16 bytes).');
-    process.exit(1);
-  }
-  if (cfg.ENCRYPTION_KEY && cfg.ENCRYPTION_KEY.length !== 64 && !dockerDeploy) {
-    console.error('⚠️  ENCRYPTION_KEY must be exactly 64 hex chars (32 bytes).');
-    process.exit(1);
-  }
-  // Incomplete Google env must not block Docker / Portainer deploys.
-  if (cfg.GOOGLE_CLIENT_ID && !cfg.GOOGLE_CLIENT_SECRET && !dockerDeploy) {
-    console.error('⚠️  GOOGLE_CLIENT_ID is set but GOOGLE_CLIENT_SECRET is missing.');
-    process.exit(1);
-  }
-  if (cfg.GOOGLE_CLIENT_ID && !cfg.APP_URL && !dockerDeploy) {
-    console.error('⚠️  GOOGLE_CLIENT_ID requires APP_URL for redirect URI construction.');
-    process.exit(1);
-  }
-
-  // MAGIC_LINK_CONSOLE / RESEND never block Docker — secrets always exist above.
-  const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
-  if (cfg.NODE_ENV === 'production' && hmacSigningEnabled && !cfg.SESSION_SECRET && !dockerDeploy) {
-    console.error(
-      '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +
-        'magic-link email, or MAGIC_LINK_CONSOLE is enabled.'
-    );
-    process.exit(1);
-  }
-
-  if (
-    cfg.NODE_ENV === 'production' &&
-    cfg.GOOGLE_CLIENT_ID &&
-    !cfg.ENCRYPTION_KEY &&
-    !dockerDeploy
-  ) {
-    console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
-    process.exit(1);
-  }
-
-  // Pilot bypass safety belt: PILOT_BYPASS=true disables all auth via
-  // /api/auth/pilot-login. Refuse to start in NODE_ENV=production unless
-  // the operator has explicitly acknowledged they want an auth-less server.
-  if (cfg.PILOT_BYPASS && cfg.NODE_ENV === 'production' && !cfg.PILOT_BYPASS_PRODUCTION_ACK) {
-    console.error('⚠️  PILOT_BYPASS=true is refused in NODE_ENV=production.');
-    console.error('   This disables all auth — set PILOT_BYPASS_PRODUCTION_ACK=true');
-    console.error('   ONLY if you deliberately want an unauthenticated server.');
-    process.exit(1);
-  }
   if (cfg.PILOT_BYPASS && cfg.NODE_ENV !== 'test') {
     console.warn('⚠️  PILOT_BYPASS is ON — /api/auth/pilot-login grants a session');
     console.warn('   to anyone who calls it. Turn off before adding real users.');

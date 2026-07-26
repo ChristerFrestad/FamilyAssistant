@@ -56,10 +56,26 @@ test('PILOT_BYPASS=false string is false in production Docker', () => {
   assert.equal(j.pilotMode, false);
 });
 
-test('PILOT_BYPASS=true string without ACK is refused in production', () => {
+test('PILOT_BYPASS=true string without ACK is forced off in container deploy', () => {
+  // Container path must never crash-loop on leftover pilot flags.
   const r = loadConfig({
     NODE_ENV: 'production',
     BOOTSTRAP_ALLOWED: 'true',
+    PILOT_BYPASS: 'true',
+  });
+  assert.equal(r.status, 0, r.stderr);
+  const j = JSON.parse(r.stdout);
+  assert.equal(j.pilotBypass, false);
+  assert.match(r.stderr, /PILOT_BYPASS ignored in container/i);
+});
+
+test('PILOT_BYPASS=true without ACK is refused on bare-metal production', () => {
+  const r = loadConfig({
+    NODE_ENV: 'production',
+    // no BOOTSTRAP_ALLOWED → bare-metal gates
+    AUTH_TOKEN: 'a'.repeat(40),
+    SESSION_SECRET: 'b'.repeat(64),
+    ALLOWED_ORIGINS: 'http://example.com',
     PILOT_BYPASS: 'true',
   });
   assert.notEqual(r.status, 0);
