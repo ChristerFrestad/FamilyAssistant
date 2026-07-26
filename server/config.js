@@ -6,6 +6,20 @@ const fs = require('fs');
 const path = require('path');
 const { z } = require('zod');
 
+// Docker Compose / Portainer pass booleans as strings ("true"/"false").
+// z.coerce.boolean() uses Boolean(value), so Boolean("false") === true —
+// which flipped PILOT_BYPASS and MAGIC_LINK_CONSOLE ON and crash-looped
+// production deploys. Parse explicitly instead.
+const envBoolean = z.preprocess((val) => {
+  if (val === undefined || val === null || val === '') return undefined;
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val !== 0;
+  const s = String(val).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(s)) return true;
+  if (['0', 'false', 'no', 'off'].includes(s)) return false;
+  return undefined;
+}, z.boolean());
+
 const envSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65535).default(7777),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
@@ -66,17 +80,17 @@ const envSchema = z.object({
   // link URL to the server log instead of returning 503. Operator copies the
   // URL out of container logs and pastes it into the browser. Intended for
   // MVP pilot deploys on Portainer / self-host; disable once Resend is wired.
-  MAGIC_LINK_CONSOLE: z.coerce.boolean().default(false),
+  MAGIC_LINK_CONSOLE: envBoolean.default(false),
 
   // Pilot/MVP escape hatch: enable a one-click "Hopp inn som pilot" login
   // that creates a local pilot user and session without magic link or
   // OAuth. Intended for MVP self-testing where the operator is the only
   // user. Disable before any additional user touches the deploy.
-  PILOT_BYPASS: z.coerce.boolean().default(false),
+  PILOT_BYPASS: envBoolean.default(false),
   // Safety belt: PILOT_BYPASS=true is refused in NODE_ENV=production
   // unless this is also set. Forces the operator to consciously ack that
   // they are running an auth-less instance in production.
-  PILOT_BYPASS_PRODUCTION_ACK: z.coerce.boolean().default(false),
+  PILOT_BYPASS_PRODUCTION_ACK: envBoolean.default(false),
 
   // Kassal API (price comparison via kassal.app). When set, enables the
   // shopping-list-enricher background job + product-resolver so shopping
@@ -94,7 +108,7 @@ const envSchema = z.object({
   // cookie (30 days) on success. Rate-limited to 5 attempts per IP per
   // 10 minutes. Disabled by default; pilot deploy sets both vars in
   // Portainer. Intended only for the 13-17 May 2026 pilot window.
-  PILOT_MODE: z.coerce.boolean().default(false),
+  PILOT_MODE: envBoolean.default(false),
   PILOT_PASSWORD: z.string().optional(),
   // Cookie name used for the pilot-gate cookie. Distinct from the
   // session cookie because the two represent different things: the
@@ -119,7 +133,7 @@ const envSchema = z.object({
 
   // Logging
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
-  LOG_PRETTY: z.coerce.boolean().default(false),
+  LOG_PRETTY: envBoolean.default(false),
 
   // Database
   DB_PATH: z.string().optional(),
@@ -160,7 +174,7 @@ const envSchema = z.object({
   // persisted bootstrap.json exists AND the data volume is empty. The
   // setup wizard on /setup.html then generates and persists the token.
   // Set by docker-compose.yml; never set in a bare-metal deploy.
-  BOOTSTRAP_ALLOWED: z.coerce.boolean().default(false),
+  BOOTSTRAP_ALLOWED: envBoolean.default(false),
   BOOTSTRAP_FILE: z.string().optional(),
 });
 
