@@ -100,7 +100,7 @@ function loadConfigInChild(env, extraScript) {
 }
 
 describe('Portainer bootstrap · SESSION_SECRET gate in BOOTSTRAP_MODE', () => {
-  test('production + MAGIC_LINK_CONSOLE + BOOTSTRAP_ALLOWED + empty volume → BOOTSTRAP_MODE, no crash', () => {
+  test('production + MAGIC_LINK_CONSOLE + BOOTSTRAP_ALLOWED + empty volume → auto secrets, app mode', () => {
     const result = loadConfigInChild({
       NODE_ENV: 'production',
       BOOTSTRAP_ALLOWED: 'true',
@@ -114,12 +114,11 @@ describe('Portainer bootstrap · SESSION_SECRET gate in BOOTSTRAP_MODE', () => {
       `expected clean exit, got ${result.status}\nstderr=${result.stderr}\nstdout=${result.stdout}`
     );
     const parsed = JSON.parse(result.stdout);
-    assert.equal(parsed.bootstrapMode, true);
+    // Docker zero-config: full app starts (not interactive bootstrap gate).
+    assert.equal(parsed.bootstrapMode, false);
   });
 
-  test('production + BOOTSTRAP_ALLOWED + existing DB without secrets → recovery BOOTSTRAP_MODE', () => {
-    // Simulates Portainer redeploy after a half-finished first boot left a
-    // SQLite file but no AUTH_TOKEN / bootstrap.json (empty Published Ports).
+  test('production + BOOTSTRAP_ALLOWED + existing DB without secrets → still starts', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fa-cfg-db-'));
     const dbPath = path.join(tmp, 'familieassistenten.db');
     fs.writeFileSync(dbPath, 'not-a-real-db-but-exists');
@@ -133,10 +132,10 @@ describe('Portainer bootstrap · SESSION_SECRET gate in BOOTSTRAP_MODE', () => {
     assert.strictEqual(
       result.status,
       0,
-      `expected clean exit in recovery bootstrap, got ${result.status}\nstderr=${result.stderr}\nstdout=${result.stdout}`
+      `expected clean exit, got ${result.status}\nstderr=${result.stderr}\nstdout=${result.stdout}`
     );
     const parsed = JSON.parse(result.stdout);
-    assert.equal(parsed.bootstrapMode, true);
+    assert.equal(parsed.bootstrapMode, false);
   });
 
   test('production + MAGIC_LINK_CONSOLE + AUTH_TOKEN + no SESSION_SECRET without BOOTSTRAP_ALLOWED → exits 1', () => {
@@ -167,7 +166,7 @@ describe('Portainer bootstrap · SESSION_SECRET gate in BOOTSTRAP_MODE', () => {
       0,
       `expected clean exit via auto-provision, got ${result.status}\nstderr=${result.stderr}\nstdout=${result.stdout}`
     );
-    assert.match(result.stderr, /SESSION_SECRET auto-provisioned/i);
+    assert.match(result.stderr, /Docker deploy auto-created SESSION_SECRET/i);
   });
 
   test('production + MAGIC_LINK_CONSOLE + AUTH_TOKEN + SESSION_SECRET → loads OK', () => {

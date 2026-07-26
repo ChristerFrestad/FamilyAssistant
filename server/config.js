@@ -210,25 +210,38 @@ function loadBootstrapFile(explicitPath) {
   return null;
 }
 
-function dataVolumeLooksEmpty(dbPath) {
-  // The bootstrap-mode guard: we only enter bootstrap-mode on a fresh
-  // install. Presence of the main SQLite file means we are past setup and
-  // a missing AUTH_TOKEN is an operator error, not a first-run condition.
-  try {
-    const p = dbPath || '/app/data/familieassistenten.db';
-    return !fs.existsSync(p);
-  } catch {
-    return false;
-  }
-}
-
 function loadConfig() {
   autoDetectTestEnv();
 
+  // Docker / Portainer zero-config: BEFORE any production gate runs, ensure
+  // AUTH_TOKEN + SESSION_SECRET exist (generate + persist if needed). The
+  // container must bind :7777 so Cloudflare Tunnel / Portainer can route
+  // traffic. Secrets are not something the operator invents at deploy time.
+  // Skipped in test so fixtures stay deterministic.
+  const bootstrapAllowedEarly =
+    process.env.BOOTSTRAP_ALLOWED === 'true' ||
+    process.env.BOOTSTRAP_ALLOWED === '1' ||
+    process.env.BOOTSTRAP_ALLOWED === 'yes';
+  let dockerSecretsPath = null;
+  if (bootstrapAllowedEarly && process.env.NODE_ENV !== 'test' && !process.env.NODE_TEST_CONTEXT) {
+    try {
+      const { ensureDockerDeploySecrets } = require('./auth/docker-deploy-secrets');
+      const result = ensureDockerDeploySecrets({
+        bootstrapFile: process.env.BOOTSTRAP_FILE,
+      });
+      dockerSecretsPath = result.path;
+      if (result.generated.length) {
+        console.warn(
+          `⚠️  Docker deploy auto-created ${result.generated.join(', ')} → ${result.path}`
+        );
+      }
+    } catch (err) {
+      console.warn(`⚠️  Docker deploy secret auto-create failed (${err.message})`);
+    }
+  }
+
   // Phase 22 — merge persisted bootstrap values INTO process.env before
   // zod parses it, unless the caller has already set them explicitly.
-  // Done this way so every downstream `process.env.X` read continues to
-  // work; we do not introduce a second source of truth.
   const bootstrap = loadBootstrapFile(process.env.BOOTSTRAP_FILE);
   if (bootstrap) {
     const bv = bootstrap.values;
@@ -239,18 +252,9 @@ function loadConfig() {
     if (bv.llmBackend && !process.env.LLM_BACKEND) process.env.LLM_BACKEND = bv.llmBackend;
     if (bv.ollamaHost && !process.env.OLLAMA_HOST) process.env.OLLAMA_HOST = bv.ollamaHost;
     if (bv.logLevel && !process.env.LOG_LEVEL) process.env.LOG_LEVEL = bv.logLevel;
-    // Multi-tenant auth (uke 2 B1): promote persisted sessionSecret (from
-    // wizard v2+ or from the self-healer below).
     if (bv.sessionSecret && !process.env.SESSION_SECRET) {
       process.env.SESSION_SECRET = bv.sessionSecret;
     }
-
-    // Multi-tenant auth bootstrap (uke 2 B1): ensure SESSION_SECRET exists
-    // in bootstrap.json. Fresh installs via the setup-wizard write it
-    // during handleComplete. Upgrade installs that predate multi-tenant
-    // activation get it self-healed here — we generate one, merge it
-    // into the existing file, and expose it on env before zod runs.
-    // Skipped in NODE_ENV=test to keep fixtures deterministic.
     if (process.env.NODE_ENV !== 'test') {
       try {
         const { ensureSessionSecretInBootstrapFile } = require('./auth/bootstrap-session-secret');
@@ -259,10 +263,6 @@ function loadConfig() {
           process.env.SESSION_SECRET = result.secret;
         }
       } catch (err) {
-        // Self-healing is best-effort. If we cannot write the file, log
-        // and continue — the production-only validation below still
-        // enforces that SESSION_SECRET is set (via env) when Google
-        // OAuth is configured.
         console.warn(
           `⚠️  SESSION_SECRET self-heal failed (${err.message}). ` +
             `Set SESSION_SECRET in env or fix file permissions on bootstrap.json.`
@@ -294,76 +294,41 @@ function loadConfig() {
           .map((s) => s.trim())
           .filter(Boolean);
 
-  // Phase 22 — zero-config Docker deploy path. Activate BOOTSTRAP_MODE when:
-  //   1. Container signalled BOOTSTRAP_ALLOWED=true (docker-compose.yml sets this)
-  //   2. AUTH_TOKEN is missing from env + bootstrap.json
-  //   3. No pre-existing bootstrap.json was loaded above
-  //
-  // Previously we also required an empty data volume (no SQLite file). That
-  // caused a Portainer crash-loop with empty Published Ports after a failed
-  // first deploy left a DB file but no bootstrap.json / AUTH_TOKEN — the
-  // server exited with "AUTH_TOKEN er påkrevd" before binding :7777.
-  //
-  // Recovery: if BOOTSTRAP_ALLOWED and secrets are missing, enter the setup
-  // wizard even when a DB already exists. SQLite data is kept; the wizard
-  // only writes bootstrap.json. Bare-metal (BOOTSTRAP_ALLOWED=false) is
-  // unchanged and still refuses to start without AUTH_TOKEN.
+  // Docker deploys never use the interactive bootstrap wizard as a hard
+  // gate anymore — secrets are auto-provisioned above. Keep BOOTSTRAP_MODE
+  // false so the full app (incl. /v2, auth, tunnel) starts immediately.
+  // /setup.html remains available for operators who want to rotate tokens.
   cfg.BOOTSTRAP_MODE = false;
-  cfg.BOOTSTRAP_FILE_PATH = bootstrap?.path || null;
-  const volumeEmpty = dataVolumeLooksEmpty(cfg.DB_PATH);
-  if (cfg.BOOTSTRAP_ALLOWED && !cfg.AUTH_TOKEN && !bootstrap && cfg.NODE_ENV !== 'test') {
-    cfg.BOOTSTRAP_MODE = true;
-    if (!volumeEmpty) {
-      console.warn(
-        '⚠️  BOOTSTRAP recovery: SQLite data exists but AUTH_TOKEN/bootstrap.json ' +
-          'are missing. Serving /setup.html so you can re-bind secrets without ' +
-          'wiping the data volume. (Portainer: empty Published Ports = crash loop.)'
-      );
-    }
-  }
+  cfg.BOOTSTRAP_FILE_PATH = bootstrap?.path || dockerSecretsPath || null;
 
-  // Production requirement: AUTH_TOKEN MUST be set when NODE_ENV=production,
-  // AND we are not in BOOTSTRAP_MODE (the first-run deploy via Docker).
-  // PILOT_BYPASS is an explicit auth-less mode and likewise does not require
-  // AUTH_TOKEN; production safety is covered by the separate
-  // PILOT_BYPASS_PRODUCTION_ACK check further down.
+  // Production gates — skipped when BOOTSTRAP_ALLOWED (Docker/Portainer).
+  // Bare-metal systemd still requires explicit secrets.
+  const dockerDeploy = Boolean(cfg.BOOTSTRAP_ALLOWED);
+
   if (
     cfg.NODE_ENV === 'production' &&
     !cfg.AUTH_TOKEN &&
     !cfg.BOOTSTRAP_MODE &&
-    !cfg.PILOT_BYPASS
+    !cfg.PILOT_BYPASS &&
+    !dockerDeploy
   ) {
     console.error('\u26a0\ufe0f  AUTH_TOKEN er p\u00e5krevd n\u00e5r NODE_ENV=production');
     console.error('   Sett en sterk token (minst 32 tegn) i .env eller systemd.');
     console.error('   Eksempel: openssl rand -hex 32 > token.txt');
-    console.error(
-      '   Docker/Portainer: either set AUTH_TOKEN in the stack env, or enable ' +
-        'BOOTSTRAP_ALLOWED=true with an empty/missing bootstrap.json so /setup.html can run.'
-    );
-    if (!volumeEmpty) {
-      console.error(
-        '   Detected an existing DB at ' +
-          (cfg.DB_PATH || 'DB_PATH') +
-          ' without AUTH_TOKEN — this used to crash-loop with blank Published Ports.'
-      );
-    }
     process.exit(1);
   }
-  if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN.length < 16) {
+  if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN.length < 16 && !dockerDeploy) {
     console.error('\u26a0\ufe0f  AUTH_TOKEN er for kort (minst 16 tegn, helst 32+)');
     process.exit(1);
   }
 
-  // CORS-hardening: kan ikke bruke '*' samtidig med AUTH_TOKEN i production.
-  // BOOTSTRAP_MODE may keep '*' temporarily because the wizard must be
-  // served broadly on the LAN before the user knows their IP/domain.
-  // PILOT_BYPASS is also exempt — pilot deploys on the LAN need broad
-  // CORS so the button works.
+  // CORS: Docker first-boot may keep * until the public tunnel URL is known.
   if (
     cfg.NODE_ENV === 'production' &&
     cfg.ALLOWED_ORIGINS_LIST === '*' &&
     !cfg.BOOTSTRAP_MODE &&
-    !cfg.PILOT_BYPASS
+    !cfg.PILOT_BYPASS &&
+    !dockerDeploy
   ) {
     console.error('\u26a0\ufe0f  ALLOWED_ORIGINS=* er ikke tillatt i production');
     console.error('   Sett en komma-separert liste med tillatte origins.');
@@ -388,69 +353,31 @@ function loadConfig() {
     console.error('⚠️  GOOGLE_CLIENT_ID requires APP_URL for redirect URI construction.');
     process.exit(1);
   }
-  // In production with any HMAC-signing auth feature enabled, require
-  // SESSION_SECRET. Multi-tenant activation (uke 2 B1, C3): extend the
-  // previous Google-OAuth-only gate to also catch magic-link flows.
-  //
-  // Docker/Portainer (BOOTSTRAP_ALLOWED): if the secret is still missing
-  // after bootstrap-file self-heal, auto-provision one into bootstrap.json
-  // (create file if needed). This covers the common stack where AUTH_TOKEN
-  // was set in Portainer env and MAGIC_LINK_CONSOLE=true but SESSION_SECRET
-  // was never provisioned — that used to crash-loop with empty ports.
-  //
-  // BOOTSTRAP_MODE: wizard has not run yet; skip (no session features).
-  // PILOT_BYPASS: excluded (raw session id, no HMAC).
+
+  // HMAC features need SESSION_SECRET. Docker already auto-provisioned above.
+  // Bare-metal still hard-fails if missing.
   const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
-  if (
-    cfg.NODE_ENV === 'production' &&
-    hmacSigningEnabled &&
-    !cfg.BOOTSTRAP_MODE &&
-    !cfg.SESSION_SECRET &&
-    cfg.BOOTSTRAP_ALLOWED
-  ) {
-    try {
-      const {
-        ensureSessionSecretInBootstrapFile,
-        resolveDefaultBootstrapPath,
-      } = require('./auth/bootstrap-session-secret');
-      const bootstrapPath = resolveDefaultBootstrapPath(
-        cfg.BOOTSTRAP_FILE || process.env.BOOTSTRAP_FILE
-      );
-      const result = ensureSessionSecretInBootstrapFile(bootstrapPath, {
-        createIfMissing: true,
-      });
-      if (result.secret) {
-        cfg.SESSION_SECRET = result.secret;
-        process.env.SESSION_SECRET = result.secret;
-        cfg.BOOTSTRAP_FILE_PATH = bootstrapPath;
-        console.warn(
-          `⚠️  SESSION_SECRET auto-provisioned to ${bootstrapPath}` +
-            (result.generated ? ' (generated)' : ' (loaded)') +
-            (result.createdFile ? ' [new file]' : '') +
-            '. Set SESSION_SECRET in Portainer to pin it explicitly.'
-        );
-      }
-    } catch (err) {
-      console.warn(`⚠️  SESSION_SECRET auto-provision failed (${err.message}).`);
-    }
+  if (cfg.NODE_ENV === 'production' && hmacSigningEnabled && !cfg.SESSION_SECRET && !dockerDeploy) {
+    console.error(
+      '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +
+        'magic-link email, or MAGIC_LINK_CONSOLE is enabled.'
+    );
+    process.exit(1);
   }
-  if (cfg.NODE_ENV === 'production' && hmacSigningEnabled && !cfg.BOOTSTRAP_MODE) {
-    if (!cfg.SESSION_SECRET) {
-      console.error(
-        '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +
-          'magic-link email, or MAGIC_LINK_CONSOLE is enabled.'
-      );
-      console.error('   Docker/Portainer quick fix — set both stack env vars and redeploy:');
-      console.error('     SESSION_SECRET=<output of: openssl rand -hex 32>');
-      console.error('     AUTH_TOKEN=<your existing token or openssl rand -hex 32>');
-      console.error(
-        '   Or set MAGIC_LINK_CONSOLE=false / unset RESEND_API_KEY until secrets exist.'
-      );
-      process.exit(1);
-    }
+  // Last-resort Docker: if somehow still missing after auto-provision, invent
+  // an in-memory secret so the process never crash-loops without a port.
+  if (dockerDeploy && !cfg.SESSION_SECRET) {
+    cfg.SESSION_SECRET = require('crypto').randomBytes(32).toString('hex');
+    process.env.SESSION_SECRET = cfg.SESSION_SECRET;
+    console.warn('⚠️  SESSION_SECRET in-memory fallback (Docker) — data volume not writable?');
   }
-  // ENCRYPTION_KEY remains Google-OAuth-specific (used by
-  // server/auth/crypto.js to AES-256-GCM-encrypt stored LLM keys).
+  if (dockerDeploy && !cfg.AUTH_TOKEN) {
+    cfg.AUTH_TOKEN = require('crypto').randomBytes(32).toString('hex');
+    process.env.AUTH_TOKEN = cfg.AUTH_TOKEN;
+    console.warn('⚠️  AUTH_TOKEN in-memory fallback (Docker) — data volume not writable?');
+  }
+
+  // ENCRYPTION_KEY remains Google-OAuth-specific.
   if (cfg.NODE_ENV === 'production' && cfg.GOOGLE_CLIENT_ID && !cfg.ENCRYPTION_KEY) {
     console.error('⚠️  ENCRYPTION_KEY is required in production when Google OAuth is enabled.');
     process.exit(1);
