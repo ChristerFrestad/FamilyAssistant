@@ -113,22 +113,19 @@ function constantTimeEquals(a, b) {
 
 function isPublicPath(pathname) {
   if (PUBLIC_PATHS.has(pathname)) return true;
-  // V2 React SPA shell + static assets are ALWAYS public — frontend
-  // Guards (PilotGuard, AuthGuard, OnboardingGuard) handle auth state
-  // once the bundle loads. Without this, a deploy with AUTH_TOKEN set
-  // (any prod deploy) would 401 the bundle before the gate can render
-  // and lock every visitor out of the app.
-  if (pathname === '/v2' || pathname === '/v2/' || pathname === '/v2/index.html') {
-    return true;
-  }
-  if (pathname.startsWith('/v2/assets/')) return true;
-  // Pilot-gate bootstrap endpoints. These must reach their handlers
-  // without the auth chain rejecting them — they are how the gate
-  // becomes solvable for an anonymous visitor in the first place.
-  // The handlers themselves enforce rate-limit + password validation.
-  // When PILOT_MODE=false these endpoints still respond cleanly:
-  // /api/pilot/status returns { pilotMode: false } and
-  // /api/auth/pilot-password returns 503 pilot_disabled.
+  // Entire v2 SPA surface is public at the HTTP layer — including client
+  // routes like /v2/login, /v2/invite/:token, /v2/dashboard. Docker deploys
+  // always have AUTH_TOKEN (auto-created); if only /v2/ and /v2/assets/*
+  // were public, deep-links returned JSON 401 and the React app never
+  // loaded. Frontend Guards (PilotGuard, AuthGuard, OnboardingGuard)
+  // enforce auth after the bundle mounts. API stays under /api/* only.
+  if (pathname === '/v2' || pathname.startsWith('/v2/')) return true;
+  // SPA bootstrap endpoints (brand + auth manifest) — called before login.
+  if (pathname === '/api/config') return true;
+  if (pathname === '/api/auth/config') return true;
+  if (pathname === '/favicon.svg' || pathname === '/favicon.ico') return true;
+  if (pathname === '/manifest.json') return true;
+  // Pilot-gate bootstrap endpoints.
   if (pathname === '/api/pilot/status') return true;
   if (pathname === '/api/auth/pilot-password') return true;
   return false;
@@ -136,13 +133,11 @@ function isPublicPath(pathname) {
 
 function isPilotGateBypassPath(pathname) {
   if (PILOT_GATE_BYPASS_PATHS.has(pathname)) return true;
-  // The v2 React app's static assets must load so the gate UI can
-  // render. /v2/index.html (the entry HTML) and /v2/assets/* (the
-  // built bundle + fonts) need to be reachable before the gate is
-  // satisfied. The gate's HTTP response will short-circuit
-  // /api/* calls until the cookie is set.
-  if (pathname === '/v2/' || pathname === '/v2/index.html') return true;
-  if (pathname.startsWith('/v2/assets/')) return true;
+  // Full v2 SPA must render so PilotPasswordGate / login can show.
+  if (pathname === '/v2' || pathname.startsWith('/v2/')) return true;
+  if (pathname === '/api/config' || pathname === '/api/auth/config') return true;
+  if (pathname === '/favicon.svg' || pathname === '/favicon.ico') return true;
+  if (pathname === '/manifest.json') return true;
   for (const prefix of PILOT_GATE_BYPASS_PREFIXES) {
     if (pathname.startsWith(prefix)) return true;
   }

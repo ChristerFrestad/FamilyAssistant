@@ -238,17 +238,23 @@ describe('Pilot-gate lockout regression (production-like env)', () => {
       assert.strictEqual(isPublicPath('/v2/assets/Geist.woff2'), true);
     });
 
+    test('v2 client routes are public so SPA can deep-link with AUTH_TOKEN set', () => {
+      // Server serves index.html for these; React Router + Guards handle auth.
+      assert.strictEqual(isPublicPath('/v2/login'), true);
+      assert.strictEqual(isPublicPath('/v2/dashboard'), true);
+      assert.strictEqual(isPublicPath('/v2/invite/abc'), true);
+      assert.strictEqual(isPublicPath('/v2/admin'), true);
+    });
+
     test('non-v2 API paths NOT public (still go through auth)', () => {
       assert.strictEqual(isPublicPath('/api/meals/current'), false);
       assert.strictEqual(isPublicPath('/api/auth/me'), false);
       assert.strictEqual(isPublicPath('/api/admin/me'), false);
     });
 
-    test('non-asset v2 sub-paths NOT public (defensive)', () => {
-      // Future-proof: if someone adds /v2/api/foo it should NOT be auto-public.
-      // Only the specific shell paths and /v2/assets/* are public.
-      assert.strictEqual(isPublicPath('/v2/api/secret'), false);
-      assert.strictEqual(isPublicPath('/v2/admin'), false);
+    test('brand/auth config endpoints are public for SPA bootstrap', () => {
+      assert.strictEqual(isPublicPath('/api/config'), true);
+      assert.strictEqual(isPublicPath('/api/auth/config'), true);
     });
 
     test('pilot-gate bootstrap endpoints are public', () => {
