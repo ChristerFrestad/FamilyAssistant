@@ -110,7 +110,11 @@ services:
       # See .env.example for the full documentation.
       PILOT_BYPASS: ${PILOT_BYPASS:-false}
       PILOT_BYPASS_PRODUCTION_ACK: ${PILOT_BYPASS_PRODUCTION_ACK:-false}
+      # Keep false until SESSION_SECRET is set (or let auto-provision write
+      # it into bootstrap.json on first boot when BOOTSTRAP_ALLOWED=true).
       MAGIC_LINK_CONSOLE: ${MAGIC_LINK_CONSOLE:-false}
+      # Optional: pin SESSION_SECRET in Portainer to skip auto-provision.
+      # SESSION_SECRET: ${SESSION_SECRET:-}
       # Absolute URL the server uses when building e.g. magic-link verify
       # URLs. Leave empty for LAN-only pilot deploys (URLs stay relative).
       APP_URL: ${APP_URL:-}

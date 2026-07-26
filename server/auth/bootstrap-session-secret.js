@@ -2,38 +2,33 @@
 //
 // Context: the existing bootstrap wizard (server/http/bootstrap.js) generates
 // AUTH_TOKEN on first-ever Docker deploy and persists it to
-// /app/data/bootstrap.json. The wizard does not currently generate
-// SESSION_SECRET because multi-tenant auth was frozen at the time bootstrap
-// mode was added.
+// /app/data/bootstrap.json. Multi-tenant activation needs SESSION_SECRET on
+// every deploy that uses magic-link / Google OAuth / MAGIC_LINK_CONSOLE.
 //
-// Multi-tenant activation (CLAUDE.md DEL 5.2, uke 2 B1) needs SESSION_SECRET
-// on every deploy. Two scenarios:
+// Scenarios:
 //
-//   1. Fresh install via the wizard: the wizard's handleComplete() should
-//      generate and persist SESSION_SECRET alongside AUTH_TOKEN. See the
-//      integration point in server/http/bootstrap.js.
+//   1. Fresh install via the wizard: handleComplete() writes sessionSecret
+//      alongside authToken.
 //
-//   2. Upgrade from an existing install: bootstrap.json already has
-//      authToken but no sessionSecret. We cannot ask the user to run the
-//      wizard again — the RPi is running in production. This module's
-//      self-healing path generates a secret, merges it into the existing
-//      bootstrap.json, and exposes it on process.env.SESSION_SECRET before
-//      config validation runs.
+//   2. Upgrade: bootstrap.json has authToken but no sessionSecret. We merge
+//      a generated secret into the existing file.
+//
+//   3. Portainer partial config: AUTH_TOKEN set in stack env (or DB exists)
+//      but SESSION_SECRET was never provisioned, and MAGIC_LINK_CONSOLE /
+//      RESEND / Google is on. Without a secret the process crash-loops with
+//      empty Published Ports. When `createIfMissing` is true we create or
+//      update bootstrap.json and return a secret so boot can continue.
 //
 // Write safety:
-//   - Reads current bootstrap.json, merges new keys, writes back (not
-//     using wx flag — overwrite is the point).
-//   - Preserves existing file permissions (0600) on re-write.
-//   - Skipped entirely when NODE_ENV=test to avoid contaminating test
-//     fixtures.
-//
-// Idempotence: if sessionSecret already exists in the file, we do nothing.
-// Subsequent boots simply read it.
+//   - Atomic write via rename
+//   - mode 0600
+//   - Skipped in NODE_ENV=test by callers
 
 'use strict';
 
 const crypto = require('crypto');
 const fs = require('fs');
+const path = require('path');
 
 /**
  * Generate a new 32-byte hex session secret (64 chars).
@@ -43,34 +38,44 @@ function generateSessionSecret() {
 }
 
 /**
- * Ensure bootstrap.json contains a sessionSecret. If missing, generate one
- * and persist by merging into the existing file. No-op when the file does
- * not exist (fresh install handled by the wizard's handleComplete).
+ * Ensure bootstrap.json contains a sessionSecret.
  *
  * @param {string} bootstrapPath — absolute path to bootstrap.json
- * @returns {{ generated: boolean, secret: string | null }} — `secret` is
- *          always the value that should be placed on process.env, null
- *          only if the file could not be read at all.
+ * @param {{ createIfMissing?: boolean }} [opts]
+ * @returns {{ generated: boolean, secret: string | null, createdFile: boolean }}
  */
-function ensureSessionSecretInBootstrapFile(bootstrapPath) {
+function ensureSessionSecretInBootstrapFile(bootstrapPath, opts = {}) {
+  const createIfMissing = Boolean(opts.createIfMissing);
+  const emptyShell = () => ({
+    completedAt: null,
+    generatedBy: 'session-secret-auto-provision',
+    version: 2,
+  });
   let parsed;
+  let fileExisted = false;
+
   try {
     const raw = fs.readFileSync(bootstrapPath, 'utf8');
     parsed = JSON.parse(raw);
+    fileExisted = true;
   } catch {
-    // No existing bootstrap.json — caller's wizard-flow path handles this.
-    return { generated: false, secret: null };
+    if (!createIfMissing) {
+      return { generated: false, secret: null, createdFile: false };
+    }
+    parsed = emptyShell();
   }
 
   if (!parsed || typeof parsed !== 'object') {
-    return { generated: false, secret: null };
+    if (!createIfMissing) {
+      return { generated: false, secret: null, createdFile: false };
+    }
+    parsed = emptyShell();
   }
 
   if (typeof parsed.sessionSecret === 'string' && parsed.sessionSecret.length >= 32) {
-    return { generated: false, secret: parsed.sessionSecret };
+    return { generated: false, secret: parsed.sessionSecret, createdFile: false };
   }
 
-  // Generate and merge.
   const secret = generateSessionSecret();
   const merged = {
     ...parsed,
@@ -78,14 +83,14 @@ function ensureSessionSecretInBootstrapFile(bootstrapPath) {
     sessionSecretGeneratedAt: new Date().toISOString(),
   };
 
-  // Write with an atomic-ish rename to avoid a torn write if the process
-  // crashes mid-update. Same file-perms preserved.
+  const dir = path.dirname(bootstrapPath);
+  fs.mkdirSync(dir, { recursive: true });
+
   const tmpPath = `${bootstrapPath}.tmp`;
   try {
     fs.writeFileSync(tmpPath, JSON.stringify(merged, null, 2), { mode: 0o600 });
     fs.renameSync(tmpPath, bootstrapPath);
   } catch (err) {
-    // Best-effort: clean up temp file if rename failed.
     try {
       fs.unlinkSync(tmpPath);
     } catch {
@@ -94,10 +99,29 @@ function ensureSessionSecretInBootstrapFile(bootstrapPath) {
     throw err;
   }
 
-  return { generated: true, secret };
+  return {
+    generated: true,
+    secret,
+    createdFile: !fileExisted,
+  };
+}
+
+/**
+ * Resolve the default bootstrap.json path (Docker volume first).
+ */
+function resolveDefaultBootstrapPath(explicitPath) {
+  if (explicitPath) return explicitPath;
+  const dockerPath = '/app/data/bootstrap.json';
+  try {
+    fs.accessSync(path.dirname(dockerPath), fs.constants.W_OK);
+    return dockerPath;
+  } catch {
+    return path.resolve(process.cwd(), 'data', 'bootstrap.json');
+  }
 }
 
 module.exports = {
   generateSessionSecret,
   ensureSessionSecretInBootstrapFile,
+  resolveDefaultBootstrapPath,
 };

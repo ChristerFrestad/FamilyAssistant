@@ -390,31 +390,61 @@ function loadConfig() {
   }
   // In production with any HMAC-signing auth feature enabled, require
   // SESSION_SECRET. Multi-tenant activation (uke 2 B1, C3): extend the
-  // previous Google-OAuth-only gate to also catch magic-link flows, which
-  // sign their state via SESSION_SECRET in server/auth/routes.js. The
-  // previous gate silently let magic-link deploys run on whatever
-  // SESSION_SECRET happened to be populated (or empty).
+  // previous Google-OAuth-only gate to also catch magic-link flows.
   //
-  // PILOT_BYPASS is deliberately EXCLUDED: its cookie is a raw session
-  // id (no HMAC), so SESSION_SECRET is never consulted on that path.
-  // PILOT_BYPASS has its own guardrails via PILOT_BYPASS_PRODUCTION_ACK.
-  // BOOTSTRAP_MODE is exempt: the setup wizard at /setup.html has not run yet,
-  // so there is no bootstrap.json to self-heal and no session features to serve.
-  // The wizard's handleComplete() writes sessionSecret; the next boot (normal
-  // mode) re-enters this gate with a real secret. Skipping here fixes the
-  // Portainer fresh-install crashloop documented in
-  // docs/known-issues/portainer-session-secret-deploy-gate.md.
+  // Docker/Portainer (BOOTSTRAP_ALLOWED): if the secret is still missing
+  // after bootstrap-file self-heal, auto-provision one into bootstrap.json
+  // (create file if needed). This covers the common stack where AUTH_TOKEN
+  // was set in Portainer env and MAGIC_LINK_CONSOLE=true but SESSION_SECRET
+  // was never provisioned — that used to crash-loop with empty ports.
+  //
+  // BOOTSTRAP_MODE: wizard has not run yet; skip (no session features).
+  // PILOT_BYPASS: excluded (raw session id, no HMAC).
   const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
+  if (
+    cfg.NODE_ENV === 'production' &&
+    hmacSigningEnabled &&
+    !cfg.BOOTSTRAP_MODE &&
+    !cfg.SESSION_SECRET &&
+    cfg.BOOTSTRAP_ALLOWED
+  ) {
+    try {
+      const {
+        ensureSessionSecretInBootstrapFile,
+        resolveDefaultBootstrapPath,
+      } = require('./auth/bootstrap-session-secret');
+      const bootstrapPath = resolveDefaultBootstrapPath(
+        cfg.BOOTSTRAP_FILE || process.env.BOOTSTRAP_FILE
+      );
+      const result = ensureSessionSecretInBootstrapFile(bootstrapPath, {
+        createIfMissing: true,
+      });
+      if (result.secret) {
+        cfg.SESSION_SECRET = result.secret;
+        process.env.SESSION_SECRET = result.secret;
+        cfg.BOOTSTRAP_FILE_PATH = bootstrapPath;
+        console.warn(
+          `⚠️  SESSION_SECRET auto-provisioned to ${bootstrapPath}` +
+            (result.generated ? ' (generated)' : ' (loaded)') +
+            (result.createdFile ? ' [new file]' : '') +
+            '. Set SESSION_SECRET in Portainer to pin it explicitly.'
+        );
+      }
+    } catch (err) {
+      console.warn(`⚠️  SESSION_SECRET auto-provision failed (${err.message}).`);
+    }
+  }
   if (cfg.NODE_ENV === 'production' && hmacSigningEnabled && !cfg.BOOTSTRAP_MODE) {
     if (!cfg.SESSION_SECRET) {
       console.error(
         '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +
           'magic-link email, or MAGIC_LINK_CONSOLE is enabled.'
       );
+      console.error('   Docker/Portainer quick fix — set both stack env vars and redeploy:');
+      console.error('     SESSION_SECRET=<output of: openssl rand -hex 32>');
+      console.error('     AUTH_TOKEN=<your existing token or openssl rand -hex 32>');
       console.error(
-        '   Either set SESSION_SECRET in env, or let the bootstrap wizard ' +
-          '(/setup.html) generate one. Existing installs are self-healed on ' +
-          'boot — see server/auth/bootstrap-session-secret.js.'
+        '   Or set MAGIC_LINK_CONSOLE=false / unset RESEND_API_KEY until secrets exist.'
       );
       process.exit(1);
     }

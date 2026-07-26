@@ -139,16 +139,35 @@ describe('Portainer bootstrap · SESSION_SECRET gate in BOOTSTRAP_MODE', () => {
     assert.equal(parsed.bootstrapMode, true);
   });
 
-  test('production + MAGIC_LINK_CONSOLE + AUTH_TOKEN set + no SESSION_SECRET → exits 1', () => {
+  test('production + MAGIC_LINK_CONSOLE + AUTH_TOKEN + no SESSION_SECRET without BOOTSTRAP_ALLOWED → exits 1', () => {
+    // Bare-metal / no Docker signal: do not set BOOTSTRAP_ALLOWED at all
+    // (z.coerce.boolean turns the string "false" into true).
     const result = loadConfigInChild({
       NODE_ENV: 'production',
       AUTH_TOKEN: 'a'.repeat(40),
       ALLOWED_ORIGINS: 'http://example.com',
       MAGIC_LINK_CONSOLE: 'true',
-      // SESSION_SECRET deliberately unset — normal mode must refuse
+      // SESSION_SECRET deliberately unset — must refuse outside Docker
     });
     assert.notStrictEqual(result.status, 0);
     assert.match(result.stderr, /SESSION_SECRET is required/);
+  });
+
+  test('production + MAGIC_LINK_CONSOLE + AUTH_TOKEN + BOOTSTRAP_ALLOWED auto-provisions SESSION_SECRET', () => {
+    // Portainer case: stack has AUTH_TOKEN + MAGIC_LINK_CONSOLE but forgot SESSION_SECRET.
+    const result = loadConfigInChild({
+      NODE_ENV: 'production',
+      AUTH_TOKEN: 'a'.repeat(40),
+      ALLOWED_ORIGINS: 'http://example.com',
+      MAGIC_LINK_CONSOLE: 'true',
+      BOOTSTRAP_ALLOWED: 'true',
+    });
+    assert.strictEqual(
+      result.status,
+      0,
+      `expected clean exit via auto-provision, got ${result.status}\nstderr=${result.stderr}\nstdout=${result.stdout}`
+    );
+    assert.match(result.stderr, /SESSION_SECRET auto-provisioned/i);
   });
 
   test('production + MAGIC_LINK_CONSOLE + AUTH_TOKEN + SESSION_SECRET → loads OK', () => {

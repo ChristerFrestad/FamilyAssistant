@@ -41,7 +41,7 @@ describe('ensureSessionSecretInBootstrapFile — missing file', () => {
     const p = tempBootstrapPath();
     // Do not create the file.
     const r = ensureSessionSecretInBootstrapFile(p);
-    assert.deepEqual(r, { generated: false, secret: null });
+    assert.deepEqual(r, { generated: false, secret: null, createdFile: false });
     // File should NOT have been created as a side effect.
     assert.equal(fs.existsSync(p), false);
   });
@@ -50,14 +50,26 @@ describe('ensureSessionSecretInBootstrapFile — missing file', () => {
     const p = tempBootstrapPath();
     fs.writeFileSync(p, 'not-json-at-all', 'utf8');
     const r = ensureSessionSecretInBootstrapFile(p);
-    assert.deepEqual(r, { generated: false, secret: null });
+    assert.deepEqual(r, { generated: false, secret: null, createdFile: false });
   });
 
   test('returns { generated: false, secret: null } when file is not an object', () => {
     const p = tempBootstrapPath();
     fs.writeFileSync(p, '42', 'utf8');
     const r = ensureSessionSecretInBootstrapFile(p);
-    assert.deepEqual(r, { generated: false, secret: null });
+    assert.deepEqual(r, { generated: false, secret: null, createdFile: false });
+  });
+
+  test('createIfMissing generates and writes a new bootstrap.json', () => {
+    const p = tempBootstrapPath();
+    const r = ensureSessionSecretInBootstrapFile(p, { createIfMissing: true });
+    assert.equal(r.generated, true);
+    assert.equal(r.createdFile, true);
+    assert.equal(typeof r.secret, 'string');
+    assert.equal(r.secret.length, 64);
+    assert.equal(fs.existsSync(p), true);
+    const persisted = JSON.parse(fs.readFileSync(p, 'utf8'));
+    assert.equal(persisted.sessionSecret, r.secret);
   });
 });
 
