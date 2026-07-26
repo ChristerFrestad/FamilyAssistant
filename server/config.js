@@ -379,8 +379,14 @@ function loadConfig() {
   // PILOT_BYPASS is deliberately EXCLUDED: its cookie is a raw session
   // id (no HMAC), so SESSION_SECRET is never consulted on that path.
   // PILOT_BYPASS has its own guardrails via PILOT_BYPASS_PRODUCTION_ACK.
+  // BOOTSTRAP_MODE is exempt: the setup wizard at /setup.html has not run yet,
+  // so there is no bootstrap.json to self-heal and no session features to serve.
+  // The wizard's handleComplete() writes sessionSecret; the next boot (normal
+  // mode) re-enters this gate with a real secret. Skipping here fixes the
+  // Portainer fresh-install crashloop documented in
+  // docs/known-issues/portainer-session-secret-deploy-gate.md.
   const hmacSigningEnabled = cfg.GOOGLE_CLIENT_ID || cfg.RESEND_API_KEY || cfg.MAGIC_LINK_CONSOLE;
-  if (cfg.NODE_ENV === 'production' && hmacSigningEnabled) {
+  if (cfg.NODE_ENV === 'production' && hmacSigningEnabled && !cfg.BOOTSTRAP_MODE) {
     if (!cfg.SESSION_SECRET) {
       console.error(
         '⚠️  SESSION_SECRET is required in production when Google OAuth, ' +

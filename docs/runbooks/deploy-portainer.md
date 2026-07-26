@@ -15,24 +15,32 @@
 ## Step 1 — Volume setup (one-time)
 
 ```bash
-sudo mkdir -p /srv/familyassistant-data/data
-sudo mkdir -p /srv/familyassistant-data/backups
-sudo chown -R 65532:65532 /srv/familyassistant-data
+sudo mkdir -p /srv/familyassistant-data
+sudo chown -R 1000:1000 /srv/familyassistant-data
 ```
 
-UID 65532 = distroless `nonroot`. The container process must be able to write to the volume.
+UID 1000 = the `node` user in `node:20-bookworm-slim` (current runtime image).
+The entrypoint also chowns `/app/data` via `gosu` on start. Prefer the
+named volume `familyassistant_data` from `docker-compose.yml` unless you
+need host-path backups over SSH.
 
 ## Step 2 — Stack in Portainer
 
 In Portainer: **Stacks → Add stack → Repository → Web editor**.
 
-Paste `docker-compose.yml` from the repo. Change the volume mounts to absolute paths:
+Paste `docker-compose.yml` from the repo. Default is a **named volume**
+(`familyassistant_data`) which works in Portainer without host paths.
+
+Optional bind-mount (SSH-friendly backups) — replace the app service
+volumes with:
 
 ```yaml
 volumes:
-  - /srv/familyassistant-data/data:/app/data
-  - /srv/familyassistant-data/backups:/app/backups
+  - /srv/familyassistant-data:/app/data
 ```
+
+(Do not use relative `./data` paths in Portainer's Web editor — they
+resolve against Portainer's working directory, not your project folder.)
 
 ## Step 3 — Environment variables (Portainer → Stack → Environment)
 

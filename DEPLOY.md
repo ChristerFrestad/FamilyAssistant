@@ -345,14 +345,14 @@ docker compose up -d    # Restart with new image
 docker compose logs -f app  # Follow logs for 1 min
 ```
 
-Data in `./data/` is retained across upgrades. DB migrations
-run automatically on startup.
+Data in the named volume `familyassistant_data` (or your bind-mount)
+is retained across upgrades. DB migrations run automatically on startup.
 
 ### 14.4 Backup / restore via Docker
 
 ```bash
 # Backup while app is running (uses SQLite online backup)
-docker compose exec app /nodejs/bin/node -e "
+docker compose exec app node -e "
   const { initDB } = require('./server/db');
   const { backupNow } = require('./server/backup');
   (async () => {
@@ -403,8 +403,10 @@ docker compose logs app --tail 100
 
 **Permission denied on data directory:**
 ```bash
-# Distroless uses UID 65532 (nonroot)
-sudo chown -R 65532:65532 data/
+# Runtime image uses the node user (UID/GID 1000). The entrypoint
+# (docker-entrypoint.sh + gosu) chowns /app/data on start, but bind-mounts
+# that are root-owned and not writable can still fail before that runs.
+sudo chown -R 1000:1000 data/
 ```
 
 **Upgrade multiarch image to ARM64 manually:**
@@ -551,5 +553,6 @@ If you later want to manage the token via Portainer variables instead of the per
 | `required variable AUTH_TOKEN is missing a value` during `compose up` | You are on a pre-phase-22 compose file that still had `${AUTH_TOKEN:?}`-required syntax. Pull the latest `docker-compose.yml` from the repo. |
 | `/setup.html` returns 503 or 404 | The container is not in BOOTSTRAP_MODE. Check the logs for the `🔧 BOOTSTRAP MODE ACTIVE` line. If it is absent, the data volume has a leftover `familieassistenten.db` from a previous run. Follow §16.5. |
 | `Complete setup` returns 409 conflict | Two setup requests raced. Reload `/setup.html` — the wizard will detect that `bootstrap.json` now exists and redirect to the main app. |
-| Container fails to start after bootstrap | The data volume is not writable by UID 65532 (distroless `nonroot`). Shell access required: `docker exec --user root familieassistenten chown -R 65532:65532 /app/data`. |
+| Container fails to start after bootstrap | The data volume is not writable by UID 1000 (`node`). Shell access required: `docker exec --user root familieassistenten chown -R 1000:1000 /app/data`. |
+| `/setup.html` 404 even though logs say BOOTSTRAP MODE | Stale image from before the setup-wizard restore. Force re-pull: delete the stack + image, redeploy with `pull_policy: always` (see §16.5). |
 | `host.docker.internal` does not resolve on Linux | Linux Docker ≥ 20.10 is required. The compose file adds `extra_hosts: host.docker.internal:host-gateway` which only works on that version. Upgrade Docker. |

@@ -7,6 +7,18 @@
 # restarts into normal mode. Caddy (HTTPS reverse proxy) is gated behind
 # `--profile production` so it does not block the first deploy.
 #
+# Portainer notes:
+#   - Paste this file into Stacks → Web editor (or point Repository at
+#     this compose path). Named volume `familyassistant_data` works out
+#     of the box — relative bind mounts like `./data` resolve against
+#     Portainer's working directory and often break.
+#   - To bind-mount a host path instead (easier backup via SSH), replace
+#     the volumes section with e.g.:
+#       - /srv/familyassistant-data:/app/data
+#     and `chown -R 1000:1000` that path (node user in the image).
+#   - pull_policy: always forces a fresh GHCR pull on every stack deploy
+#     (Portainer CE has no separate "Re-pull image" toggle).
+#
 # Common commands:
 #   docker compose up -d                        # app only (bootstrap ready)
 #   docker compose --profile production up -d   # app + Caddy (after setup)
@@ -48,9 +60,10 @@ services:
     # "127.0.0.1:7777:7777" to funnel all traffic through the reverse
     # proxy.
     ports:
-      - '7777:7777'
+      - '${HOST_PORT:-7777}:7777'
     volumes:
-      - ./data:/app/data
+      # Named volume — Portainer-safe. See header comment for bind-mount.
+      - familyassistant_data:/app/data
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       # Internal server listen-port. The Dockerfile bakes in PORT=7777 so
@@ -116,7 +129,15 @@ services:
       # White-label override (e.g. Husby — the canonical example).
       # Defaults to "FamilyAssistant" if unset.
       APP_NAME: ${APP_NAME:-FamilyAssistant}
+      APP_NAME_PRIMARY: ${APP_NAME_PRIMARY:-Family}
+      APP_NAME_ACCENT: ${APP_NAME_ACCENT:-Assistant}
+      APP_FAVICON_LETTER: ${APP_FAVICON_LETTER:-F}
+      APP_TAGLINE: ${APP_TAGLINE:-Plan meals, chores and family}
+      # Trust X-Forwarded-* when behind Cloudflare Tunnel / Caddy / nginx.
+      TRUST_PROXY: ${TRUST_PROXY:-false}
     # Resource limits — sized for an RPi5 4 GB host.
+    # Note: `deploy.resources` is honoured by Swarm; on plain Compose /
+    # Portainer CE it is informational unless you also set mem_limit.
     deploy:
       resources:
         limits:
@@ -124,6 +145,8 @@ services:
           cpus: '1.5'
         reservations:
           memory: 128M
+    mem_limit: 512m
+    cpus: 1.5
     # The slim runtime has node on PATH. The Docker healthcheck calls
     # node -e with a fetch to /health. Matches the HEALTHCHECK directive
     # in Dockerfile. Prior distroless-only path (/nodejs/bin/node) caused
@@ -138,7 +161,7 @@ services:
         ]
       interval: 30s
       timeout: 5s
-      start_period: 30s
+      start_period: 45s
       retries: 3
     # Lets the container reach a Linux host's Ollama instance.
     extra_hosts:
@@ -155,6 +178,10 @@ services:
   # wizard can be reached at http://<host>:7777/setup.html. Once the
   # wizard completes and AUTH_TOKEN is persisted, activate Caddy and set
   # HTTPS_TERMINATED=true.
+  #
+  # Portainer Web editor does not expose compose profiles. Either:
+  #   - remove the `profiles:` key under caddy after bootstrap, or
+  #   - run Caddy / Cloudflare Tunnel as a separate stack.
   # --------------------------------------------------------------------------
   caddy:
     image: caddy:2-alpine
@@ -179,6 +206,8 @@ services:
 # Named volumes
 # ----------------------------------------------------------------------------
 volumes:
+  familyassistant_data:
+    driver: local
   caddy_data:
     driver: local
   caddy_config:

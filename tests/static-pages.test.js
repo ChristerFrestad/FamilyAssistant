@@ -80,6 +80,12 @@ describe('Phase 16 · PUBLIC_PATHS middleware', () => {
     // anonymously so cached SWs can fetch and run their cleanup code.
     assert.ok(PUBLIC_PATHS.has('/sw.js'));
   });
+
+  test('PUBLIC_PATHS inkluderer /setup.html (Portainer bootstrap wizard)', () => {
+    // Restored after Sprint 8 accidentally deleted the wizard page.
+    // Zero-config Docker/Portainer deploys depend on anonymous access.
+    assert.ok(PUBLIC_PATHS.has('/setup.html'));
+  });
 });
 
 describe('Phase 16 · Live server serves static pages anonymously', () => {
@@ -115,5 +121,12 @@ describe('Phase 16 · Live server serves static pages anonymously', () => {
     assert.match(String(r.raw), /Tombstone service worker/);
     assert.match(String(r.raw), /registration\.unregister/);
     assert.match(String(r.raw), /caches\.delete/);
+  });
+
+  test('GET /setup.html → 200 (Portainer first-boot wizard)', async () => {
+    const r = await request(server.baseUrl, 'GET', '/setup.html');
+    assert.strictEqual(r.status, 200);
+    assert.match(String(r.raw), /First-time setup|Auth token/i);
+    assert.match(String(r.raw), /\/api\/bootstrap\/complete/);
   });
 });

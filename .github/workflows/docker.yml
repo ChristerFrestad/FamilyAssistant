@@ -154,6 +154,17 @@ jobs:
           echo "Bundle verified — index.html + main-*.js + main-*.css present." \
             >> "$GITHUB_STEP_SUMMARY"
 
+      # Portainer zero-config depends on /setup.html being in the image.
+      # Sprint 8 deleted it once; this step makes that regression fail CI.
+      - name: Verify setup wizard in image
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint test familyassistant:verify -f /app/public/setup.html
+          docker run --rm --entrypoint sh familyassistant:verify -c \
+            'grep -q "/api/bootstrap/complete" /app/public/setup.html'
+          echo "setup.html present and references bootstrap complete endpoint." \
+            >> "$GITHUB_STEP_SUMMARY"
+
       - name: Summary
         if: success()
         run: |

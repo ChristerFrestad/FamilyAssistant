@@ -24,8 +24,10 @@ const { parseCookies } = require('./cookies');
 // Sprint 8 (2026-05-05): trimmed to the post-v1-cleanup surface. Legal pages
 // (privacy + terms) are still served from public/ as static HTML; the sw.js
 // tombstone is reachable so cached v1 service workers can fetch it and
-// unregister themselves. /login.html, /invite.html, /setup.html are gone
-// — the v2 React app handles all of those flows under /v2/*.
+// unregister themselves. /login.html and /invite.html stay gone (v2 handles
+// those under /v2/*). /setup.html was restored for the Portainer zero-config
+// bootstrap wizard — it is only useful while BOOTSTRAP_MODE is active, but
+// must remain reachable without AUTH_TOKEN so the first-run flow works.
 const PUBLIC_PATHS = new Set([
   '/health',
   '/ready',
@@ -33,7 +35,9 @@ const PUBLIC_PATHS = new Set([
   '/privacy.html',
   '/privacy-en.html',
   '/terms.html',
+  '/terms-en.html',
   '/sw.js',
+  '/setup.html',
 ]);
 
 // Sprint 7 / pre-pilot — paths that bypass the pilot-password gate.
@@ -50,6 +54,8 @@ const PILOT_GATE_BYPASS_PATHS = new Set([
   '/privacy.html',
   '/privacy-en.html',
   '/terms.html',
+  '/terms-en.html',
+  '/setup.html',
 ]);
 
 // Path prefixes that bypass the pilot-password gate. Added 2026-05-06

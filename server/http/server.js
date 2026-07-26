@@ -71,7 +71,13 @@ const ALLOWED_PUBLIC_FILES = new Set([
   '/privacy.html',
   '/privacy-en.html',
   '/terms.html',
+  '/terms-en.html',
   '/sw.js',
+  // Phase 22 zero-config Docker/Portainer wizard. Restored after Sprint 8
+  // accidentally deleted public/setup.html (see docs/known-issues/
+  // setup-html-missing-after-sprint-8-cleanup.md). Self-contained HTML +
+  // inline JS — no /js/setup.js dependency.
+  '/setup.html',
 ]);
 
 function tryServePublicFile(pathname, res) {
@@ -154,16 +160,16 @@ function createServer(router, { authenticate } = {}) {
     let routeTemplate = pathname; // overridet etter dispatch
 
     try {
-      // Universal root-redirect: GET / → 302 /v2/.
+      // Universal root-redirect: GET / → 302 /v2/ (or /setup.html in
+      // BOOTSTRAP_MODE so Portainer first-boot lands on the wizard).
       //
-      // V2 (the React SPA in client/src/) is the pilot frontend. The legacy
-      // v1 HTML in public/index.html still ships in the image and is reachable
-      // through specific paths (/index.html, /js/*, /css/*, /privacy.html…)
-      // for backwards compatibility, but the bare root must funnel every
-      // visitor to /v2/. Without this redirect we hit one of two failure
-      // modes on the pilot deploy:
-      //   - Anonymous visitor with AUTH_TOKEN set → 401 from authenticate()
-      //   - Authenticated session-cookie holder → 200 + legacy v1 SPA leaks
+      // V2 (the React SPA in client/src/) is the pilot frontend. The bare
+      // root must funnel every visitor somewhere useful:
+      //   - Fresh Docker install (BOOTSTRAP_MODE) → /setup.html
+      //   - Normal production → /v2/
+      // Without the bootstrap branch, first-time operators open
+      // http://host:7777/ and get a half-built SPA instead of the wizard
+      // documented in DEPLOY.md §16.
       //
       // The redirect runs BEFORE rate-limit and authenticate so it is
       // unconditional, cookie-agnostic, and side-effect-free. /api/*,
@@ -172,11 +178,12 @@ function createServer(router, { authenticate } = {}) {
       // Non-GET methods (POST /, PUT /, DELETE /) fall through to the
       // router and return 404 as before.
       if (pathname === '/' && req.method === 'GET') {
-        res.writeHead(302, { Location: '/v2/' });
+        const location = config.BOOTSTRAP_MODE ? '/setup.html' : '/v2/';
+        res.writeHead(302, { Location: location });
         res.end();
         const dur = Date.now() - started;
         metrics.record(req.method, '/', 302, dur);
-        logRequest(ctx, 302, dur, 'root_redirect');
+        logRequest(ctx, 302, dur, config.BOOTSTRAP_MODE ? 'root_redirect_setup' : 'root_redirect');
         return;
       }
 
