@@ -6,6 +6,36 @@
 
 ---
 
+2026-08-07 – Password auth + progressive email verification
+
+Oppgave: Lav barrier-to-entry med brukernavn/passord parallelt med
+magic link. Full tilgang med en gang; e-postverifisering via magic
+link innen konfigurerbar grace (default 60 dager). Etter frist:
+neste login krever verifisering + passord-reset.
+
+Analyse: docs/analyses/2026-08-07-password-auth-parallel.md
+
+- Reisen: register → session → app; soft grace; hard gate ved login
+  etter frist → magic link (purpose email_verify_reset) → set password.
+- Edge-cases: syntetisk e-post `local+user@password.local`, scrypt
+  dummy-timing, open register env-flagg, grace env uten migrasjon.
+- Beslutninger: username+scrypt, PASSWORD_AUTH_* + EMAIL_VERIFICATION_GRACE_SECONDS,
+  magic link uendret for classic login.
+- Portainer-risiko: nei (nye env er optional med trygge defaults).
+
+Gjort:
+
+- Branch: feat/password-auth-progressive-verify
+- Migrasjon 031, password-hash, password handlers, magic-link purpose
+- Frontend Login (password-first), SetPassword, AuthGuard redirect
+- Tester: tests/auth-password.test.js (8), frontend auth grønne
+- Settings: EmailVerificationBanner under grace
+- .env.example dokumentert
+
+Merge: krever operatørgodkjenning (DEL 6.1b soft-thaw).
+
+---
+
 2026-05-28 – Public-repo prep PR 7: finalize for public flip
 
 Oppgave: Syvende og siste av 7 PR-er. Public-repo-artefakter +

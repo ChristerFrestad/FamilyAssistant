@@ -86,6 +86,7 @@ const PILOT_GATE_BYPASS_PREFIXES = [
 const SOFT_AUTH_PATH_PREFIXES = [
   '/api/auth/google/',
   '/api/auth/magic-link/',
+  '/api/auth/password/', // register + login + start-verification (set requires session)
   '/api/invitations/', // peek before login is allowed
 ];
 

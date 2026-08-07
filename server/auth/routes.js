@@ -30,6 +30,13 @@ const {
   handleMagicLinkVerify,
   redirectTargetForUser,
 } = require('./magic-link');
+const {
+  handlePasswordRegister,
+  handlePasswordLogin,
+  handleStartVerification,
+  handleSetPassword,
+  publicUser,
+} = require('./password');
 const { isEmailConfigured } = require('../services/email.service');
 const pilotPasswordService = require('../services/pilot-password.service');
 const { getClientIp } = require('../http/security');
@@ -164,7 +171,7 @@ async function handleGoogleCallback(ctx, repos) {
     throw errors.forbidden('Google account email is not verified.');
   }
 
-  // Upsert user
+  // Upsert user. Google already verified the email (claims.email_verified).
   let user = repos.auth.findByGoogleSub(claims.sub) || repos.auth.findByEmail(claims.email);
   if (!user) {
     user = repos.auth.createUser({
@@ -172,6 +179,7 @@ async function handleGoogleCallback(ctx, repos) {
       googleSub: claims.sub,
       name: claims.name || claims.email,
       avatarUrl: claims.picture || null,
+      emailVerifiedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
     });
   } else {
     user = repos.auth.updateProfile(user.id, {
@@ -179,6 +187,9 @@ async function handleGoogleCallback(ctx, repos) {
       avatarUrl: claims.picture || user.avatar_url,
       googleSub: claims.sub,
     });
+    if (!user.email_verified_at) {
+      user = repos.auth.markEmailVerified(user.id, claims.email);
+    }
   }
 
   const sessionId = createSessionForUser(repos, { userId: user.id, req: ctx.req });
@@ -202,23 +213,28 @@ function handleMe(ctx) {
   if (!ctx.user) {
     return { authenticated: false, user: null };
   }
+  // Synthetic / legacy local user — keep the historical shape.
+  if (ctx.user._synthetic) {
+    return {
+      authenticated: true,
+      user: {
+        id: ctx.user.id,
+        email: ctx.user.email,
+        name: ctx.user.name,
+        role: ctx.user.role,
+        avatarUrl: ctx.user.avatar_url || null,
+        familyId: ctx.user.family_id || null,
+        profileMemberId: ctx.user.profile_member_id || null,
+        onboardingCompleted: !!ctx.user.onboarding_completed,
+        synthetic: true,
+        isAdmin: !!ctx.user.is_admin,
+      },
+    };
+  }
+  // Real multi-tenant user: include progressive-verification fields.
   return {
     authenticated: true,
-    user: {
-      id: ctx.user.id,
-      email: ctx.user.email,
-      name: ctx.user.name,
-      role: ctx.user.role,
-      avatarUrl: ctx.user.avatar_url || null,
-      familyId: ctx.user.family_id || null,
-      profileMemberId: ctx.user.profile_member_id || null,
-      // Coerce to boolean — SQLite stores INTEGER 0/1 (migration 021).
-      // Frontend AuthContext checks this flag to decide whether the
-      // user belongs in the onboarding flow or in the main app.
-      onboardingCompleted: !!ctx.user.onboarding_completed,
-      synthetic: !!ctx.user._synthetic,
-      isAdmin: !!ctx.user.is_admin,
-    },
+    user: publicUser(ctx.user),
   };
 }
 
@@ -474,13 +490,17 @@ function handleDeleteSession(ctx, repos) {
 // Public auth config manifest + pilot bypass
 // ============================================================
 
-// GET /api/auth/config — minimal public manifest so login.html can show
+// GET /api/auth/config — minimal public manifest so login UI can show
 // provider-specific buttons only when that provider is enabled.
 function handleAuthConfig() {
   return {
     pilotBypass: config.PILOT_BYPASS === true,
     google: !!config.GOOGLE_CLIENT_ID,
     magicLink: isEmailConfigured() || config.MAGIC_LINK_CONSOLE === true,
+    passwordAuth: config.PASSWORD_AUTH_ENABLED === true,
+    passwordRegister:
+      config.PASSWORD_AUTH_ENABLED === true && config.PASSWORD_AUTH_OPEN_REGISTER === true,
+    emailVerificationGraceSeconds: config.EMAIL_VERIFICATION_GRACE_SECONDS,
   };
 }
 
@@ -601,6 +621,12 @@ function registerAuthRoutes(router, { repos }) {
   router.get('/api/auth/google/callback', async (ctx) => handleGoogleCallback(ctx, repos));
   router.post('/api/auth/magic-link/start', async (ctx) => handleMagicLinkStart(ctx, repos));
   router.get('/api/auth/magic-link/verify', async (ctx) => handleMagicLinkVerify(ctx, repos));
+  router.post('/api/auth/password/register', async (ctx) => handlePasswordRegister(ctx, repos));
+  router.post('/api/auth/password/login', async (ctx) => handlePasswordLogin(ctx, repos));
+  router.post('/api/auth/password/start-verification', async (ctx) =>
+    handleStartVerification(ctx, repos)
+  );
+  router.post('/api/auth/password/set', async (ctx) => handleSetPassword(ctx, repos));
   router.get('/api/auth/pilot-login', async (ctx) => handlePilotLogin(ctx, repos));
   router.get('/api/auth/me', (ctx) => handleMe(ctx));
   router.post(

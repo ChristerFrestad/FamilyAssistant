@@ -22,9 +22,15 @@ vi.mock('../../auth/useAuth', () => ({
   useAuth: () => useAuthMock(),
 }));
 
-function setAuthState(state: { isAuthenticated: boolean; isLoading: boolean }): void {
+function setAuthState(state: {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  passwordResetRequired?: boolean;
+}): void {
   useAuthMock.mockReturnValue({
-    user: state.isAuthenticated ? { name: 'Test User' } : null,
+    user: state.isAuthenticated
+      ? { name: 'Test User', passwordResetRequired: !!state.passwordResetRequired }
+      : null,
     isAuthenticated: state.isAuthenticated,
     isLoading: state.isLoading,
     logout: () => undefined,
@@ -44,6 +50,7 @@ function renderGuard(initialPath = '/'): void {
           }
         />
         <Route path="/login" element={<div data-testid="login-screen">Login</div>} />
+        <Route path="/set-password" element={<div data-testid="set-password-screen">Set</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -74,6 +81,13 @@ describe('AuthGuard render branches', () => {
     renderGuard();
     expect(screen.getByTestId('protected-content')).toBeInTheDocument();
     expect(screen.queryByTestId('login-screen')).not.toBeInTheDocument();
+  });
+
+  test('redirects to /set-password when password reset is required', () => {
+    setAuthState({ isAuthenticated: true, isLoading: false, passwordResetRequired: true });
+    renderGuard();
+    expect(screen.getByTestId('set-password-screen')).toBeInTheDocument();
+    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
   });
 
   test('respects a custom redirectTo path', () => {

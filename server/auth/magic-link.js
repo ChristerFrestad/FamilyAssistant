@@ -1,28 +1,15 @@
-// Magic-link (passwordless email) authentication flow.
+// Magic-link (passwordless email) authentication + email verification.
 //
-// User journey:
-//   1. POST /api/auth/magic-link/start { email }
-//        -> server generates a 256-bit random token, stores SHA-256(token)
-//           in magic_link_tokens.token_hash with a 15 min TTL, and emails
-//           the plain token in the URL via Resend (or the console fallback
-//           when MAGIC_LINK_CONSOLE=true).
-//   2. User clicks the link in the email: GET /api/auth/magic-link/verify?token=...
-//        -> server hashes the incoming token, looks up the hash, validates
-//           expiry/used-state, marks the row used, upserts the user,
-//           creates a session cookie, redirects to /v2/dashboard or
-//           /v2/onboarding/family depending on users.onboarding_completed.
+// User journeys:
+//   1. POST /api/auth/magic-link/start { email }  purpose=login
+//        -> token hash stored, email (or console) delivers plain token URL.
+//   2. GET /api/auth/magic-link/verify?token=...
+//        -> login | email_verify | email_verify_reset depending on row.purpose
 //
-// Token-at-rest hardening (Sprint 3 / Fase 1e): tokens are NEVER stored as
-// plain text. The SHA-256 hash is stored instead so a database-only
-// disclosure cannot replay live magic links. The plain token only exists
-// in the email body the user receives; once verified, the row is marked
-// used (idempotent) and cannot be replayed even with the original plain
-// token. See migration 022 for the column rename.
+// Token-at-rest: SHA-256 hash only (migration 022). purpose/user_id added
+// in migration 031 for progressive email verification.
 //
-// Rate limit: max 5 start calls per hour per email address. The counter is
-// in-memory per process; it resets on restart (acceptable for MVP scale).
-// A separate per-IP rate limit at 5/15min is enforced upstream by
-// server/http/security.js applyAuthRateLimit().
+// Rate limit: max 5 start calls per hour per email address (in-memory).
 
 const { config } = require('../config');
 const { errors, HttpError } = require('../http/errors');
@@ -30,10 +17,8 @@ const { randomToken, sha256 } = require('./crypto');
 const { isEmailConfigured, sendMagicLinkEmail } = require('../services/email.service');
 const { createSessionForUser, setSessionCookie } = require('./sessions');
 
-// Hash the plain token using SHA-256. Centralised here so the
-// generate-side and the verify-side derive the same digest from the
-// same input, and so tests can import the helper to assert end-to-end
-// hash behaviour.
+const SYNTHETIC_EMAIL_DOMAIN = 'password.local';
+
 function hashToken(plain) {
   return sha256(plain);
 }
@@ -55,6 +40,11 @@ function normaliseEmail(raw) {
   if (!EMAIL_RE.test(trimmed)) return null;
   if (trimmed.length > 254) return null;
   return trimmed;
+}
+
+function isSyntheticLocalEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  return email.toLowerCase().endsWith(`@${SYNTHETIC_EMAIL_DOMAIN}`);
 }
 
 function checkRateLimit(email) {
@@ -82,11 +72,11 @@ function magicLinkUrlFor(token) {
   return base ? `${base}${path}` : path;
 }
 
-// ============================================================
-// POST /api/auth/magic-link/start
-// ============================================================
-
-async function handleMagicLinkStart(ctx, repos) {
+/**
+ * Shared issuer used by classic magic-link start and password-auth
+ * verification. Handles rate-limit, persistence, and email/console delivery.
+ */
+async function issueMagicLink(repos, { email, purpose = 'login', userId = null, ctx }) {
   const emailConfigured = isEmailConfigured();
   const consoleMode = config.MAGIC_LINK_CONSOLE;
 
@@ -94,53 +84,65 @@ async function handleMagicLinkStart(ctx, repos) {
     throw errors.serviceUnavailable('Magic-link email is not configured on this server.');
   }
 
-  const email = normaliseEmail(ctx.body?.email);
-  if (!email) throw errors.badRequest('A valid email address is required.');
+  if (isSyntheticLocalEmail(email)) {
+    throw errors.badRequest('Cannot send email to a local placeholder address.');
+  }
 
   const rate = checkRateLimit(email);
   if (!rate.allowed) {
-    ctx.res.setHeader('Retry-After', String(rate.retryAfter));
+    if (ctx?.res) ctx.res.setHeader('Retry-After', String(rate.retryAfter));
     throw errors.tooManyRequests(
       `Too many login requests for this email. Try again in ${rate.retryAfter}s.`
     );
   }
 
-  // Generate a 256-bit random plain token. Only the SHA-256 hash is
-  // persisted (migration 022). The plain value is only embedded in
-  // the URL we send to the user — once the email is delivered, no
-  // copy of the plain token exists server-side.
   const token = randomToken(32);
   const tokenHash = hashToken(token);
-  repos.auth.createMagicLink({ tokenHash, email, ttlMinutes: TOKEN_TTL_MINUTES });
+  repos.auth.createMagicLink({
+    tokenHash,
+    email,
+    ttlMinutes: TOKEN_TTL_MINUTES,
+    purpose,
+    userId,
+  });
   const url = magicLinkUrlFor(token);
 
   if (emailConfigured) {
     try {
       await sendMagicLinkEmail({ to: email, url });
     } catch (err) {
-      ctx.log.error({ err: err.message }, 'failed to send magic-link email');
+      if (ctx?.log) ctx.log.error({ err: err.message }, 'failed to send magic-link email');
       throw errors.serviceUnavailable('Could not send email. Please try again later.');
     }
   } else {
-    // Pilot/MVP escape hatch: print the magic link URL to the server log so
-    // an operator can copy it out of container logs (Portainer etc.) and
-    // paste it into the browser. Only reached when MAGIC_LINK_CONSOLE=true
-    // AND Resend is not configured.
-    logMagicLinkToConsole({ email, url });
+    logMagicLinkToConsole({ email, url, purpose });
   }
 
-  // Intentionally return minimal info — do not reveal whether the email
-  // belongs to an existing account, to avoid account enumeration.
+  return { token, url, purpose };
+}
+
+// ============================================================
+// POST /api/auth/magic-link/start
+// ============================================================
+
+async function handleMagicLinkStart(ctx, repos) {
+  const email = normaliseEmail(ctx.body?.email);
+  if (!email) throw errors.badRequest('A valid email address is required.');
+  if (isSyntheticLocalEmail(email)) {
+    throw errors.badRequest('A valid email address is required.');
+  }
+
+  await issueMagicLink(repos, { email, purpose: 'login', userId: null, ctx });
+
   return { ok: true, message: 'If the address is valid you will receive a login email shortly.' };
 }
 
-function logMagicLinkToConsole({ email, url }) {
+function logMagicLinkToConsole({ email, url, purpose }) {
   const bar = '='.repeat(72);
-  // Use plain console.log (not the structured pino logger) so the URL is
-  // easy to spot and copy in raw container-log output.
   console.log(bar);
   console.log('MAGIC LINK (console mode — no email provider configured)');
   console.log(`  email:   ${email}`);
+  console.log(`  purpose: ${purpose || 'login'}`);
   console.log(`  url:     ${url}`);
   console.log(`  expires: ${TOKEN_TTL_MINUTES} minutes`);
   console.log(bar);
@@ -156,9 +158,6 @@ async function handleMagicLinkVerify(ctx, repos) {
     throw errors.badRequest('Missing token.');
   }
 
-  // Hash the incoming token and look up the hash. The DB never sees
-  // the plain token; an attacker with read-only DB access cannot
-  // reverse the hash to forge a verify-request.
   const tokenHash = hashToken(token);
   const row = repos.auth.findMagicLinkByHash(tokenHash);
   if (!row) throw errors.badRequest('Invalid token.');
@@ -167,38 +166,57 @@ async function handleMagicLinkVerify(ctx, repos) {
 
   repos.auth.markMagicLinkUsed(tokenHash);
 
-  // Upsert user: reuse existing account if email matches, otherwise create.
-  let user = repos.auth.findByEmail(row.email);
-  if (!user) {
-    user = repos.auth.createUser({ email: row.email, name: row.email });
+  const purpose = row.purpose || 'login';
+  let user = null;
+
+  if (purpose === 'email_verify' || purpose === 'email_verify_reset') {
+    if (row.user_id) {
+      user = repos.auth.findById(Number(row.user_id));
+    }
+    if (!user) {
+      user = repos.auth.findByEmail(row.email);
+    }
+    if (!user) {
+      throw errors.badRequest('Verification link is not linked to an account.');
+    }
+    // Bind / confirm the email on the account and mark verified.
+    user = repos.auth.markEmailVerified(user.id, row.email);
+    if (purpose === 'email_verify_reset') {
+      user = repos.auth.setPasswordResetRequired(user.id, true);
+    }
+  } else {
+    // Classic login magic-link: upsert by email and treat email as verified.
+    user = repos.auth.findByEmail(row.email);
+    if (!user) {
+      user = repos.auth.createUser({
+        email: row.email,
+        name: row.email,
+        emailVerifiedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      });
+    } else if (!user.email_verified_at) {
+      user = repos.auth.markEmailVerified(user.id, row.email);
+    }
   }
 
   const sessionId = createSessionForUser(repos, { userId: user.id, req: ctx.req });
   setSessionCookie(ctx.res, ctx.req, sessionId);
   repos.auth.touchLastSeen(user.id);
 
-  // Onboarding-aware redirect. Migration 021 added
-  // users.onboarding_completed; brand-new users come back as 0 and
-  // are routed through the family-setup wizard before they reach
-  // the main app surface. Returning pilot-users with the flag set
-  // skip straight to the dashboard.
+  // Re-read for password_reset_required / onboarding flags.
+  user = repos.auth.findById(user.id);
   const target = redirectTargetForUser(user);
   ctx.res.writeHead(302, { Location: target });
   ctx.res.end();
 }
 
-// Compute the post-login destination. Exported as a named function
-// so tests can assert it returns the right URL for both states
-// without having to re-mount the full HTTP layer.
 function redirectTargetForUser(user) {
+  if (user && user.password_reset_required) return '/v2/set-password';
   if (user && user.onboarding_completed) return '/v2/dashboard';
   return '/v2/onboarding/family';
 }
 
 function isMagicLinkExpired(row) {
   if (!row?.expires_at) return true;
-  // SQLite datetime is "YYYY-MM-DD HH:MM:SS" in UTC. Append 'Z' so Date.parse
-  // interprets it as UTC rather than local time.
   const expiresMs = Date.parse(row.expires_at.replace(' ', 'T') + 'Z');
   return !Number.isFinite(expiresMs) || expiresMs < Date.now();
 }
@@ -206,10 +224,13 @@ function isMagicLinkExpired(row) {
 module.exports = {
   handleMagicLinkStart,
   handleMagicLinkVerify,
+  issueMagicLink,
   resetRateLimitForTests,
   normaliseEmail,
+  isSyntheticLocalEmail,
   hashToken,
   redirectTargetForUser,
+  SYNTHETIC_EMAIL_DOMAIN,
   RATE_LIMIT_MAX,
   TOKEN_TTL_MINUTES,
 };

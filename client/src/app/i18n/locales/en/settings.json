@@ -60,6 +60,21 @@
       "description": "Directly in the browser"
     }
   },
+  "emailVerify": {
+    "titleGrace": "Confirm your email",
+    "titleUrgent": "Email confirmation required",
+    "bodyGrace": "You can use the app freely until {{date}}. Confirm your email now so you won't have to later.",
+    "bodyUrgent": "The grace period has ended. Confirm your email so you can sign in again after your session expires.",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "name@example.com",
+    "submit": "Send confirmation link",
+    "sending": "Sending...",
+    "sent": "Check your inbox for the confirmation link (valid for 15 minutes).",
+    "errorInvalid": "Enter a valid email address.",
+    "errorRateLimit": "Too many attempts. Wait a moment and try again.",
+    "errorUnavailable": "Email is not configured on this server yet.",
+    "errorGeneric": "Something went wrong. Try again."
+  },
   "account": {
     "export": {
       "label": "Download my data",

@@ -60,6 +60,21 @@
       "description": "Direkte i nettleseren"
     }
   },
+  "emailVerify": {
+    "titleGrace": "Bekreft e-posten din",
+    "titleUrgent": "E-post må bekreftes",
+    "bodyGrace": "Du kan bruke appen fritt til {{date}}. Bekreft e-posten din nå, så slipper du å gjøre det senere.",
+    "bodyUrgent": "Fristen er ute. Bekreft e-posten din for å kunne logge inn igjen etter at sesjonen utløper.",
+    "emailLabel": "E-postadresse",
+    "emailPlaceholder": "navn@eksempel.no",
+    "submit": "Send bekreftelseslink",
+    "sending": "Sender...",
+    "sent": "Sjekk innboksen din for bekreftelseslinken (gyldig 15 minutter).",
+    "errorInvalid": "Skriv inn en gyldig e-postadresse.",
+    "errorRateLimit": "For mange forsøk. Vent litt og prøv igjen.",
+    "errorUnavailable": "E-post er ikke konfigurert på serveren ennå.",
+    "errorGeneric": "Noe gikk galt. Prøv igjen."
+  },
   "account": {
     "export": {
       "label": "Last ned mine data",

@@ -82,6 +82,20 @@ const envSchema = z.object({
   // MVP pilot deploys on Portainer / self-host; disable once Resend is wired.
   MAGIC_LINK_CONSOLE: envBoolean.default(false),
 
+  // Password auth (username/password) alongside magic-link.
+  // Progressive email verification: users can register and use the app
+  // immediately; after EMAIL_VERIFICATION_GRACE_SECONDS they must verify
+  // email via magic link and set a new password before logging in again.
+  // Default grace = 60 days. Operators can tighten for pilot/test
+  // (e.g. 86400 = 24h, 3600 = 1h).
+  PASSWORD_AUTH_ENABLED: envBoolean.default(true),
+  PASSWORD_AUTH_OPEN_REGISTER: envBoolean.default(true),
+  EMAIL_VERIFICATION_GRACE_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 24 * 60 * 60), // 60 days
+
   // Pilot/MVP escape hatch: enable a one-click "Hopp inn som pilot" login
   // that creates a local pilot user and session without magic link or
   // OAuth. Intended for MVP self-testing where the operator is the only
