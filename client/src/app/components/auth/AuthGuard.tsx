@@ -21,7 +21,7 @@
 
 import type { JSX } from 'react';
 import { type ReactNode } from 'react';
-import { Navigate } from 'react-router';
+import { Navigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../layout/PageShell';
 import { useAuth } from '../../auth/useAuth';
@@ -34,11 +34,21 @@ export interface AuthGuardProps {
    * that should send the user back to a specific entry point.
    */
   redirectTo?: string;
+  /**
+   * When true, skip the password-reset redirect (used by the
+   * /set-password route itself so it does not loop).
+   */
+  allowPasswordReset?: boolean;
 }
 
-export function AuthGuard({ children, redirectTo = '/login' }: AuthGuardProps): JSX.Element {
+export function AuthGuard({
+  children,
+  redirectTo = '/login',
+  allowPasswordReset = false,
+}: AuthGuardProps): JSX.Element {
   const { t } = useTranslation('common');
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     // Loading view — uses PageShell to match the auth-flow density.
@@ -60,6 +70,13 @@ export function AuthGuard({ children, redirectTo = '/login' }: AuthGuardProps): 
 
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} replace />;
+  }
+
+  // Post-grace email verification forces a password reset. Keep the
+  // user on /set-password until they complete it.
+  const onSetPassword = location.pathname.endsWith('/set-password') || allowPasswordReset;
+  if (user?.passwordResetRequired && !onSetPassword) {
+    return <Navigate to="/set-password" replace />;
   }
 
   return <>{children}</>;

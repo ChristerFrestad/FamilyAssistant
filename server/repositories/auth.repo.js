@@ -21,13 +21,18 @@ function createAuthRepo(db) {
   const findUserByEmailStmt = db.prepare(
     'SELECT * FROM users WHERE email = ? COLLATE NOCASE AND deleted_at IS NULL'
   );
+  const findUserByUsernameStmt = db.prepare(
+    'SELECT * FROM users WHERE username = ? COLLATE NOCASE AND deleted_at IS NULL'
+  );
   const findUserByGoogleSubStmt = db.prepare(
     'SELECT * FROM users WHERE google_sub = ? AND deleted_at IS NULL'
   );
   const findUserByIdStmt = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL');
   const insertUserStmt = db.prepare(
-    `INSERT INTO users (email, google_sub, name, avatar_url, family_id, role)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    `INSERT INTO users (
+       email, google_sub, name, avatar_url, family_id, role,
+       username, password_hash, email_verified_at, password_reset_required
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const updateLastSeenStmt = db.prepare(
     "UPDATE users SET last_seen_at = datetime('now') WHERE id = ?"
@@ -43,10 +48,28 @@ function createAuthRepo(db) {
     'UPDATE users SET onboarding_completed = ? WHERE id = ?'
   );
   const softDeleteStmt = db.prepare("UPDATE users SET deleted_at = datetime('now') WHERE id = ?");
+  const setPasswordHashStmt = db.prepare(
+    'UPDATE users SET password_hash = ?, password_reset_required = ? WHERE id = ?'
+  );
+  const setEmailVerifiedStmt = db.prepare(
+    "UPDATE users SET email_verified_at = datetime('now'), email = COALESCE(?, email) WHERE id = ?"
+  );
+  const setEmailUnverifiedStmt = db.prepare(
+    'UPDATE users SET email = ?, email_verified_at = NULL WHERE id = ?'
+  );
+  const setPasswordResetRequiredStmt = db.prepare(
+    'UPDATE users SET password_reset_required = ? WHERE id = ?'
+  );
+  const setUsernameStmt = db.prepare('UPDATE users SET username = ? WHERE id = ?');
 
   function findByEmail(email) {
     if (!email) return null;
     return findUserByEmailStmt.get(email) || null;
+  }
+
+  function findByUsername(username) {
+    if (!username) return null;
+    return findUserByUsernameStmt.get(username) || null;
   }
 
   function findByGoogleSub(sub) {
@@ -59,10 +82,55 @@ function createAuthRepo(db) {
     return findUserByIdStmt.get(id) || null;
   }
 
-  function createUser({ email, googleSub = null, name = null, avatarUrl = null }) {
+  function createUser({
+    email,
+    googleSub = null,
+    name = null,
+    avatarUrl = null,
+    username = null,
+    passwordHash = null,
+    emailVerifiedAt = null,
+    passwordResetRequired = 0,
+  }) {
     if (!email) throw new Error('createUser: email is required');
-    const info = insertUserStmt.run(email, googleSub, name, avatarUrl, null, 'adult');
+    const info = insertUserStmt.run(
+      email,
+      googleSub,
+      name,
+      avatarUrl,
+      null,
+      'adult',
+      username,
+      passwordHash,
+      emailVerifiedAt,
+      passwordResetRequired ? 1 : 0
+    );
     return findById(Number(info.lastInsertRowid));
+  }
+
+  function setPasswordHash(userId, passwordHash, { clearResetRequired = true } = {}) {
+    setPasswordHashStmt.run(passwordHash, clearResetRequired ? 0 : 1, userId);
+    return findById(userId);
+  }
+
+  function markEmailVerified(userId, email = null) {
+    setEmailVerifiedStmt.run(email, userId);
+    return findById(userId);
+  }
+
+  function setEmailUnverified(userId, email) {
+    setEmailUnverifiedStmt.run(email, userId);
+    return findById(userId);
+  }
+
+  function setPasswordResetRequired(userId, value = true) {
+    setPasswordResetRequiredStmt.run(value ? 1 : 0, userId);
+    return findById(userId);
+  }
+
+  function setUsername(userId, username) {
+    setUsernameStmt.run(username, userId);
+    return findById(userId);
   }
 
   function touchLastSeen(userId) {
@@ -189,7 +257,8 @@ function createAuthRepo(db) {
   // ============================================================
 
   const insertMagicLinkStmt = db.prepare(
-    `INSERT INTO magic_link_tokens (token_hash, email, expires_at) VALUES (?, ?, ?)`
+    `INSERT INTO magic_link_tokens (token_hash, email, expires_at, purpose, user_id)
+     VALUES (?, ?, ?, ?, ?)`
   );
   const findMagicLinkStmt = db.prepare('SELECT * FROM magic_link_tokens WHERE token_hash = ?');
   const markMagicLinkUsedStmt = db.prepare(
@@ -199,10 +268,16 @@ function createAuthRepo(db) {
     "DELETE FROM magic_link_tokens WHERE expires_at < datetime('now')"
   );
 
-  function createMagicLink({ tokenHash, email, ttlMinutes = 15 }) {
+  function createMagicLink({
+    tokenHash,
+    email,
+    ttlMinutes = 15,
+    purpose = 'login',
+    userId = null,
+  }) {
     if (!tokenHash) throw new Error('createMagicLink: tokenHash is required');
     const expiresAt = toSqliteDatetime(Date.now() + ttlMinutes * 60000);
-    insertMagicLinkStmt.run(tokenHash, email, expiresAt);
+    insertMagicLinkStmt.run(tokenHash, email, expiresAt, purpose || 'login', userId);
     return findMagicLinkStmt.get(tokenHash);
   }
 
@@ -223,6 +298,7 @@ function createAuthRepo(db) {
   return {
     // users
     findByEmail,
+    findByUsername,
     findByGoogleSub,
     findById,
     createUser,
@@ -231,6 +307,11 @@ function createAuthRepo(db) {
     setFamily,
     setRole,
     setOnboardingCompleted,
+    setPasswordHash,
+    markEmailVerified,
+    setEmailUnverified,
+    setPasswordResetRequired,
+    setUsername,
     softDelete,
     listByFamily,
     // sessions

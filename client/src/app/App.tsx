@@ -46,6 +46,7 @@ import { Welcome } from './screens/auth/Welcome';
 import { Login } from './screens/auth/Login';
 import { MagicLinkSent } from './screens/auth/MagicLinkSent';
 import { AuthCallback } from './screens/auth/AuthCallback';
+import { SetPassword } from './screens/auth/SetPassword';
 import { FamilySetup } from './screens/auth/FamilySetup';
 import { UserProfile } from './screens/auth/UserProfile';
 import { InviteAccept } from './screens/InviteAccept';
@@ -68,6 +69,16 @@ function AppRoutes(): JSX.Element {
       <Route path="/login" element={<Login />} />
       <Route path="/login/sent" element={<MagicLinkSent />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      {/* Set password after post-grace email verification. Auth required
+          (session from magic-link verify) but kept outside AppShell. */}
+      <Route
+        path="/set-password"
+        element={
+          <AuthGuard redirectTo="/login" allowPasswordReset>
+            <SetPassword />
+          </AuthGuard>
+        }
+      />
       {/* /invite/:token is PUBLIC by design — recipients arrive via
           email link without an active session yet. The component itself
           reads useAuthContext() to decide between the four

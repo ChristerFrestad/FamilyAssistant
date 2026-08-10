@@ -32,7 +32,8 @@ export class AuthApiError extends Error {
 
 export interface AuthUser {
   id: number;
-  email: string;
+  email: string | null;
+  username?: string | null;
   name: string | null;
   role: 'owner' | 'adult' | 'child';
   avatarUrl: string | null;
@@ -41,6 +42,10 @@ export interface AuthUser {
   onboardingCompleted: boolean;
   synthetic: boolean;
   isAdmin?: boolean;
+  emailVerified?: boolean;
+  withinGrace?: boolean;
+  verificationDueAt?: string | null;
+  passwordResetRequired?: boolean;
 }
 
 export interface MeResponse {
@@ -86,7 +91,11 @@ async function readJsonOrThrow<T>(res: Response): Promise<T> {
       parsed && typeof parsed === 'object' && 'title' in parsed
         ? String((parsed as { title: unknown }).title)
         : `HTTP ${res.status}`;
-    throw new AuthApiError(res.status, title, detail);
+    const err = new AuthApiError(res.status, title, detail);
+    if (parsed && typeof parsed === 'object') {
+      (err as AuthApiError & { extras?: unknown }).extras = parsed;
+    }
+    throw err;
   }
   return parsed as T;
 }
@@ -116,6 +125,73 @@ export async function startMagicLink(email: string): Promise<MagicLinkStartRespo
     body: { email },
   });
   return readJsonOrThrow<MagicLinkStartResponse>(res);
+}
+
+export interface PasswordAuthResponse {
+  ok: boolean;
+  user: AuthUser;
+  redirect: string;
+}
+
+export interface PasswordLoginErrorBody {
+  code?: string;
+  mustResetPassword?: boolean;
+  hasRealEmail?: boolean;
+  username?: string;
+  detail?: string;
+  title?: string;
+  status?: number;
+}
+
+export async function registerWithPassword(payload: {
+  username: string;
+  password: string;
+  name?: string;
+  email?: string;
+}): Promise<PasswordAuthResponse> {
+  const res = await callApi('/api/auth/password/register', {
+    method: 'POST',
+    body: payload,
+  });
+  return readJsonOrThrow<PasswordAuthResponse>(res);
+}
+
+export async function loginWithPassword(payload: {
+  username: string;
+  password: string;
+}): Promise<PasswordAuthResponse> {
+  const res = await callApi('/api/auth/password/login', {
+    method: 'POST',
+    body: payload,
+  });
+  // 403 email_verification_required is thrown as AuthApiError with
+  // extras (code, mustResetPassword, hasRealEmail) for the Login UI.
+  return readJsonOrThrow<PasswordAuthResponse>(res);
+}
+
+export async function startEmailVerification(payload: {
+  username?: string;
+  password?: string;
+  email?: string;
+}): Promise<{
+  ok: boolean;
+  purpose?: string;
+  mustResetPassword?: boolean;
+  alreadyVerified?: boolean;
+}> {
+  const res = await callApi('/api/auth/password/start-verification', {
+    method: 'POST',
+    body: payload,
+  });
+  return readJsonOrThrow(res);
+}
+
+export async function setPassword(password: string): Promise<PasswordAuthResponse> {
+  const res = await callApi('/api/auth/password/set', {
+    method: 'POST',
+    body: { password },
+  });
+  return readJsonOrThrow<PasswordAuthResponse>(res);
 }
 
 // PR #77 atomic onboarding: the endpoint now creates the family,

@@ -31,6 +31,7 @@ import { InlineEditableText } from '../components/settings/InlineEditableText';
 import { DataExportButton } from '../components/settings/DataExportButton';
 import { DeleteAccountButton } from '../components/settings/DeleteAccountButton';
 import { LogoutButton } from '../components/settings/LogoutButton';
+import { EmailVerificationBanner } from '../components/settings/EmailVerificationBanner';
 import { useSettingsData } from '../settings/useSettingsData';
 import { useAuthContext } from '../auth/AuthContext';
 
@@ -118,6 +119,8 @@ export function Settings(): JSX.Element {
 
       {!isLoading && error === null && (
         <>
+          {user && <EmailVerificationBanner user={user} />}
+
           <SettingsSection title={t('settings:sections.system')} id="system">
             <SettingsRow
               label={t('settings:system.language.label')}

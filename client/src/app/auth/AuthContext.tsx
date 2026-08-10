@@ -23,8 +23,13 @@ import {
   AuthApiError,
   fetchMe,
   startMagicLink,
+  loginWithPassword as apiLoginWithPassword,
+  registerWithPassword as apiRegisterWithPassword,
+  setPassword as apiSetPassword,
+  startEmailVerification as apiStartEmailVerification,
   logout as apiLogout,
   type AuthUser,
+  type PasswordAuthResponse,
 } from './authApi';
 
 export interface AuthState {
@@ -35,6 +40,19 @@ export interface AuthState {
 
 export interface AuthActions {
   requestMagicLink: (email: string) => Promise<void>;
+  loginWithPassword: (username: string, password: string) => Promise<PasswordAuthResponse>;
+  registerWithPassword: (payload: {
+    username: string;
+    password: string;
+    name?: string;
+    email?: string;
+  }) => Promise<PasswordAuthResponse>;
+  setPassword: (password: string) => Promise<PasswordAuthResponse>;
+  startEmailVerification: (payload: {
+    username?: string;
+    password?: string;
+    email?: string;
+  }) => Promise<{ ok: boolean; purpose?: string; mustResetPassword?: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -100,6 +118,44 @@ export function AuthProvider({ children, initialState }: AuthProviderProps): JSX
     await startMagicLink(email);
   }, []);
 
+  const loginWithPassword = useCallback(
+    async (username: string, password: string): Promise<PasswordAuthResponse> => {
+      const result = await apiLoginWithPassword({ username, password });
+      setUser(result.user);
+      setIsLoading(false);
+      return result;
+    },
+    []
+  );
+
+  const registerWithPassword = useCallback(
+    async (payload: {
+      username: string;
+      password: string;
+      name?: string;
+      email?: string;
+    }): Promise<PasswordAuthResponse> => {
+      const result = await apiRegisterWithPassword(payload);
+      setUser(result.user);
+      setIsLoading(false);
+      return result;
+    },
+    []
+  );
+
+  const setPassword = useCallback(async (password: string): Promise<PasswordAuthResponse> => {
+    const result = await apiSetPassword(password);
+    setUser(result.user);
+    return result;
+  }, []);
+
+  const startEmailVerification = useCallback(
+    async (payload: { username?: string; password?: string; email?: string }) => {
+      return apiStartEmailVerification(payload);
+    },
+    []
+  );
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       await apiLogout();
@@ -127,6 +183,10 @@ export function AuthProvider({ children, initialState }: AuthProviderProps): JSX
     isLoading,
     isAuthenticated: !isLoading && user !== null,
     requestMagicLink,
+    loginWithPassword,
+    registerWithPassword,
+    setPassword,
+    startEmailVerification,
     logout,
     refreshUser,
   };

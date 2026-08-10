@@ -82,6 +82,9 @@ const RATE_LIMIT_MAX_IPS = 10000; // Max number of IPs in the map before evictio
 const STRICT_AUTH_ENDPOINTS = new Set([
   'POST /api/auth/magic-link/start',
   'GET /api/auth/google/start',
+  'POST /api/auth/password/register',
+  'POST /api/auth/password/login',
+  'POST /api/auth/password/start-verification',
 ]);
 
 function isStrictAuthEndpoint(ctx) {

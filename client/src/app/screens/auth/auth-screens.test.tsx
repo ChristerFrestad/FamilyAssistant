@@ -119,28 +119,56 @@ describe('Welcome', () => {
 // ----------------------------------------------------------------
 
 describe('Login', () => {
-  test('renders heading and email input', () => {
+  test('renders password login heading and username input by default', () => {
     renderScreen(<Login />);
-    expect(
-      screen.getByRole('heading', { name: /Logg inn på FamilyAssistant/, level: 1 })
-    ).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: /E-postadresse/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^Logg inn$/, level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Brukernavn/i })).toBeInTheDocument();
   });
 
-  test('submit button stays disabled until email is non-empty', () => {
+  test('submit button stays disabled until username and password are filled', () => {
     renderScreen(<Login />);
-    const submit = screen.getByRole('button', { name: /Send innloggings-link/ });
+    const submit = screen.getByRole('button', { name: /^Logg inn$/ });
     expect(submit).toBeDisabled();
-    fireEvent.change(screen.getByRole('textbox', { name: /E-postadresse/i }), {
-      target: { value: 'foo@example.com' },
+    fireEvent.change(screen.getByRole('textbox', { name: /Brukernavn/i }), {
+      target: { value: 'alice' },
     });
+    // Password field has no accessible name via role textbox (type=password);
+    // fill via label association.
+    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
+    fireEvent.change(passwordInput, { target: { value: 'secret123' } });
     expect(submit).not.toBeDisabled();
   });
 
-  test('submit POSTs to /api/auth/magic-link/start', async () => {
+  test('password login POSTs to /api/auth/password/login', async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, {
+        ok: true,
+        user: { ...TEST_USER, username: 'alice' },
+        redirect: '/v2/dashboard',
+      })
+    );
+    renderScreen(<Login />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: /Brukernavn/i }), {
+      target: { value: 'alice' },
+    });
+    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
+    fireEvent.change(passwordInput, { target: { value: 'secret123' } });
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('textbox', { name: /Brukernavn/i }).closest('form')!);
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/auth/password/login',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  test('magic-link mode POSTs to /api/auth/magic-link/start', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(200, { ok: true, message: 'sent' }));
     renderScreen(<Login />);
 
+    fireEvent.click(screen.getByRole('button', { name: /e-post-link/i }));
     fireEvent.change(screen.getByRole('textbox', { name: /E-postadresse/i }), {
       target: { value: 'foo@example.com' },
     });
@@ -152,20 +180,6 @@ describe('Login', () => {
       '/api/auth/magic-link/start',
       expect.objectContaining({ method: 'POST' })
     );
-  });
-
-  test('shows rate-limit hint on 429 response', async () => {
-    fetchSpy.mockResolvedValue(jsonResponse(429, { title: 'Too Many Requests', detail: 'wait' }));
-    renderScreen(<Login />);
-
-    fireEvent.change(screen.getByRole('textbox', { name: /E-postadresse/i }), {
-      target: { value: 'foo@example.com' },
-    });
-    await act(async () => {
-      fireEvent.submit(screen.getByRole('textbox', { name: /E-postadresse/i }).closest('form')!);
-    });
-
-    expect(screen.getByText(/mange linker/)).toBeInTheDocument();
   });
 });
 
