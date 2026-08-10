@@ -20,9 +20,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Build: `npm run build:client` — writes public/v2/. That folder is
 //        gitignored; CI rebuilds it before serving.
 //
-// PWA (Phase 1): vite-plugin-pwa adds installable offline-capable app
-// with auto-updating service worker and Workbox caching. Icons and
-// further offline flows for shopping list / pantry come in later cycles.
+// PWA (Phase 1+2): vite-plugin-pwa adds installable offline-capable app
+// with auto-updating service worker and Workbox caching. Phase 2 adds
+// production icons (SVG) + NetworkFirst/StaleWhileRevalidate for
+// shopping + pantry + meals APIs so the core lists remain usable
+// offline after first visit.
 
 export default defineConfig({
   // enforceDevIsolation() MUST run in every Vite invocation (dev + build
@@ -33,7 +35,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt'],
+      includeAssets: [
+        'favicon.ico',
+        'robots.txt',
+        'icons/icon.svg',
+        'icons/icon-maskable.svg',
+      ],
       manifest: {
         name: 'FamilyAssistant',
         short_name: 'FamilyAssistant',
@@ -46,22 +53,26 @@ export default defineConfig({
         scope: '/v2/',
         icons: [
           {
-            src: '/v2/icons/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
+            src: '/v2/icons/icon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any',
           },
           {
-            src: '/v2/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
+            src: '/v2/icons/icon-maskable.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'maskable',
           },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Static assets from the Vite build (incl. icons under /v2/icons/)
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         runtimeCaching: [
+          // Images (external or same-origin)
           {
-            urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            urlPattern: /^https?:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images',
@@ -69,6 +80,55 @@ export default defineConfig({
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
+            },
+          },
+          // Shopping list API — keep last successful response offline
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/api/shopping') ||
+              url.pathname.startsWith('/v2/api/shopping'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-shopping',
+              networkTimeoutSeconds: 8,
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Pantry / inventory API
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/api/pantry') ||
+              url.pathname.startsWith('/api/inventory') ||
+              url.pathname.startsWith('/v2/api/pantry') ||
+              url.pathname.startsWith('/v2/api/inventory'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-pantry',
+              networkTimeoutSeconds: 8,
+              expiration: {
+                maxEntries: 40,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Meals plan (read-mostly) — StaleWhileRevalidate for snappy UI
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/api/meals') ||
+              url.pathname.startsWith('/v2/api/meals'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-meals',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 3,
+              },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],
