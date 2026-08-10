@@ -6,6 +6,34 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added — Username/password auth with progressive email verification (2026-08-10)
+
+Low-barrier registration with username + password. Progressive email
+verification within a configurable grace period (default 60 days via
+`EMAIL_VERIFICATION_GRACE_SECONDS`). Settings banner prompts verification.
+Magic-link and Google OAuth remain fully parallel.
+
+- Migration `031_password_auth.sql` (additive columns + partial unique index)
+- `server/auth/password.js` + password-hash helpers
+- Client: Login screen password mode, SetPassword, EmailVerificationBanner
+- Config: `PASSWORD_AUTH_ENABLED` (default true in non-prod)
+- Full test coverage; hooks ordering fixed for react-hooks/rules-of-hooks
+
+See `docs/analyses/2026-08-07-password-auth-parallel.md`.
+
+### Added — PWA Phase 2: production icons + offline core flows (2026-08-10)
+
+Fully installable PWA with production-ready SVG icons (any + maskable)
+and Workbox runtime caching so the three core family surfaces stay usable
+offline after the first visit.
+
+- SVG icons (`icon.svg`, `icon-maskable.svg`) with house + family + heart
+  motif, brand colour `#2563eb`
+- `manifest.webmanifest` + VitePWA config updated for SVG + maskable purpose
+- Workbox: NetworkFirst for `/api/shopping` and `/api/pantry`,
+  StaleWhileRevalidate for `/api/meals`
+- `theme-color` aligned to `#2563eb` in `client/index.html`
+
 ### Security — Clear all open OSV / Security & Quality alerts (2026-07-26)
 
 Resolved the 14 open GitHub code-scanning (osv-scanner) findings on
