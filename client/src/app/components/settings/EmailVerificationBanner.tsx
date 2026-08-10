@@ -33,16 +33,17 @@ export function EmailVerificationBanner({
   const { t, i18n } = useTranslation(['settings', 'auth', 'common']);
   const { startEmailVerification, refreshUser } = useAuthContext();
 
+  // Hooks must run unconditionally (rules-of-hooks).
+  const [email, setEmail] = useState(user.email ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   // Only relevant for real password-era users who have not verified.
   if (user.synthetic || user.emailVerified === true) return null;
   // Magic-link-only users created before this feature may lack the field;
   // treat undefined as "no progressive-verification state" and hide.
   if (user.emailVerified === undefined && !user.username) return null;
-
-  const [email, setEmail] = useState(user.email ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const dueLabel = formatDueDate(user.verificationDueAt, i18n.language);
   const withinGrace = user.withinGrace !== false;
