@@ -38,64 +38,84 @@ function normaliseEmail(raw) {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim().toLowerCase();
   if (!EMAIL_RE.test(trimmed)) return null;
+  if (trimmed.length > 254) return null;
   return trimmed;
 }
 
 function isSyntheticLocalEmail(email) {
-  return email.endsWith(`@${SYNTHETIC_EMAIL_DOMAIN}`);
+  if (!email || typeof email !== 'string') return false;
+  return email.toLowerCase().endsWith(`@${SYNTHETIC_EMAIL_DOMAIN}`);
 }
 
 function checkRateLimit(email) {
   const now = Date.now();
-  let entry = rateState.get(email);
-  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
-    entry = { count: 0, windowStart: now };
-    rateState.set(email, entry);
+  const entry = rateState.get(email);
+  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    rateState.set(email, { count: 1, windowStart: now });
+    return { allowed: true };
   }
   if (entry.count >= RATE_LIMIT_MAX) {
-    throw errors.tooManyRequests(
-      `Too many magic-link requests for this address. Try again in about an hour.`
-    );
+    const retryAfter = Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfter };
   }
   entry.count += 1;
+  return { allowed: true };
 }
 
-function logMagicLinkToConsole({ email, url, purpose }) {
-  const bar = '='.repeat(72);
-  console.log(bar);
-  console.log('MAGIC LINK (console mode — no email provider configured)');
-  console.log(`  email:   ${email}`);
-  console.log(`  purpose: ${purpose || 'login'}`);
-  console.log(`  url:     ${url}`);
-  console.log(`  expires: ${TOKEN_TTL_MINUTES} minutes`);
-  console.log(bar);
+function resetRateLimitForTests() {
+  rateState.clear();
 }
 
+function magicLinkUrlFor(token) {
+  const base = (config.APP_URL || '').replace(/\/+$/, '');
+  const path = `/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`;
+  return base ? `${base}${path}` : path;
+}
+
+/**
+ * Shared issuer used by classic magic-link start and password-auth
+ * verification. Handles rate-limit, persistence, and email/console delivery.
+ */
 async function issueMagicLink(repos, { email, purpose = 'login', userId = null, ctx }) {
-  checkRateLimit(email);
+  const emailConfigured = isEmailConfigured();
+  const consoleMode = config.MAGIC_LINK_CONSOLE;
+
+  if (!emailConfigured && !consoleMode) {
+    throw errors.serviceUnavailable('Magic-link email is not configured on this server.');
+  }
+
+  if (isSyntheticLocalEmail(email)) {
+    throw errors.badRequest('Cannot send email to a local placeholder address.');
+  }
+
+  const rate = checkRateLimit(email);
+  if (!rate.allowed) {
+    if (ctx?.res) ctx.res.setHeader('Retry-After', String(rate.retryAfter));
+    throw errors.tooManyRequests(
+      `Too many login requests for this email. Try again in ${rate.retryAfter}s.`
+    );
+  }
+
   const token = randomToken(32);
   const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000).toISOString();
-
   repos.auth.createMagicLink({
     tokenHash,
     email,
+    ttlMinutes: TOKEN_TTL_MINUTES,
     purpose,
     userId,
-    expiresAt,
   });
+  const url = magicLinkUrlFor(token);
 
-  const base = (config.APP_URL || '').replace(/\/$/, '') || 'http://localhost:7777';
-  const url = `${base}/api/auth/magic-link/verify?token=${token}`;
-
-  if (isEmailConfigured()) {
-    await sendMagicLinkEmail({ to: email, url, purpose });
-  } else if (config.MAGIC_LINK_CONSOLE) {
-    logMagicLinkToConsole({ email, url, purpose });
+  if (emailConfigured) {
+    try {
+      await sendMagicLinkEmail({ to: email, url });
+    } catch (err) {
+      if (ctx?.log) ctx.log.error({ err: err.message }, 'failed to send magic-link email');
+      throw errors.serviceUnavailable('Could not send email. Please try again later.');
+    }
   } else {
-    throw errors.serviceUnavailable(
-      'Email provider not configured. Set RESEND_API_KEY or MAGIC_LINK_CONSOLE=true.'
-    );
+    logMagicLinkToConsole({ email, url, purpose });
   }
 
   return { token, url, purpose };
@@ -115,9 +135,8 @@ async function handleMagicLinkStart(ctx, repos) {
   await issueMagicLink(repos, { email, purpose: 'login', userId: null, ctx });
 
   // Audit magic-link generation (enumeration-safe).
-  // family_id may be unknown pre-onboarding; try/catch so FK cannot break flow.
+  // Pre-family / system events may lack a valid family_id — swallow FK errors.
   try {
-    const familyId = 0;
     repos._db
       .prepare(
         `INSERT INTO audit_log
@@ -125,7 +144,7 @@ async function handleMagicLinkStart(ctx, repos) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
-        familyId,
+        0,
         ctx.requestId || 'unknown',
         `email:${email}`,
         'POST',
@@ -137,10 +156,21 @@ async function handleMagicLinkStart(ctx, repos) {
         JSON.stringify({ event: 'magic_link_issued', purpose: 'login' }).slice(0, 2000)
       );
   } catch {
-    /* ignore — pre-family events may lack a valid family_id */
+    /* ignore */
   }
 
   return { ok: true, message: 'If the address is valid you will receive a login email shortly.' };
+}
+
+function logMagicLinkToConsole({ email, url, purpose }) {
+  const bar = '='.repeat(72);
+  console.log(bar);
+  console.log('MAGIC LINK (console mode — no email provider configured)');
+  console.log(`  email:   ${email}`);
+  console.log(`  purpose: ${purpose || 'login'}`);
+  console.log(`  url:     ${url}`);
+  console.log(`  expires: ${TOKEN_TTL_MINUTES} minutes`);
+  console.log(bar);
 }
 
 // ============================================================
@@ -157,9 +187,7 @@ async function handleMagicLinkVerify(ctx, repos) {
   const row = repos.auth.findMagicLinkByHash(tokenHash);
   if (!row) throw errors.badRequest('Invalid token.');
   if (row.used_at) throw gone('This magic link has already been used.');
-  if (new Date(row.expires_at).getTime() < Date.now()) {
-    throw gone('This magic link has expired. Request a new one.');
-  }
+  if (isMagicLinkExpired(row)) throw gone('This magic link has expired. Request a new one.');
 
   repos.auth.markMagicLinkUsed(tokenHash);
 
@@ -176,15 +204,22 @@ async function handleMagicLinkVerify(ctx, repos) {
     if (!user) {
       throw errors.badRequest('Verification link is not linked to an account.');
     }
-    repos.auth.markEmailVerified(user.id);
+    // Bind / confirm the email on the account and mark verified.
+    user = repos.auth.markEmailVerified(user.id, row.email);
     if (purpose === 'email_verify_reset') {
-      repos.auth.setMustResetPassword(user.id, true);
+      user = repos.auth.setPasswordResetRequired(user.id, true);
     }
   } else {
-    // login purpose
+    // Classic login magic-link: upsert by email and treat email as verified.
     user = repos.auth.findByEmail(row.email);
     if (!user) {
-      user = repos.auth.createUserFromEmail(row.email);
+      user = repos.auth.createUser({
+        email: row.email,
+        name: row.email,
+        emailVerifiedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      });
+    } else if (!user.email_verified_at) {
+      user = repos.auth.markEmailVerified(user.id, row.email);
     }
   }
 
@@ -192,20 +227,32 @@ async function handleMagicLinkVerify(ctx, repos) {
   setSessionCookie(ctx.res, ctx.req, sessionId);
   repos.auth.touchLastSeen(user.id);
 
-  const base = (config.APP_URL || '').replace(/\/$/, '') || '';
-  const target = user.onboarding_completed ? '/v2/' : '/v2/onboarding';
-  ctx.res.writeHead(302, { Location: `${base}${target}` });
+  // Re-read for password_reset_required / onboarding flags.
+  user = repos.auth.findById(user.id);
+  const target = redirectTargetForUser(user);
+  ctx.res.writeHead(302, { Location: target });
   ctx.res.end();
 }
 
 function redirectTargetForUser(user) {
-  return user.onboarding_completed ? '/v2/' : '/v2/onboarding';
+  if (user && user.password_reset_required) return '/v2/set-password';
+  if (user && user.onboarding_completed) return '/v2/dashboard';
+  return '/v2/onboarding/family';
+}
+
+function isMagicLinkExpired(row) {
+  if (!row?.expires_at) return true;
+  const expiresMs = Date.parse(row.expires_at.replace(' ', 'T') + 'Z');
+  return !Number.isFinite(expiresMs) || expiresMs < Date.now();
 }
 
 module.exports = {
   handleMagicLinkStart,
   handleMagicLinkVerify,
   issueMagicLink,
+  resetRateLimitForTests,
+  normaliseEmail,
+  isSyntheticLocalEmail,
   hashToken,
   redirectTargetForUser,
   SYNTHETIC_EMAIL_DOMAIN,
