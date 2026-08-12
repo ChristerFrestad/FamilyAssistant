@@ -214,6 +214,29 @@ async function handlePasswordLogin(ctx, repos) {
   const user = repos.auth.findByUsername(username);
   const ok = await verifyPasswordOrDummy(password, user?.password_hash || null);
   if (!ok || !user) {
+    try {
+      const familyId = user && user.family_id ? user.family_id : null;
+      if (familyId) {
+        repos._db
+          .prepare(
+            `INSERT INTO audit_log
+               (family_id, request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(
+            familyId,
+            ctx.requestId || 'unknown',
+            username ? `username:${username}` : 'anonymous',
+            'POST',
+            'auth',
+            user ? String(user.id) : null,
+            '/api/auth/password/login',
+            null,
+            null,
+            JSON.stringify({ event: 'login_failure', reason: 'invalid_credentials' }).slice(0, 2000)
+          );
+      }
+    } catch { /* audit must not break auth */ }
     throw errors.unauthorized('Invalid username or password.');
   }
 
@@ -235,6 +258,30 @@ async function handlePasswordLogin(ctx, repos) {
   setSessionCookie(ctx.res, ctx.req, sessionId);
   repos.auth.touchLastSeen(user.id);
   const fresh = repos.auth.findById(user.id);
+
+  try {
+    const familyId = user.family_id || null;
+    if (familyId) {
+      repos._db
+        .prepare(
+          `INSERT INTO audit_log
+             (family_id, request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          familyId,
+          ctx.requestId || 'unknown',
+          `user:${user.id}`,
+          'POST',
+          'auth',
+          String(user.id),
+          '/api/auth/password/login',
+          null,
+          null,
+          JSON.stringify({ event: 'login_success', method: 'password' }).slice(0, 2000)
+        );
+    }
+  } catch { /* ignore */ }
 
   return {
     ok: true,
