@@ -15,10 +15,9 @@
 // All audit writes are family_id-guarded and wrapped in try/catch so a
 // missing audit_log table or FK violation can never break the auth flow.
 
-const crypto = require('crypto');
 const { config } = require('../config');
 const { errors, HttpError } = require('../http/errors');
-const { hashPassword, verifyPassword, verifyPasswordOrDummy } = require('./password-hash');
+const { hashPassword, verifyPasswordOrDummy } = require('./password-hash');
 const { createSessionForUser, setSessionCookie } = require('./sessions');
 const { issueMagicLink } = require('./magic-link');
 
