@@ -1,44 +1,79 @@
-// Magic-link authentication (email-based passwordless login).
+// Magic-link (passwordless email) authentication + email verification.
 //
-// Flow:
-//   1. POST /api/auth/magic-link/start  { email } → issues token, emails link
-//   2. GET  /api/auth/magic-link/verify?token=... → creates session, redirects
+// User journeys:
+//   1. POST /api/auth/magic-link/start { email }  purpose=login
+//        -> token hash stored, email (or console) delivers plain token URL.
+//   2. GET /api/auth/magic-link/verify?token=...
+//        -> login | email_verify | email_verify_reset depending on row.purpose
 //
-// Tokens are stored as SHA-256 hashes. The raw token is only ever present in
-// the emailed URL and is never persisted. TTL defaults to 15 minutes.
+// Token-at-rest: SHA-256 hash only (migration 022). purpose/user_id added
+// in migration 031 for progressive email verification.
 //
-// When RESEND_API_KEY is unset and MAGIC_LINK_CONSOLE=true the link is printed
-// to the server log instead of being emailed (pilot/dev convenience).
+// Rate limit: max 5 start calls per hour per email address (in-memory).
 
-const crypto = require('crypto');
 const { config } = require('../config');
 const { errors, HttpError } = require('../http/errors');
+const { randomToken, sha256 } = require('./crypto');
+const { isEmailConfigured, sendMagicLinkEmail } = require('../services/email.service');
 const { createSessionForUser, setSessionCookie } = require('./sessions');
-const { sha256 } = require('./crypto');
-const { normaliseEmail, isSyntheticLocalEmail } = require('./email');
-const { sendMagicLinkEmail } = require('../services/email.service');
 
-const TOKEN_TTL_MINUTES = 15;
+const SYNTHETIC_EMAIL_DOMAIN = 'password.local';
 
-function hashToken(token) {
-  return sha256(token);
-}
-
-function isMagicLinkExpired(row) {
-  if (!row.expires_at) return true;
-  return new Date(row.expires_at).getTime() < Date.now();
+function hashToken(plain) {
+  return sha256(plain);
 }
 
 function gone(detail) {
-  return new HttpError({
-    status: 410,
-    title: 'Gone',
-    detail,
-  });
+  return new HttpError({ status: 410, title: 'Gone', detail });
+}
+
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const TOKEN_TTL_MINUTES = 15;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const rateState = new Map(); // email -> { count, windowStart }
+
+function normaliseEmail(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim().toLowerCase();
+  if (!EMAIL_RE.test(trimmed)) return null;
+  return trimmed;
+}
+
+function isSyntheticLocalEmail(email) {
+  return email.endsWith(`@${SYNTHETIC_EMAIL_DOMAIN}`);
+}
+
+function checkRateLimit(email) {
+  const now = Date.now();
+  let entry = rateState.get(email);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    entry = { count: 0, windowStart: now };
+    rateState.set(email, entry);
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    throw errors.tooManyRequests(
+      `Too many magic-link requests for this address. Try again in about an hour.`
+    );
+  }
+  entry.count += 1;
+}
+
+function logMagicLinkToConsole({ email, url, purpose }) {
+  const bar = '='.repeat(72);
+  console.log(bar);
+  console.log('MAGIC LINK (console mode — no email provider configured)');
+  console.log(`  email:   ${email}`);
+  console.log(`  purpose: ${purpose || 'login'}`);
+  console.log(`  url:     ${url}`);
+  console.log(`  expires: ${TOKEN_TTL_MINUTES} minutes`);
+  console.log(bar);
 }
 
 async function issueMagicLink(repos, { email, purpose = 'login', userId = null, ctx }) {
-  const token = crypto.randomBytes(32).toString('hex');
+  checkRateLimit(email);
+  const token = randomToken(32);
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000).toISOString();
 
@@ -53,7 +88,7 @@ async function issueMagicLink(repos, { email, purpose = 'login', userId = null, 
   const base = (config.APP_URL || '').replace(/\/$/, '') || 'http://localhost:7777';
   const url = `${base}/api/auth/magic-link/verify?token=${token}`;
 
-  if (config.RESEND_API_KEY) {
+  if (isEmailConfigured()) {
     await sendMagicLinkEmail({ to: email, url, purpose });
   } else if (config.MAGIC_LINK_CONSOLE) {
     logMagicLinkToConsole({ email, url, purpose });
@@ -63,8 +98,12 @@ async function issueMagicLink(repos, { email, purpose = 'login', userId = null, 
     );
   }
 
-  return { token, url }; // token only for tests; never returned to client
+  return { token, url, purpose };
 }
+
+// ============================================================
+// POST /api/auth/magic-link/start
+// ============================================================
 
 async function handleMagicLinkStart(ctx, repos) {
   const email = normaliseEmail(ctx.body?.email);
@@ -75,8 +114,10 @@ async function handleMagicLinkStart(ctx, repos) {
 
   await issueMagicLink(repos, { email, purpose: 'login', userId: null, ctx });
 
-  // Audit magic-link generation (enumeration-safe: we still log the attempt).
+  // Audit magic-link generation (enumeration-safe).
+  // family_id may be unknown pre-onboarding; try/catch so FK cannot break flow.
   try {
+    const familyId = 0;
     repos._db
       .prepare(
         `INSERT INTO audit_log
@@ -84,7 +125,7 @@ async function handleMagicLinkStart(ctx, repos) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
-        0, // system / unknown family — may fail FK, caught below
+        familyId,
         ctx.requestId || 'unknown',
         `email:${email}`,
         'POST',
@@ -96,21 +137,10 @@ async function handleMagicLinkStart(ctx, repos) {
         JSON.stringify({ event: 'magic_link_issued', purpose: 'login' }).slice(0, 2000)
       );
   } catch {
-    /* ignore — family_id=0 may violate FK; audit must not break flow */
+    /* ignore — pre-family events may lack a valid family_id */
   }
 
   return { ok: true, message: 'If the address is valid you will receive a login email shortly.' };
-}
-
-function logMagicLinkToConsole({ email, url, purpose }) {
-  const bar = '='.repeat(72);
-  console.log(bar);
-  console.log('MAGIC LINK (console mode — no email provider configured)');
-  console.log(`  email:   ${email}`);
-  console.log(`  purpose: ${purpose || 'login'}`);
-  console.log(`  url:     ${url}`);
-  console.log(`  expires: ${TOKEN_TTL_MINUTES} minutes`);
-  console.log(bar);
 }
 
 // ============================================================
@@ -127,7 +157,9 @@ async function handleMagicLinkVerify(ctx, repos) {
   const row = repos.auth.findMagicLinkByHash(tokenHash);
   if (!row) throw errors.badRequest('Invalid token.');
   if (row.used_at) throw gone('This magic link has already been used.');
-  if (isMagicLinkExpired(row)) throw gone('This magic link has expired. Request a new one.');
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    throw gone('This magic link has expired. Request a new one.');
+  }
 
   repos.auth.markMagicLinkUsed(tokenHash);
 
@@ -144,17 +176,14 @@ async function handleMagicLinkVerify(ctx, repos) {
     if (!user) {
       throw errors.badRequest('Verification link is not linked to an account.');
     }
-    // Mark email verified
     repos.auth.markEmailVerified(user.id);
     if (purpose === 'email_verify_reset') {
-      // Force password change on next login
       repos.auth.setMustResetPassword(user.id, true);
     }
   } else {
     // login purpose
     user = repos.auth.findByEmail(row.email);
     if (!user) {
-      // Auto-create user on first magic-link login
       user = repos.auth.createUserFromEmail(row.email);
     }
   }
@@ -163,12 +192,14 @@ async function handleMagicLinkVerify(ctx, repos) {
   setSessionCookie(ctx.res, ctx.req, sessionId);
   repos.auth.touchLastSeen(user.id);
 
-  // Redirect into the app. Onboarding guard will send incomplete users
-  // to the onboarding flow.
   const base = (config.APP_URL || '').replace(/\/$/, '') || '';
   const target = user.onboarding_completed ? '/v2/' : '/v2/onboarding';
   ctx.res.writeHead(302, { Location: `${base}${target}` });
   ctx.res.end();
+}
+
+function redirectTargetForUser(user) {
+  return user.onboarding_completed ? '/v2/' : '/v2/onboarding';
 }
 
 module.exports = {
@@ -176,5 +207,8 @@ module.exports = {
   handleMagicLinkVerify,
   issueMagicLink,
   hashToken,
+  redirectTargetForUser,
+  SYNTHETIC_EMAIL_DOMAIN,
+  RATE_LIMIT_MAX,
   TOKEN_TTL_MINUTES,
 };
