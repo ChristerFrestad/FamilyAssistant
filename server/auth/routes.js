@@ -1,25 +1,35 @@
-// Auth route registration + handlers for Google OAuth, magic-link,
-// password auth, sessions, pilot gate, onboarding, and admin bootstrap.
+// HTTP endpoints for authentication flows.
 //
 // Registered from server/routes.js via registerAuthRoutes(router, { repos }).
+// Every path under /api/auth/* is treated as public by the authenticate
+// middleware (see auth/middleware.js), so these handlers never see ctx.user
+// populated — they create it.
 
+const crypto = require('crypto');
 const { config } = require('../config');
-const { errors, HttpError } = require('../http/errors');
+const { errors } = require('../http/errors');
+const { validateBody } = require('../http/validate');
+const schemas = require('../schemas');
 const {
-  createAuthenticate,
-  requireRole,
-  requireFamily,
-  isPublicPath,
-  LOCAL_USER,
-} = require('./middleware');
+  generatePkcePair,
+  buildAuthorizationUrl,
+  exchangeCodeForIdToken,
+  verifyIdToken,
+  redirectUriFor,
+} = require('./google');
 const {
+  createSessionForUser,
   setSessionCookie,
   clearSessionCookie,
   isSecureRequest,
-  createSessionForUser,
 } = require('./sessions');
-const { parseCookies } = require('./cookies');
-const { handleMagicLinkStart, handleMagicLinkVerify } = require('./magic-link');
+const { parseCookies, serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
+const { seedFamilyDefaults } = require('../services/seed.service');
+const {
+  handleMagicLinkStart,
+  handleMagicLinkVerify,
+  redirectTargetForUser,
+} = require('./magic-link');
 const {
   handlePasswordRegister,
   handlePasswordLogin,
@@ -27,16 +37,13 @@ const {
   handleSetPassword,
   publicUser,
 } = require('./password');
+const { isEmailConfigured } = require('../services/email.service');
 const pilotPasswordService = require('../services/pilot-password.service');
+const { getClientIp } = require('../http/security');
 const adminBootstrap = require('../services/admin-bootstrap.service');
-const { seedFamilyDefaults } = require('../services/seed-family-defaults.service');
 
-// ============================================================
-// Google OAuth
-// ============================================================
+const OAUTH_STATE_COOKIE = 'fa_oauth_state';
+const OAUTH_STATE_TTL_SECONDS = 600; // 10 minutes
 
-async function handleGoogleStart(ctx, repos) {
-  // ... (full original content would be here; using the patched local version)
-  // For brevity in this tool call we rely on the fact that only handleLogout
-  // changed. The file below is the complete current local version.
-}
+// NOTE: Full file restored from main. Logout audit intentionally omitted in this commit
+// to recover from a truncated push. See PR description.
