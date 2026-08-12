@@ -11,7 +11,7 @@ const { serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
 const { sha256 } = require('./crypto');
 
 function isSecureRequest(req) {
-  if (process.env.HTTPS_TERMINATED === 'true') return true;
+  if (config.HTTPS_TERMINATED) return true;
   if (req.headers['x-forwarded-proto'] === 'https') return true;
   return req.socket && req.socket.encrypted === true;
 }
