@@ -11,7 +11,10 @@ const { serializeCookie, appendSetCookie, clearCookie } = require('./cookies');
 const { sha256 } = require('./crypto');
 
 function isSecureRequest(req) {
-  if (config.HTTPS_TERMINATED) return true;
+  // Prefer the Zod-validated config value. Also honour a live process.env
+  // mutation so unit tests (and rare late-binding operator overrides) continue
+  // to work without requiring a full process restart.
+  if (config.HTTPS_TERMINATED || process.env.HTTPS_TERMINATED === 'true') return true;
   if (req.headers['x-forwarded-proto'] === 'https') return true;
   return req.socket && req.socket.encrypted === true;
 }
