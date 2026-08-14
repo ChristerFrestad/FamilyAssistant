@@ -2,6 +2,12 @@
 
 const { getFamilyId } = require('../auth/family-context');
 
+const SOURCE_TYPES = new Set(['manual', 'ai', 'imported']);
+
+function normalizeSourceType(value, fallback = 'manual') {
+  return SOURCE_TYPES.has(value) ? value : fallback;
+}
+
 function createRecipeRepos(db, tryParseJson) {
   // Pre-compiled prepared statements for hot queries.
   const _recipeByIdStmt = db.prepare('SELECT * FROM recipes WHERE family_id = ? AND id = ?');
@@ -9,23 +15,53 @@ function createRecipeRepos(db, tryParseJson) {
     `SELECT id, product_key as productKey, name, qty, unit, optional, sort_order
      FROM recipe_ingredients WHERE family_id = ? AND recipe_id = ? ORDER BY sort_order, id`
   );
+  const _insertIngStmt = db.prepare(`
+    INSERT INTO recipe_ingredients (family_id, recipe_id, product_key, name, qty, unit, optional, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  function mapRecipeRow(recipe, ingredients) {
+    recipe.ingredients = ingredients;
+    recipe.equipment = recipe.equipment_json ? tryParseJson(recipe.equipment_json) || [] : [];
+    recipe.prepTime = recipe.prep_time;
+    recipe.sourceType = recipe.source_type || 'manual';
+    recipe.active = recipe.active !== 0;
+    return recipe;
+  }
+
+  function insertIngredients(familyId, recipeId, ingredients) {
+    ingredients.forEach((ing, idx) => {
+      _insertIngStmt.run(
+        familyId,
+        recipeId,
+        ing.productKey ?? null,
+        ing.name,
+        ing.qty,
+        ing.unit,
+        ing.optional ? 1 : 0,
+        idx
+      );
+    });
+  }
 
   const recipes = {
     getById(id) {
       const familyId = getFamilyId();
       const recipe = _recipeByIdStmt.get(familyId, id);
       if (!recipe) return null;
-      recipe.ingredients = _recipeIngsStmt.all(familyId, id);
-      recipe.equipment = recipe.equipment_json ? tryParseJson(recipe.equipment_json) || [] : [];
-      recipe.prepTime = recipe.prep_time;
-      recipe.sourceType = recipe.source_type || 'manual';
-      return recipe;
+      return mapRecipeRow(recipe, _recipeIngsStmt.all(familyId, id));
     },
-    getAll() {
+    getAll({ includeInactive } = {}) {
       const familyId = getFamilyId();
-      const rows = db
-        .prepare('SELECT * FROM recipes WHERE family_id = ? ORDER BY category, name')
-        .all(familyId);
+      const rows = includeInactive
+        ? db
+            .prepare('SELECT * FROM recipes WHERE family_id = ? ORDER BY category, name')
+            .all(familyId)
+        : db
+            .prepare(
+              'SELECT * FROM recipes WHERE family_id = ? AND active = 1 ORDER BY category, name'
+            )
+            .all(familyId);
       const ingsByRecipe = {};
       const allIngs = db
         .prepare(
@@ -46,18 +82,14 @@ function createRecipeRepos(db, tryParseJson) {
           optional: !!i.optional,
         });
       }
-      return rows.map((r) => ({
-        ...r,
-        prepTime: r.prep_time,
-        sourceType: r.source_type || 'manual',
-        ingredients: ingsByRecipe[r.id] || [],
-        equipment: r.equipment_json ? tryParseJson(r.equipment_json) || [] : [],
-      }));
+      return rows.map((r) => mapRecipeRow({ ...r }, ingsByRecipe[r.id] || []));
     },
     getByCategory(category) {
       const familyId = getFamilyId();
       const rows = db
-        .prepare('SELECT * FROM recipes WHERE family_id = ? AND category = ? ORDER BY name')
+        .prepare(
+          'SELECT * FROM recipes WHERE family_id = ? AND category = ? AND active = 1 ORDER BY name'
+        )
         .all(familyId, category);
       if (rows.length === 0) return [];
       const ids = rows.map((r) => r.id);
@@ -82,13 +114,7 @@ function createRecipeRepos(db, tryParseJson) {
           optional: !!i.optional,
         });
       }
-      return rows.map((r) => ({
-        ...r,
-        prepTime: r.prep_time,
-        sourceType: r.source_type || 'manual',
-        ingredients: ingsByRecipe[r.id] || [],
-        equipment: r.equipment_json ? tryParseJson(r.equipment_json) || [] : [],
-      }));
+      return rows.map((r) => mapRecipeRow({ ...r }, ingsByRecipe[r.id] || []));
     },
     insert(r) {
       const familyId = getFamilyId();
@@ -96,8 +122,8 @@ function createRecipeRepos(db, tryParseJson) {
         const result = db
           .prepare(
             `
-          INSERT INTO recipes (family_id, name, category, prep_time, source, url, pinterest_url, servings, equipment_json, notes)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO recipes (family_id, name, category, prep_time, source, url, pinterest_url, servings, equipment_json, notes, source_type)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
           )
           .run(
@@ -110,29 +136,81 @@ function createRecipeRepos(db, tryParseJson) {
             r.pinterestUrl ?? null,
             r.servings ?? 2,
             r.equipment ? JSON.stringify(r.equipment) : null,
-            r.notes ?? null
+            r.notes ?? null,
+            normalizeSourceType(r.sourceType)
           );
         const recipeId = result.lastInsertRowid;
         if (Array.isArray(r.ingredients)) {
-          const ins = db.prepare(`
-            INSERT INTO recipe_ingredients (family_id, recipe_id, product_key, name, qty, unit, optional, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-          r.ingredients.forEach((ing, idx) => {
-            ins.run(
-              familyId,
-              recipeId,
-              ing.productKey ?? null,
-              ing.name,
-              ing.qty,
-              ing.unit,
-              ing.optional ? 1 : 0,
-              idx
-            );
-          });
+          insertIngredients(familyId, recipeId, r.ingredients);
         }
         return recipeId;
       })();
+    },
+    update(id, patch) {
+      const familyId = getFamilyId();
+      return db.transaction(() => {
+        const existing = _recipeByIdStmt.get(familyId, id);
+        if (!existing) return null;
+
+        const sets = [];
+        const vals = [];
+        if (patch.name !== undefined) {
+          sets.push('name = ?');
+          vals.push(patch.name);
+        }
+        if (patch.category !== undefined) {
+          sets.push('category = ?');
+          vals.push(patch.category);
+        }
+        if (patch.prepTime !== undefined) {
+          sets.push('prep_time = ?');
+          vals.push(patch.prepTime ?? null);
+        }
+        if (patch.servings !== undefined) {
+          sets.push('servings = ?');
+          vals.push(patch.servings);
+        }
+        if (patch.notes !== undefined) {
+          sets.push('notes = ?');
+          vals.push(patch.notes ?? null);
+        }
+        if (patch.url !== undefined) {
+          sets.push('url = ?');
+          vals.push(patch.url ?? null);
+        }
+        if (patch.sourceType !== undefined) {
+          sets.push('source_type = ?');
+          vals.push(normalizeSourceType(patch.sourceType, existing.source_type || 'manual'));
+        }
+        if (patch.active !== undefined) {
+          sets.push('active = ?');
+          vals.push(patch.active ? 1 : 0);
+        }
+        if (sets.length > 0) {
+          vals.push(familyId, id);
+          db.prepare(`UPDATE recipes SET ${sets.join(', ')} WHERE family_id = ? AND id = ?`).run(
+            ...vals
+          );
+        }
+
+        if (Array.isArray(patch.ingredients)) {
+          db.prepare('DELETE FROM recipe_ingredients WHERE family_id = ? AND recipe_id = ?').run(
+            familyId,
+            id
+          );
+          insertIngredients(familyId, id, patch.ingredients);
+        }
+
+        return recipes.getById(id);
+      })();
+    },
+    setActive(id, active) {
+      const familyId = getFamilyId();
+      const info = db
+        .prepare('UPDATE recipes SET active = ? WHERE family_id = ? AND id = ?')
+        .run(active ? 1 : 0, familyId, id);
+      if (info.changes === 0) return null;
+      return recipes.getById(id);
     },
     count() {
       const familyId = getFamilyId();
@@ -154,7 +232,9 @@ function createRecipeRepos(db, tryParseJson) {
       if (!t) return null;
       const lowered = t.toLowerCase();
       const rows = db
-        .prepare('SELECT * FROM recipes WHERE family_id = ? ORDER BY times_cooked DESC, id')
+        .prepare(
+          'SELECT * FROM recipes WHERE family_id = ? AND active = 1 ORDER BY times_cooked DESC, id'
+        )
         .all(familyId);
       let row = rows.find((r) => String(r.name || '').toLowerCase() === lowered);
       if (!row) {
@@ -165,11 +245,7 @@ function createRecipeRepos(db, tryParseJson) {
         );
       }
       if (!row) return null;
-      row.ingredients = _recipeIngsStmt.all(familyId, row.id);
-      row.equipment = row.equipment_json ? tryParseJson(row.equipment_json) || [] : [];
-      row.prepTime = row.prep_time;
-      row.sourceType = row.source_type || 'manual';
-      return row;
+      return mapRecipeRow(row, _recipeIngsStmt.all(familyId, row.id));
     },
   };
 

@@ -50,7 +50,7 @@ function computeShoppingListForWeek(repos, weekYear) {
   const plan = repos.mealPlans.getWeek(weekYear);
   const inventoryMap = repos.inventory.getAll();
   const productsMap = repos.products.getAllAsMap();
-  const allRecipes = repos.recipes.getAll();
+  const allRecipes = repos.recipes.getAll({ includeInactive: true });
   const consumables = repos.consumables.getAll();
   const extras = repos.shoppingExtras.getWeek(weekYear);
   // Family-aware portion scaling. When the roster has members, scale each

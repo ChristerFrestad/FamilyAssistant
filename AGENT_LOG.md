@@ -6,6 +6,50 @@
 
 ---
 
+2026-08-14 – G1-3 recipe create / update / soft-deactivate API
+
+Task: Manual POST/PATCH plus active-flag deactivate for recipes.
+Import/LLM already insert; meals picker must not break.
+
+Analysis: no separate ANALYSIS file (implementer ticket with a
+fixed schema). Journey: create → list → patch ingredients →
+deactivate → still resolve on meal plan / GET :id.
+- Journey: 6 steps
+- Edge cases: 5 (401, child 403, cross-family 404, DELETE 405,
+  inactive still on meals/current)
+- Decisions: 2 — GET list is active-only; shopping-list and GDPR
+  use includeInactive so planned meals still shop/export
+- Portainer risk: no (additive migration 032 DEFAULT 1)
+
+Plan: migration 032, repo insert/update/setActive, Zod + HTTP,
+sourceType on LLM/import insert, recipe-crud tests.
+
+Done:
+- Branch: feat/g1-3-recipe-crud-api
+- Commits: 1
+- Files changed: migration, recipe.repo, schemas, routes, router,
+  server body-parse PATCH, CORS, import/from-llm sourceType,
+  shopping-list + GDPR includeInactive, tests, DOMAIN_MODEL
+- Tests added: tests/recipe-crud.test.js
+- DOMAIN_MODEL.md updated: yes (Recipe entity)
+- Deviation from plan: used 032 (G1-1 had not created 032 yet)
+
+Security: family_id only via getFamilyId(); PATCH/GET isolated;
+DELETE refused.
+
+ISO 25010: Maintainability + Functional suitability. Security
+unchanged (same ALS scope).
+
+Status: waiting-for-operator
+
+Decisions the operator must make:
+None required. 032 may collide with G1-1 chore migration — if
+they also land 032, rebase one side to 033.
+
+Next: run tests; do not push unless asked.
+
+---
+
 2026-08-14 – G0-5 Isolation attacker (swapped family ids)
 
 Oppgave: Adversarial tester som prøver å lekke familie B mens A er

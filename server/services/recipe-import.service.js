@@ -274,6 +274,7 @@ async function importFromText(
     servings,
     notes: steps.length > 0 ? steps.map((s, i) => `${i + 1}. ${s}`).join('\n') : null,
     ingredients,
+    sourceType: 'imported',
   });
 
   logger.info({ recipeId, name, ingredientCount: ingredients.length }, 'recipe-import: saved');

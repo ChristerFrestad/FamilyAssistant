@@ -760,6 +760,45 @@ function registerRoutes(router, { repos, serverState }) {
     ctx.json({ recipe: annotated });
   });
 
+  router.post(
+    '/api/recipes',
+    requireRole('adult'),
+    validateBody(schemas.recipeCreateBody),
+    (ctx) => {
+      const recipeId = repos.recipes.insert(ctx.body);
+      const recipe = repos.recipes.getById(recipeId);
+      invalidate('recipes', 'meals', 'today');
+      ctx.json({ ok: true, recipeId, recipe }, 201);
+    }
+  );
+
+  router.patch(
+    '/api/recipes/:id',
+    requireRole('adult'),
+    validateBody(schemas.recipeUpdateBody),
+    (ctx) => {
+      const id = requirePositiveInt(ctx.params.id);
+      const recipe = repos.recipes.update(id, ctx.body);
+      if (!recipe) throw errors.notFound(`Oppskrift ${id} ikke funnet`);
+      invalidate('recipes', 'meals', 'today');
+      ctx.json({ ok: true, recipe });
+    }
+  );
+
+  router.post('/api/recipes/:id/deactivate', requireRole('adult'), (ctx) => {
+    const id = requirePositiveInt(ctx.params.id);
+    const recipe = repos.recipes.setActive(id, 0);
+    if (!recipe) throw errors.notFound(`Oppskrift ${id} ikke funnet`);
+    invalidate('recipes', 'meals', 'today');
+    ctx.json({ ok: true, recipe });
+  });
+
+  router.delete('/api/recipes/:id', requireRole('adult'), (_ctx) => {
+    throw errors.methodNotAllowed(
+      'Recipes cannot be deleted. Use POST /api/recipes/:id/deactivate.'
+    );
+  });
+
   /**
    * POST /api/profile/check-recipe — deterministisk allergi-sjekk.
    *
@@ -2532,6 +2571,7 @@ function registerRoutes(router, { repos, serverState }) {
               optional: !!i.optional,
             }))
         : [],
+      sourceType: 'ai',
     };
     const recipeId = repos.recipes.insert(payload);
     invalidate('recipes');
@@ -2556,7 +2596,7 @@ function registerRoutes(router, { repos, serverState }) {
     } catch (err) {
       throw errors.badRequest(err.message || 'Kunne ikke importere oppskrift fra lenke');
     }
-    const recipeId = repos.recipes.insert(parsed);
+    const recipeId = repos.recipes.insert({ ...parsed, sourceType: 'imported' });
     invalidate('recipes');
     ctx.json({
       ok: true,

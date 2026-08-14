@@ -81,6 +81,7 @@ function createRouter() {
     get: (p, ...h) => register('GET', p, ...h),
     post: (p, ...h) => register('POST', p, ...h),
     put: (p, ...h) => register('PUT', p, ...h),
+    patch: (p, ...h) => register('PATCH', p, ...h),
     delete: (p, ...h) => register('DELETE', p, ...h),
     all: (p, ...h) => register('ALL', p, ...h),
     routes,

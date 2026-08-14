@@ -233,8 +233,8 @@ function createServer(router, { authenticate } = {}) {
         routeTemplate = dispatched.route.path;
         ctx.params = dispatched.params;
 
-        // Parse body for POST/PUT/DELETE.
-        if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+        // Parse body for write methods (PATCH is used by recipe update).
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
           try {
             ctx.body = await parseBody(req);
           } catch (err) {

@@ -77,6 +77,9 @@ const errors = {
   /** @param {string} [detail] @param {object} [extras] */
   conflict: (detail, extras) => new HttpError({ status: 409, title: 'Conflict', detail, extras }),
   /** @param {string} [detail] @param {object} [extras] */
+  methodNotAllowed: (detail, extras) =>
+    new HttpError({ status: 405, title: 'Method Not Allowed', detail, extras }),
+  /** @param {string} [detail] @param {object} [extras] */
   gone: (detail, extras) => new HttpError({ status: 410, title: 'Gone', detail, extras }),
   /** @param {string} [detail] */
   payloadTooLarge: (detail) => new HttpError({ status: 413, title: 'Payload Too Large', detail }),
