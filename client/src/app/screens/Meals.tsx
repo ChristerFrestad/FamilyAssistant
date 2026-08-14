@@ -23,6 +23,7 @@
 import type { JSX } from 'react';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { DayStrip } from '../components/meals/DayStrip';
@@ -86,12 +87,23 @@ export function Meals(): JSX.Element {
   return (
     <section aria-labelledby="meals-heading" className="flex flex-col gap-4">
       <header className="flex flex-col gap-1">
-        <span className="font-body text-meta uppercase tracking-wider text-text-3">
-          {t('meals:weekHeader.label')}
-        </span>
-        <h1 id="meals-heading" className="font-display text-display-md text-text-1">
-          {t('meals:title')}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="font-body text-meta uppercase tracking-wider text-text-3">
+              {t('meals:weekHeader.label')}
+            </span>
+            <h1 id="meals-heading" className="font-display text-display-md text-text-1">
+              {t('meals:title')}
+            </h1>
+          </div>
+          <Link
+            to="/recipes"
+            className="shrink-0 font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+            data-testid="meals-open-library"
+          >
+            {t('meals:actions.openLibrary')}
+          </Link>
+        </div>
         {meals?.weekYear ? (
           <p className="font-body text-meta text-text-2" data-testid="meals-week-year">
             {t('meals:weekHeader.week', { weekYear: meals.weekYear })}

@@ -42,7 +42,8 @@
     "openSource": "Åpne kilde",
     "retry": "Prøv igjen",
     "markCooked": "Marker tilberedt",
-    "alreadyCooked": "Tilberedt"
+    "alreadyCooked": "Tilberedt",
+    "openLibrary": "Åpne bibliotek"
   },
   "empty": {
     "heroTitle": "Ingen middag planlagt",
