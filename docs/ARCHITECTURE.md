@@ -81,8 +81,8 @@ Tunnel`. Multi-tenancy is enforced by an `AsyncLocalStorage`-scoped
 | Repositories | `server/repositories.js` + `server/repositories/` | all SQL; every query filters on `getFamilyId()` | `db.js` |
 | Persistence | `server/db.js` + `server/migrations/*.sql` | SQLite connection, idempotent migrations on boot | filesystem (`data/familieassistenten.db`) |
 | LLM | `server/llm.js` + `server/llm/*.js` | per-family backend adapter; RAG context build with `sanitizeForPrompt` | external HTTP |
-| Frontend (v2) | `client/src/app/` | Vite + React + TS UI under `/v2/*` | `/api/*` |
-| Frontend (legacy) | `public/*.html` + `public/sw.js` | plain HTML; `/` now redirects to `/v2/` | `/api/*` |
+| Frontend | `client/src/app/` | Vite + React + TS UI at `/` (`/login`, `/dashboard`) | `/api/*` |
+| Static extras | `public/setup.html`, legal pages | Portainer first-boot wizard + privacy/terms | — |
 | Observability | `server/observability/sentry.js` + `server/logger.js` | pino logging with redact-paths, optional Sentry | external HTTP (Sentry) |
 
 ## Multi-tenancy in one paragraph
