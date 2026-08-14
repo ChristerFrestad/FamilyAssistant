@@ -182,11 +182,10 @@ test('GET /api/me/export isolates two families over HTTP cookies', async () => {
   ]);
 });
 
-// Contract: any authenticated family member, including role===child,
-// receives the full family payload via /api/me/export (other members'
-// emails included). Isolation is family-scoped, not per-child. Tightening
-// child scope is residual risk for G4 — do not change here.
-test('GET /api/me/export as child stays inside own family (full-family contract)', async () => {
+// Contract: role===child is scoped to self — user + own profile member
+// + own chore_completions. Other members' emails and family-wide tables
+// stay out of the payload.
+test('GET /api/me/export as child returns only self-scoped data', async () => {
   const a = createUser('g02-child-owner-a@iso.test', 'owner', 'G02-Child-Fam-A-aa11');
   const b = createUser('g02-child-owner-b@iso.test', 'owner', 'G02-Child-Fam-B-bb22');
   seedFamilyExportData(a.familyId, {
@@ -199,7 +198,29 @@ test('GET /api/me/export as child stays inside own family (full-family contract)
     event: 'G02-Child-Event-B-bb22',
     member: 'G02-Child-Member-B-bb22',
   });
+  const childMember = server.repos.family.addMember(a.familyId, {
+    name: 'G02-Child-Self-A-aa11',
+    category: 'child',
+  });
   const child = addUserToFamily('g02-child-a@iso.test', 'child', a.familyId);
+  server.repos.auth.setFamily(child.userId, a.familyId, 'child', childMember.id);
+
+  const childChoreId = runWithFamily(a.familyId, () => {
+    const choreId = Number(
+      server.repos._db
+        .prepare(
+          `INSERT INTO chores (family_id, task, frequency, default_day, active)
+           VALUES (?, 'G02-Child-Chore-A', 'weekly', 1, 1)`
+        )
+        .run(a.familyId).lastInsertRowid
+    );
+    server.repos.choreCompletions.insert({
+      weekYear: '2026-W17',
+      choreId,
+      userId: child.userId,
+    });
+    return choreId;
+  });
 
   const r = await request(server.baseUrl, 'GET', '/api/me/export', {
     headers: { Cookie: child.cookie },
@@ -207,16 +228,19 @@ test('GET /api/me/export as child stays inside own family (full-family contract)
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.user.role, 'child');
   assert.strictEqual(r.body.user.email, 'g02-child-a@iso.test');
-  assertExportIncludes(r.body, [
-    'G02-Child-Fam-A-aa11',
-    'G02-Child-Recipe-A-aa11',
-    'g02-child-owner-a@iso.test',
-  ]);
+  assert.ok(r.body.family.profileMember);
+  assert.strictEqual(r.body.family.profileMember.name, 'G02-Child-Self-A-aa11');
+  assert.ok(Array.isArray(r.body.family.choreCompletions));
+  assert.ok(r.body.family.choreCompletions.some((c) => c.choreId === childChoreId));
+  assertExportIncludes(r.body, ['g02-child-a@iso.test', 'G02-Child-Self-A-aa11']);
   assertExportExcludes(r.body, [
     'G02-Child-Fam-B-bb22',
+    'G02-Child-Recipe-A-aa11',
     'G02-Child-Recipe-B-bb22',
     'G02-Child-Event-B-bb22',
+    'g02-child-owner-a@iso.test',
     'g02-child-owner-b@iso.test',
+    'G02-Child-Member-A-aa11',
     'G02-Child-Member-B-bb22',
   ]);
 });

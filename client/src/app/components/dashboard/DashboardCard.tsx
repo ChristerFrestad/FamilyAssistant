@@ -47,6 +47,8 @@ export interface DashboardCardProps<T> {
   formatMore?: (remaining: number) => string;
   /** Retry handler; shown only when error is non-null. */
   onRetry?: () => void;
+  /** Optional extra line under the list (e.g. week XP). */
+  footer?: ReactNode;
 }
 
 /**
@@ -79,6 +81,7 @@ export function DashboardCard<T>({
   limit,
   formatMore,
   onRetry,
+  footer,
 }: DashboardCardProps<T>): JSX.Element {
   const { t } = useTranslation(['dashboard', 'common']);
 
@@ -137,6 +140,10 @@ export function DashboardCard<T>({
             <li className="font-body text-meta text-text-3">{formatMore(remaining)}</li>
           ) : null}
         </ul>
+      ) : null}
+
+      {footer && !showSkeleton && !showError ? (
+        <p className="mt-3 font-body text-meta text-text-3">{footer}</p>
       ) : null}
     </Card>
   );

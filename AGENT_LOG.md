@@ -6,6 +6,14 @@
 
 ---
 
+2026-08-14 – G4 XP, backup import, child-scoped export
+
+- Branch: feat/g4-xp-backup
+- xp_awarded=10, stats, family backup v2, child export tightened
+- Tests: 35/35
+- Status: merged into feat/g1-integrate
+
+---
 2026-08-14 – G3 calendar integrations (Google + iCloud)
 
 - Branch: feat/g3-calendar-sync

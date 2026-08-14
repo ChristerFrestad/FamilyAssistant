@@ -47,7 +47,20 @@
     },
     "gamification": {
       "label": "Gamification",
-      "description": "Points, levels, and badges for completed chores"
+      "description": "Award XP when chores are marked done"
+    },
+    "weekGoal": {
+      "label": "Weekly chore goal",
+      "description": "Target number of completions per week",
+      "inputAriaLabel": "Weekly completion goal"
+    },
+    "backup": {
+      "label": "Family backup",
+      "description": "Download or restore recipes, chores, meals, shopping, pantry, and local events",
+      "download": "Download backup",
+      "importLabel": "Import backup",
+      "importDescription": "JSON file. Merge remaps ids into this family.",
+      "importAria": "Choose a family backup JSON file to import"
     }
   },
   "user": {

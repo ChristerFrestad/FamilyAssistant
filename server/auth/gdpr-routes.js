@@ -3,11 +3,10 @@
 //   GET    /api/me/export    authenticated — returns a JSON blob with
 //                             everything the caller's family has stored.
 //                             Streaming is not required at MVP scale.
-//                             Any member (including role===child) gets the
-//                             full family payload, including other members'
-//                             emails. That is the documented Art. 15
-//                             contract; tightening child scope is residual
-//                             G4 risk, not a G0-2 isolation change.
+//                             Adult/owner: full family payload (Art. 15).
+//                             Child: own user + own profile member + own
+//                             chore_completions only — no other members'
+//                             emails or family-wide tables.
 //
 //   DELETE /api/me            authenticated — soft-deletes the caller's
 //                             user row (users.deleted_at), clears all
@@ -54,7 +53,10 @@ function handleExportMe(ctx, repos) {
   if (ctx.user.family_id) {
     const familyId = ctx.user.family_id;
     runWithFamily(familyId, () => {
-      payload.family = buildFamilyExport(repos, familyId);
+      payload.family =
+        ctx.user.role === 'child'
+          ? buildChildExport(repos, familyId, ctx.user)
+          : buildFamilyExport(repos, familyId);
     });
   }
 
@@ -78,6 +80,20 @@ function safeListSessions(repos, userId) {
 function maskSessionId(id) {
   if (typeof id !== 'string' || id.length < 12) return '***';
   return `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
+function buildChildExport(repos, familyId, user) {
+  const family = safe(() => repos.family.findFamilyById(familyId));
+  const profileMemberId = user.profile_member_id || null;
+  const ownMember = profileMemberId
+    ? safe(() => repos.family.listMembers(familyId).find((m) => m.id === profileMemberId), null)
+    : null;
+  const choreCompletions = safe(() => repos.choreCompletions.listForUser(user.id), []);
+  return {
+    family: family ? { id: family.id, name: family.name } : null,
+    profileMember: ownMember,
+    choreCompletions,
+  };
 }
 
 function buildFamilyExport(repos, familyId) {

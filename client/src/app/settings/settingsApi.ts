@@ -62,6 +62,8 @@ export interface FamilyResponse {
     ownerUserId: number | null;
     createdAt: string;
     updatedAt: string;
+    gamificationEnabled?: boolean;
+    weekGoal?: number;
   };
   profileMembers: FamilyMember[];
   users: FamilyUser[];
@@ -133,7 +135,7 @@ async function getJson<T>(path: string, options: FetchOptions = {}): Promise<T> 
 }
 
 async function sendJson<T>(
-  method: 'POST' | 'PUT' | 'DELETE',
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
   options: FetchOptions = {}
@@ -184,4 +186,28 @@ export async function exportMyData(signal?: AbortSignal): Promise<unknown> {
 
 export async function deleteMyAccount(): Promise<DeleteAccountResponse> {
   return sendJson<DeleteAccountResponse>('DELETE', '/api/me');
+}
+
+export async function patchGamification(body: {
+  enabled?: boolean;
+  weekGoal?: number;
+}): Promise<{ ok: true; enabled: boolean; weekGoal: number }> {
+  return sendJson<{ ok: true; enabled: boolean; weekGoal: number }>(
+    'PATCH',
+    '/api/family/gamification',
+    body
+  );
+}
+
+export async function downloadFamilyBackup(signal?: AbortSignal): Promise<unknown> {
+  const opts: FetchOptions = {};
+  if (signal) opts.signal = signal;
+  return getJson<unknown>('/api/family/backup', opts);
+}
+
+export async function importFamilyBackup(
+  mode: 'merge' | 'replace',
+  payload: unknown
+): Promise<{ ok: true }> {
+  return sendJson<{ ok: true }>('POST', '/api/family/backup/import', { mode, payload });
 }

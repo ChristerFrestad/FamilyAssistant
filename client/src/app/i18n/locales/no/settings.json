@@ -47,7 +47,20 @@
     },
     "gamification": {
       "label": "Gamification",
-      "description": "Poeng, nivåer og merker for fullførte gjøremål"
+      "description": "Gi XP når gjøremål markeres som gjort"
+    },
+    "weekGoal": {
+      "label": "Ukentlig gjøremålsmål",
+      "description": "Mål for antall fullførte gjøremål per uke",
+      "inputAriaLabel": "Ukentlig mål for fullførte gjøremål"
+    },
+    "backup": {
+      "label": "Familie-backup",
+      "description": "Last ned eller gjenopprett oppskrifter, gjøremål, måltider, handlelister, pantry og lokale hendelser",
+      "download": "Last ned backup",
+      "importLabel": "Importer backup",
+      "importDescription": "JSON-fil. Flett remapper id-er inn i denne familien.",
+      "importAria": "Velg en JSON-backupfil å importere"
     }
   },
   "user": {

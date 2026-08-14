@@ -21,6 +21,9 @@ import {
   renameFamily as apiRenameFamily,
   exportMyData as apiExportMyData,
   deleteMyAccount as apiDeleteMyAccount,
+  patchGamification as apiPatchGamification,
+  downloadFamilyBackup as apiDownloadFamilyBackup,
+  importFamilyBackup as apiImportFamilyBackup,
   SettingsApiError,
   type FamilyResponse,
 } from './settingsApi';
@@ -35,6 +38,9 @@ export interface UseSettingsDataResult {
   renameFamily: (name: string) => Promise<boolean>;
   exportMyData: () => Promise<unknown | null>;
   deleteMyAccount: () => Promise<{ ok: true; hardDeleteAt: string; graceDays: number } | null>;
+  patchGamification: (body: { enabled?: boolean; weekGoal?: number }) => Promise<boolean>;
+  downloadFamilyBackup: () => Promise<unknown | null>;
+  importFamilyBackup: (mode: 'merge' | 'replace', payload: unknown) => Promise<boolean>;
   clearUserFacingError: () => void;
 }
 
@@ -43,6 +49,9 @@ export interface UseSettingsDataOverrides {
   renameFamily?: typeof apiRenameFamily;
   exportMyData?: typeof apiExportMyData;
   deleteMyAccount?: typeof apiDeleteMyAccount;
+  patchGamification?: typeof apiPatchGamification;
+  downloadFamilyBackup?: typeof apiDownloadFamilyBackup;
+  importFamilyBackup?: typeof apiImportFamilyBackup;
 }
 
 export function useSettingsData(overrides: UseSettingsDataOverrides = {}): UseSettingsDataResult {
@@ -50,6 +59,9 @@ export function useSettingsData(overrides: UseSettingsDataOverrides = {}): UseSe
   const renameFn = overrides.renameFamily ?? apiRenameFamily;
   const exportFn = overrides.exportMyData ?? apiExportMyData;
   const deleteFn = overrides.deleteMyAccount ?? apiDeleteMyAccount;
+  const patchGamificationFn = overrides.patchGamification ?? apiPatchGamification;
+  const backupFn = overrides.downloadFamilyBackup ?? apiDownloadFamilyBackup;
+  const importFn = overrides.importFamilyBackup ?? apiImportFamilyBackup;
 
   const [family, setFamily] = useState<FamilyResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -160,6 +172,63 @@ export function useSettingsData(overrides: UseSettingsDataOverrides = {}): UseSe
     }
   }, [deleteFn]);
 
+  const patchGamification = useCallback(
+    async (body: { enabled?: boolean; weekGoal?: number }): Promise<boolean> => {
+      try {
+        const res = await patchGamificationFn(body);
+        setFamily((prev) =>
+          prev
+            ? {
+                ...prev,
+                family: {
+                  ...prev.family,
+                  gamificationEnabled: res.enabled,
+                  weekGoal: res.weekGoal,
+                },
+              }
+            : prev
+        );
+        setUserFacingError(null);
+        return true;
+      } catch (err) {
+        const code = err instanceof SettingsApiError ? err.code : null;
+        const message = err instanceof Error ? err.message : 'Could not save gamification';
+        setUserFacingError({ message, code });
+        return false;
+      }
+    },
+    [patchGamificationFn]
+  );
+
+  const downloadFamilyBackup = useCallback(async (): Promise<unknown | null> => {
+    try {
+      const data = await backupFn();
+      setUserFacingError(null);
+      return data;
+    } catch (err) {
+      const code = err instanceof SettingsApiError ? err.code : null;
+      const message = err instanceof Error ? err.message : 'Could not download backup';
+      setUserFacingError({ message, code });
+      return null;
+    }
+  }, [backupFn]);
+
+  const importFamilyBackup = useCallback(
+    async (mode: 'merge' | 'replace', payload: unknown): Promise<boolean> => {
+      try {
+        await importFn(mode, payload);
+        setUserFacingError(null);
+        return true;
+      } catch (err) {
+        const code = err instanceof SettingsApiError ? err.code : null;
+        const message = err instanceof Error ? err.message : 'Could not import backup';
+        setUserFacingError({ message, code });
+        return false;
+      }
+    },
+    [importFn]
+  );
+
   const clearUserFacingError = useCallback(() => setUserFacingError(null), []);
 
   return {
@@ -171,6 +240,9 @@ export function useSettingsData(overrides: UseSettingsDataOverrides = {}): UseSe
     renameFamily,
     exportMyData,
     deleteMyAccount,
+    patchGamification,
+    downloadFamilyBackup,
+    importFamilyBackup,
     clearUserFacingError,
   };
 }

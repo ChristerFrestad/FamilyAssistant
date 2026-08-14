@@ -12,6 +12,9 @@ const { randomToken } = require('./crypto');
 const { config } = require('../config');
 const emailService = require('../services/email.service');
 const { runWithFamily } = require('./family-context');
+const { validateBody } = require('../http/validate');
+const schemas = require('../schemas');
+const { buildFamilyBackup, importFamilyBackup } = require('../services/family-backup.service');
 
 const INVITE_URL_PATH = '/invite/';
 const INVITE_TTL_DAYS = 7;
@@ -134,6 +137,8 @@ function handleGetFamily(ctx, repos) {
       ownerUserId: family.owner_user_id,
       createdAt: family.created_at,
       updatedAt: family.updated_at,
+      gamificationEnabled: family.gamification_enabled !== 0,
+      weekGoal: family.week_goal ?? 5,
     },
     profileMembers: members,
     users: users.map((u) => ({
@@ -147,6 +152,30 @@ function handleGetFamily(ctx, repos) {
     })),
     portionSum: repos.family.portionSum(ctx.familyId),
   };
+}
+
+function handlePatchGamification(ctx, repos) {
+  if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+  const updated = repos.family.updateGamification(ctx.familyId, {
+    enabled: ctx.body.enabled,
+    weekGoal: ctx.body.weekGoal,
+  });
+  if (!updated) throw errors.notFound('Family not found.');
+  return {
+    ok: true,
+    enabled: updated.gamification_enabled !== 0,
+    weekGoal: updated.week_goal ?? 5,
+  };
+}
+
+function handleGetBackup(ctx, repos) {
+  if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+  return buildFamilyBackup(repos, ctx.familyId);
+}
+
+function handleImportBackup(ctx, repos) {
+  if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+  return importFamilyBackup(repos, ctx.familyId, ctx.body);
 }
 
 function handleRenameFamily(ctx, repos) {
@@ -747,6 +776,19 @@ function registerFamilyRoutes(router, { repos }) {
   router.get('/api/family', (ctx) => handleGetFamily(ctx, repos));
   router.put('/api/family', requireRole('owner'), (ctx) => handleRenameFamily(ctx, repos));
   router.delete('/api/family', requireRole('owner'), (ctx) => handleDeleteFamily(ctx, repos));
+  router.patch(
+    '/api/family/gamification',
+    requireRole('owner'),
+    validateBody(schemas.familyGamificationBody),
+    (ctx) => handlePatchGamification(ctx, repos)
+  );
+  router.get('/api/family/backup', requireRole('owner'), (ctx) => handleGetBackup(ctx, repos));
+  router.post(
+    '/api/family/backup/import',
+    requireRole('owner'),
+    validateBody(schemas.familyBackupImportBody),
+    (ctx) => handleImportBackup(ctx, repos)
+  );
 
   // Profile members (roster rows) — add/update is adult, delete is owner.
   router.post('/api/family/members', requireRole('adult'), (ctx) => handleAddMember(ctx, repos));

@@ -8,7 +8,7 @@ const path = require('path');
 
 const { getWeekYear } = require('./seed');
 const { errors } = require('./http/errors');
-const { validateBody } = require('./http/validate');
+const { validateBody, validateQuery } = require('./http/validate');
 const { registerAuthRoutes } = require('./auth/routes');
 const { registerFamilyRoutes } = require('./auth/family-routes');
 const { registerLlmConfigRoutes } = require('./auth/llm-routes');
@@ -76,6 +76,28 @@ const DAY_NAMES = [
  * 2026-05-03 (PR shopping-smart-merge). Errors are swallowed so the
  * meal update itself does not fail because of shopping-list issues.
  */
+function previousIsoWeek(weekYear) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(weekYear || ''));
+  if (!m) return null;
+  const year = Number(m[1]);
+  const week = Number(m[2]);
+  if (week > 1) return `${year}-W${String(week - 1).padStart(2, '0')}`;
+  // Dec 28 is always in the last ISO week of that year.
+  return getWeekYear(new Date(Date.UTC(year - 1, 11, 28)));
+}
+
+function consecutiveWeekStreak(repos, userId, endWeek) {
+  const weeks = new Set(repos.choreCompletions.weeksWithCompletions(userId));
+  let streak = 0;
+  let cursor = endWeek;
+  while (cursor && weeks.has(cursor)) {
+    streak += 1;
+    cursor = previousIsoWeek(cursor);
+    if (streak > 520) break;
+  }
+  return streak;
+}
+
 function toChoreDto(row) {
   if (!row) return null;
   return {
@@ -1602,6 +1624,37 @@ function registerRoutes(router, { repos, serverState }) {
       ctx.json({ ok: true, chore: toChoreDto(row) });
     }
   );
+
+  router.get('/api/chores/stats', validateQuery(schemas.choreStatsQuery), (ctx) => {
+    if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+    const week = ctx.query.week || getWeekYear();
+    const family = repos.family.findFamilyById(ctx.familyId);
+    const enabled = !family || family.gamification_enabled !== 0;
+    const goal = family && family.week_goal != null ? Number(family.week_goal) : 5;
+    const xpRows = repos.choreCompletions.xpByUserForWeek(week);
+    const users = repos.auth.listByFamily(ctx.familyId);
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const byUser = xpRows.map((row) => {
+      const u = row.userId != null ? userById.get(row.userId) : null;
+      return {
+        userId: row.userId,
+        name: u ? u.name || u.email : null,
+        xp: Number(row.xp) || 0,
+        completions: Number(row.completions) || 0,
+      };
+    });
+    const streakByUser = [];
+    const seen = new Set();
+    for (const row of xpRows) {
+      if (row.userId == null || seen.has(row.userId)) continue;
+      seen.add(row.userId);
+      streakByUser.push({
+        userId: row.userId,
+        streak: consecutiveWeekStreak(repos, row.userId, week),
+      });
+    }
+    ctx.json({ enabled, goal, byUser, streakByUser });
+  });
 
   router.get(
     '/api/chores/current',

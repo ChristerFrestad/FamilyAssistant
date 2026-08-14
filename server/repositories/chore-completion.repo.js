@@ -120,6 +120,56 @@ function createChoreCompletionRepos(db) {
         )
         .all(familyId, weekYear);
     },
+
+    /**
+     * Per-user XP + completion counts for one ISO week. user_id may be
+     * NULL (synthetic LOCAL_USER). Callers join names themselves.
+     */
+    xpByUserForWeek(weekYear) {
+      const familyId = getFamilyId();
+      return db
+        .prepare(
+          `SELECT user_id AS userId,
+                  COALESCE(SUM(xp_awarded), 0) AS xp,
+                  COUNT(*) AS completions
+             FROM chore_completions
+            WHERE family_id = ? AND week_year = ?
+            GROUP BY user_id`
+        )
+        .all(familyId, weekYear);
+    },
+
+    /**
+     * Distinct ISO weeks (YYYY-WNN) in which this user has ≥1 completion.
+     * Used to walk a consecutive-week streak. Empty for null userId.
+     */
+    weeksWithCompletions(userId) {
+      const familyId = getFamilyId();
+      if (userId == null) return [];
+      return db
+        .prepare(
+          `SELECT DISTINCT week_year AS weekYear
+             FROM chore_completions
+            WHERE family_id = ? AND user_id = ?
+            ORDER BY week_year DESC`
+        )
+        .all(familyId, userId)
+        .map((r) => r.weekYear);
+    },
+
+    listForUser(userId) {
+      const familyId = getFamilyId();
+      if (userId == null) return [];
+      return db
+        .prepare(
+          `SELECT id, chore_id AS choreId, week_year AS weekYear,
+                  completed_at AS completedAt, xp_awarded AS xpAwarded
+             FROM chore_completions
+            WHERE family_id = ? AND user_id = ?
+            ORDER BY completed_at DESC, id DESC`
+        )
+        .all(familyId, userId);
+    },
   };
 
   return { choreCompletions };

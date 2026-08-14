@@ -57,6 +57,8 @@ export interface FamilyResponse {
     ownerUserId: number | null;
     createdAt: string;
     updatedAt: string;
+    gamificationEnabled?: boolean;
+    weekGoal?: number;
   };
   profileMembers: ProfileMember[];
   users: FamilyUser[];
