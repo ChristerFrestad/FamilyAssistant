@@ -222,8 +222,8 @@ test('start writes a token and sends an email; verify creates a session and redi
     // New users default to onboarding_completed=0 (migration 021), so
     // verify redirects to the family-setup wizard rather than the
     // dashboard. The dashboard target is exercised in a separate
-    // test below ("redirects to /v2/dashboard for completed users").
-    assert.strictEqual(verifyR.headers.location, '/v2/onboarding/family');
+    // test below ("redirects to /dashboard for completed users").
+    assert.strictEqual(verifyR.headers.location, '/onboarding/family');
     const setCookie = verifyR.headers['set-cookie'];
     const header = Array.isArray(setCookie) ? setCookie.join(',') : setCookie;
     assert.match(header, /fa_session=/);
@@ -385,7 +385,7 @@ test('rate limit returns 429 on the 6th start call for the same email within an 
 // Onboarding-aware redirect (Sprint 3 / Fase 1e)
 // ============================================================
 
-test('verify redirects to /v2/dashboard when the user has onboarding_completed=1', async () => {
+test('verify redirects to /dashboard when the user has onboarding_completed=1', async () => {
   setupResend();
   const server = await startTestServer();
   try {
@@ -411,7 +411,7 @@ test('verify redirects to /v2/dashboard when the user has onboarding_completed=1
 
     const r = await request(server.baseUrl, 'GET', `/api/auth/magic-link/verify?token=${token}`);
     assert.strictEqual(r.status, 302);
-    assert.strictEqual(r.headers.location, '/v2/dashboard');
+    assert.strictEqual(r.headers.location, '/dashboard');
   } finally {
     resetFakeSender();
     await server.close();

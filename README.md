@@ -102,8 +102,7 @@ recipe will return when the pilot has stabilised.
 - **Validation**: Zod
 - **Logging**: pino
 - **Frontend**: Vite + React 18 + TypeScript + Tailwind v3 + React
-  Router under `/v2/*` (the legacy plain-HTML `/` was retired in
-  Sprint 8 — `/` now redirects to `/v2/`). See
+  Router at the site root (`/login`, `/dashboard`). See
   [`docs/frontend/v2-strategy.md`](docs/frontend/v2-strategy.md).
 - **LLM abstraction**: per-family backend — Anthropic, OpenAI, xAI,
   Ollama, or a local llama.cpp server
@@ -120,7 +119,7 @@ npm start
 # Terminal 2 — Vite dev-server on :7778 with /api proxied to :7777
 npm run dev:client
 
-# Open http://localhost:7778/v2/  — hot reload works end-to-end
+# Open http://localhost:7778/  — hot reload works end-to-end
 ```
 
 (Vite port `7778` (not the default `5173`) sits right next to the
@@ -132,7 +131,7 @@ Prod-style build:
 ```bash
 npm run build:client         # emits to public/v2/ (gitignored)
 npm start                    # serve via Express
-# Open http://localhost:7777/v2/
+# Open http://localhost:7777/
 ```
 
 ## Branding (white-label)

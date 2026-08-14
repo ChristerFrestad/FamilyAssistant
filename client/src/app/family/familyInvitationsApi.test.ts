@@ -43,7 +43,7 @@ describe('createInvitation', () => {
         invitation: {
           id: 1,
           token: 'tok',
-          url: '/v2/invite/tok',
+          url: '/invite/tok',
           assignedRole: 'adult',
           profileMemberId: null,
           invitedEmail: 'a@test.no',
@@ -166,7 +166,7 @@ describe('resendInvitation', () => {
         invitation: {
           id: 7,
           token: 'newtok',
-          url: '/v2/invite/newtok',
+          url: '/invite/newtok',
           assignedRole: 'adult',
           profileMemberId: null,
           invitedEmail: 'r@test.no',

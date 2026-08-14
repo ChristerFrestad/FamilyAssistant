@@ -37,7 +37,7 @@ afterEach(() => {
 
 function mountMeals(): void {
   render(
-    <MemoryRouter initialEntries={['/v2/meals']}>
+    <MemoryRouter initialEntries={['/meals']}>
       <Meals />
     </MemoryRouter>
   );

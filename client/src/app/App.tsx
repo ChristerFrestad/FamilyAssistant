@@ -20,10 +20,8 @@
 //      AppShell, which renders the placeholder screens from
 //      Sprint 2 (replaced with real screens in Phase 2A-2E).
 //
-// BrowserRouter + basename="/v2" lives one level up in main.tsx, so
-// every <Route path> is implicitly relative to /v2/*. A Route
-// written as path="/dashboard" therefore matches the URL
-// /v2/dashboard in the browser.
+// BrowserRouter lives one level up in main.tsx. A Route written as
+// path="/dashboard" matches the URL /dashboard in the browser.
 
 import type { JSX } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router';

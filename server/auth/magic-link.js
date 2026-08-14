@@ -235,9 +235,9 @@ async function handleMagicLinkVerify(ctx, repos) {
 }
 
 function redirectTargetForUser(user) {
-  if (user && user.password_reset_required) return '/v2/set-password';
-  if (user && user.onboarding_completed) return '/v2/dashboard';
-  return '/v2/onboarding/family';
+  if (user && user.password_reset_required) return '/set-password';
+  if (user && user.onboarding_completed) return '/dashboard';
+  return '/onboarding/family';
 }
 
 function isMagicLinkExpired(row) {

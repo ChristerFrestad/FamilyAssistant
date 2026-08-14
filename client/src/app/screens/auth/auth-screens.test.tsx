@@ -144,7 +144,7 @@ describe('Login', () => {
       jsonResponse(200, {
         ok: true,
         user: { ...TEST_USER, username: 'alice' },
-        redirect: '/v2/dashboard',
+        redirect: '/dashboard',
       })
     );
     renderScreen(<Login />);

@@ -4,9 +4,8 @@ import path from 'node:path';
 import enforceDevIsolation from './vite-plugins/enforce-isolation';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// Frontend v2 — built into <repo>/public/v2 so the existing Express
-// static handler can serve it via the /v2/* route prefix. See
-// docs/frontend/v2-strategy.md for the full story.
+// Frontend — built into <repo>/public/v2 (internal folder). The HTTP
+// server maps that folder onto the site root so URLs are /login, /dashboard.
 //
 // Dev: `npm run dev:client` — Vite dev-server on :7778 with /api proxied
 //      to the backend (:7777). WebSocket upgrades proxied too (ws:true)
@@ -35,12 +34,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: [
-        'favicon.ico',
-        'robots.txt',
-        'icons/icon.svg',
-        'icons/icon-maskable.svg',
-      ],
+      includeAssets: ['favicon.ico', 'robots.txt', 'icons/icon.svg', 'icons/icon-maskable.svg'],
       manifest: {
         name: 'FamilyAssistant',
         short_name: 'FamilyAssistant',
@@ -49,17 +43,17 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/v2/',
-        scope: '/v2/',
+        start_url: '/',
+        scope: '/',
         icons: [
           {
-            src: '/v2/icons/icon.svg',
+            src: '/icons/icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any',
           },
           {
-            src: '/v2/icons/icon-maskable.svg',
+            src: '/icons/icon-maskable.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'maskable',
@@ -67,7 +61,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Static assets from the Vite build (incl. icons under /v2/icons/)
+        // Static assets from the Vite build (incl. icons under /icons/)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         runtimeCaching: [
           // Images (external or same-origin)
@@ -84,9 +78,7 @@ export default defineConfig({
           },
           // Shopping list API — keep last successful response offline
           {
-            urlPattern: ({ url }) =>
-              url.pathname.startsWith('/api/shopping') ||
-              url.pathname.startsWith('/v2/api/shopping'),
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/shopping'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-shopping',
@@ -101,10 +93,7 @@ export default defineConfig({
           // Pantry / inventory API
           {
             urlPattern: ({ url }) =>
-              url.pathname.startsWith('/api/pantry') ||
-              url.pathname.startsWith('/api/inventory') ||
-              url.pathname.startsWith('/v2/api/pantry') ||
-              url.pathname.startsWith('/v2/api/inventory'),
+              url.pathname.startsWith('/api/pantry') || url.pathname.startsWith('/api/inventory'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-pantry',
@@ -118,9 +107,7 @@ export default defineConfig({
           },
           // Meals plan (read-mostly) — StaleWhileRevalidate for snappy UI
           {
-            urlPattern: ({ url }) =>
-              url.pathname.startsWith('/api/meals') ||
-              url.pathname.startsWith('/v2/api/meals'),
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/meals'),
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-meals',
@@ -136,9 +123,8 @@ export default defineConfig({
     }),
   ],
 
-  // Base URL for all emitted asset paths. Must match the route prefix
-  // the backend serves on, otherwise <script src="/assets/..."> breaks.
-  base: '/v2/',
+  // Site root. Backend serves public/v2/ at / so asset URLs are /assets/*.
+  base: '/',
 
   root: path.resolve(__dirname),
 

@@ -76,7 +76,7 @@ describe('Family invitation · resend', () => {
     });
     assert.strictEqual(r.status, 200);
     assert.notStrictEqual(r.body.invitation.token, inv.token);
-    assert.match(r.body.invitation.url, /\/v2\/invite\//);
+    assert.match(r.body.invitation.url, /\/invite\//);
     assert.strictEqual(r.body.invitation.invitationMessage, 'Velkommen!');
     assert.strictEqual(r.body.invitation.locale, 'no');
   });

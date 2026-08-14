@@ -175,8 +175,8 @@ describe('Branding routes · /manifest.json', () => {
       assert.equal(r.body.short_name, 'Testapp');
       assert.equal(r.body.description, 'A test app');
       assert.equal(r.body.theme_color, '#112233');
-      assert.equal(r.body.start_url, '/v2/');
-      assert.equal(r.body.scope, '/v2/');
+      assert.equal(r.body.start_url, '/');
+      assert.equal(r.body.scope, '/');
       assert.ok(Array.isArray(r.body.icons));
       assert.ok(r.body.icons.some((i) => i.src === '/favicon.svg'));
     } finally {

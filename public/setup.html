@@ -311,7 +311,7 @@
         <h2>Already configured</h2>
         <p>
           This instance is not in bootstrap mode.
-          <a href="/v2/">Open the app</a>.
+          <a href="/">Open the app</a>.
         </p>
       </div>
     </main>
@@ -445,7 +445,7 @@
             try {
               var res = await fetch('/health', { cache: 'no-store' });
               if (res.ok) {
-                window.location.replace('/v2/');
+                window.location.replace('/');
                 return;
               }
             } catch (_e) {
@@ -457,7 +457,7 @@
           }
           els.restartPanel.innerHTML =
             '<h2>Setup saved</h2><p>Container did not come back up within a minute. ' +
-            'Check the Portainer logs and <a href="/v2/">reload manually</a> when ready.</p>';
+            'Check the Portainer logs and <a href="/">reload manually</a> when ready.</p>';
         }
 
         els.gen.addEventListener('click', generateToken);

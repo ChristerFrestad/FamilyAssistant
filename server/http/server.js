@@ -29,10 +29,14 @@ const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
   '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
   '.json': 'application/json',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.webp': 'image/webp',
+  '.map': 'application/json',
   '.webmanifest': 'application/manifest+json',
 };
 
@@ -57,16 +61,9 @@ function serveStatic(res, filePath) {
   }
 }
 
-// Sprint 8 (2026-05-05): the legacy v1 SPA-fallback (`tryServeSpaFallback`)
-// was removed when we deleted the v1 frontend. The catch-all GET now uses
-// `tryServePublicFile` for legacy-era static files we still need (legal
-// pages + the sw.js tombstone) and `tryServeV2App` for the v2 React app.
-//
-// Only files explicitly listed as ALLOWED_PUBLIC_FILES are served from
-// public/ directly. Everything else hits v2 (which handles its own routing
-// under /v2/) or 404s. This is the allowlist-form of static serving — no
-// blind path traversal into the public dir, no surprises if someone drops
-// a new file there.
+// The React app (built into public/v2/) is the only frontend. Public URLs
+// have no /v2 prefix: /login, /dashboard, /assets/*. The build folder name
+// is an implementation detail. Legacy /v2/* bookmarks get a 301.
 const ALLOWED_PUBLIC_FILES = new Set([
   '/privacy.html',
   '/privacy-en.html',
@@ -94,51 +91,68 @@ function tryServePublicFile(pathname, res) {
 }
 
 // ============================================================
-// v2 (React SPA) static + SPA serving
+// React SPA — files live in public/v2/, URLs do not include /v2
 // ============================================================
-//
-// Matches /v2 and /v2/* — no generic sub-app prefix-matching.
-// Explicit > implicit: when we add /v3 later it gets its own handler.
-//
-// Returns false when:
-//   - path doesn't start with /v2
-//   - public/v2/ doesn't exist yet (pre-build state — Dockerfile builds
-//     the bundle into public/v2/ as part of the image, see Dockerfile
-//     stage `frontend-builder`)
-//   - path-traversal attempt (../ etc.)
-const V2_PREFIX = '/v2';
+const SPA_DIR = path.join(PUBLIC_DIR, 'v2');
 
-function tryServeV2App(pathname, res) {
-  if (pathname !== V2_PREFIX && !pathname.startsWith(V2_PREFIX + '/')) {
+function isReservedFromSpa(pathname) {
+  if (pathname === '/health' || pathname === '/ready' || pathname === '/metrics') return true;
+  if (pathname.startsWith('/api/')) return true;
+  // Legal pages + setup wizard stay as real files, not SPA fallback.
+  if (pathname === '/privacy.html' || pathname === '/privacy-en.html') return true;
+  if (pathname === '/terms.html' || pathname === '/terms-en.html') return true;
+  if (pathname === '/setup.html') return true;
+  return false;
+}
+
+function looksLikeStaticAsset(pathname) {
+  const base = pathname.split('/').pop() || '';
+  return base.includes('.') && !base.endsWith('.html');
+}
+
+function tryRedirectLegacyV2(req, res, pathname) {
+  if (pathname !== '/v2' && !pathname.startsWith('/v2/')) return false;
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const dest = pathname === '/v2' || pathname === '/v2/' ? '/' : pathname.slice('/v2'.length);
+  const url = new URL(req.url, 'http://localhost');
+  res.writeHead(301, { Location: dest + url.search });
+  res.end();
+  return true;
+}
+
+function tryServeSpaApp(pathname, res) {
+  if (isReservedFromSpa(pathname)) return false;
+  if (!fs.existsSync(SPA_DIR) || !fs.statSync(SPA_DIR).isDirectory()) {
     return false;
   }
-  const V2_DIR = path.join(PUBLIC_DIR, 'v2');
-  if (!fs.existsSync(V2_DIR) || !fs.statSync(V2_DIR).isDirectory()) {
-    return false;
-  }
 
-  // Strip /v2 or /v2/ prefix to get the asset path relative to public/v2/.
-  const rel =
-    pathname === V2_PREFIX || pathname === V2_PREFIX + '/'
-      ? 'index.html'
-      : pathname.slice(V2_PREFIX.length + 1);
+  const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
 
-  // 1. Direct file hit (assets, images, etc.)
   if (rel && rel !== 'index.html') {
-    const filePath = path.join(V2_DIR, rel);
+    const filePath = path.join(SPA_DIR, rel);
     const resolved = path.resolve(filePath);
-    if (path.relative(V2_DIR, resolved).startsWith('..')) return false;
+    if (path.relative(SPA_DIR, resolved).startsWith('..')) return false;
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       return serveStatic(res, filePath);
     }
+    // Missing hashed asset / unknown file → 404, not the HTML shell.
+    if (looksLikeStaticAsset(pathname)) return false;
   }
 
-  // 2. SPA fallback to public/v2/index.html for client-side routing.
-  const indexPath = path.join(V2_DIR, 'index.html');
+  const indexPath = path.join(SPA_DIR, 'index.html');
   if (fs.existsSync(indexPath)) {
     return serveStatic(res, indexPath);
   }
   return false;
+}
+
+function tryServeSw(pathname, res) {
+  if (pathname !== '/sw.js') return false;
+  const spaSw = path.join(SPA_DIR, 'sw.js');
+  if (fs.existsSync(spaSw) && fs.statSync(spaSw).isFile()) {
+    return serveStatic(res, spaSw);
+  }
+  return tryServePublicFile(pathname, res);
 }
 
 // ============================================================
@@ -160,30 +174,21 @@ function createServer(router, { authenticate } = {}) {
     let routeTemplate = pathname; // overridet etter dispatch
 
     try {
-      // Universal root-redirect: GET / → 302 /v2/ (or /setup.html in
-      // BOOTSTRAP_MODE so Portainer first-boot lands on the wizard).
-      //
-      // V2 (the React SPA in client/src/) is the pilot frontend. The bare
-      // root must funnel every visitor somewhere useful:
-      //   - Fresh Docker install (BOOTSTRAP_MODE) → /setup.html
-      //   - Normal production → /v2/
-      // Without the bootstrap branch, first-time operators open
-      // http://host:7777/ and get a half-built SPA instead of the wizard
-      // documented in DEPLOY.md §16.
-      //
-      // The redirect runs BEFORE rate-limit and authenticate so it is
-      // unconditional, cookie-agnostic, and side-effect-free. /api/*,
-      // /v2/*, static files, and every other path is unchanged. Only
-      // GET (and HEAD by extension via 302) on the bare "/" is intercepted.
-      // Non-GET methods (POST /, PUT /, DELETE /) fall through to the
-      // router and return 404 as before.
-      if (pathname === '/' && req.method === 'GET') {
-        const location = config.BOOTSTRAP_MODE ? '/setup.html' : '/v2/';
-        res.writeHead(302, { Location: location });
+      // Fresh Docker install: land on the Portainer wizard, not the SPA.
+      if (pathname === '/' && req.method === 'GET' && config.BOOTSTRAP_MODE) {
+        res.writeHead(302, { Location: '/setup.html' });
         res.end();
         const dur = Date.now() - started;
         metrics.record(req.method, '/', 302, dur);
-        logRequest(ctx, 302, dur, config.BOOTSTRAP_MODE ? 'root_redirect_setup' : 'root_redirect');
+        logRequest(ctx, 302, dur, 'root_redirect_setup');
+        return;
+      }
+
+      // Bookmarks, emails, and cached HTML still use /v2/*.
+      if (tryRedirectLegacyV2(req, res, pathname)) {
+        const dur = Date.now() - started;
+        metrics.record(req.method, '/v2/*', 301, dur);
+        logRequest(ctx, 301, dur, 'legacy_v2_redirect');
         return;
       }
 
@@ -207,12 +212,11 @@ function createServer(router, { authenticate } = {}) {
           // /api/* and /metrics are never served as static — return 404.
           const isApi = pathname.startsWith('/api/') || pathname === '/metrics';
           if (!isApi && req.method === 'GET') {
-            // Sprint 8: v2 React app + allowlisted public files only.
-            // - tryServeV2App handles /v2 + /v2/* (the SPA shell + assets)
-            // - tryServePublicFile handles /privacy.html, /terms.html,
-            //   /privacy-en.html, /sw.js (the v1-tombstone)
-            // Anything else falls through to a 404.
-            if (tryServeV2App(pathname, res) || tryServePublicFile(pathname, res)) {
+            if (
+              tryServeSw(pathname, res) ||
+              tryServePublicFile(pathname, res) ||
+              tryServeSpaApp(pathname, res)
+            ) {
               const dur = Date.now() - started;
               metrics.record(req.method, 'static', 200, dur);
               logRequest(ctx, 200, dur, 'static');

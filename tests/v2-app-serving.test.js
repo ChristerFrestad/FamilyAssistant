@@ -1,26 +1,15 @@
 'use strict';
 
-// Tests for the /v2/* sub-app handler in server/http/server.js.
+// SPA serving: public/v2/ is the build folder, URLs have no /v2 prefix.
 //
-// Sprint 8 (2026-05-05) revision: the legacy v1 frontend was deleted, so
-// assertions that exercised /index.html and /js/core.js as legacy assets
-// are gone. The remaining assertions verify:
-//
-//   1. GET /v2/ serves public/v2/index.html
-//   2. GET /v2 (no trailing slash) serves public/v2/index.html
-//   3. GET /v2/routing-test serves public/v2/index.html (SPA fallback)
-//   4. GET /v2/nested/client/route also falls back to v2 index.html
-//   5. GET /v2/assets/main.js serves the direct file
-//   6. GET /v2/../etc/passwd is blocked (path traversal)
-//   7. GET / redirects to /v2/ (root-redirect from PR #117)
-//   8. GET /index.html → 404 (v1 deleted in Sprint 8)
-//   9. GET /js/core.js → 404 (v1 assets deleted)
-//  10. GET /api/unknown returns 404 (not HTML fallback)
-//  11. With public/v2/ missing, /v2 returns 404 (no v1 fallback to leak to)
-//
-// The test creates a minimal public/v2/ fixture before running and
-// restores any existing build after, so it works both before and after
-// `npm run build:client` has populated public/v2/.
+//   1. GET / serves public/v2/index.html
+//   2. GET /login (and nested client routes) fall back to index.html
+//   3. GET /assets/main.js serves the file
+//   4. GET /v2 and /v2/* 301 to the unprefixed path
+//   5. Path traversal is blocked
+//   6. GET /js/core.js → 404 (v1 gone; assets without a file do not SPA-fallback)
+//   7. GET /api/unknown → 404 JSON, never HTML
+//   8. Missing public/v2/ → GET / is 404 (no v1 leak)
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -36,13 +25,10 @@ let server;
 let restoreBackup = false;
 
 before(async () => {
-  // If an existing Vite build is present, move it aside so the test
-  // controls fixture contents. We restore it in after().
   if (fs.existsSync(V2_DIR)) {
     fs.renameSync(V2_DIR, V2_BACKUP);
     restoreBackup = true;
   }
-  // Minimal fixture for the test.
   fs.mkdirSync(path.join(V2_DIR, 'assets'), { recursive: true });
   fs.writeFileSync(
     path.join(V2_DIR, 'index.html'),
@@ -53,60 +39,61 @@ before(async () => {
     '// v2 test fixture asset\nconsole.log("fixture");'
   );
 
-  // Intentionally no authToken — static-serving does not require auth
-  // for this test, and the LOCAL_USER legacy fallback keeps requests
-  // flowing through to the static handler when AUTH_TOKEN is unset.
   server = await startTestServer();
 });
 
 after(async () => {
   if (server) await server.close();
-  // Remove fixture, restore backup if any.
   fs.rmSync(V2_DIR, { recursive: true, force: true });
   if (restoreBackup && fs.existsSync(V2_BACKUP)) {
     fs.renameSync(V2_BACKUP, V2_DIR);
   }
 });
 
-// ============================================================
-// v2 serving
-// ============================================================
-
-test('GET /v2/ serves public/v2/index.html', async () => {
-  const r = await request(server.baseUrl, 'GET', '/v2/');
+test('GET / serves public/v2/index.html', async () => {
+  const r = await request(server.baseUrl, 'GET', '/');
   assert.equal(r.status, 200);
-  assert.ok(r.raw.includes('v2 test fixture'), 'expected v2 fixture content');
+  assert.ok(r.raw.includes('v2 test fixture'), 'expected SPA fixture content');
 });
 
-test('GET /v2 (no trailing slash) serves public/v2/index.html', async () => {
-  const r = await request(server.baseUrl, 'GET', '/v2');
+test('GET /login falls back to index.html (SPA)', async () => {
+  const r = await request(server.baseUrl, 'GET', '/login');
   assert.equal(r.status, 200);
-  assert.ok(r.raw.includes('v2 test fixture'));
+  assert.ok(r.raw.includes('v2 test fixture'), 'SPA fallback must serve index.html');
 });
 
-test('GET /v2/routing-test falls back to public/v2/index.html (SPA)', async () => {
-  const r = await request(server.baseUrl, 'GET', '/v2/routing-test');
-  assert.equal(r.status, 200);
-  assert.ok(r.raw.includes('v2 test fixture'), 'SPA fallback must serve the v2 index.html');
-});
-
-test('GET /v2/nested/client/route also falls back to v2 index.html', async () => {
-  const r = await request(server.baseUrl, 'GET', '/v2/nested/client/route');
+test('GET /onboarding/family falls back to index.html', async () => {
+  const r = await request(server.baseUrl, 'GET', '/onboarding/family');
   assert.equal(r.status, 200);
   assert.ok(r.raw.includes('v2 test fixture'));
 });
 
-test('GET /v2/assets/main.js serves the direct file', async () => {
-  const r = await request(server.baseUrl, 'GET', '/v2/assets/main.js');
+test('GET /assets/main.js serves the direct file', async () => {
+  const r = await request(server.baseUrl, 'GET', '/assets/main.js');
   assert.equal(r.status, 200);
   assert.ok(r.raw.includes('v2 test fixture asset'));
 });
 
-test('GET /v2/assets/../../etc/passwd is blocked (path traversal)', async () => {
-  const r = await request(server.baseUrl, 'GET', '/v2/assets/../../etc/passwd');
-  // The URL parser normalises the path so it leaves /v2/ entirely.
-  // tryServeV2App returns false; the catch-all 404s. Either way no
-  // file outside the public tree may leak.
+test('GET /v2/ 301-redirects to /', async () => {
+  const r = await request(server.baseUrl, 'GET', '/v2/');
+  assert.equal(r.status, 301);
+  assert.strictEqual(r.headers.location || r.headers.Location, '/');
+});
+
+test('GET /v2/login?next=1 301-redirects to /login?next=1', async () => {
+  const r = await request(server.baseUrl, 'GET', '/v2/login?next=1');
+  assert.equal(r.status, 301);
+  assert.strictEqual(r.headers.location || r.headers.Location, '/login?next=1');
+});
+
+test('GET /v2/assets/main.js 301-redirects to /assets/main.js', async () => {
+  const r = await request(server.baseUrl, 'GET', '/v2/assets/main.js');
+  assert.equal(r.status, 301);
+  assert.strictEqual(r.headers.location || r.headers.Location, '/assets/main.js');
+});
+
+test('GET /assets/../../etc/passwd is blocked (path traversal)', async () => {
+  const r = await request(server.baseUrl, 'GET', '/assets/../../etc/passwd');
   if (r.status === 200) {
     assert.ok(!r.raw.includes('root:'), 'must not leak /etc/passwd');
   } else {
@@ -114,28 +101,7 @@ test('GET /v2/assets/../../etc/passwd is blocked (path traversal)', async () => 
   }
 });
 
-// ============================================================
-// V1 deletion contract (Sprint 8)
-// ============================================================
-
-test('GET / redirects to /v2/ (PR #117 root-redirect)', async () => {
-  // The bare root is unconditionally redirected to /v2/. See
-  // tests/root-redirect.test.js for the full matrix; this single
-  // assertion ensures the v2-app-serving file also exercises it.
-  const r = await request(server.baseUrl, 'GET', '/');
-  assert.equal(r.status, 302);
-  assert.strictEqual(r.headers.location || r.headers.Location, '/v2/');
-});
-
-test('GET /index.html → 404 (v1 deleted in Sprint 8)', async () => {
-  // public/index.html no longer exists. The catch-all routes through
-  // tryServeV2App (which only matches /v2/*) and tryServePublicFile
-  // (which whitelists /privacy.html, /terms.html, etc.) and then 404s.
-  const r = await request(server.baseUrl, 'GET', '/index.html');
-  assert.equal(r.status, 404);
-});
-
-test('GET /js/core.js → 404 (v1 assets deleted in Sprint 8)', async () => {
+test('GET /js/core.js → 404 (v1 deleted; missing assets do not SPA-fallback)', async () => {
   const r = await request(server.baseUrl, 'GET', '/js/core.js');
   assert.equal(r.status, 404);
 });
@@ -143,22 +109,14 @@ test('GET /js/core.js → 404 (v1 assets deleted in Sprint 8)', async () => {
 test('GET /api/unknown returns 404 (not an HTML fallback)', async () => {
   const r = await request(server.baseUrl, 'GET', '/api/unknown-endpoint');
   assert.equal(r.status, 404);
-  assert.ok(!r.raw.includes('v2 test fixture'), '/api/* must never fall back to a v2 index.html');
+  assert.ok(!r.raw.includes('v2 test fixture'), '/api/* must never fall back to index.html');
 });
 
-// ============================================================
-// Graceful degradation: public/v2/ missing (pre-build state)
-// ============================================================
-
-test('When public/v2/ is removed, /v2 returns 404 (no v1 fallback to leak)', async () => {
-  // Temporarily hide the v2 fixture for this single test.
+test('When public/v2/ is removed, GET / returns 404 (no v1 fallback)', async () => {
   fs.renameSync(V2_DIR, V2_DIR + '.hidden');
   try {
-    const r = await request(server.baseUrl, 'GET', '/v2/anything');
-    // Pre-Sprint 8 the catch-all fell through to legacy v1 SPA-fallback,
-    // so this used to be 200 (v1 served). After v1 deletion the request
-    // 404s cleanly — no leak, no crash.
-    assert.equal(r.status, 404, 'expected 404 when v2 dir is missing');
+    const r = await request(server.baseUrl, 'GET', '/');
+    assert.equal(r.status, 404, 'expected 404 when SPA dir is missing');
   } finally {
     fs.renameSync(V2_DIR + '.hidden', V2_DIR);
   }

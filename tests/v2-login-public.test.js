@@ -1,13 +1,13 @@
 'use strict';
 
 // Regression: Docker auto-sets AUTH_TOKEN. Direct navigation to
-// /v2/login must return the SPA HTML (200), not JSON 401.
+// /login must return the SPA HTML (200), not JSON 401.
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { startTestServer, request } = require('./helpers');
 
-describe('v2 login is reachable with AUTH_TOKEN configured', () => {
+describe('login is reachable with AUTH_TOKEN configured', () => {
   let server;
 
   before(async () => {
@@ -22,11 +22,9 @@ describe('v2 login is reachable with AUTH_TOKEN configured', () => {
     delete process.env.SESSION_SECRET;
   });
 
-  test('GET /v2/login → not 401', async () => {
-    const r = await request(server.baseUrl, 'GET', '/v2/login');
+  test('GET /login → not 401', async () => {
+    const r = await request(server.baseUrl, 'GET', '/login');
     assert.notEqual(r.status, 401, `body=${JSON.stringify(r.body)}`);
-    // 200 when v2 bundle exists, 404 when missing in bare checkout — either
-    // is fine as long as we do not demand authentication for the shell.
     assert.ok([200, 404].includes(r.status), `unexpected status ${r.status}`);
   });
 

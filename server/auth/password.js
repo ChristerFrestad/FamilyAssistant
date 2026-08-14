@@ -105,9 +105,9 @@ function publicUser(user) {
 }
 
 function redirectFor(user) {
-  if (user.password_reset_required) return '/v2/set-password';
-  if (user.onboarding_completed) return '/v2/dashboard';
-  return '/v2/onboarding/family';
+  if (user.password_reset_required) return '/set-password';
+  if (user.onboarding_completed) return '/dashboard';
+  return '/onboarding/family';
 }
 
 // ============================================================

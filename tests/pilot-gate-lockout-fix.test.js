@@ -62,31 +62,29 @@ describe('Pilot-gate lockout regression (production-like env)', () => {
   describe('Bundle reachability (the actual bug)', () => {
     beforeEach(() => pilotPasswordService().resetRateLimitForTests());
 
-    test('GET /v2/ returns 200 anonymous (bundle loads → gate can render)', async () => {
-      const r = await request(baseUrl, 'GET', '/v2/');
+    test('GET / returns 200 anonymous (bundle loads → gate can render)', async () => {
+      const r = await request(baseUrl, 'GET', '/');
       assert.notStrictEqual(r.status, 401, 'should not 401 — bundle must load');
-      assert.notStrictEqual(r.status, 302, 'should not 302 — already at /v2/');
-      // Either 200 (bundle exists) or 404 (bundle not built yet) is fine —
-      // both mean auth let it through. The bug was 401 before this fix.
+      assert.notStrictEqual(r.status, 302, 'root is the SPA, not a redirect');
       assert.ok(r.status === 200 || r.status === 404, `got ${r.status}`);
     });
 
-    test('GET /v2/index.html returns 200 anonymous', async () => {
-      const r = await request(baseUrl, 'GET', '/v2/index.html');
+    test('GET /login returns non-401 anonymous', async () => {
+      const r = await request(baseUrl, 'GET', '/login');
       assert.notStrictEqual(r.status, 401);
       assert.notStrictEqual(r.status, 302);
     });
 
-    test('GET /v2/assets/main.js (representative asset) returns non-401 anonymous', async () => {
-      const r = await request(baseUrl, 'GET', '/v2/assets/main.js');
+    test('GET /assets/main.js (representative asset) returns non-401 anonymous', async () => {
+      const r = await request(baseUrl, 'GET', '/assets/main.js');
       assert.notStrictEqual(r.status, 401, 'asset must be reachable for bundle to mount');
     });
 
-    test('GET / (legacy root) redirects to /v2/ via pilot-gate (still expected behaviour)', async () => {
-      const r = await request(baseUrl, 'GET', '/');
-      assert.strictEqual(r.status, 302);
+    test('GET /v2/ 301-redirects to / (legacy prefix)', async () => {
+      const r = await request(baseUrl, 'GET', '/v2/');
+      assert.strictEqual(r.status, 301);
       const location = r.headers.location || r.headers.Location;
-      assert.match(String(location), /\/v2\/?$/);
+      assert.strictEqual(String(location), '/');
     });
   });
 
@@ -226,24 +224,23 @@ describe('Pilot-gate lockout regression (production-like env)', () => {
       assert.strictEqual(isPublicPath('/sw.js'), true);
     });
 
-    test('v2 SPA shell paths recognised as public', () => {
-      assert.strictEqual(isPublicPath('/v2'), true);
-      assert.strictEqual(isPublicPath('/v2/'), true);
-      assert.strictEqual(isPublicPath('/v2/index.html'), true);
+    test('SPA shell paths recognised as public', () => {
+      assert.strictEqual(isPublicPath('/'), true);
+      assert.strictEqual(isPublicPath('/login'), true);
+      assert.strictEqual(isPublicPath('/index.html'), true);
     });
 
-    test('v2 assets recognised as public', () => {
-      assert.strictEqual(isPublicPath('/v2/assets/main-abc.js'), true);
-      assert.strictEqual(isPublicPath('/v2/assets/main.css'), true);
-      assert.strictEqual(isPublicPath('/v2/assets/Geist.woff2'), true);
+    test('SPA assets recognised as public', () => {
+      assert.strictEqual(isPublicPath('/assets/main-abc.js'), true);
+      assert.strictEqual(isPublicPath('/assets/main.css'), true);
+      assert.strictEqual(isPublicPath('/assets/Geist.woff2'), true);
     });
 
-    test('v2 client routes are public so SPA can deep-link with AUTH_TOKEN set', () => {
-      // Server serves index.html for these; React Router + Guards handle auth.
-      assert.strictEqual(isPublicPath('/v2/login'), true);
-      assert.strictEqual(isPublicPath('/v2/dashboard'), true);
-      assert.strictEqual(isPublicPath('/v2/invite/abc'), true);
-      assert.strictEqual(isPublicPath('/v2/admin'), true);
+    test('client routes are public so SPA can deep-link with AUTH_TOKEN set', () => {
+      assert.strictEqual(isPublicPath('/login'), true);
+      assert.strictEqual(isPublicPath('/dashboard'), true);
+      assert.strictEqual(isPublicPath('/invite/abc'), true);
+      assert.strictEqual(isPublicPath('/admin'), true);
     });
 
     test('non-v2 API paths NOT public (still go through auth)', () => {

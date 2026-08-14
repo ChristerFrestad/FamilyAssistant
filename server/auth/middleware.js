@@ -115,13 +115,10 @@ function constantTimeEquals(a, b) {
 
 function isPublicPath(pathname) {
   if (PUBLIC_PATHS.has(pathname)) return true;
-  // Entire v2 SPA surface is public at the HTTP layer — including client
-  // routes like /v2/login, /v2/invite/:token, /v2/dashboard. Docker deploys
-  // always have AUTH_TOKEN (auto-created); if only /v2/ and /v2/assets/*
-  // were public, deep-links returned JSON 401 and the React app never
-  // loaded. Frontend Guards (PilotGuard, AuthGuard, OnboardingGuard)
-  // enforce auth after the bundle mounts. API stays under /api/* only.
-  if (pathname === '/v2' || pathname.startsWith('/v2/')) return true;
+  // SPA + static assets are public at the HTTP layer. Docker always has
+  // AUTH_TOKEN; if the shell 401'd the React app never loaded. Guards
+  // enforce auth after mount. API stays under /api/*.
+  if (!pathname.startsWith('/api/')) return true;
   // SPA bootstrap endpoints (brand + auth manifest) — called before login.
   if (pathname === '/api/config') return true;
   if (pathname === '/api/auth/config') return true;
@@ -135,8 +132,8 @@ function isPublicPath(pathname) {
 
 function isPilotGateBypassPath(pathname) {
   if (PILOT_GATE_BYPASS_PATHS.has(pathname)) return true;
-  // Full v2 SPA must render so PilotPasswordGate / login can show.
-  if (pathname === '/v2' || pathname.startsWith('/v2/')) return true;
+  // Full SPA must render so PilotPasswordGate / login can show.
+  if (!pathname.startsWith('/api/')) return true;
   if (pathname === '/api/config' || pathname === '/api/auth/config') return true;
   if (pathname === '/favicon.svg' || pathname === '/favicon.ico') return true;
   if (pathname === '/manifest.json') return true;
@@ -183,11 +180,9 @@ function enforcePilotGate(ctx, repos) {
   if (ctx.pathname.startsWith('/api/')) {
     throw errors.forbidden('Pilot password required.');
   }
-  // For HTML / asset paths outside /v2/ (legacy SPA pages, etc.) the
-  // simplest behaviour is to redirect into the v2 app where the gate
-  // component renders. The gate runs before any React route and
-  // covers the full visible surface.
-  ctx.res.writeHead(302, { Location: '/v2/' });
+  // For leftover HTML paths the gate cannot render, send the visitor
+  // to the SPA root. PilotPasswordGate covers the visible surface.
+  ctx.res.writeHead(302, { Location: '/' });
   ctx.res.end();
 }
 

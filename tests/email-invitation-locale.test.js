@@ -72,7 +72,7 @@ describe('Email invitation · template rendering', () => {
         locale: 'no',
         inviterName: 'Christer',
         familyName: 'Frestad',
-        url: 'https://example.com/v2/invite/abc',
+        url: 'https://example.com/invite/abc',
         invitationMessage: null,
         expiresInDays: 7,
       });
@@ -98,7 +98,7 @@ describe('Email invitation · template rendering', () => {
         locale: 'en',
         inviterName: 'Christer',
         familyName: 'Frestad',
-        url: 'https://example.com/v2/invite/abc',
+        url: 'https://example.com/invite/abc',
         invitationMessage: null,
         expiresInDays: 7,
       });
@@ -117,7 +117,7 @@ describe('Email invitation · template rendering', () => {
         locale: 'no',
         inviterName: 'Christer',
         familyName: 'Frestad',
-        url: 'https://example.com/v2/invite/abc',
+        url: 'https://example.com/invite/abc',
         invitationMessage: 'Velkommen kjære!',
         expiresInDays: 7,
       });
@@ -136,7 +136,7 @@ describe('Email invitation · template rendering', () => {
         locale: 'no',
         inviterName: '<script>evil()</script>',
         familyName: 'Frestad & Co',
-        url: 'https://example.com/v2/invite/abc',
+        url: 'https://example.com/invite/abc',
         invitationMessage: '<img src=x onerror=alert(1)>',
         expiresInDays: 7,
       });
@@ -157,7 +157,7 @@ describe('Email invitation · template rendering', () => {
         locale: 'no',
         inviterName: 'Frestad & Søn',
         familyName: 'Frestad & Co',
-        url: 'https://example.com/v2/invite/abc',
+        url: 'https://example.com/invite/abc',
         invitationMessage: null,
         expiresInDays: 7,
       });
@@ -175,7 +175,7 @@ describe('Email invitation · template rendering', () => {
         locale: 'no',
         inviterName: 'Christer',
         familyName: 'Frestad',
-        url: 'https://example.com/v2/invite/abc',
+        url: 'https://example.com/invite/abc',
         invitationMessage: '   ',
         expiresInDays: 7,
       });

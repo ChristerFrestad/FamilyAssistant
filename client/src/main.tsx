@@ -107,10 +107,6 @@ if (!rootElement) {
   throw new Error('Root element #root not found');
 }
 
-// `basename="/v2"` tells React Router that all routes are relative to
-// /v2/*. This matches Vite's `base: '/v2/'` so internal links ("/") map
-// to "/v2/" in the browser URL without extra code.
-//
 // AuthProvider sits inside BrowserRouter so its useEffect-driven
 // /api/auth/me call has the router context available, and outside
 // App so every screen — including the public auth screens — can
@@ -121,7 +117,7 @@ if (!rootElement) {
 // is still being checked.
 createRoot(rootElement).render(
   <StrictMode>
-    <BrowserRouter basename="/v2">
+    <BrowserRouter>
       <AuthProvider>
         <App />
       </AuthProvider>

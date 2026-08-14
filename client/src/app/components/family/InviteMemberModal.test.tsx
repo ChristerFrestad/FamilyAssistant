@@ -29,7 +29,7 @@ function jsonResponse(status: number, body: unknown): Response {
 const SAMPLE_INVITATION: InvitationWithSecret = {
   id: 1,
   token: 'tok',
-  url: '/v2/invite/tok',
+  url: '/invite/tok',
   assignedRole: 'adult',
   profileMemberId: null,
   invitedEmail: 'a@test.no',

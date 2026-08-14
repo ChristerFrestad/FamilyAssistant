@@ -13,7 +13,7 @@ const { config } = require('../config');
 const emailService = require('../services/email.service');
 const { runWithFamily } = require('./family-context');
 
-const INVITE_URL_PATH = '/v2/invite/';
+const INVITE_URL_PATH = '/invite/';
 const INVITE_TTL_DAYS = 7;
 const MAX_INVITATION_MESSAGE_LENGTH = 500;
 const VALID_INVITATION_LOCALES = Object.freeze(['no', 'en']);
