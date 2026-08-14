@@ -6,6 +6,25 @@
 
 ---
 
+2026-08-14 – G1 UX spec: chores + recipes
+
+Oppgave: Konkret UX-spes for G1 implementører. Ingen React-skjermer.
+
+- Branch: feat/g1-ux-spec (base main ccb1b8c)
+- Filer: docs/ux/g1-chores-recipes.md, docs/ux/g1-nav.md
+- Chores /chores: DayStrip-kontrakt, ChoreRow, FAB/modal, complete 180ms
+  brand-dot, overdue muted rose, ingen XP/Ring
+- Recipes: bibliotek-oppgradering + /recipes/new + /recipes/:id,
+  import-URL-sheet, deactivate vs 409 RECIPE_IN_USE
+- Nav: BottomNav 5 (Dashboard, Chores, Meals, Shopping, Calendar);
+  Family → UserMenu; SideNav +Family; Recipes av rail
+- i18n: nøkler listet (chores ns + recipes/common), JSON urørt
+- Tester: 0 (docs only). DOMAIN_MODEL: nei
+
+Status: waiting-for-operator
+
+---
+
 2026-08-14 – G0-5 Isolation attacker (swapped family ids)
 
 Oppgave: Adversarial tester som prøver å lekke familie B mens A er
