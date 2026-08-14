@@ -6,6 +6,39 @@
 
 ---
 
+2026-08-14 – G2-1 weekly chore cron loops all families
+
+Task: weeklyChoresJob seeded only family 1 because choreSchedules
+repos call getFamilyId() without runWithFamily (LEGACY_FAMILY_ID).
+
+Analysis: none (scoped bugfix per operator brief; no domain change)
+- Journey: Monday 07:00 cron → list family ids → per-family ALS seed
+- Edge cases: already-has-plan skip; one-family error isolated
+- Decisions: 1 (listIds on family.repo rather than raw SQL in cron)
+- Portainer risk: no
+
+Plan: wrap weeklyChoresJob in per-family runWithFamily; add two-family test.
+
+Done:
+- Branch: feat/g2-1-chore-cron-families (from feat/g1-integrate)
+- Commits: 1
+- Files: server/cron.js, server/repositories/family.repo.js,
+  tests/chore-weekly-cron.test.js, AGENT_LOG.md
+- Tests: chore-weekly-cron 2/2 + chore-crud 9/9 (11/11)
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: none
+
+Security: no new endpoints; seed stays family-scoped via ALS.
+
+ISO 25010: Reliability up (all tenants get weekly plans); Security
+unchanged (still no cross-tenant writes).
+
+Status: waiting-for-operator (fix/ branch — DEL 5.3, no push)
+
+Next: operator review / merge into feat/g1-integrate.
+
+---
+
 2026-08-14 – G1-3 recipe create / update / soft-deactivate API
 
 Task: Manual POST/PATCH plus active-flag deactivate for recipes.

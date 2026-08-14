@@ -33,6 +33,7 @@ function createFamilyRepo(db) {
   );
   const setOwnerStmt = db.prepare('UPDATE families SET owner_user_id = ? WHERE id = ?');
   const deleteFamilyStmt = db.prepare('DELETE FROM families WHERE id = ?');
+  const listIdsStmt = db.prepare('SELECT id FROM families ORDER BY id');
 
   function createFamily(name, ownerUserId = null) {
     if (typeof name !== 'string' || !name.trim()) {
@@ -65,6 +66,12 @@ function createFamilyRepo(db) {
     // CASCADE from migration 014 removes all scoped rows (inventory, meal
     // plans, etc.) automatically.
     deleteFamilyStmt.run(id);
+  }
+
+  // Used by background jobs (weekly chore seed, etc.) that must visit
+  // every tenant. Not family-context-scoped — families is the tenant table.
+  function listIds() {
+    return listIdsStmt.all().map((row) => Number(row.id));
   }
 
   // ============================================================
@@ -556,6 +563,7 @@ function createFamilyRepo(db) {
     renameFamily,
     setOwner,
     deleteFamily,
+    listIds,
     // members
     addMember,
     listMembers,

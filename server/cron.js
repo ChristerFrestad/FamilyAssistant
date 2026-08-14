@@ -7,6 +7,7 @@ const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
 const { enrichPendingLists } = require('./services/shopping-list-enricher.service');
 const { purgeSoftDeletedUsers } = require('./auth/gdpr-routes');
+const { runWithFamily } = require('./auth/family-context');
 const { logger } = require('./logger');
 
 const activeTimers = new Set();
@@ -124,14 +125,27 @@ function dailyDepletionJob(repos) {
 }
 
 // === Job 4: Chore generation (Mondays at 07:00) ===
+// choreSchedules.exists / seedDefault read family_id from ALS. Without
+// runWithFamily they silently fall back to LEGACY_FAMILY_ID = 1, so every
+// other family never got a weekly plan. Loop all family ids and seed
+// independently; a failure in one tenant must not skip the rest.
 function weeklyChoresJob(repos) {
   const wk = getWeekYear();
-  if (repos.choreSchedules.exists(wk)) {
-    log(`Chores: week ${wk} already has a plan`);
-    return;
+  const familyIds = repos.family.listIds();
+  let seeded = 0;
+  for (const familyId of familyIds) {
+    try {
+      runWithFamily(familyId, () => {
+        if (!repos.choreSchedules.exists(wk)) {
+          repos.choreSchedules.seedDefault(wk);
+          seeded += 1;
+        }
+      });
+    } catch (err) {
+      log(`Chores ERROR family ${familyId}: ${err.message}`);
+    }
   }
-  repos.choreSchedules.seedDefault(wk);
-  log(`Chores: created plan for week ${wk}`);
+  log(`Chores: week ${wk} seeded ${seeded}/${familyIds.length} families`);
 }
 
 // === Job 5: LLM cache cleanup (daily at 04:00) ===
