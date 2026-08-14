@@ -107,7 +107,7 @@ const SHOPPING_SUMMARY = {
 };
 
 const UPCOMING = {
-  events: [{ id: 1, title: 'Bursdag', startsAt: '2026-05-10T18:00:00Z' }],
+  events: [{ id: 1, title: 'Bursdag', date: '2026-05-10', startTime: '18:00' }],
 };
 
 const FAMILY_DATA = {

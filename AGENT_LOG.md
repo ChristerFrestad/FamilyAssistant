@@ -6,6 +6,52 @@
 
 ---
 
+2026-08-14 – G0-3 local family calendar events
+
+Task: Replace Calendar "Coming in Phase 2D" placeholder with a real
+local family-events screen, and stop Dashboard from inventing startsAt
+when the API returns date + startTime.
+
+Analysis: none (implementer pass on existing backend).
+- Journey: list (today..+30d) → add (adult/owner) → delete (adult) →
+  child read-only. Dashboard upcoming card uses the same event shape.
+- Edge cases: empty range, GET error + retry, cancelled delete confirm,
+  cross-family GET/DELETE isolation, cached GET leaking tenants.
+- Decisions: 1 — adapt CalendarEvent to the real API (date, startTime,
+  endTime, allDay) rather than synthesizing startsAt. 2 — family-scope
+  withCache keys after isolation test found a tenant leak.
+- Portainer risk: no (client + cache key only; no migration).
+
+Plan: rewrite Calendar.tsx, fix dashboard types, EN+NO i18n, Calendar
+and dashboard tests, server isolation test, commit.
+
+Done:
+- Branch: feat/g0-3-calendar-events
+- Commits: 1
+- Files changed: Calendar screen + calendarApi, dashboard mapping,
+  i18n, tests, cache key family-scope
+- Tests added: Calendar.test.tsx (9), calendar-events.test.js (2),
+  dashboardApi date/startTime pass-through
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: also family-scoped GET cache keys after the
+  isolation test proved pathname+query leaked events across families.
+  screens.test Login heading updated to current password-first copy.
+
+Security: GET /api/calendar/events cache is now keyed by familyId;
+A cannot list or delete B's events.
+
+ISO 25010: Functional suitability (calendar CRUD UI), security
+(tenant cache isolation), maintainability (type matches OpenAPI).
+
+Status: waiting-for-operator
+
+Decisions the operator must make (with recommendation):
+None. Recommend merge when CI is green.
+
+Next: review feat/g0-3-calendar-events and open PR.
+
+---
+
 2026-08-07 – Password auth + progressive email verification
 
 Oppgave: Lav barrier-to-entry med brukernavn/passord parallelt med

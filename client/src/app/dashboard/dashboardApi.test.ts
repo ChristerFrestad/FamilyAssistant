@@ -94,6 +94,34 @@ describe('fetchUpcomingEvents', () => {
       expect.objectContaining({ method: 'GET', credentials: 'include' })
     );
   });
+
+  test('passes through date + startTime from the API (no startsAt)', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        events: [
+          {
+            id: 3,
+            title: 'Legetime',
+            date: '2026-05-10',
+            startTime: '10:00',
+            endTime: null,
+            location: null,
+            allDay: false,
+            notes: null,
+            source: 'local',
+          },
+        ],
+      })
+    );
+    const r = await fetchUpcomingEvents('2026-05-01', '2026-05-31');
+    expect(r.events[0]).toMatchObject({
+      id: 3,
+      title: 'Legetime',
+      date: '2026-05-10',
+      startTime: '10:00',
+    });
+    expect(r.events[0]).not.toHaveProperty('startsAt');
+  });
 });
 
 describe('isoDate', () => {

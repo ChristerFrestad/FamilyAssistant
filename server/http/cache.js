@@ -18,7 +18,7 @@
 //
 // withCache(ttlMs, tags, handler):
 //   Returnerer en rute-handler som cacher JSON-responsen.
-//   Uses pathname + query string as the cache key.
+//   Uses familyId + pathname + query string as the cache key.
 
 function createCache({ max = 200, ttlMs = 60_000 } = {}) {
   const store = new Map(); // key → { data, expiresAt, tags }
@@ -102,16 +102,20 @@ function createCache({ max = 200, ttlMs = 60_000 } = {}) {
 const responseCache = createCache({ max: 200, ttlMs: 60_000 });
 
 function cacheKey(ctx) {
+  // Family-scope the key so two tenants never share a cached GET.
+  // Path + query alone leaked calendar (and other) lists across families.
+  const familyPart =
+    Number.isInteger(ctx.familyId) && ctx.familyId > 0 ? `f${ctx.familyId}` : 'anon';
   const qs = Object.keys(ctx.query)
     .sort()
     .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(ctx.query[k])}`)
     .join('&');
-  return `${ctx.pathname}?${qs}`;
+  return `${familyPart}:${ctx.pathname}?${qs}`;
 }
 
 /**
  * Wrapper som cacher JSON-responsen fra en GET-handler.
- * Uses pathname + sorted query as the key, and tags the entry with
+ * Uses familyId + pathname + sorted query as the key, and tags the entry with
  * de gitte tags slik at writes kan invalidere dem.
  *
  *   router.get('/api/today', withCache(['meals','chores'], handler));

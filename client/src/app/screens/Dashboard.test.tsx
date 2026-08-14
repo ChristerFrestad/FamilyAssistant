@@ -109,7 +109,7 @@ const SHOPPING_DATA = {
 };
 
 const UPCOMING_DATA = {
-  events: [{ id: 1, title: 'Bursdag Lise', startsAt: '2026-05-02T18:00:00Z' }],
+  events: [{ id: 1, title: 'Bursdag Lise', date: '2026-05-02', startTime: '18:00' }],
 };
 
 describe('Dashboard screen', () => {
@@ -135,8 +135,9 @@ describe('Dashboard screen', () => {
       expect(screen.getByText(/Lufte rom/)).toBeInTheDocument();
       // Shopping card — count summary "3 varer igjen"
       expect(screen.getByText(/3 varer igjen/i)).toBeInTheDocument();
-      // Upcoming events card
+      // Upcoming events card — title plus a real date (not Invalid Date)
       expect(screen.getByText('Bursdag Lise')).toBeInTheDocument();
+      expect(screen.queryByText(/Invalid Date/)).toBeNull();
     });
 
     // Quick actions row at the bottom.
