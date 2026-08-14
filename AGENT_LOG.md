@@ -6,6 +6,46 @@
 
 ---
 
+2026-08-14 – G0-6 operator docs: current surfaces + cache
+
+Task: Oppdatere operator-docs på engelsk så de matcher det G0
+faktisk shipper (ikke G1/G3 som levert).
+
+Analysis: ingen separat ANALYSIS — docs-only synk mot allerede
+merget G0-1–G0-4.
+
+- Journey: README Features → Current surfaces-tabell → ARCHITECTURE
+  calendar + withCache → screenshots-note.
+- Edge cases: /v2 som URL vs. build-mappe; ikke overselge
+  Google-kalender, recipe create/edit, chores-opprett-UI.
+- Decisions: 1 — tabell etter Features, ikke erstatte
+  backend-capability-listen. 2 — calendar er ikke placeholder.
+- Portainer risk: no
+
+Plan: README-tabell + /v2-presisering, ARCHITECTURE withCache,
+screenshots optional note, AGENT_LOG, én commit.
+
+Done:
+- Branch: feat/g0-integrate
+- Commits: 1 (docs: G0 current surfaces and cache isolation notes)
+- Files changed: 4 (README.md, docs/ARCHITECTURE.md,
+  docs/screenshots/README.md, AGENT_LOG.md)
+- Tests added: 0
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: none
+
+Security: ingen kodeendring. Dokumenterer at withCache-nøkler er
+family-scopet (G0-1/G0-3-fiks).
+
+ISO 25010: not affected (dokumentasjon).
+
+Status: waiting-for-operator
+
+Next: operator leser tabellen mot kjørende UI; valgfritt ta
+kalender- og oppskriftsskjermbilder senere.
+
+---
+
 2026-08-14 – G0-4 Recipes library (thin)
 
 Oppgave: Familier har GET /api/recipes og Meals-picker, men ingen

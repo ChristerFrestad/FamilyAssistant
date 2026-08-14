@@ -13,6 +13,10 @@ Used by the root `README.md`. Keep file names stable so GitHub image URLs do not
 
 All six README shots are captured from `_capture.html` in English, using the same cream / mint / Instrument Serif look as the app.
 
+Calendar (`/calendar`, local family events) and Recipes (`/recipes`,
+read-only library) ship in G0. New screenshots for those screens are
+not in this PR; capture them when convenient and add rows here.
+
 ## Capture
 
 ```bash

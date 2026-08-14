@@ -29,6 +29,21 @@ Typical deploy: **Docker → Portainer → Raspberry Pi (or any host) → option
 - **GDPR** — export, 30-day soft-delete, cascade-delete when a family is removed
 - **White-label** — same image, different name and colours via environment variables
 
+## Current surfaces
+
+What G0 actually ships in the UI (open the site root, not `/v2`):
+
+| Surface | Status |
+|---|---|
+| Dashboard | Today meals, chores, upcoming local events |
+| Meals | Week plan + Open library → `/recipes` |
+| Recipes | Read-only family library (create/edit in a later phase) |
+| Shopping / Pantry | Full |
+| Calendar | Local family events (no Google) |
+| Chores | Dashboard card + complete/undo API; no family create UI yet |
+| Settings | GDPR export + delete account |
+| Auth | Username/password; LAN: `HTTPS_TERMINATED` must stay `false` |
+
 ## Screenshots
 
 All screens below use the English UI (switch to Norwegian in the header).
@@ -80,7 +95,7 @@ npm run dev:client
 
 Open [http://localhost:7778/](http://localhost:7778/). Production-style: `npm run build:client && npm start` and open [http://localhost:7777/](http://localhost:7777/).
 
-The app lives at the site root (`/login`, `/dashboard`, `/invite/:token`). Older `/v2/...` bookmarks 301 to the same path without the prefix.
+The app lives at the site root (`/`, `/login`, `/dashboard`, `/recipes`, `/calendar`). `public/v2/` is the Vite **build folder**, not a URL. Older `/v2/...` bookmarks 301 to the same path without the prefix.
 
 ## How the repo is organised
 

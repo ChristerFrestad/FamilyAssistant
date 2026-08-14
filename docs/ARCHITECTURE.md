@@ -9,12 +9,21 @@
 
 FamilyAssistant is a single-process Node.js backend (`node:http`, no
 framework) backed by SQLite, with one Vite + React + TypeScript UI
-served at the site root (`/login`, `/dashboard`, `/invite/:token`).
-The build output lives in `public/v2/`; that folder name is not a
-URL. Legacy `/v2/*` paths 301 to the unprefixed route. The intended
-deploy story is `Docker → Portainer → Raspberry Pi 5 → Cloudflare
-Tunnel`. Multi-tenancy is enforced by an `AsyncLocalStorage`-scoped
-`familyId` that every repository read/write filters on.
+served at the site root (`/login`, `/dashboard`, `/recipes`,
+`/calendar`). The build output lives in `public/v2/`; that folder
+name is not a URL. Legacy `/v2/*` paths 301 to the unprefixed route.
+The intended deploy story is `Docker → Portainer → Raspberry Pi 5 →
+Cloudflare Tunnel`. Multi-tenancy is enforced by an
+`AsyncLocalStorage`-scoped `familyId` that every repository
+read/write filters on. GET JSON responses cached by `withCache` use
+the same family id in the cache key.
+
+G0 UI surfaces: Dashboard (today meals, chores, upcoming local
+events), Meals (week plan + Open library → `/recipes`), a read-only
+recipe library, full Shopping/Pantry, Calendar as **local family
+events** (not a placeholder, no Google), chores complete/undo from
+the dashboard card (no family create UI yet), Settings (GDPR export
++ delete account), and username/password auth.
 
 ## Request flow
 
@@ -81,7 +90,7 @@ Tunnel`. Multi-tenancy is enforced by an `AsyncLocalStorage`-scoped
 | Repositories | `server/repositories.js` + `server/repositories/` | all SQL; every query filters on `getFamilyId()` | `db.js` |
 | Persistence | `server/db.js` + `server/migrations/*.sql` | SQLite connection, idempotent migrations on boot | filesystem (`data/familieassistenten.db`) |
 | LLM | `server/llm.js` + `server/llm/*.js` | per-family backend adapter; RAG context build with `sanitizeForPrompt` | external HTTP |
-| Frontend | `client/src/app/` | Vite + React + TS UI at `/` (`/login`, `/dashboard`) | `/api/*` |
+| Frontend | `client/src/app/` | Vite + React + TS UI at `/` (`/login`, `/dashboard`, `/recipes`, `/calendar`) | `/api/*` |
 | Static extras | `public/setup.html`, legal pages | Portainer first-boot wizard + privacy/terms | — |
 | Observability | `server/observability/sentry.js` + `server/logger.js` | pino logging with redact-paths, optional Sentry | external HTTP (Sentry) |
 
@@ -99,6 +108,16 @@ returns zero rows for the wrong family instead of leaking one
 family's data to another. Cross-tenant isolation is verified end-to-end
 in `tests/tenant-isolation.test.js` and
 `tests/multi-tenant-isolation.test.js`.
+
+GET handlers wrapped in `withCache(tags, handler)`
+(`server/http/cache.js`) store the JSON body in an in-process LRU.
+The key is `familyId + pathname + sorted query`
+(`f{id}:/api/calendar/events?from=…`, or `anon` when `familyId` is
+not a positive integer). Path + query alone leaked calendar and
+other lists across families on the same process. Writes call
+`invalidate(...)` on the same tags (`calendar`, `today`, `meals`,
+`shopping`, `chores`, …) so a mutation drops every family's cached
+entries for that tag; the next GET rebuilds a family-scoped key.
 
 ## Deploy topology
 
