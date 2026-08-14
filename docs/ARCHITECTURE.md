@@ -7,10 +7,11 @@
 
 ## TL;DR
 
-FamilyAssistant is a single-binary Node.js backend (`node:http`, no
-framework) backed by SQLite, paired with two frontends served from
-the same process: a legacy plain-HTML UI under `/` (now redirects to
-v2) and a Vite + React + TypeScript UI under `/v2/*`. The intended
+FamilyAssistant is a single-process Node.js backend (`node:http`, no
+framework) backed by SQLite, with one Vite + React + TypeScript UI
+served at the site root (`/login`, `/dashboard`, `/invite/:token`).
+The build output lives in `public/v2/`; that folder name is not a
+URL. Legacy `/v2/*` paths 301 to the unprefixed route. The intended
 deploy story is `Docker → Portainer → Raspberry Pi 5 → Cloudflare
 Tunnel`. Multi-tenancy is enforced by an `AsyncLocalStorage`-scoped
 `familyId` that every repository read/write filters on.
@@ -47,7 +48,7 @@ Tunnel`. Multi-tenancy is enforced by an `AsyncLocalStorage`-scoped
        │                     │                     │
  ┌─────▼──────┐       ┌──────▼──────┐       ┌──────▼──────┐
  │ services/  │       │  llm.js     │       │ static      │
- │ (22 files) │       │  per-family │       │ /v2/, /,    │
+ │ (22 files) │       │  per-family │       │ / + assets  │
  │ business   │       │  backend    │       │ privacy.html│
  │ rules      │       │  selection  │       │             │
  └─────┬──────┘       └──────┬──────┘       └─────────────┘

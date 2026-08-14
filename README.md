@@ -1,189 +1,130 @@
 # FamilyAssistant
 
-Self-hosted household assistant for initially Norwegian families — plans the weekly
-menu, shopping list, pantry inventory, and chore rotation. Designed to run
-on a Raspberry Pi 5 (or any Docker host) behind Cloudflare Tunnel; the
-deploy story is `Docker → Portainer → RPi5 → Cloudflare Tunnel`.
+Self-hosted household assistant for meals, shopping, pantry and chores. One app for the family, running on your own hardware — typically a Raspberry Pi 5 behind Portainer and Cloudflare Tunnel.
 
-The UI is Norwegian and English; the codebase is English.
+The UI is Norwegian and English. This repository is documented in English.
+
+<p align="center">
+  <img src="docs/screenshots/01-dashboard.png" alt="FamilyAssistant dashboard — today&rsquo;s meals, chores and shopping list" width="920" />
+</p>
+
+## Why it exists
+
+FamilyAssistant keeps dinner planning, the shopping list, what is already in the cupboard, and weekly chores in one place. It is built to stay on a machine you control: SQLite on disk, no required cloud account, optional AI when you want it.
+
+Typical deploy: **Docker → Portainer → Raspberry Pi (or any host) → optional Cloudflare Tunnel**.
 
 ## Features
 
 - **Weekly menu** with per-member portion scaling
-- **Pantry inventory** wired to the shopping list — knows what's already
-  in the house
-- **Shopping list** auto-generated when the week is complete
-- **Chores** with schedules and completion log
-- **Recipe import** from URLs, with AI parsing
-- **Two-layer allergy filter** (LLM context + deterministic post-filter)
-- **Receipt OCR** against the Kassal catalogue
-- **AI chat** grounded in the family's pantry and menu history
-- **Multi-tenant**: each family has its own data, role-based access
-  (`owner` / `adult` / `child`), optional Google OAuth or magic-link sign-in
-- **Per-family LLM**: choose Anthropic, OpenAI, xAI, or Ollama — each
-  family brings its own API key (AES-256-GCM encrypted at rest)
-- **PWA**: installable on mobile, works offline for reads
-- **GDPR**: data export, soft-delete with 30-day grace, cascade-delete on
-  family removal
+- **Shopping list** generated from the week plan, aware of what is already at home
+- **Pantry** with shelf-life tracking and “mark as used”
+- **Chores** with schedules and a completion log
+- **Recipe import** from URLs (optional LLM parsing)
+- **Allergy and diet filters** (model context plus a deterministic post-filter)
+- **Username/password sign-in**, with optional email verification later; magic-link and Google OAuth remain available
+- **Multi-tenant families** with `owner` / `adult` / `child` roles
+- **Per-family LLM** — Anthropic, OpenAI, xAI, or Ollama; keys encrypted at rest (AES-256-GCM)
+- **PWA** — installable on the phone, offline reads for core lists
+- **GDPR** — export, 30-day soft-delete, cascade-delete when a family is removed
+- **White-label** — same image, different name and colours via environment variables
 
 ## Screenshots
 
-Screenshots from the live pilot deploy. Drop PNG files in
-`docs/screenshots/` matching the names below and GitHub renders them
-inline.
+Welcome and sign-in (English). Meals, shopping and pantry below are from a live install (Norwegian UI — switch language in the header).
 
-| Screen | Path | Purpose |
-|---|---|---|
-| Dashboard | `docs/screenshots/01-dashboard.png` | First screen after sign-in — week-at-a-glance + chore status |
-| Meals / weekplan | `docs/screenshots/02-meals-weekplan.png` | Day-by-day planner with per-member portion scaling |
-| Shopping list | `docs/screenshots/03-shopping-list.png` | Auto-generated list with pantry-aware filtering |
-| Pantry inventory | `docs/screenshots/04-pantry.png` | What's already in the house, shelf-life learner |
+<p align="center">
+  <img src="docs/screenshots/00-welcome.png" alt="Welcome screen" width="360" />
+  &nbsp;
+  <img src="docs/screenshots/05-login.png" alt="Sign-in screen" width="360" />
+</p>
 
-See [`docs/screenshots/README.md`](docs/screenshots/README.md) for
-image-size and capture conventions.
+![Weekly meal plan](docs/screenshots/02-meals-weekplan.png)
 
-## Quickstart
+![Shopping list generated from the week](docs/screenshots/03-shopping-list.png)
 
-Two flavours of the same codebase, both targeting the RPi5/Docker
-deploy story.
+![Pantry inventory](docs/screenshots/04-pantry.png)
 
-### 1) Raspberry Pi 5 (bare-metal, single-family)
+Capture notes live in [`docs/screenshots/README.md`](docs/screenshots/README.md).
 
-One family, `AUTH_TOKEN` instead of user sign-in, optional Google OAuth
-for remote access. See [`DEPLOY.md` §1–14](DEPLOY.md) for the full
-walkthrough.
+## Quick start
+
+### Docker / Portainer (recommended)
 
 ```bash
-git clone <repo>
+# Portainer → Stacks → Add stack
+# Repository: https://github.com/ChristerFrestad/FamilyAssistant
+# Compose path: docker-compose.yml
+# Reference:   refs/heads/main
+```
+
+Then open `http://<host>:7777/`. On a brand-new volume the setup wizard at `/setup.html` creates secrets for you. After that, create a username and finish the family profile.
+
+Image: `ghcr.io/christerfrestad/familyassistant:main` (linux/amd64 + linux/arm64).
+
+LAN access is plain HTTP on port **7777**. Leave `HTTPS_TERMINATED` unset/`false` unless a reverse proxy terminates TLS and sends `X-Forwarded-Proto: https` (Cloudflare Tunnel does). Forcing `HTTPS_TERMINATED=true` on raw HTTP drops the session cookie and sign-in appears to work until the next request.
+
+### Local development
+
+```bash
+git clone https://github.com/ChristerFrestad/FamilyAssistant.git
 cd FamilyAssistant
-cp .env.example .env      # set AUTH_TOKEN + ALLOWED_ORIGINS
-chmod 600 .env
-npm ci --omit=dev
+npm ci
+
+# Terminal 1 — API on :7777
 npm start
+
+# Terminal 2 — Vite on :7778, /api proxied to the backend
+npm run dev:client
 ```
 
-### 2) Docker via Portainer (zero-config, recommended)
+Open [http://localhost:7778/](http://localhost:7778/). Production-style: `npm run build:client && npm start` and open [http://localhost:7777/](http://localhost:7777/).
 
-Same RPi5 (or any Docker host), but Portainer pulls the multi-arch
-image from `ghcr.io/christerfrestad/familyassistant:main` and a
-first-boot wizard at `/setup.html` generates the `AUTH_TOKEN` for
-you. No SSH, no manual `npm install`. See [`DEPLOY.md` §16](DEPLOY.md)
-for the click-by-click recipe.
+The app lives at the site root (`/login`, `/dashboard`, `/invite/:token`). Older `/v2/...` bookmarks 301 to the same path without the prefix.
 
-```bash
-# In Portainer → Stacks → + Add stack:
-#   1. Paste docker-compose.yml from this repo
-#   2. Deploy the stack
-#   3. Open http://<host>:7777/setup.html and finish setup
-```
+## How the repo is organised
 
-A multi-tenant cloud deploy (Google OAuth + magic-link across
-families) is on the roadmap but not currently shipped. The auth
-code lives in `server/auth/` and is exercised in tests; the deploy
-recipe will return when the pilot has stabilised.
-
-## Documentation
-
-| File | Purpose |
+| Path | Role |
 |---|---|
-| [`DEPLOY.md`](DEPLOY.md) | Deploy on RPi5 (bare-metal or Docker/Portainer) |
-| [`RUNBOOK.md`](RUNBOOK.md) | Operations, on-call, backup/restore |
-| [`SECURITY.md`](SECURITY.md) | Threat model, vulnerability reporting |
-| [`CI.md`](CI.md) | CI gates, test/lint/coverage commands |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution flow, coding style |
-| [`CHANGELOG.md`](CHANGELOG.md) | Release history |
-| [`docs/DB_INDEXES.md`](docs/DB_INDEXES.md) | SQLite indexes and query plans |
-| [`docs/frontend/v2-strategy.md`](docs/frontend/v2-strategy.md) | New frontend (Vite + React) under `/v2/*` |
+| `server/` | Node `http` API, auth, SQLite, cron, LLM adapters |
+| `client/` | Vite + React + TypeScript UI |
+| `public/` | Legal pages, setup wizard, built UI (`public/v2/` is the **build folder**, not a URL) |
+| `tests/` | Node test runner coverage for the server |
+| `docs/` | Architecture, operations, screenshot kit |
+| `docker-compose.yml` | Zero-config Portainer stack |
 
 ## Stack
 
-- **Node.js ≥ 20**, no framework — `node:http` with a hand-rolled router
-- **SQLite** via `better-sqlite3` (synchronous, fastest on an RPi5)
-- **Validation**: Zod
-- **Logging**: pino
-- **Frontend**: Vite + React 18 + TypeScript + Tailwind v3 + React
-  Router at the site root (`/login`, `/dashboard`). See
-  [`docs/frontend/v2-strategy.md`](docs/frontend/v2-strategy.md).
-- **LLM abstraction**: per-family backend — Anthropic, OpenAI, xAI,
-  Ollama, or a local llama.cpp server
+- Node.js 20–22, no web framework — `node:http` + a small router
+- SQLite via `better-sqlite3` (optional `sql.js` fallback)
+- Zod, pino, Vite, React 19, TypeScript, Tailwind
+- Auth: session cookie (`fa_session`, HttpOnly, SameSite=Lax; `Secure` only on HTTPS)
+- CI: lint, format, typecheck, tests, coverage gate, npm audit, SBOM, OSV
 
-### Frontend v2 dev quickstart
+## Documentation
 
-```bash
-# Install frontend devDeps (already in root package.json)
-npm install
+| Doc | What it covers |
+|---|---|
+| [`DEPLOY.md`](DEPLOY.md) | Raspberry Pi and Portainer deploy |
+| [`RUNBOOK.md`](RUNBOOK.md) | Day-2 operations, backup, recovery |
+| [`SECURITY.md`](SECURITY.md) | Threat model and how to report vulnerabilities |
+| [`CI.md`](CI.md) | Local and GitHub Actions gates |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Issues, branches, review |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the process is put together |
+| [`docs/BRAND_SYSTEM.md`](docs/BRAND_SYSTEM.md) | White-label tokens |
 
-# Terminal 1 — backend on :7777
-npm start
+## Production checklist
 
-# Terminal 2 — Vite dev-server on :7778 with /api proxied to :7777
-npm run dev:client
+Docker zero-config creates `AUTH_TOKEN` and `SESSION_SECRET` on first boot. If you run bare-metal with `NODE_ENV=production`:
 
-# Open http://localhost:7778/  — hot reload works end-to-end
-```
-
-(Vite port `7778` (not the default `5173`) sits right next to the
-backend on `7777`. Agent-instruction conventions live in `AGENTS.md`;
-operator-specific overrides (port mappings, hook configs) live in a
-gitignored `CHRISTER.md`-style file per operator.)
-
-Prod-style build:
-```bash
-npm run build:client         # emits to public/v2/ (gitignored)
-npm start                    # serve via Express
-# Open http://localhost:7777/
-```
-
-## Branding (white-label)
-
-FamilyAssistant ships a runtime brand-system so the same Docker
-image can serve any white-label brand without rebuilding.
-
-- **Default:** the app calls itself `FamilyAssistant` across the
-  header, login screen, emails, favicon, and PWA manifest.
-- **Override:** set eight env-vars in your Portainer stack — the
-  app fetches them via `GET /api/config` at startup and re-skins
-  itself accordingly. No code changes, no rebuild, no per-brand
-  Docker image.
-
-  ```
-  APP_NAME=Familyassistant
-  APP_NAME_PRIMARY=Family
-  APP_NAME_ACCENT=Assistant
-  APP_FAVICON_LETTER=F
-  APP_TAGLINE=Plan dinners, pantry and chores
-  RESEND_FROM=Familyassistant <noreply@domain.com>
-  ```
-
-  Cross-validation runs at boot — mismatches between `APP_NAME` and
-  `APP_NAME_PRIMARY+APP_NAME_ACCENT`, between `APP_FAVICON_LETTER`
-  and the first letter of the primary segment, or between
-  `RESEND_FROM` display-name and `APP_NAME` log warnings without
-  preventing startup.
-
-See [`docs/operations/PORTAINER_BRANDING_SETUP.md`](docs/operations/PORTAINER_BRANDING_SETUP.md)
-for the full env-var table, deploy verification checklist, and
-new-brand-instance checklist. Design rules and token tables are
-documented in [`docs/BRAND_SYSTEM.md`](docs/BRAND_SYSTEM.md).
-
-## Production requirements
-
-`NODE_ENV=production` requires at minimum:
-
-1. `AUTH_TOKEN` (≥ 16, ideally 32+ characters) — generate with
-   `openssl rand -hex 32`
-2. `ALLOWED_ORIGINS` — comma-separated allowlist, `*` is rejected
-3. HTTPS (Caddy on RPi5 — or terminated upstream by a reverse proxy
-   such as Cloudflare Tunnel) and `HTTPS_TERMINATED=true`
-4. For the multi-tenant path: `SESSION_SECRET`, `ENCRYPTION_KEY`,
-   `APP_URL`
-
-The server refuses to start if 1 or 2 are missing.
+1. `AUTH_TOKEN` — at least 16 characters (`openssl rand -hex 32`)
+2. `ALLOWED_ORIGINS` — explicit origins; `*` is rejected in production
+3. HTTPS in front of the process **or** LAN HTTP without `HTTPS_TERMINATED=true`
+4. For email / OAuth: `SESSION_SECRET`, `APP_URL`, and provider keys as needed
 
 ## License
 
 MIT — see [`LICENSE`](LICENSE). © Christer Frestad.
 
-## Security reports
-
-See [`SECURITY.md`](SECURITY.md) for responsible disclosure.
+Security reports: [`SECURITY.md`](SECURITY.md), not a public issue.

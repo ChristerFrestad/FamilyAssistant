@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FamilyAssistant capture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --brand-primary: #1f3f26;
+        --brand-accent: #5f8b5c;
+        --mint: #2a7a52;
+        --mint-deep: #1f5d3e;
+        --canvas: #f7f3e8;
+        --surface: #fffdf8;
+        --stroke: rgba(20, 16, 10, 0.08);
+        --text-1: #2a241c;
+        --text-2: #5c554b;
+        --text-3: #8a8276;
+        --ink: #1a1a16;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #ddd8cc;
+      }
+      body {
+        font-family: 'DM Sans', sans-serif;
+        color: var(--text-1);
+      }
+      .serif {
+        font-family: 'Instrument Serif', Georgia, serif;
+      }
+      .screen {
+        display: none;
+        background: var(--canvas);
+        overflow: hidden;
+      }
+      .screen.on {
+        display: block;
+      }
+      /* Welcome 900x1100 */
+      #welcome {
+        width: 900px;
+        height: 1100px;
+      }
+      #login {
+        width: 900px;
+        height: 1100px;
+      }
+      #dashboard {
+        width: 1440px;
+        height: 900px;
+      }
+      .center-col {
+        max-width: 420px;
+        margin: 0 auto;
+        padding: 96px 32px 0;
+        text-align: center;
+      }
+      h1 {
+        font-size: 44px;
+        line-height: 1.15;
+        font-weight: 400;
+        margin: 0 0 16px;
+      }
+      .lede {
+        color: var(--text-2);
+        font-size: 17px;
+        line-height: 1.5;
+        margin: 0 0 32px;
+      }
+      .btn {
+        display: block;
+        width: 100%;
+        border: 0;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font: 500 16px/1.2 'DM Sans', sans-serif;
+        cursor: default;
+      }
+      .btn-primary {
+        background: var(--mint);
+        color: #fff;
+        margin-bottom: 10px;
+      }
+      .btn-ghost {
+        background: #fff;
+        color: var(--text-1);
+        box-shadow: inset 0 0 0 1px var(--stroke);
+      }
+      .wordmark {
+        font-size: 15px;
+        letter-spacing: 0.01em;
+        margin-bottom: 48px;
+      }
+      .wordmark b {
+        color: var(--brand-primary);
+        font-weight: 600;
+      }
+      .wordmark span {
+        color: var(--brand-accent);
+        font-weight: 500;
+      }
+      label {
+        display: block;
+        text-align: left;
+        font-size: 13px;
+        color: var(--text-2);
+        margin: 0 0 6px;
+      }
+      input {
+        width: 100%;
+        border: 1px solid var(--stroke);
+        background: #fff;
+        border-radius: 10px;
+        padding: 12px 14px;
+        font: 400 15px/1.3 'DM Sans', sans-serif;
+        margin-bottom: 16px;
+        color: var(--text-1);
+      }
+      .switch {
+        margin-top: 20px;
+        font-size: 14px;
+        color: var(--text-2);
+      }
+      .switch a {
+        color: var(--mint-deep);
+        text-decoration: none;
+      }
+      /* App shell */
+      .app {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        grid-template-rows: 56px 1fr;
+        height: 900px;
+      }
+      header.top {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        background: rgba(255, 253, 248, 0.9);
+        border-bottom: 1px solid var(--stroke);
+      }
+      aside {
+        padding: 16px 12px;
+        border-right: 1px solid var(--stroke);
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 14.5px;
+        color: var(--text-2);
+        margin-bottom: 4px;
+      }
+      .nav-item.active {
+        background: var(--ink);
+        color: #fff;
+      }
+      main {
+        padding: 28px 36px;
+        overflow: hidden;
+      }
+      .eyebrow {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-3);
+        margin: 0 0 6px;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 20px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--stroke);
+        border-radius: 16px;
+        padding: 18px 18px 16px;
+        min-height: 148px;
+      }
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .card p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 14.5px;
+        line-height: 1.45;
+      }
+      .meta {
+        color: var(--text-3);
+        font-size: 13px;
+        margin-top: 6px;
+      }
+      .pills {
+        display: flex;
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .pill {
+        background: #fff;
+        border: 1px solid var(--stroke);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 13.5px;
+      }
+      .chip {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+        color: var(--text-2);
+      }
+      .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--brand-primary);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .seg {
+        display: flex;
+        gap: 4px;
+        background: #efeae0;
+        padding: 3px;
+        border-radius: 999px;
+        font-size: 12px;
+      }
+      .seg i {
+        font-style: normal;
+        padding: 4px 10px;
+        border-radius: 999px;
+      }
+      .seg .on {
+        background: var(--ink);
+        color: #fff;
+      }
+      .lang {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+      }
+      .lang .on {
+        background: var(--mint);
+        color: #fff;
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <section id="welcome" class="screen">
+      <div class="center-col">
+        <div class="wordmark"><b>Family</b><span>Assistant</span></div>
+        <h1 class="serif">Welcome to FamilyAssistant</h1>
+        <p class="lede">
+          The family planner that takes care of dinner, the shopping list, chores and the calendar —
+          in one place.
+        </p>
+        <button class="btn btn-primary">Get started</button>
+        <button class="btn btn-ghost">I already have an account</button>
+      </div>
+    </section>
+
+    <section id="login" class="screen">
+      <div class="center-col">
+        <div class="wordmark"><b>Family</b><span>Assistant</span></div>
+        <h1 class="serif">Sign in</h1>
+        <p class="lede">Username and password. Start using the app right away — email can wait.</p>
+        <form>
+          <label>Username</label>
+          <input value="alex" readonly />
+          <label>Password</label>
+          <input type="password" value="password1" readonly />
+          <button class="btn btn-primary" type="button">Sign in</button>
+        </form>
+        <p class="switch"><a href="#">New here? Create an account</a></p>
+        <p class="switch"><a href="#">Sign in with email link instead</a></p>
+      </div>
+    </section>
+
+    <section id="dashboard" class="screen">
+      <div class="app">
+        <header class="top">
+          <div class="wordmark" style="margin: 0"><b>Family</b><span>Assistant</span></div>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <div class="seg"><i>System</i><i class="on">Light</i><i>Dark</i></div>
+            <div class="lang"><span class="on">EN</span> NO</div>
+            <div class="chip"><span class="avatar">A</span> Alex</div>
+          </div>
+        </header>
+        <aside>
+          <div class="nav-item active">⌂ &nbsp; Dashboard</div>
+          <div class="nav-item">☺ &nbsp; Family</div>
+          <div class="nav-item">🍴 &nbsp; Meals</div>
+          <div class="nav-item">🛒 &nbsp; Shopping</div>
+          <div class="nav-item">▦ &nbsp; Calendar</div>
+        </aside>
+        <main>
+          <p class="eyebrow">Today</p>
+          <h1 class="serif" style="font-size: 40px">Good evening, Alex</h1>
+          <p class="lede" style="margin-bottom: 0">Here’s what’s happening with your family today.</p>
+          <div class="cards">
+            <div class="card">
+              <h3>Today’s meals</h3>
+              <p>Mongolian beef with rice and wok vegetables</p>
+              <p class="meta">30 min</p>
+            </div>
+            <div class="card">
+              <h3>Today’s chores</h3>
+              <p>Empty dishwasher</p>
+              <p class="meta">Assigned to Alex</p>
+            </div>
+            <div class="card">
+              <h3>Shopping list</h3>
+              <p>12 items left</p>
+              <p class="meta">Auto-built from this week’s menu</p>
+            </div>
+            <div class="card">
+              <h3>Upcoming events</h3>
+              <p>No upcoming events</p>
+              <p class="meta">Keep the week visible in one place</p>
+            </div>
+          </div>
+          <div class="pills">
+            <span class="pill">Add meal</span>
+            <span class="pill">New chore</span>
+            <span class="pill">Add to shopping list</span>
+          </div>
+        </main>
+      </div>
+    </section>
+    <script>
+      const id = location.hash.replace('#', '') || 'welcome';
+      document.querySelectorAll('.screen').forEach((el) => el.classList.toggle('on', el.id === id));
+    </script>
+  </body>
+</html>

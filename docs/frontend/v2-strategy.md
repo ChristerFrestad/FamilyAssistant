@@ -1,5 +1,9 @@
 # Frontend v2 — strategy and route design
 
+**Status (2026-08-14):** The React app is the only UI. It is served at
+the site root (`/login`, `/dashboard`). `public/v2/` is the build
+folder only. `/v2/*` 301s to the same path without the prefix.
+
 **Status:** Phase 1a completed 2026-04-23. Updated after each subphase.
 
 **Relevant:** `design/2026-04-redesign/extracted/locked-decisions.md`
