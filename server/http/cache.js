@@ -106,12 +106,15 @@ function cacheKey(ctx) {
     .sort()
     .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(ctx.query[k])}`)
     .join('&');
-  return `${ctx.pathname}?${qs}`;
+  // Family-scope the key. Path+query alone lets family B HIT family A's
+  // GET /api/meals/current, /api/today, /api/calendar/events, etc.
+  const family = ctx.familyId != null ? `f${ctx.familyId}` : 'anon';
+  return `${family}:${ctx.pathname}?${qs}`;
 }
 
 /**
  * Wrapper som cacher JSON-responsen fra en GET-handler.
- * Uses pathname + sorted query as the key, and tags the entry with
+ * Uses familyId + pathname + sorted query as the key, and tags the entry with
  * de gitte tags slik at writes kan invalidere dem.
  *
  *   router.get('/api/today', withCache(['meals','chores'], handler));

@@ -6,6 +6,38 @@
 
 ---
 
+2026-08-14 – G0-1 to-familie passord-isolasjon (e2e)
+
+Oppgave: Bevis at to familier på samme SQLite-prosess ikke ser
+hverandres meals, shopping, chores, recipes, calendar, pantry
+eller GDPR-export — via ekte password-register + onboarding
+(ikke magic-link DB-scrape).
+
+- Reise: register A/B → fa_session → onboarding/complete → seed
+  distinct data → GET-isolasjon + cross-DELETE + uauth export 401.
+- Funnet og fikset: HTTP-response-cache nøklet kun path+query.
+  Family B fikk X-Cache HIT på A's /api/meals/current, /api/today
+  og /api/calendar/events. cacheKey inkluderer nå familyId.
+- Ikke fikset: GET /api/today og /api/chores/current slår opp
+  oppgave-etiketter i global seedChores (seed-id), ikke
+  familie-rader. Etter onboarding blir etiketter '?' — samme
+  seed-labels er OK; IDer er isolert. Cross-DELETE av kalender
+  returnerer 200 no-op (raden overlever).
+- Portainer-risiko: nei (test + 1-linje cache-nøkkel).
+
+Gjort:
+
+- Branch: feat/g0-1-two-family-e2e
+- Filer: tests/e2e-two-families-password.test.js,
+  scripts/e2e-two-families.js, server/http/cache.js, AGENT_LOG.md
+- Tester: node --test tests/e2e-two-families-password.test.js
+  → 11 pass / 0 fail. Gammel e2e-tenant-isolation.js urørt.
+- DOMAIN_MODEL.md: nei
+
+Status: waiting-for-operator (review/merge)
+
+---
+
 2026-08-07 – Password auth + progressive email verification
 
 Oppgave: Lav barrier-to-entry med brukernavn/passord parallelt med
