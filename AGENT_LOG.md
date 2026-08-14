@@ -6,6 +6,17 @@
 
 ---
 
+2026-08-14 – G5-1 SQLite busy_timeout + one retry
+
+Task: PRAGMA busy_timeout=5000 + withBusyRetry once on SQLITE_BUSY.
+
+- Branch: feat/g5-1-sqlite-busy-retry
+- Tests: sqlite-busy-retry 2/2
+
+Status: merged into feat/g1-integrate
+
+---
+
 2026-08-14 – G2-1 weekly chore cron loops all families
 
 Task: weeklyChoresJob seeded only family 1 because choreSchedules
@@ -35,7 +46,7 @@ unchanged (still no cross-tenant writes).
 
 Status: waiting-for-operator (fix/ branch — DEL 5.3, no push)
 
-Next: operator review / merge into feat/g1-integrate.
+Status: merged into feat/g1-integrate
 
 ---
 
