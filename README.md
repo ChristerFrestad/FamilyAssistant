@@ -31,7 +31,7 @@ Typical deploy: **Docker → Portainer → Raspberry Pi (or any host) → option
 
 ## Screenshots
 
-Welcome and sign-in (English). Meals, shopping and pantry below are from a live install (Norwegian UI — switch language in the header).
+All screens below use the English UI (switch to Norwegian in the header).
 
 <p align="center">
   <img src="docs/screenshots/00-welcome.png" alt="Welcome screen" width="360" />

@@ -6,12 +6,12 @@ Used by the root `README.md`. Keep file names stable so GitHub image URLs do not
 |---|---|
 | `00-welcome.png` | Welcome / first run |
 | `01-dashboard.png` | Signed-in home (English, light theme) |
-| `02-meals-weekplan.png` | Live meal planner (Norwegian UI) |
-| `03-shopping-list.png` | Live shopping list |
-| `04-pantry.png` | Live pantry inventory |
+| `02-meals-weekplan.png` | Weekly meal plan |
+| `03-shopping-list.png` | Shopping list |
+| `04-pantry.png` | Pantry inventory |
 | `05-login.png` | Username/password sign-in |
 
-`00`, `01` and `05` are captured from `_capture.html` (layout matched to the real tokens). `02`–`04` are from a live install.
+All six README shots are captured from `_capture.html` in English, using the same cream / mint / Instrument Serif look as the app.
 
 ## Capture
 

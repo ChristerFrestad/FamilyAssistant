@@ -55,7 +55,10 @@
         width: 900px;
         height: 1100px;
       }
-      #dashboard {
+      #dashboard,
+      #meals,
+      #shopping,
+      #pantry {
         width: 1440px;
         height: 900px;
       }
@@ -269,6 +272,129 @@
         padding: 3px 8px;
         font-weight: 600;
       }
+      .days {
+        display: flex;
+        gap: 8px;
+        margin: 16px 0 18px;
+      }
+      .day {
+        flex: 1;
+        background: #fff;
+        border: 1px solid var(--stroke);
+        border-radius: 12px;
+        padding: 10px 0 8px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+      .day small {
+        display: block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--mint);
+        margin: 6px auto 0;
+      }
+      .day.today {
+        border-color: var(--mint);
+        box-shadow: 0 0 0 1px var(--mint);
+      }
+      .hero,
+      .panel {
+        background: #fff;
+        border: 1px solid var(--stroke);
+        border-radius: 16px;
+        padding: 16px 18px;
+        margin-bottom: 12px;
+      }
+      .badge {
+        display: inline-block;
+        background: var(--mint);
+        color: #fff;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        margin-right: 6px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 7px 0;
+        font-size: 14px;
+        border-top: 1px solid var(--stroke);
+      }
+      .row:first-child {
+        border-top: 0;
+      }
+      .muted {
+        color: var(--text-3);
+        font-size: 12.5px;
+      }
+      .toggle {
+        display: flex;
+        background: #efeae0;
+        border-radius: 999px;
+        padding: 3px;
+        margin-bottom: 18px;
+      }
+      .toggle span {
+        flex: 1;
+        text-align: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 13.5px;
+        color: var(--text-2);
+      }
+      .toggle .on {
+        background: var(--ink);
+        color: #fff;
+      }
+      .item {
+        display: grid;
+        grid-template-columns: 22px 1fr auto;
+        gap: 10px;
+        align-items: start;
+        padding: 10px 0;
+        border-top: 1px solid var(--stroke);
+        font-size: 14px;
+      }
+      .item:first-of-type {
+        border-top: 0;
+      }
+      .dot {
+        width: 16px;
+        height: 16px;
+        border: 1.5px solid #c8c2b6;
+        border-radius: 50%;
+        margin-top: 3px;
+      }
+      .ghost-btn {
+        border: 1px solid var(--stroke);
+        background: #fff;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        color: var(--text-2);
+      }
+      .week-row {
+        background: #fff;
+        border: 1px solid var(--stroke);
+        border-radius: 12px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .week-row.today {
+        border-color: var(--mint);
+      }
+      main.scroll {
+        overflow: hidden;
+      }
     </style>
   </head>
   <body>
@@ -349,6 +475,160 @@
             <span class="pill">Add meal</span>
             <span class="pill">New chore</span>
             <span class="pill">Add to shopping list</span>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <section id="meals" class="screen">
+      <div class="app">
+        <header class="top">
+          <div class="wordmark" style="margin: 0"><b>Family</b><span>Assistant</span></div>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <div class="seg"><i>System</i><i class="on">Light</i><i>Dark</i></div>
+            <div class="lang"><span class="on">EN</span> NO</div>
+            <div class="chip"><span class="avatar">A</span> Alex</div>
+          </div>
+        </header>
+        <aside>
+          <div class="nav-item">⌂ &nbsp; Dashboard</div>
+          <div class="nav-item">☺ &nbsp; Family</div>
+          <div class="nav-item active">🍴 &nbsp; Meals</div>
+          <div class="nav-item">🛒 &nbsp; Shopping</div>
+          <div class="nav-item">▦ &nbsp; Calendar</div>
+        </aside>
+        <main class="scroll">
+          <p class="eyebrow">Week menu</p>
+          <h1 class="serif" style="font-size: 38px; margin-bottom: 4px">Meals</h1>
+          <p class="muted" style="margin: 0 0 4px">Week 2026-W33</p>
+          <div class="days">
+            <div class="day">MON<small></small></div>
+            <div class="day">TUE<small></small></div>
+            <div class="day">WED<small></small></div>
+            <div class="day today">THU<div class="muted" style="margin-top: 4px">Today</div></div>
+            <div class="day">FRI<small></small></div>
+            <div class="day">SAT<small></small></div>
+            <div class="day">SUN<small></small></div>
+          </div>
+          <div class="hero">
+            <p class="eyebrow">Today · Thursday</p>
+            <p style="margin: 0 0 8px"><span class="badge">Quick</span> <span class="muted">30 min</span></p>
+            <p style="margin: 0 0 12px; font-size: 16px">Mongolian beef with rice and wok vegetables</p>
+            <div class="pills" style="margin: 0">
+              <span class="pill" style="background: var(--mint); color: #fff; border: 0">Mark cooked</span>
+              <span class="pill">Swap meal</span>
+              <span class="pill">Open source</span>
+            </div>
+          </div>
+          <div class="panel">
+            <div style="display: flex; justify-content: space-between">
+              <h3 style="margin: 0 0 8px">Ingredients</h3>
+              <span class="muted">Scaled to 1.2 servings (from 2 in original)</span>
+            </div>
+            <div class="row"><span>Beef strips</span><span>240 g</span></div>
+            <div class="row"><span>Spring onion</span><span>90 g</span></div>
+            <div class="row"><span>Soy sauce</span><span>1.8 tbsp</span></div>
+            <div class="row"><span>Brown sugar</span><span>1.2 tbsp</span></div>
+            <div class="row"><span>Ginger</span><span>0.6 tbsp</span></div>
+            <div class="row"><span>Garlic</span><span>1.2 clove</span></div>
+            <div class="row"><span>Rice</span><span>180 g</span></div>
+          </div>
+          <p style="font-weight: 600; margin: 14px 0 8px">Whole week</p>
+          <div class="week-row"><div><span class="muted">MONDAY</span><br />Chicken red curry with jasmine rice</div><span class="muted">25 min</span></div>
+          <div class="week-row"><div><span class="muted">TUESDAY</span><br />Salmon in the air fryer with potato wedges</div><span class="muted">20 min</span></div>
+          <div class="week-row today"><div><span class="muted">THURSDAY</span> <span class="badge">Today</span><br />Mongolian beef with rice and wok vegetables</div><span class="muted">30 min</span></div>
+        </main>
+      </div>
+    </section>
+
+    <section id="shopping" class="screen">
+      <div class="app">
+        <header class="top">
+          <div class="wordmark" style="margin: 0"><b>Family</b><span>Assistant</span></div>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <div class="seg"><i>System</i><i class="on">Light</i><i>Dark</i></div>
+            <div class="lang"><span class="on">EN</span> NO</div>
+            <div class="chip"><span class="avatar">A</span> Alex</div>
+          </div>
+        </header>
+        <aside>
+          <div class="nav-item">⌂ &nbsp; Dashboard</div>
+          <div class="nav-item">☺ &nbsp; Family</div>
+          <div class="nav-item">🍴 &nbsp; Meals</div>
+          <div class="nav-item active">🛒 &nbsp; Shopping</div>
+          <div class="nav-item">▦ &nbsp; Calendar</div>
+        </aside>
+        <main class="scroll">
+          <div class="toggle">
+            <span class="on">Shopping list</span>
+            <span>What do we have at home?</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-end">
+            <div>
+              <h1 class="serif" style="font-size: 38px; margin: 0 0 6px">Shopping list</h1>
+              <p class="muted" style="margin: 0">0 of 18 picked · 18 remaining · 742 kr</p>
+            </div>
+            <span class="pill">Generate from this week's meals</span>
+          </div>
+          <div class="panel" style="margin-top: 16px">
+            <p style="margin: 0 0 8px; font-weight: 600">Meat &amp; fish <span class="muted">7 remaining</span></p>
+            <div class="item"><span class="dot"></span><div>Chicken fillet<br /><span class="muted">1 pack (500 g) · For Chicken red curry with jasmine rice<br />You need 240 g</span></div><span>89 kr</span></div>
+            <div class="item"><span class="dot"></span><div>Salmon fillet<br /><span class="muted">1 pack (400 g) · For Salmon in the air fryer<br />You need 240 g</span></div><span>159 kr</span></div>
+            <div class="item"><span class="dot"></span><div>Frozen scampi<br /><span class="muted">1 pack (300 g) · For Pasta with scampi, garlic and chilli<br />You need 180 g</span></div><span>99 kr</span></div>
+            <div class="item"><span class="dot"></span><div>Beef strips<br /><span class="muted">1 pack (400 g) · For Mongolian beef<br />You need 240 g</span></div><span>129 kr</span></div>
+          </div>
+          <div class="panel">
+            <p style="margin: 0 0 8px; font-weight: 600">Dry goods &amp; other <span class="muted">5 remaining</span></p>
+            <div class="item"><span class="dot"></span><div>Red curry paste<br /><span class="muted">1 pack (400 g) · For Chicken red curry<br />You need 1.2 tbsp</span></div><span>39 kr</span></div>
+            <div class="item"><span class="dot"></span><div>Coconut milk<br /><span class="muted">1 can (400 ml) · For Chicken red curry<br />You need 240 ml</span></div><span>22 kr</span></div>
+            <div class="item"><span class="dot"></span><div>Jasmine rice<br /><span class="muted">1 pack (1 kg) · For 2 meals<br />You need 180 g</span></div><span>35 kr</span></div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 8px">
+            <input style="margin: 0" placeholder="What do you need?" />
+            <button class="btn btn-primary" style="width: auto; margin: 0; padding: 10px 18px" type="button">Add</button>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <section id="pantry" class="screen">
+      <div class="app">
+        <header class="top">
+          <div class="wordmark" style="margin: 0"><b>Family</b><span>Assistant</span></div>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <div class="seg"><i>System</i><i class="on">Light</i><i>Dark</i></div>
+            <div class="lang"><span class="on">EN</span> NO</div>
+            <div class="chip"><span class="avatar">A</span> Alex</div>
+          </div>
+        </header>
+        <aside>
+          <div class="nav-item">⌂ &nbsp; Dashboard</div>
+          <div class="nav-item">☺ &nbsp; Family</div>
+          <div class="nav-item">🍴 &nbsp; Meals</div>
+          <div class="nav-item active">🛒 &nbsp; Shopping</div>
+          <div class="nav-item">▦ &nbsp; Calendar</div>
+        </aside>
+        <main class="scroll">
+          <div class="toggle">
+            <span>Shopping list</span>
+            <span class="on">What do we have at home?</span>
+          </div>
+          <div class="panel">
+            <p style="margin: 0; font-weight: 600">22 items at home</p>
+            <p class="muted" style="margin: 4px 0 0">0 running low · 3 with date</p>
+          </div>
+          <div class="panel">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px">
+              <strong>Dry goods &amp; other</strong><span class="muted">16</span>
+            </div>
+            <div class="item"><span></span><div>Ajax all-purpose cleaner 1.5L<br /><span class="muted">1 bottle</span></div><span class="ghost-btn">Mark used</span></div>
+            <div class="item"><span></span><div>Hair conditioner 400ml<br /><span class="muted">1 bottle</span></div><span class="ghost-btn">Mark used</span></div>
+            <div class="item"><span></span><div>Basmati rice<br /><span class="muted">1000 g</span></div><span class="ghost-btn">Mark used</span></div>
+            <div class="item"><span></span><div>Brown sugar<br /><span class="muted">1000 g</span></div><span class="ghost-btn">Mark used</span></div>
+            <div class="item"><span></span><div>Deodorant<br /><span class="muted">2 pcs</span></div><span class="ghost-btn">Mark used</span></div>
+            <div class="item"><span></span><div>Shower soap 400ml<br /><span class="muted">1 bottle</span></div><span class="ghost-btn">Mark used</span></div>
+            <div class="item"><span></span><div>Coffee beans 500g<br /><span class="muted">1 bag</span></div><span class="ghost-btn">Mark used</span></div>
+            <div class="item"><span></span><div>Kitchen roll 4-pack<br /><span class="muted">4 rolls</span></div><span class="ghost-btn">Mark used</span></div>
           </div>
         </main>
       </div>
