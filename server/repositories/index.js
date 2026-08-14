@@ -16,6 +16,7 @@ const { createLlmConfigRepo } = require('./llm-config.repo');
 const { createFeedbackRepo } = require('./feedback.repo');
 const { createShelfObservationRepo } = require('./shelf-observation.repo');
 const { createPilotPasswordAttemptsRepo } = require('./pilot-password-attempts.repo');
+const { createCalendarRepos } = require('./calendar.repo');
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
@@ -39,7 +40,6 @@ function createRepositories(db) {
     createReceiptRepos(db);
   const {
     kb,
-    calendar,
     notifications,
     llmCache,
     llmAudit,
@@ -49,6 +49,7 @@ function createRepositories(db) {
     auditLog,
     hasFTS,
   } = createSystemRepos(db, tryParseJson);
+  const { calendar, calendarIntegrations } = createCalendarRepos(db);
   const auth = createAuthRepo(db);
   const family = createFamilyRepo(db);
   const llmConfig = createLlmConfigRepo(db);
@@ -74,6 +75,7 @@ function createRepositories(db) {
     consumables,
     kb,
     calendar,
+    calendarIntegrations,
     notifications,
     purchaseLog,
     mealHistory,

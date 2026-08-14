@@ -16,6 +16,8 @@ const { registerGdprRoutes } = require('./auth/gdpr-routes');
 const { registerFeedbackRoutes } = require('./http/feedback-routes');
 const { registerBootstrapRoutes } = require('./http/bootstrap');
 const { registerBrandingRoutes } = require('./http/branding');
+const { registerCalendarIntegrationRoutes } = require('./http/calendar-routes');
+const { expandRecurring } = require('./services/calendar/rrule-expand');
 const { config } = require('./config');
 const { requireRole, hasRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
@@ -262,6 +264,7 @@ function registerRoutes(router, { repos, serverState }) {
   // GDPR ENDPOINTS (phase 10 — export + soft-delete)
   // ============================================================
   registerGdprRoutes(router, { repos });
+  registerCalendarIntegrationRoutes(router, { repos });
 
   // ============================================================
   // FEEDBACK (phase 15 — in-app feedback + recipe thumbs)
@@ -2258,7 +2261,11 @@ function registerRoutes(router, { repos, serverState }) {
         });
 
       const todayStr = new Date().toISOString().slice(0, 10);
-      const events = repos.calendar.getEvents(todayStr, todayStr);
+      const events = expandRecurring(
+        repos.calendar.getEvents(todayStr, todayStr),
+        todayStr,
+        todayStr
+      );
 
       ctx.json({
         dayName: DAY_NAMES[dayOfWeek],
@@ -2707,7 +2714,8 @@ function registerRoutes(router, { repos, serverState }) {
     withCache(['calendar'], (ctx) => {
       const from = ctx.query.from || new Date().toISOString().slice(0, 10);
       const to = ctx.query.to || from;
-      ctx.json({ events: repos.calendar.getEvents(from, to) });
+      const events = expandRecurring(repos.calendar.getEvents(from, to), from, to);
+      ctx.json({ events });
     })
   );
 
@@ -2716,7 +2724,21 @@ function registerRoutes(router, { repos, serverState }) {
     requireRole('adult'),
     validateBody(schemas.calendarEventBody),
     (ctx) => {
-      const ev = repos.calendar.insert(ctx.body);
+      const createdByUserId = ctx.user && Number(ctx.user.id) > 0 ? ctx.user.id : null;
+      const ev = repos.calendar.insert({ ...ctx.body, createdByUserId });
+      invalidate('calendar', 'today');
+      ctx.json({ ok: true, event: ev });
+    }
+  );
+
+  router.patch(
+    '/api/calendar/events/:id',
+    requireRole('adult'),
+    validateBody(schemas.calendarEventPatchBody),
+    (ctx) => {
+      const evId = requirePositiveInt(ctx.params.id);
+      const ev = repos.calendar.update(evId, ctx.body);
+      if (!ev) throw errors.notFound('Calendar event not found');
       invalidate('calendar', 'today');
       ctx.json({ ok: true, event: ev });
     }
@@ -2732,8 +2754,9 @@ function registerRoutes(router, { repos, serverState }) {
         getEntityId: (ctx) => parseInt(ctx.params.id, 10),
       },
       (ctx) => {
-        const evId = parseInt(ctx.params.id, 10);
-        repos.calendar.delete(evId);
+        const evId = requirePositiveInt(ctx.params.id);
+        const changes = repos.calendar.delete(evId);
+        if (!changes) throw errors.notFound('Calendar event not found');
         invalidate('calendar', 'today');
         ctx.json({ ok: true });
       }

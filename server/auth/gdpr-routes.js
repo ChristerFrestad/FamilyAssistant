@@ -98,6 +98,7 @@ function buildFamilyExport(repos, familyId) {
   const chores = safe(() => repos.chores.getAll(), []);
   const consumables = safe(() => repos.consumables.getAll(), []);
   const calendarEvents = safe(() => repos.calendar.getEvents('2000-01-01', '2100-12-31'), []);
+  const calendarIntegrations = safe(() => repos.calendarIntegrations.listPublic(), []);
   const notifications = safe(() => repos.notifications.getUnread(), []);
   const receipts = safe(() => repos.receipts.list({ limit: 500 }), []);
 
@@ -134,6 +135,7 @@ function buildFamilyExport(repos, familyId) {
     chores,
     consumables,
     calendarEvents,
+    calendarIntegrations,
     notifications,
     receipts,
     mealPlans: plans,

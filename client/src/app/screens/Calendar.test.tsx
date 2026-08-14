@@ -80,6 +80,12 @@ function mockCalendarApi(options: {
   fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     const method = (init?.method ?? 'GET').toUpperCase();
+    if (
+      url.startsWith('/api/integrations/calendar') ||
+      url.startsWith('/api/integrations/google-calendar')
+    ) {
+      return Promise.resolve(jsonResponse(200, { integrations: [], googleConfigured: false }));
+    }
     if (!url.startsWith('/api/calendar/events')) {
       return Promise.reject(new Error(`Unmocked fetch: ${url}`));
     }
@@ -146,6 +152,24 @@ describe('Calendar — heading and empty state', () => {
       expect(screen.getByTestId('calendar-empty')).toBeInTheDocument();
     });
     expect(screen.getByText('Ingen hendelser denne perioden')).toBeInTheDocument();
+  });
+});
+
+describe('Calendar — source chip', () => {
+  test('shows a source chip when event.source is not local', async () => {
+    mockCalendarApi({
+      events: [
+        {
+          ...SAMPLE_EVENTS[0],
+          source: 'icloud',
+        },
+      ],
+    });
+    mountCalendar();
+    await waitFor(() => {
+      expect(screen.getByTestId('event-source-1')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('event-source-1')).toHaveTextContent('iCloud');
   });
 });
 

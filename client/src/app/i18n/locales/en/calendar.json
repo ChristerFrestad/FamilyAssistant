@@ -29,7 +29,26 @@
   },
   "actions": {
     "deleteEvent": "Delete {{title}}",
-    "confirmDelete": "Delete this event?"
+    "confirmDelete": "Delete this event?",
+    "disconnect": "Disconnect",
+    "connectIcloud": "Connect iCloud",
+    "connectGoogle": "Connect Google"
+  },
+  "source": {
+    "google": "Google",
+    "icloud": "iCloud"
+  },
+  "integrations": {
+    "title": "Calendar connections",
+    "subtitle": "Sync Google Calendar or iCloud with this family.",
+    "email": "iCloud email",
+    "appPassword": "App password",
+    "empty": "No calendars connected yet.",
+    "googleDisabled": "Google Calendar is not configured on this server.",
+    "connectedAs": "{{provider}} · {{email}}",
+    "lastError": "Last error: {{error}}",
+    "connectFailed": "Could not connect the calendar.",
+    "disconnectFailed": "Could not disconnect the calendar."
   },
   "placeholder": {
     "description": "Coming in Phase 2D — Google Calendar pass-through and shared family events."

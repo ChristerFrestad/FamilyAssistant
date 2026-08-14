@@ -206,6 +206,12 @@ const consumableBoughtBody = z.object({
 // Calendar
 // ============================================================
 
+const calendarAttendees = z
+  .array(
+    z.union([z.number().int().positive(), z.object({ memberId: z.number().int().positive() })])
+  )
+  .optional();
+
 const calendarEventBody = z.object({
   title: z.string().min(1).max(200),
   date: z
@@ -225,6 +231,49 @@ const calendarEventBody = z.object({
   location: z.string().max(200).optional().nullable(),
   allDay: z.boolean().optional(),
   notes: z.string().max(1000).optional().nullable(),
+  rrule: z.string().max(500).optional().nullable(),
+  kind: z.string().max(40).optional().nullable(),
+  hidden: z.boolean().optional(),
+  attendees: calendarAttendees,
+});
+
+const calendarEventPatchBody = z
+  .object({
+    title: z.string().min(1).max(200).optional(),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato (YYYY-MM-DD)')
+      .refine(isValidDate, { message: 'Datoen finnes ikke' })
+      .optional(),
+    startTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, 'Ugyldig tid (HH:MM)')
+      .optional()
+      .nullable(),
+    endTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, 'Ugyldig tid (HH:MM)')
+      .optional()
+      .nullable(),
+    location: z.string().max(200).optional().nullable(),
+    allDay: z.boolean().optional(),
+    notes: z.string().max(1000).optional().nullable(),
+    rrule: z.string().max(500).optional().nullable(),
+    kind: z.string().max(40).optional().nullable(),
+    hidden: z.boolean().optional(),
+    attendees: calendarAttendees,
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'Empty patch' });
+
+const icloudConnectBody = z.object({
+  email: z.string().email().max(200),
+  appPassword: z.string().min(1).max(200),
+  calendarExternalId: z.string().max(500).optional().nullable(),
+});
+
+const googleCalendarCallbackBody = z.object({
+  code: z.string().min(1).max(4000),
+  state: z.string().min(1).max(8000),
 });
 
 const calendarQuerySchema = z.object({
@@ -533,7 +582,10 @@ module.exports = {
   consumableUpdateBody,
   consumableBoughtBody,
   calendarEventBody,
+  calendarEventPatchBody,
   calendarQuerySchema,
+  icloudConnectBody,
+  googleCalendarCallbackBody,
   llmChatBody,
   llmRecipeBody,
   kbSearchQuery,

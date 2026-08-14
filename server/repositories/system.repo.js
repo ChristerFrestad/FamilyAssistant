@@ -87,48 +87,6 @@ function createSystemRepos(db, tryParseJson) {
     },
   };
 
-  const calendar = {
-    getEvents(from, to) {
-      const familyId = getFamilyId();
-      return db
-        .prepare(
-          `
-        SELECT id, title, date, start_time as startTime, end_time as endTime, location, all_day as allDay, notes, source
-        FROM calendar_events
-        WHERE family_id = ? AND date >= ? AND date <= ?
-        ORDER BY date, start_time
-      `
-        )
-        .all(familyId, from, to);
-    },
-    insert(ev) {
-      const familyId = getFamilyId();
-      const res = db
-        .prepare(
-          `
-        INSERT INTO calendar_events (family_id, title, date, start_time, end_time, location, all_day, notes, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `
-        )
-        .run(
-          familyId,
-          ev.title,
-          ev.date,
-          ev.startTime ?? null,
-          ev.endTime ?? null,
-          ev.location ?? null,
-          ev.allDay ? 1 : 0,
-          ev.notes ?? null,
-          ev.source ?? 'local'
-        );
-      return { id: res.lastInsertRowid, ...ev };
-    },
-    delete(id) {
-      const familyId = getFamilyId();
-      db.prepare('DELETE FROM calendar_events WHERE family_id = ? AND id = ?').run(familyId, id);
-    },
-  };
-
   const notifications = {
     insert(type, message, data = null) {
       const familyId = getFamilyId();
@@ -545,7 +503,6 @@ function createSystemRepos(db, tryParseJson) {
 
   return {
     kb,
-    calendar,
     notifications,
     llmCache,
     llmAudit,

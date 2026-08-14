@@ -6,6 +6,14 @@
 
 ---
 
+2026-08-14 – G3 calendar integrations (Google + iCloud)
+
+- Branch: feat/g3-calendar-sync
+- Migration 034, PATCH/DELETE 404, CalDAV+Google mocks, Settings/Calendar footer
+- Tests: calendar-sync + calendar-events 10/10
+- Status: merged into feat/g1-integrate
+
+---
 2026-08-14 â€“ G5-2 four-family parallel load
 
 Task: Load script that starts an embedded test server (or BASE_URL),

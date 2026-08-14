@@ -29,7 +29,26 @@
   },
   "actions": {
     "deleteEvent": "Slett {{title}}",
-    "confirmDelete": "Slette denne hendelsen?"
+    "confirmDelete": "Slette denne hendelsen?",
+    "disconnect": "Koble fra",
+    "connectIcloud": "Koble til iCloud",
+    "connectGoogle": "Koble til Google"
+  },
+  "source": {
+    "google": "Google",
+    "icloud": "iCloud"
+  },
+  "integrations": {
+    "title": "Kalenderkoblinger",
+    "subtitle": "Synkroniser Google Kalender eller iCloud med denne familien.",
+    "email": "iCloud-e-post",
+    "appPassword": "App-passord",
+    "empty": "Ingen kalendere er koblet til ennå.",
+    "googleDisabled": "Google Kalender er ikke konfigurert på denne serveren.",
+    "connectedAs": "{{provider}} · {{email}}",
+    "lastError": "Siste feil: {{error}}",
+    "connectFailed": "Kunne ikke koble til kalenderen.",
+    "disconnectFailed": "Kunne ikke koble fra kalenderen."
   },
   "placeholder": {
     "description": "Kommer i Fase 2D — Google-kalender pass-through + familie-events."

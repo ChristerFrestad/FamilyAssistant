@@ -34,6 +34,10 @@ export interface CalendarEvent {
   allDay?: boolean;
   notes?: string | null;
   source?: string | null;
+  rrule?: string | null;
+  kind?: string | null;
+  externalId?: string | null;
+  hidden?: boolean;
 }
 
 export interface CalendarRangeResponse {
