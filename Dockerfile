@@ -164,7 +164,13 @@ ENV BOOTSTRAP_ALLOWED=true
 ENV MAGIC_LINK_CONSOLE=false
 ENV PILOT_BYPASS=false
 ENV PILOT_MODE=false
-ENV HTTPS_TERMINATED=true
+# Must stay false. Portainer/LAN users hit http://<ip>:7777. A baked-in
+# HTTPS_TERMINATED=true marks fa_session Secure; browsers drop it on HTTP
+# so register succeeds and POST /api/auth/onboarding/complete 401s.
+# Cloudflare Tunnel still gets Secure cookies via X-Forwarded-Proto: https
+# (TRUST_PROXY=true). Operators behind Caddy without that header can set
+# HTTPS_TERMINATED=true themselves.
+ENV HTTPS_TERMINATED=false
 ENV TRUST_PROXY=true
 ENV ALLOWED_ORIGINS="*"
 

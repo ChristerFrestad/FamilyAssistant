@@ -14,6 +14,9 @@ function isSecureRequest(req) {
   // Prefer the Zod-validated config value. Also honour a live process.env
   // mutation so unit tests (and rare late-binding operator overrides) continue
   // to work without requiring a full process restart.
+  // Do NOT default HTTPS_TERMINATED=true in the Docker image: LAN
+  // http://<ip>:7777 then gets a Secure cookie the browser silently drops,
+  // and POST /api/auth/onboarding/complete 401s after a successful register.
   if (config.HTTPS_TERMINATED || process.env.HTTPS_TERMINATED === 'true') return true;
   if (req.headers['x-forwarded-proto'] === 'https') return true;
   return req.socket && req.socket.encrypted === true;

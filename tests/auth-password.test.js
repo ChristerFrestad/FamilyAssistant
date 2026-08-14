@@ -81,7 +81,13 @@ test('POST /api/auth/password/register creates session and returns user', async 
     assert.strictEqual(r.body.user.withinGrace, true);
     assert.ok(r.body.user.verificationDueAt);
     assert.ok(r.body.redirect.includes('/onboarding') || r.body.redirect.includes('/dashboard'));
-    assert.ok(r.headers['set-cookie'] || r.headers['Set-Cookie']);
+    const setCookie = r.headers['set-cookie'] || r.headers['Set-Cookie'];
+    assert.ok(setCookie);
+    // LAN/Portainer hit this endpoint over plain HTTP. Secure must not
+    // be set unless HTTPS_TERMINATED or X-Forwarded-Proto says so —
+    // otherwise the browser drops fa_session and onboarding 401s.
+    const cookieStr = Array.isArray(setCookie) ? setCookie.join('\n') : String(setCookie);
+    assert.doesNotMatch(cookieStr, /;\s*Secure/i);
 
     const me = await request(server.baseUrl, 'GET', '/api/auth/me', {
       headers: { Cookie: cookieHeader(r.headers['set-cookie'] || r.headers['Set-Cookie']) },

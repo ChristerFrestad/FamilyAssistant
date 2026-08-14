@@ -63,6 +63,7 @@ async function callApi(path: string, options: FetchOptions): Promise<Response> {
   const init: RequestInit = {
     method: options.method,
     credentials: 'include',
+    cache: 'no-store',
     headers: {
       Accept: 'application/json',
     },

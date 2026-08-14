@@ -33,6 +33,7 @@ import {
 } from '../../components/form/PortionFactorSlider';
 import { useAuthContext } from '../../auth/AuthContext';
 import { useOnboardingContext } from '../../auth/OnboardingContext';
+import { AuthApiError } from '../../auth/authApi';
 
 const ROLES: PortionRole[] = ['adult', 'teen', 'child'];
 
@@ -92,8 +93,12 @@ export function UserProfile(): JSX.Element {
       resetOnboarding();
       await refreshUser();
       navigate('/dashboard');
-    } catch {
-      setError(t('auth:onboarding.profile.errorGeneric'));
+    } catch (err) {
+      if (err instanceof AuthApiError && err.status === 401) {
+        setError(t('auth:onboarding.profile.errorSession'));
+      } else {
+        setError(t('auth:onboarding.profile.errorGeneric'));
+      }
     } finally {
       setSubmitting(false);
     }

@@ -337,4 +337,27 @@ describe('UserProfile', () => {
     expect(body.user.category).toBe('adult');
     expect(typeof body.user.portionFactor).toBe('number');
   });
+
+  test('401 from onboarding/complete shows the session-lost message', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(401, {
+        title: 'Unauthorized',
+        detail: 'Authentication required.',
+        status: 401,
+      })
+    );
+
+    renderScreen(<UserProfile />, {
+      user: TEST_USER,
+      onboarding: { family: { name: 'Frestad' } },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Navnet ditt' }), {
+      target: { value: 'Christer' },
+    });
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('textbox', { name: 'Navnet ditt' }).closest('form')!);
+    });
+
+    expect(screen.getByText(/Sesjonen ble ikke lagret/)).toBeInTheDocument();
+  });
 });
