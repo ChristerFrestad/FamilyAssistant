@@ -116,6 +116,14 @@ The app lives at the site root (`/`, `/login`, `/dashboard`, `/recipes`, `/calen
 - Auth: session cookie (`fa_session`, HttpOnly, SameSite=Lax; `Secure` only on HTTPS)
 - CI: lint, format, typecheck, tests, coverage gate, npm audit, SBOM, OSV
 
+One Raspberry Pi is enough for tens of families: one SQLite process,
+`busy_timeout=5000`, and a single retry on `SQLITE_BUSY`. The gate is
+`scripts/load-four-families.js` — four families, 20 parallel mixed
+writes each; any 5xx or `SQLITE_BUSY` exits 1. CI embeds the test
+server (`node --test tests/load-four-families.test.js`); against a
+live Pi use `BASE_URL=http://host:7777 node scripts/load-four-families.js`.
+See [RUNBOOK.md](RUNBOOK.md) §8.6.
+
 ## Documentation
 
 | Doc | What it covers |

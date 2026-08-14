@@ -1,6 +1,7 @@
 'use strict';
 
 const { getFamilyId } = require('../auth/family-context');
+const { withBusyRetry } = require('./with-busy-retry');
 
 function canonicalizeFrequency(frequency) {
   if (frequency === 'weekly') return 'ukentlig';
@@ -208,19 +209,21 @@ function createChoreRepos(db) {
     markDone(weekYear, choreId, opts = {}) {
       const familyId = getFamilyId();
       const userId = opts.userId ?? null;
-      const tx = db.transaction(() => {
-        db.prepare(
-          `UPDATE chore_schedules SET status = 'done', completed_at = datetime('now')
+      withBusyRetry(() => {
+        const tx = db.transaction(() => {
+          db.prepare(
+            `UPDATE chore_schedules SET status = 'done', completed_at = datetime('now')
             WHERE family_id = ? AND week_year = ? AND chore_id = ?`
-        ).run(familyId, weekYear, choreId);
-        // History insert — atomic with the schedule update so we never
-        // end up with status='done' but no history row (or vice versa).
-        db.prepare(
-          `INSERT INTO chore_completions (family_id, week_year, chore_id, user_id)
+          ).run(familyId, weekYear, choreId);
+          // History insert — atomic with the schedule update so we never
+          // end up with status='done' but no history row (or vice versa).
+          db.prepare(
+            `INSERT INTO chore_completions (family_id, week_year, chore_id, user_id)
              VALUES (?, ?, ?, ?)`
-        ).run(familyId, weekYear, choreId, userId);
+          ).run(familyId, weekYear, choreId, userId);
+        });
+        tx();
       });
-      tx();
     },
     /**
      * Undo "done" or "postponed" — resets the row to 'pending' AND

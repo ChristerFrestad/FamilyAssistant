@@ -6,7 +6,45 @@
 
 ---
 
-2026-08-14 � G2-2 child cannot complete sibling assigned chore
+2026-08-14 – G5-2 four-family parallel load
+
+Task: Load script that starts an embedded test server (or BASE_URL),
+creates four families, fires 20 mixed write batches each, and fails
+on any 5xx or SQLITE_BUSY. Documents one-Pi / tens-of-families.
+
+Analysis: none (scoped load harness per operator brief)
+- Journey: register+onboard x4 → parallel GET today / pantry or
+  shopping add / chore complete → summary JSON
+- Edge cases: no live server in CI; missing choreId skipped; network
+  failure counted as error
+- Decisions: 1 (embed startTestServer, export run() for node:test)
+- Portainer risk: no
+
+Plan: isolated worktree; script + test; optional markDone retry;
+README/RUNBOOK paragraph; commit.
+
+Done:
+- Branch: feat/g5-2-load-four-families
+- Commits: 1
+- Files: scripts/load-four-families.js,
+  tests/load-four-families.test.js,
+  server/repositories/chore.repo.js (markDone + withBusyRetry),
+  README.md, RUNBOOK.md, AGENT_LOG.md
+- Tests: load-four-families 1/1 (252 requests, 0 errors, 2.5s)
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: none
+
+Security: no new endpoints; families created via existing password
+register + onboarding; cookies only.
+
+ISO 25010: Reliability up (busy-lock regression gate for multi-tenant
+writes). Security unchanged.
+
+Status: waiting-for-operator (fix/ branch — DEL 5.3, no push)
+
+---
+
+2026-08-14 – G2-2 child cannot complete sibling assigned chore
 
 - Branch: feat/g2-2-chore-assignee-403
 - PUT /api/chores/complete 403 when child vs other assignee
@@ -14,7 +52,7 @@
 - Status: merged into feat/g1-integrate
 
 ---
-2026-08-14 � G1-4 recipe editor + import URL
+2026-08-14 � G1-4 recipe editor + import URL
 
 - Branch: feat/g1-4-recipe-editor
 - Editor /recipes/new and /recipes/:id, import URL, deactivate

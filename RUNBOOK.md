@@ -433,6 +433,28 @@ sudo systemctl restart familieassistenten
 Save the baseline result in `docs/perf-baseline-YYYY-MM-DD.md` after every
 major change. Compare p50/p95/p99 before merging new code destined for prod.
 
+### 8.6 One Pi, tens of families (SQLITE_BUSY gate)
+
+SQLite on a single Raspberry Pi can serve tens of families if writers
+wait (`PRAGMA busy_timeout=5000`) and retry once on `SQLITE_BUSY`. The
+regression gate is four concurrent families, not a synthetic RPS
+number:
+
+```bash
+# CI / local — embeds startTestServer, no running process needed
+node --test tests/load-four-families.test.js
+
+# Against a live instance (open register must be on)
+BASE_URL=http://127.0.0.1:7777 node scripts/load-four-families.js
+```
+
+Each family registers, finishes onboarding, then fires 20 parallel
+batches of `GET /api/today`, `POST` pantry or shopping add, and
+`PUT /api/chores/complete` when a chore id exists. The process prints
+`{ families, requests, errors }` and exits 1 on any 5xx or a body
+containing `SQLITE_BUSY`. Raise `RATE_LIMIT_MAX` on the live unit if
+the global 300/min bucket trips first.
+
 ---
 
 ## 9. Test Before You Sleep Soundly
