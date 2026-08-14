@@ -6,6 +6,63 @@
 
 ---
 
+2026-08-14 – G0-5 Isolation attacker (swapped family ids)
+
+Oppgave: Adversarial tester som prøver å lekke familie B mens A er
+innlogget — body/query/header family_id, B sine numeriske id-er,
+cookie-replay, cache-probe, barn-rolle, CSRF uten cookie.
+
+Analyse: docs/analyses/2026-08-14-g0-5-isolation-attacker.md
+- Reisen: register+onboarding (2 familier) + 7 probe-klasser
+- Edge cases: 10
+- Beslutninger: 3 (session er eneste family-kilde; similarity-cache
+  family-nøkkel; passord-sti som G0-1)
+- Portainer-risiko: nei
+
+Plan: tester i g0-5-isolation-attacker.test.js; fiks kun hvis
+en-linjes getFamilyId/cache-lekkasje.
+
+Gjort:
+- Branch: feat/g0-integrate
+- Filer: tests/g0-5-isolation-attacker.test.js (29 probes),
+  recipe-similarity.service.js (cache-fiks), analyse, AGENT_LOG
+- Tester: 29/29 grønne etter fiks (før fiks: 28 pass, 1 fail)
+- DOMAIN_MODEL.md updated: no
+- Avvik: fant ekte leak i GET /api/recipes/:id/similar
+
+Security: Ingen endepunkt binder family_id fra body/query/header.
+Session + ALS vinner. Probe-resultat:
+1. Body family_id: ingen schema har feltet. Kalender stripper og
+   oppretter i A. Shopping add er .strict() → 400. Meals swap
+   endrer ikke B.
+2. Query family_id/familyId på recipes, meals/current, calendar,
+   pantry, me/export, family/export, today: 200 med A, aldri B.
+3. B-id i A's GET/PUT/DELETE: 403/404/tomt. Kalender-slett 200-no-op
+   (B-raden står). Chore complete/mark-eaten rører ikke B.
+4. A's cookie mot B-ressurser: ingen B-markører.
+5. Cache /api/today: A varmer, B får B sine events/måltid (G0-3 nøkkel).
+6. Barn i A: POST calendar 403. POST /api/chores 404 (ingen create).
+7. Uten cookie + X-Family-Id / family_id header: 401.
+
+LEAK (fikset): similarity-cache på recipe-id alene, slått opp før
+getById. B varmet, A fikk 200 med B-only-Raspeball. Fiks: getById
+først + nøkkel `${familyId}:${id}`.
+
+Residual: meals/swap kan lagre fremmed recipe_id i A's plan; navnet
+lekker ikke (getById scoped). Ikke G0-blocker.
+
+ISO 25010: Security + (lekkasje tettet). Øvrige ikke affected.
+
+Status: waiting-for-operator
+
+Beslutninger operatøren må ta:
+Ingen. Anbefaling: ta med fiks + tester i G0-integrate. Similarity-
+fiksen er liten og påkrevd.
+
+Neste: ikke pushet (ingen «push» i oppdraget).
+
+---
+
 2026-08-14 – G0-6 operator docs: current surfaces + cache
 
 Task: Oppdatere operator-docs på engelsk så de matcher det G0

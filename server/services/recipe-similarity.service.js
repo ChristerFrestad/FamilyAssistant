@@ -9,13 +9,18 @@
  *
  * Result: score in [0, 1].
  *
- * Caching: simple LRU cache with 10 minute TTL on a per-recipe-id basis.
- * Invalidated explicitly by clear() when recipes change.
+ * Caching: LRU with 10 minute TTL, keyed by familyId + recipeId.
+ * getById (family-scoped) runs before any cache lookup. Invalidated
+ * explicitly by clear() when recipes change.
  */
+
+const { getFamilyId } = require('../auth/family-context');
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX = 100;
-const cache = new Map(); // id -> { at, data }
+// Key is `${familyId}:${recipeId}` — recipe id alone leaked B's similar
+// list to A after B warmed the process cache (G0-5).
+const cache = new Map();
 
 function jaccard(a, b) {
   const setA = new Set(a);
@@ -64,15 +69,17 @@ function findSimilar(repos, recipeId, limit = 5) {
   const id = parseInt(recipeId, 10);
   if (!Number.isFinite(id)) return [];
 
-  // Cache check
+  // Authorize before cache. A request for B's recipe id must miss
+  // even when B already populated the process-wide similar cache.
+  const target = repos.recipes.getById(id);
+  if (!target) return [];
+
+  const key = `${getFamilyId()}:${id}`;
   const now = Date.now();
-  const cached = cache.get(id);
+  const cached = cache.get(key);
   if (cached && now - cached.at < CACHE_TTL_MS) {
     return cached.data.slice(0, limit);
   }
-
-  const target = repos.recipes.getById(id);
-  if (!target) return [];
 
   const all = repos.recipes.getAll();
   const scored = all
@@ -98,7 +105,7 @@ function findSimilar(repos, recipeId, limit = 5) {
     const oldest = [...cache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
     if (oldest) cache.delete(oldest[0]);
   }
-  cache.set(id, { at: now, data: scored });
+  cache.set(key, { at: now, data: scored });
 
   return scored.slice(0, limit);
 }
