@@ -1,25 +1,33 @@
 // Username/password authentication with progressive email verification.
 //
-// Product model (see docs/analyses/2026-05-02-multi-tenant-audit.md and
-// the password-auth design notes):
+// Product model (see docs/analyses/2026-08-07-password-auth-parallel.md):
+//   1. Register with username + password → full access immediately.
+//   2. Email is optional at first; verification via magic link.
+//   3. Within EMAIL_VERIFICATION_GRACE_SECONDS (default 60 days) the
+//      user may use the app without verifying.
+//   4. After the grace window, login succeeds only after email is
+//      verified; that post-grace path forces a password reset.
 //
-//   1. User registers with username + password. No email required up front.
-//   2. A grace period (EMAIL_VERIFICATION_GRACE_SECONDS, default 7 days)
-//      lets the user use the app fully without verifying an email.
-//   3. After the grace period, login is blocked until the user verifies an
-//      email address AND sets a new password (the verification token is
-//      single-use and also acts as a password-reset token).
-//   4. The verification email is optional during the grace window — the
-//      user can continue using a synthetic local-style session.
-//
-// All audit writes are family_id-guarded and wrapped in try/catch so a
-// missing audit_log table or FK violation can never break the auth flow.
+// Endpoints (registered from routes.js):
+//   POST /api/auth/password/register
+//   POST /api/auth/password/login
+//   POST /api/auth/password/start-verification
+//   POST /api/auth/password/set
 
 const { config } = require('../config');
 const { errors, HttpError } = require('../http/errors');
 const { hashPassword, verifyPasswordOrDummy } = require('./password-hash');
 const { createSessionForUser, setSessionCookie } = require('./sessions');
-const { issueMagicLink } = require('./magic-link');
+const {
+  issueMagicLink,
+  normaliseEmail,
+  isSyntheticLocalEmail,
+  SYNTHETIC_EMAIL_DOMAIN,
+} = require('./magic-link');
+
+const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$|^[a-z0-9]{2,32}$/;
+const MIN_PASSWORD = 8;
+const MAX_PASSWORD = 128;
 
 function publicUser(user) {
   if (!user) return null;
@@ -46,7 +54,7 @@ function redirectFor(user) {
 }
 
 function hasRealEmail(user) {
-  return Boolean(user && user.email && !String(user.email).endsWith('@local'));
+  return Boolean(user && user.email && !String(user.email).endsWith('@' + SYNTHETIC_EMAIL_DOMAIN));
 }
 
 function mustVerifyToLogin(user) {
@@ -60,6 +68,23 @@ function mustVerifyToLogin(user) {
   return Date.now() - created > grace * 1000;
 }
 
+function validateUsername(username) {
+  if (typeof username !== 'string') return 'Username is required.';
+  const u = username.trim().toLowerCase();
+  if (u.length < 2 || u.length > 32) return 'Username must be 2–32 characters.';
+  if (!USERNAME_RE.test(u)) {
+    return 'Username may only contain lowercase letters, digits, dots, underscores and hyphens.';
+  }
+  return null;
+}
+
+function validatePassword(password) {
+  if (typeof password !== 'string') return 'Password is required.';
+  if (password.length < MIN_PASSWORD) return `Password must be at least ${MIN_PASSWORD} characters.`;
+  if (password.length > MAX_PASSWORD) return `Password must be at most ${MAX_PASSWORD} characters.`;
+  return null;
+}
+
 async function handlePasswordRegister(ctx, repos) {
   if (!config.PASSWORD_AUTH_ENABLED) {
     throw errors.serviceUnavailable('Password authentication is not enabled.');
@@ -68,18 +93,18 @@ async function handlePasswordRegister(ctx, repos) {
     throw errors.forbidden('Open registration is disabled.');
   }
 
-  const username = String(ctx.body?.username || '')
-    .trim()
-    .toLowerCase();
+  const usernameRaw = ctx.body?.username;
   const password = ctx.body?.password;
-  const name = String(ctx.body?.name || username).trim();
+  const name = String(ctx.body?.name || usernameRaw || '')
+    .trim()
+    .slice(0, 80);
 
-  if (!username || username.length < 3) {
-    throw errors.badRequest('Username must be at least 3 characters.');
-  }
-  if (typeof password !== 'string' || password.length < 8) {
-    throw errors.badRequest('Password must be at least 8 characters.');
-  }
+  const usernameErr = validateUsername(usernameRaw);
+  if (usernameErr) throw errors.badRequest(usernameErr);
+  const passwordErr = validatePassword(password);
+  if (passwordErr) throw errors.badRequest(passwordErr);
+
+  const username = String(usernameRaw).trim().toLowerCase();
 
   const existing = repos.auth.findByUsername(username);
   if (existing) {
@@ -89,7 +114,7 @@ async function handlePasswordRegister(ctx, repos) {
   const passwordHash = await hashPassword(password);
   const user = repos.auth.createUser({
     username,
-    name,
+    name: name || username,
     passwordHash,
   });
 
@@ -209,10 +234,8 @@ async function handleStartVerification(ctx, repos) {
     throw errors.unauthorized('Login required.');
   }
 
-  const email = String(ctx.body?.email || '')
-    .trim()
-    .toLowerCase();
-  if (!email || !email.includes('@')) {
+  const email = normaliseEmail(ctx.body?.email);
+  if (!email || isSyntheticLocalEmail(email)) {
     throw errors.badRequest('A valid email address is required.');
   }
 
@@ -235,12 +258,9 @@ async function handleSetPassword(ctx, repos) {
   const password = ctx.body?.password;
 
   if (!token) throw errors.badRequest('Token is required.');
-  if (typeof password !== 'string' || password.length < 8) {
-    throw errors.badRequest('Password must be at least 8 characters.');
-  }
+  const passwordErr = validatePassword(password);
+  if (passwordErr) throw errors.badRequest(passwordErr);
 
-  // The token is a magic-link token with purpose verify-email or reset.
-  // resolveMagicLinkToken validates signature + expiry + single-use.
   const { resolveMagicLinkToken } = require('./magic-link');
   const resolved = await resolveMagicLinkToken(repos, token, {
     allowedPurposes: ['verify-email', 'reset'],
@@ -255,7 +275,9 @@ async function handleSetPassword(ctx, repos) {
   if (resolved.email) {
     repos.auth.markEmailVerified(resolved.userId, resolved.email);
   }
-  repos.auth.clearMustResetPassword(resolved.userId);
+  if (typeof repos.auth.clearMustResetPassword === 'function') {
+    repos.auth.clearMustResetPassword(resolved.userId);
+  }
 
   const user = repos.auth.findById(resolved.userId);
   const sessionId = createSessionForUser(repos, { userId: user.id, req: ctx.req });
