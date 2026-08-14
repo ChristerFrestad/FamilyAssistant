@@ -105,8 +105,7 @@ test('family A cannot delete family B calendar event', async () => {
   const del = await request(server.baseUrl, 'DELETE', `/api/calendar/events/${bEventId}`, {
     headers: { Cookie: a.cookie },
   });
-  // Scoped DELETE is a no-op for the other tenant; status is secondary.
-  assert.ok(del.status >= 200 && del.status < 500, `Unexpected status ${del.status}`);
+  assert.equal(del.status, 404, `cross-family DELETE must be 404, got ${del.status}`);
 
   const stillThere = server.repos._db
     .prepare('SELECT id FROM calendar_events WHERE id = ?')

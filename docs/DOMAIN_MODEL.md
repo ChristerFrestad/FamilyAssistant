@@ -68,6 +68,54 @@ Updated via PATCH. Hidden via deactivate. Never physically deleted.
 **Covered by tests:**
 - `tests/recipe-crud.test.js`
 
+### CalendarEvent
+
+**Source file:** `server/routes.js` + `server/services/calendar/`
+**Repository:** `repos.calendar` in `server/repositories/calendar.repo.js`
+**Table:** `calendar_events` + `calendar_event_attendees` (migration `034_calendar_sync.sql`)
+
+**What it is:** A family-scoped event shown on Calendar and Today.
+Local events are created in-app. Google/iCloud copies are pulled by
+sync and tagged with `source` + `external_id`.
+
+**Fields:**
+- `id`, `title`, `date` (YYYY-MM-DD), `start_time`, `end_time`
+- `location`, `all_day`, `notes`, `source` (`local`|`google`|`icloud`)
+- `external_id`, `etag`, `calendar_external_id`, `rrule`, `kind`
+- `hidden` (default 0) — excluded from GET
+- `created_by_user_id`, `updated_at`, `family_id`
+
+**Rules:**
+- GET is family-scoped via `getFamilyId()` and omits `hidden=1`
+- RRULE masters are expanded into occurrences inside `[from,to]`
+- PATCH/DELETE of a missing or other-family id is 404
+- Adult role required to create/update/delete
+- Unique `(family_id, source, external_id)` when `external_id` is set
+
+**Covered by tests:**
+- `tests/calendar-events.test.js`
+- `tests/calendar-sync.test.js`
+
+### CalendarIntegration
+
+**Source file:** `server/http/calendar-routes.js`
+**Repository:** `repos.calendarIntegrations` in `server/repositories/calendar.repo.js`
+**Table:** `calendar_integrations` (migration `034_calendar_sync.sql`)
+
+**What it is:** A per-family Google Calendar or iCloud CalDAV
+connection. Refresh tokens and iCloud app passwords are AES-GCM
+encrypted (`ENCRYPTION_KEY`) and never returned by GET.
+
+**Rules:**
+- Adult/owner only
+- Unique `(family_id, provider, account_email)`
+- Missing `ENCRYPTION_KEY` or `GOOGLE_CLIENT_ID` → 503 `{ reason }`
+- Login Google OAuth (`server/auth/google.js`) is untouched
+- Sync is pull-then-push via `server/services/calendar/sync.service.js`
+
+**Covered by tests:**
+- `tests/calendar-sync.test.js`
+
 ### Format to follow when adding an entity
 
 ````markdown

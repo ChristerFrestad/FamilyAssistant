@@ -6,7 +6,25 @@
 
 ---
 
-2026-08-14 – G2-2 child cannot complete sibling assigned chore
+2026-08-14 â€“ G3 calendar integrations + Google/iCloud sync foundations
+
+Oppgave: schema 034, PATCH/DELETE 404, integrations API, Google OAuth
+helper (login scopes untouched), iCloud CalDAV + ICS + RRULE, mocked
+sync, isolation tests, minimum Calendar UI.
+
+- Branch: feat/g3-calendar-sync (worktree FamilyAssistant-g3)
+- Tests: calendar-sync + calendar-events 10/10; Calendar+i18n vitest 28/28
+- DOMAIN_MODEL.md updated: CalendarEvent + CalendarIntegration
+- Deviation: UI lives on Calendar footer (not Settings) to avoid
+  Settings section-count churn
+- Security: tokens/app passwords encrypted; GET never returns secrets;
+  getFamilyId() on all repo queries; no HTTPS_TERMINATED; no /v2
+
+Status: waiting-for-operator (feature branch)
+
+---
+
+2026-08-14 â€“ G2-2 child cannot complete sibling assigned chore
 
 - Branch: feat/g2-2-chore-assignee-403
 - PUT /api/chores/complete 403 when child vs other assignee
@@ -14,7 +32,7 @@
 - Status: merged into feat/g1-integrate
 
 ---
-2026-08-14 – G1-4 recipe editor + import URL
+2026-08-14 ï¿½ G1-4 recipe editor + import URL
 
 - Branch: feat/g1-4-recipe-editor
 - Editor /recipes/new and /recipes/:id, import URL, deactivate
