@@ -54,7 +54,9 @@ function redirectFor(user) {
 }
 
 function hasRealEmail(user) {
-  return Boolean(user && user.email && !String(user.email).endsWith('@' + SYNTHETIC_EMAIL_DOMAIN));
+  return Boolean(
+    user && user.email && !String(user.email).endsWith('@' + SYNTHETIC_EMAIL_DOMAIN)
+  );
 }
 
 function mustVerifyToLogin(user) {
@@ -80,8 +82,10 @@ function validateUsername(username) {
 
 function validatePassword(password) {
   if (typeof password !== 'string') return 'Password is required.';
-  if (password.length < MIN_PASSWORD) return `Password must be at least ${MIN_PASSWORD} characters.`;
-  if (password.length > MAX_PASSWORD) return `Password must be at most ${MAX_PASSWORD} characters.`;
+  if (password.length < MIN_PASSWORD)
+    return `Password must be at least ${MIN_PASSWORD} characters.`;
+  if (password.length > MAX_PASSWORD)
+    return `Password must be at most ${MAX_PASSWORD} characters.`;
   return null;
 }
 
