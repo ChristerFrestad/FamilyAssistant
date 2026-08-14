@@ -1,0 +1,24 @@
+{
+  "title": "Recipes",
+  "description": "Your family's recipe library.",
+  "listAria": "Family recipes",
+  "empty": {
+    "title": "No recipes yet",
+    "body": "Recipes will appear here when they are added to the family library."
+  },
+  "errors": {
+    "loadFailed": "Could not load recipes."
+  },
+  "actions": {
+    "retry": "Try again"
+  },
+  "meta": {
+    "servings": "{{count}} servings"
+  },
+  "category": {
+    "rask": "Quick",
+    "comfort": "Comfort",
+    "helg": "Weekend"
+  },
+  "g1Note": "Adding and editing recipes arrives in a later update."
+}

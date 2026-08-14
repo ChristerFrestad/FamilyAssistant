@@ -108,6 +108,14 @@ describe('Meals — initial render', () => {
     expect(screen.getByTestId('meals-skeleton')).toBeInTheDocument();
   });
 
+  test('renders Open library link to /recipes', () => {
+    fetchSpy.mockImplementation(() => new Promise(() => undefined));
+    mountMeals();
+    const link = screen.getByRole('link', { name: 'Åpne bibliotek' });
+    expect(link).toHaveAttribute('href', '/recipes');
+    expect(screen.getByTestId('meals-open-library')).toBe(link);
+  });
+
   test('renders week menu after fetch resolves', async () => {
     mockFetchByPath({
       '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),

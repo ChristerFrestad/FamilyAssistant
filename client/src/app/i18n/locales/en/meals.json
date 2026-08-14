@@ -42,7 +42,8 @@
     "openSource": "Open source",
     "retry": "Try again",
     "markCooked": "Mark cooked",
-    "alreadyCooked": "Cooked"
+    "alreadyCooked": "Cooked",
+    "openLibrary": "Open library"
   },
   "empty": {
     "heroTitle": "No meal planned",

@@ -15,8 +15,8 @@
 //      a user takes when onboarding is incomplete).
 //
 //   3. PROTECTED — auth required AND onboarding_completed=true.
-//      Everything else: Dashboard, Family, Meals, Shopping,
-//      Calendar, Settings. AuthGuard + OnboardingGuard wrap
+//      Everything else: Dashboard, Family, Meals, Recipes,
+//      Shopping, Calendar, Settings. AuthGuard + OnboardingGuard wrap
 //      AppShell, which renders the placeholder screens from
 //      Sprint 2 (replaced with real screens in Phase 2A-2E).
 //
@@ -35,6 +35,7 @@ import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { Dashboard } from './screens/Dashboard';
 import { Family } from './screens/Family';
 import { Meals } from './screens/Meals';
+import { Recipes } from './screens/Recipes';
 import { Shopping } from './screens/Shopping';
 import { Calendar } from './screens/Calendar';
 import { Settings } from './screens/Settings';
@@ -127,6 +128,7 @@ function AppRoutes(): JSX.Element {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/family" element={<Family />} />
                   <Route path="/meals" element={<Meals />} />
+                  <Route path="/recipes" element={<Recipes />} />
                   <Route
                     path="/shopping"
                     element={

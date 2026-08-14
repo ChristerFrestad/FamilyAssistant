@@ -6,6 +6,46 @@
 
 ---
 
+2026-08-14 – G0-4 Recipes library (thin)
+
+Oppgave: Familier har GET /api/recipes og Meals-picker, men ingen
+egen bibliotekskjerm. G0-4 legger til /recipes inne i AppShell og
+en «Åpne bibliotek»-lenke fra Meals. Ikke create/edit (G1-3/G1-4).
+
+Analyse: ingen separat ANALYSIS — tynn G0-skjerm, gjenbruker
+eksisterende fetchRecipes og Meals last/feil-mønster.
+
+- Reisen: Meals-header → /recipes → GET /api/recipes → liste
+  (navn, kategori, prepTime, servings) / tom / feil+retry.
+- Edge-cases: barn uten import-CTA, voksen kun dempet G1-note,
+  abort ved unmount/retry, kategori uten badge-variant.
+- Beslutninger: ikke wire POST /api/recipes/import-url (trenger
+  mer enn ett felt + feilflater). Ikke i PRIMARY_NAV_ITEMS.
+- Portainer-risiko: nei (kun frontend-rute + i18n).
+
+Plan: Recipes.tsx + tester, rute, Meals-lenke, recipes-namespace
+en+no, gjenbruk fetchRecipes.
+
+Gjort:
+
+- Branch: feat/g0-4-recipes-library
+- Filer: Recipes.tsx/.test.tsx, Meals-lenke, App-rute, i18n
+- Tester: Recipes 6, Meals +1 Open library, bundles 11 ns
+- DOMAIN_MODEL.md updated: no
+- Avvik fra plan: none
+
+Security: GET /api/recipes bak samme AuthGuard/OnboardingGuard.
+Ingen mutasjon. Barn får ingen import-CTA.
+
+ISO 25010: usability (funnbar liste), maintainability (gjenbruk
+mealsApi). Ikke affected: security-modell, reliability backend.
+
+Status: waiting-for-operator
+
+Next: G1 create/edit + ev. import-url. Ikke utvid bunnnav nå.
+
+---
+
 2026-08-07 – Password auth + progressive email verification
 
 Oppgave: Lav barrier-to-entry med brukernavn/passord parallelt med

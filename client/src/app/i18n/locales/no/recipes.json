@@ -1,0 +1,24 @@
+{
+  "title": "Oppskrifter",
+  "description": "Familiens oppskriftsbibliotek.",
+  "listAria": "Familiens oppskrifter",
+  "empty": {
+    "title": "Ingen oppskrifter ennå",
+    "body": "Oppskrifter vises her når de er lagt til i familiens bibliotek."
+  },
+  "errors": {
+    "loadFailed": "Kunne ikke hente oppskrifter."
+  },
+  "actions": {
+    "retry": "Prøv igjen"
+  },
+  "meta": {
+    "servings": "{{count}} porsjoner"
+  },
+  "category": {
+    "rask": "Rask",
+    "comfort": "Hverdagskos",
+    "helg": "Helg"
+  },
+  "g1Note": "Å legge til og redigere oppskrifter kommer i en senere oppdatering."
+}
