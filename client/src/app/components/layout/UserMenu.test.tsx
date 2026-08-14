@@ -69,9 +69,10 @@ describe('UserMenu open behavior', () => {
     expect(screen.getByRole('menu', { name: 'Bruker-meny' })).toBeInTheDocument();
   });
 
-  test('open menu exposes Min konto and Logg ut as menuitems', () => {
+  test('open menu exposes Familie, Min konto and Logg ut as menuitems', () => {
     renderMenu();
     fireEvent.click(screen.getByRole('button', { name: 'Åpne bruker-meny' }));
+    expect(screen.getByRole('menuitem', { name: 'Familie' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Min konto' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /Logg ut/ })).toBeInTheDocument();
   });

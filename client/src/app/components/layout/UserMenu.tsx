@@ -1,6 +1,7 @@
 // Header user-menu dropdown. Shows the current user's avatar +
-// name in the trigger; clicking opens a small popover with two
-// items: "My account" (route to /settings) and "Log out".
+// name in the trigger; clicking opens a small popover with Family
+// (mobile home for that screen), "My account" (/settings), and
+// "Log out".
 //
 // Why a hand-rolled dropdown rather than a dependency:
 //   - We need exactly two menu items + a header. A library that
@@ -115,6 +116,18 @@ export function UserMenu({ className }: UserMenuProps): JSX.Element | null {
               <div className="font-body text-meta text-text-3 truncate">{user.email}</div>
             )}
           </div>
+          <Link
+            to="/family"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className={[
+              'block rounded-sm px-3 py-2 font-body text-body text-text-1',
+              'hover:bg-surface',
+              'focus:outline-none focus-visible:bg-surface',
+            ].join(' ')}
+          >
+            {t('userMenu.family')}
+          </Link>
           <Link
             to="/settings"
             role="menuitem"

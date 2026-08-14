@@ -98,7 +98,7 @@ export function Dashboard(): JSX.Element {
           emptyMessage={t('dashboard:empty.noChores')}
           emptyCta={{
             label: t('dashboard:empty.addChore'),
-            onClick: () => navigate('/family'),
+            onClick: () => navigate('/chores'),
           }}
           limit={CHORES_LIMIT}
           formatMore={(n) => t('dashboard:more.chores', { count: n })}

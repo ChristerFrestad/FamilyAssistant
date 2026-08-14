@@ -17,7 +17,7 @@ function renderQuickActions(): void {
       <Routes>
         <Route path="/dashboard" element={<QuickActions />} />
         <Route path="/meals" element={<div data-testid="dest-meals" />} />
-        <Route path="/family" element={<div data-testid="dest-family" />} />
+        <Route path="/chores" element={<div data-testid="dest-chores" />} />
         <Route path="/shopping" element={<div data-testid="dest-shopping" />} />
       </Routes>
     </MemoryRouter>
@@ -39,10 +39,10 @@ describe('QuickActions', () => {
     expect(screen.getByTestId('dest-meals')).toBeInTheDocument();
   });
 
-  test('"Nytt gjøremål" navigates to /family (chores live there until Sprint 5)', () => {
+  test('"Nytt gjøremål" navigates to /chores', () => {
     renderQuickActions();
     fireEvent.click(screen.getByRole('button', { name: /Nytt gjøremål/i }));
-    expect(screen.getByTestId('dest-family')).toBeInTheDocument();
+    expect(screen.getByTestId('dest-chores')).toBeInTheDocument();
   });
 
   test('"Legg til på handleliste" navigates to /shopping', () => {

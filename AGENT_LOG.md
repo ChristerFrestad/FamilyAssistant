@@ -6,6 +6,26 @@
 
 ---
 
+2026-08-14 – G1-2 chores screen + nav slot
+
+Oppgave: `/chores` uke-tavle, BottomNav-plass, complete/undo/postpone/add
+fra UI. Ingen XP/Ring.
+
+- Branch: feat/g1-2-chores-screen (from feat/g1-integrate @ d038183)
+- Worktree: FamilyAssistant-g1-2 (hovedcheckout var opptatt av G5-1)
+- Nav: BottomNav 5 = Dashboard, Chores, Meals, Shopping, Calendar
+  (Family → UserMenu). SideNav 6 primary inkl. Family + Chores
+- Skjerm: DayStrip, ChoreRow (aria-pressed, 180ms brand-dot),
+  postpone (voksen), AddChoreModal (voksen), barn uten add/postpone
+- Dashboard empty-chore CTA + QuickActions → `/chores`
+- i18n: chores ns (en+no) + common.nav.chores + userMenu.family
+- Tester: Chores 13, BottomNav 11, SideNav 8, bundles 18 — 50/50
+- typecheck:client: grønn. DOMAIN_MODEL: nei
+
+Status: committed locally, not pushed
+
+---
+
 2026-08-14 – G1-3 recipe create / update / soft-deactivate API
 
 Task: Manual POST/PATCH plus active-flag deactivate for recipes.

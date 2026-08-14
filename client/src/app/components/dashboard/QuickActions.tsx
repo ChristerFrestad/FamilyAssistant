@@ -6,7 +6,7 @@
 //
 // Buttons:
 //   - "Add meal"               -> /meals
-//   - "New chore"              -> /family
+//   - "New chore"              -> /chores
 //   - "Add to shopping list"   -> /shopping
 //
 // All three labels live in dashboard:actions.* — no hard-coded
@@ -28,7 +28,7 @@ export function QuickActions(): JSX.Element {
       <Button type="button" variant="secondary" onClick={() => navigate('/meals')}>
         {t('actions.addMeal')}
       </Button>
-      <Button type="button" variant="secondary" onClick={() => navigate('/family')}>
+      <Button type="button" variant="secondary" onClick={() => navigate('/chores')}>
         {t('actions.addChore')}
       </Button>
       <Button type="button" variant="secondary" onClick={() => navigate('/shopping')}>

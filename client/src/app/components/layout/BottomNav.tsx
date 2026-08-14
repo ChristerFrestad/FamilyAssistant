@@ -24,7 +24,7 @@
 import type { JSX } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { PRIMARY_NAV_ITEMS, type NavItem } from './nav-items';
+import { MOBILE_NAV_ITEMS, type NavItem } from './nav-items';
 
 export interface BottomNavProps {
   /** Optional class on the wrapper. */
@@ -62,7 +62,7 @@ export function BottomNav({ className }: BottomNavProps): JSX.Element {
           'bg-surface-strong border border-stroke shadow-mid p-1.5',
         ].join(' ')}
       >
-        {PRIMARY_NAV_ITEMS.map((item) => {
+        {MOBILE_NAV_ITEMS.map((item) => {
           const active = isActive(item, pathname);
           const label = t(item.i18nKey);
           return (
