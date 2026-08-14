@@ -9,6 +9,10 @@
 // rationale as authApi.ts — the session cookie is HttpOnly and
 // must be sent back so the server can identify the family.
 
+import type { CalendarEvent, CalendarRangeResponse } from '../calendar/calendarApi';
+
+export type { CalendarEvent, CalendarRangeResponse } from '../calendar/calendarApi';
+
 export class DashboardApiError extends Error {
   status: number;
 
@@ -74,19 +78,6 @@ export interface ShoppingSummaryResponse {
   status: string | null;
   items: ShoppingItem[];
   totalEstPrice: number;
-}
-
-export interface CalendarEvent {
-  id: number;
-  title: string;
-  startsAt: string;
-  endsAt?: string;
-  location?: string;
-  notes?: string;
-}
-
-export interface CalendarRangeResponse {
-  events: CalendarEvent[];
 }
 
 // ============================================================

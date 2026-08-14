@@ -3,7 +3,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createCache } = require('../server/http/cache');
+const { createCache, cacheKey } = require('../server/http/cache');
 
 describe('createCache', () => {
   test('set + get returnerer data', () => {
@@ -57,5 +57,31 @@ describe('createCache', () => {
     c.set('d', 4); // skal evikte 'b' (eldste etter touch)
     assert.equal(c.get('a'), 1);
     assert.equal(c.get('b'), undefined);
+  });
+});
+
+describe('cacheKey family scope', () => {
+  function ctx(familyId, pathname = '/api/today', query = {}) {
+    return { familyId, pathname, query };
+  }
+
+  test('positive integer family ids never share a key', () => {
+    const a = cacheKey(ctx(2));
+    const b = cacheKey(ctx(3));
+    assert.equal(a, 'f2:/api/today?');
+    assert.equal(b, 'f3:/api/today?');
+    assert.notEqual(a, b);
+  });
+
+  test('null, undefined, 0, and non-integers collapse to anon', () => {
+    assert.equal(cacheKey(ctx(null)), 'anon:/api/today?');
+    assert.equal(cacheKey(ctx(undefined)), 'anon:/api/today?');
+    assert.equal(cacheKey(ctx(0)), 'anon:/api/today?');
+    assert.equal(cacheKey(ctx('2')), 'anon:/api/today?');
+  });
+
+  test('query string is sorted so key order is stable', () => {
+    const key = cacheKey(ctx(4, '/api/calendar/events', { to: '2026-06-30', from: '2026-06-01' }));
+    assert.equal(key, 'f4:/api/calendar/events?from=2026-06-01&to=2026-06-30');
   });
 });

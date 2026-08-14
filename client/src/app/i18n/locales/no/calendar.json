@@ -1,12 +1,17 @@
 {
   "title": "Kalender",
+  "subtitle": "Familiehendelser de neste 30 dagene",
+  "range": "{{from}} – {{to}}",
   "addEvent": "Legg til hendelse",
   "fields": {
     "eventTitle": "Tittel",
     "description": "Beskrivelse",
+    "date": "Dato",
     "startTime": "Starttid",
     "endTime": "Slutttid",
     "allDay": "Hele dagen",
+    "location": "Sted",
+    "notes": "Notater",
     "attendees": "Deltakere",
     "recurrence": "Gjentakelse"
   },
@@ -17,6 +22,15 @@
     "monthly": "Månedlig"
   },
   "empty": "Ingen hendelser denne perioden",
+  "errors": {
+    "loadFailed": "Kunne ikke laste hendelser.",
+    "saveFailed": "Kunne ikke lagre hendelsen.",
+    "deleteFailed": "Kunne ikke slette hendelsen."
+  },
+  "actions": {
+    "deleteEvent": "Slett {{title}}",
+    "confirmDelete": "Slette denne hendelsen?"
+  },
   "placeholder": {
     "description": "Kommer i Fase 2D — Google-kalender pass-through + familie-events."
   }

@@ -176,19 +176,30 @@ function renderChore(chore: TodayChore): JSX.Element {
   );
 }
 
+function formatEventDate(dateStr: string): string {
+  // Parse YYYY-MM-DD as a local calendar date so we do not shift a
+  // day when the host timezone is behind UTC (Date.parse of a date-
+  // only string is UTC midnight).
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!match) return dateStr;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 function renderEvent(event: CalendarEvent): JSX.Element {
-  // ISO date-time -> short locale-formatted label. Browser uses the
-  // active document locale; for jsdom tests this falls back to the
-  // host locale, which is why integration tests assert on substrings
-  // rather than exact strings.
-  const date = new Date(event.startsAt);
-  const dateLabel = isNaN(date.getTime())
-    ? event.startsAt
-    : date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const dateLabel = formatEventDate(event.date);
+  const timePart = event.startTime ? ` · ${event.startTime}` : '';
   return (
     <div className="flex flex-col">
       <span className="font-body text-body text-text-1 line-clamp-1">{event.title}</span>
-      <span className="font-body text-meta text-text-3">{dateLabel}</span>
+      <span className="font-body text-meta text-text-3">
+        {dateLabel}
+        {timePart}
+      </span>
     </div>
   );
 }

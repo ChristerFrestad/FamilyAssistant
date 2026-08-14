@@ -18,7 +18,7 @@
 //
 // withCache(ttlMs, tags, handler):
 //   Returnerer en rute-handler som cacher JSON-responsen.
-//   Uses pathname + query string as the cache key.
+//   Uses familyId + pathname + query string as the cache key.
 
 function createCache({ max = 200, ttlMs = 60_000 } = {}) {
   const store = new Map(); // key → { data, expiresAt, tags }
@@ -102,14 +102,15 @@ function createCache({ max = 200, ttlMs = 60_000 } = {}) {
 const responseCache = createCache({ max: 200, ttlMs: 60_000 });
 
 function cacheKey(ctx) {
+  // Family-scope the key so two tenants never share a cached GET.
+  // Path + query alone leaked calendar (and other) lists across families.
+  const familyPart =
+    Number.isInteger(ctx.familyId) && ctx.familyId > 0 ? `f${ctx.familyId}` : 'anon';
   const qs = Object.keys(ctx.query)
     .sort()
     .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(ctx.query[k])}`)
     .join('&');
-  // Family-scope the key. Path+query alone lets family B HIT family A's
-  // GET /api/meals/current, /api/today, /api/calendar/events, etc.
-  const family = ctx.familyId != null ? `f${ctx.familyId}` : 'anon';
-  return `${family}:${ctx.pathname}?${qs}`;
+  return `${familyPart}:${ctx.pathname}?${qs}`;
 }
 
 /**
@@ -153,4 +154,5 @@ module.exports = {
   responseCache,
   withCache,
   invalidate,
+  cacheKey,
 };

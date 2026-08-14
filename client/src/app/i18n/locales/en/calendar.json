@@ -1,12 +1,17 @@
 {
   "title": "Calendar",
+  "subtitle": "Family events for the next 30 days",
+  "range": "{{from}} – {{to}}",
   "addEvent": "Add event",
   "fields": {
     "eventTitle": "Title",
     "description": "Description",
+    "date": "Date",
     "startTime": "Start time",
     "endTime": "End time",
     "allDay": "All day",
+    "location": "Location",
+    "notes": "Notes",
     "attendees": "Attendees",
     "recurrence": "Recurrence"
   },
@@ -17,6 +22,15 @@
     "monthly": "Monthly"
   },
   "empty": "No events in this period",
+  "errors": {
+    "loadFailed": "Could not load events.",
+    "saveFailed": "Could not save the event.",
+    "deleteFailed": "Could not delete the event."
+  },
+  "actions": {
+    "deleteEvent": "Delete {{title}}",
+    "confirmDelete": "Delete this event?"
+  },
   "placeholder": {
     "description": "Coming in Phase 2D — Google Calendar pass-through and shared family events."
   }

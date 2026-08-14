@@ -1,13 +1,9 @@
-// Light tests for the Phase-1d placeholder screens. Each screen is
-// trivial — a heading + a body paragraph — but we still verify the
-// heading text resolves through i18n so a typo in the JSON bundle
-// fails fast. When the real screens land in Phase 2, these tests
-// will be replaced with real behavior tests.
+// Light tests for leftover Phase-1d screens that are still placeholders.
+// Real screens have their own dedicated files (see comments below).
 
 import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router';
-import { Calendar } from './Calendar';
 import { NotFound } from './NotFound';
 import { Login } from './auth/Login';
 import { AuthProvider } from '../auth/AuthContext';
@@ -42,13 +38,13 @@ import { AuthProvider } from '../auth/AuthContext';
 // Shopping.test.tsx — they cover skeleton/error/empty/data states,
 // optimistic toggle/delete with rollback, QuickAdd flow,
 // generate-from-meals + WEEK_NOT_COMPLETE branch, and toast.
+//
+// Calendar moved out when the local family-events screen landed
+// (G0-3). Real Calendar behavior tests live in Calendar.test.tsx —
+// they cover heading, empty/list/error, adult add/delete, and
+// child read-only.
 
 describe('placeholder screens render with i18n headings', () => {
-  test('Calendar', () => {
-    render(<Calendar />);
-    expect(screen.getByRole('heading', { name: 'Kalender', level: 1 })).toBeInTheDocument();
-  });
-
   test('NotFound has 404 heading and a Dashboard link', () => {
     render(
       <MemoryRouter>
@@ -60,12 +56,9 @@ describe('placeholder screens render with i18n headings', () => {
   });
 
   test('Login renders heading and a loading status', () => {
-    // Sprint 3 / Fase 1e: Login moved to screens/auth/ and now uses
-    // AuthContext (requestMagicLink) + react-router. Wrap in
-    // MemoryRouter + AuthProvider so the form mounts; the heading
-    // reads the resolved appName ("FamilyAssistant" by default)
-    // wrapped in t('auth:login.title')="Sign in to {{appName}}" /
-    // "Logg inn på {{appName}}".
+    // Password-first Login (2026-08-07) uses auth:password.loginTitle
+    // ("Logg inn" / "Sign in"). Wrap in MemoryRouter + AuthProvider
+    // so the form mounts without a /api/auth/me round-trip.
     render(
       <MemoryRouter>
         <AuthProvider initialState={{ user: null, isLoading: false }}>
@@ -73,8 +66,6 @@ describe('placeholder screens render with i18n headings', () => {
         </AuthProvider>
       </MemoryRouter>
     );
-    expect(
-      screen.getByRole('heading', { name: /Logg inn på FamilyAssistant/, level: 1 })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Logg inn', level: 1 })).toBeInTheDocument();
   });
 });
