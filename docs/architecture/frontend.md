@@ -1,104 +1,57 @@
-# Frontend Architecture
+# Frontend architecture
 
-Last updated: 2026-05-05 (Sprint 8 — v1 cleanup)
+Last updated: 2026-08-14 (SPA at site root; `/v2` prefix retired)
 
 ## Overview
 
-FamilyAssistant ships a single React-based frontend (v2) built with Vite.
-The frontend is bundled to `public/v2/` and served via `tryServeV2App()`
-in `server/http/server.js`.
+FamilyAssistant has **one** frontend: Vite + React + TypeScript in
+`client/`. The production bundle is written to `public/v2/` (that
+folder name is leftover from the coexistence era; it is **not** a
+URL). `server/http/server.js` maps that folder onto `/`.
 
-Prior to Sprint 8 (2026-05-05), a parallel legacy v1 frontend lived in
-`public/index.html` + `public/js/*` + `public/css/*`. That codebase was
-deleted; this document describes the post-cleanup state.
+There is no second app. The old vanilla-JS UI (`public/index.html`,
+`public/js/*`) was deleted in Sprint 8 (2026-05-05).
 
 ## URL structure
 
-| URL pattern | Served by | Notes |
+| URL | Served as | Notes |
 |---|---|---|
-| `/` | 302 redirect → `/v2/` | `server/http/server.js` early intercept (PR #117) |
-| `/v2/` | `public/v2/index.html` | React shell loaded; React Router takes over |
-| `/v2/login`, `/v2/dashboard`, … | `public/v2/index.html` (SPA fallback) | Client-side routing under `BrowserRouter basename="/v2"` |
-| `/v2/assets/main-XXX.js` | `public/v2/assets/…` | Vite-built chunks + sourcemaps + fonts |
-| `/api/*` | `server/routes.js` | Backend API |
-| `/health`, `/ready`, `/metrics` | server middleware | Operational endpoints |
-| `/privacy.html`, `/privacy-en.html`, `/terms.html` | `public/*.html` direct | Legal pages — static HTML |
-| `/sw.js` | `public/sw.js` (tombstone) | Unregisters cached v1 service workers |
-| any other path | 404 | No silent SPA-fallback to v1 |
+| `/` | `public/v2/index.html` | React shell. In `BOOTSTRAP_MODE` only, 302 → `/setup.html` |
+| `/login`, `/dashboard`, `/invite/:token`, … | same `index.html` | SPA fallback for paths without a file extension |
+| `/assets/main-XXX.js` | `public/v2/assets/…` | Vite chunks, CSS, fonts |
+| `/v2`, `/v2/…` | **301** to the same path without `/v2` | Bookmarks and old emails |
+| `/api/*` | `server/routes.js` | Backend |
+| `/health`, `/ready`, `/metrics` | server | Ops |
+| `/privacy.html`, `/terms.html`, `/setup.html` | `public/*.html` | Allowlisted static files |
+| `/sw.js` | PWA worker from the bundle if present, else the v1 tombstone | |
+| other `*.js` / `*.css` with no file | **404** | Missing assets do not fall back to HTML |
 
-The `/v2/` URL prefix is technical debt: the React app builds with
-`base: '/v2/'` in Vite and its router uses `basename="/v2"`. Removing
-the prefix is tracked in
-`docs/workflow/post-pilot-code-debt-cleanup.md`.
+Vite `base` is `/`. React Router has no `basename`.
 
 ## Build
 
 - **Source:** `client/src/`
-- **Build command:** `npm run build:client` (runs `vite build`)
-- **Output:** `public/v2/` (gitignored — generated per build)
-- **CI build:** Dockerfile stage `frontend-builder` runs `npm ci`
-  (incl. devDependencies) + `npm run build:client` and copies the
-  bundle into the runtime stage. See `Dockerfile`.
+- **Command:** `npm run build:client`
+- **Output:** `public/v2/` (gitignored)
+- **Image:** Dockerfile stage `frontend-builder` runs `npm ci` +
+  `npm run build:client` and copies `/build/public/v2` into the
+  runtime image.
 
-## Server-side serving
+## Server helpers (`server/http/server.js`)
 
-`server/http/server.js` has two helpers responsible for static content:
+1. **`tryRedirectLegacyV2`** — `GET/HEAD /v2` and `/v2/*` → 301.
+2. **`tryServeSpaApp`** — files from `public/v2/` at the site root;
+   HTML fallback for extensionless routes.
+3. **`tryServePublicFile`** — allowlist: privacy, terms, setup.
+4. **`tryServeSw`** — prefer the bundled PWA worker, else tombstone.
 
-1. **`tryServeV2App(pathname, res)`** — handles `/v2` and `/v2/*`. For
-   asset paths it serves the file directly; for any other `/v2/...`
-   path it falls back to `public/v2/index.html` so client-side routing
-   works on hard reloads of e.g. `/v2/dashboard`.
+Auth middleware treats every non-`/api/*` path as public at the HTTP
+layer so the shell can load. `PilotGuard`, `AuthGuard` and
+`OnboardingGuard` enforce sign-in after mount.
 
-2. **`tryServePublicFile(pathname, res)`** — handles a small allowlist:
-   `/privacy.html`, `/privacy-en.html`, `/terms.html`, `/sw.js`. Any
-   other path under `public/` is **not** served — the allowlist exists
-   to prevent accidental surface growth as new files are dropped into
-   the directory.
+## Service worker
 
-The catch-all in `createServer()` runs (1) then (2). If neither
-matches and the request was a non-API GET, the catch-all returns 404.
-
-## Authentication surface
-
-`server/auth/middleware.js` `PUBLIC_PATHS`:
-
-```
-/health, /ready, /metrics, /privacy.html, /privacy-en.html,
-/terms.html, /sw.js
-```
-
-Plus the `isPublicPath()` function additionally treats `/v2`, `/v2/`,
-`/v2/index.html`, and `/v2/assets/*` as public so the React shell can
-load before any auth state is known. Once the shell loads, frontend
-guards (`PilotGuard`, `AuthGuard`, `OnboardingGuard`) handle auth UX.
-
-## Service worker tombstone
-
-`public/sw.js` was the v1 service worker that pre-cached HTML/JS/CSS.
-Sprint 8 replaced it with a **tombstone**: a minimal worker whose only
-job is to unregister itself on activation, drop all caches, and force
-controlled clients to reload (which then runs without a SW intercept).
-
-The tombstone exists because browsers that visited the app pre-Sprint 8
-have v1's SW installed. A plain delete of `public/sw.js` would leave
-those browsers stuck with stale cached content for an indeterminate
-time. The tombstone guarantees deterministic cleanup on the next visit.
-
-After 3-6 months when all pilot users have visited the app and had
-their v1 SW unregistered, the tombstone file can be deleted entirely
-along with the `/sw.js` PUBLIC_PATHS entry. Tracked in
-`docs/workflow/post-pilot-code-debt-cleanup.md`.
-
-## Post-pilot considerations
-
-- **Remove `/v2/`-prefix:** the React app could serve from root
-  (`base: '/'`, `basename` removed, outDir under `client/dist/`).
-  Cleaner URLs (`/dashboard` instead of `/v2/dashboard`) but requires
-  Dockerfile + server-routing + Vite-config changes.
-- **Delete sw.js tombstone:** safe after 3-6 months of pilot operation.
-- **Re-implement bootstrap-flow on v2:** the original setup wizard in
-  `public/setup.html` was deleted with v1. The backend handler
-  (`server/http/bootstrap.js`) still exists but its `setupUrl` points
-  to the deleted page. Pilot deploys do not use bootstrap-mode.
-
-All three are tracked as code-debt entries.
+`public/sw.js` is a **tombstone** for browsers that still have the
+deleted v1 worker. Once the Vite PWA worker exists in the bundle it
+is served at `/sw.js` instead. The tombstone can be deleted after
+all old clients have visited once.

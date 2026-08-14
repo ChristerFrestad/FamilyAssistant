@@ -642,11 +642,12 @@ GC.
 
 ---
 
-### Entry 16: Consider URL refactor — remove /v2/-prefix
+### Entry 16: Consider URL refactor — remove /v2/-prefix — DONE 2026-08-14
 
 - **Kategori:** Frontend arkitektur / UX-polish
 - **Severity:** LOW (kosmetisk; UX OK med /v2/-prefix)
 - **Logget:** 2026-05-05 (Sprint 8 v1-cleanup)
+- **Lukket:** 2026-08-14 — SPA served at `/`. `public/v2/` is build output only. `/v2/*` 301s. See `docs/architecture/frontend.md`.
 
 **Beskrivelse:** Etter v1-cleanup ser pilot-brukere fortsatt
 `/v2/login`, `/v2/dashboard`, `/v2/family` i URL-en. Standard moderne

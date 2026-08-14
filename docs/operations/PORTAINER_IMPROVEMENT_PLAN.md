@@ -26,7 +26,7 @@ Status after the 2026-07 Portainer deploy-ready work.
    alongside SESSION_SECRET in `handleComplete`.
 
 2. **Post-wizard redirect to real login**  
-   After restart, `/v2/` may still show PilotPasswordGate / empty
+   After restart, `/` may still show PilotPasswordGate / empty
    onboarding without clear copy. Add a one-shot "Setup complete — next:
    create your family" banner driven by `bootstrap.json.completedAt`.
 
@@ -55,7 +55,7 @@ Status after the 2026-07 Portainer deploy-ready work.
 
 ### P2 — polish
 
-8. **v2 setup route** (`/v2/setup`) matching brand tokens from
+8. **Setup route** (`/setup.html`) matching brand tokens from
    `/api/config` — optional; static `setup.html` is enough for zero-config.
 
 9. **Watchtower / Diun labels** for auto-update of `:main` with
@@ -83,7 +83,7 @@ curl -sI http://localhost:7777/ | head -1             # 302 → /setup.html
 
 # 4. Complete wizard in browser, then:
 curl -sf http://localhost:7777/health
-curl -sI http://localhost:7777/ | head -1             # 302 → /v2/
+curl -sI http://localhost:7777/ | head -1             # 200 (SPA) or 302 → /setup.html
 ```
 
 ## References

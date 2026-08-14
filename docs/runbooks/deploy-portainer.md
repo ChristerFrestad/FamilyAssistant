@@ -126,7 +126,7 @@ curl -i -X POST https://app.familyassistant.com/api/auth/pilot-password \
 # → 200 + Set-Cookie: fa_pilot=...
 ```
 
-Open `https://app.familyassistant.com/v2/` in a browser → you see the PilotPasswordGate.
+Open `https://app.familyassistant.com/` in a browser → you see the sign-in screen (or the pilot gate if `PILOT_MODE=true`).
 
 ## Step 7 — Onboarding
 
@@ -175,7 +175,7 @@ node scripts/cleanup-orphan-family-1.js            # execute
 
 - [ ] /health returns 200
 - [ ] /api/pilot/status returns `pilotMode: true`
-- [ ] /v2/ shows the PilotPasswordGate
+- [ ] `/` loads the React app (sign-in, or PilotPasswordGate if `PILOT_MODE=true`)
 - [ ] The correct password sets the cookie and lets the user through
 - [ ] Magic-link email arrives from `noreply@familyassistant.com`
 - [ ] Christer becomes admin on the first onboarding
@@ -245,35 +245,31 @@ can be deleted entirely. Tracked in `docs/workflow/post-pilot-code-debt-cleanup.
 **Symptom:**
 - In browsers with a stale session cookie: `GET /` → 200 OK with legacy v1 (Chat / Weekly menu / Shopping / Chores / Control room)
 - In browsers without cookies: `GET /` → 401 "Authentication required"
-- Expected: 302 redirect to `/v2/` to land on the pilot frontend
+- Expected (current): `GET /` returns the React shell (200). Older images 302'd to `/v2/`.
 
 **Verification:**
 
 ```bash
 # Anonymous
 curl -i http://<deploy>:7777/ | head -3
-# Expected: HTTP/1.1 302 Found, Location: /v2/
+# Expected today: HTTP/1.1 200 and the React HTML (or 302 → /setup.html in bootstrap)
 
 # With session cookie
 curl -i -H 'Cookie: fa_session=...' http://<deploy>:7777/ | head -3
-# Expected: HTTP/1.1 302 Found, Location: /v2/
+# Expected today: HTTP/1.1 200 (same shell; React decides where to send you)
 ```
 
 **Root cause (fixed 2026-05-04 in fix/root-redirect-to-v2):**
 Earlier versions had no early intercept for `GET /`. Authenticated visitors fell through to `tryServeSpaFallback()` which serves `public/index.html` (legacy v1). Anonymous visitors with AUTH_TOKEN set got 401 from auth middleware.
 
-**Fix:** `server/http/server.js` now catches `GET /` right after CORS headers and emits `302 Location: /v2/` before rate-limit, auth, or routing runs. Cookie-independent.
+**Later change (2026-08-14):** `GET /` serves the React app directly. `/v2/*` 301s to the unprefixed path. There is no second frontend.
 
 **If you still see the symptom:**
 1. Verify that the image is built after commit `<post-redirect-fix-sha>`
 2. `docker compose pull && docker compose up -d --force-recreate familieassistenten`
 3. Hard-reload the browser (cached redirects often linger) or test with `curl`
 
-**Legacy v1 still available at explicit paths:**
-- `http://<deploy>:7777/index.html` — legacy SPA shell (requires auth)
-- `http://<deploy>:7777/login.html` — legacy login
-- `http://<deploy>:7777/js/*`, `/css/*` — legacy assets
-- Not used in pilot, but kept for backwards compatibility and diagnostics
+**v1 is gone.** `/index.html` and `/login.html` are not a second app. `/login` is the React sign-in route.
 
 ### Cookies (fa_pilot, fa_session) are not set in the browser after login
 
@@ -336,25 +332,24 @@ the bundle in via `COPY --from=frontend-builder /build/public/v2`.
 3. `docker compose up -d --force-recreate familieassistenten`
 4. Verify: `docker exec familieassistenten ls /app/public/v2/`
    should show `index.html` + `assets/`
-5. Test: `curl -s http://localhost:7777/v2/ | grep 'main-.*\.js'`
-   should return a `<script>` tag pointing to a hashed bundle file
+5. Test: `curl -sI http://localhost:7777/v2/` → 301 to `/`
+   `curl -s http://localhost:7777/ | grep 'main-.*\.js'` should show a hashed bundle.
 
 ### "401 Unauthorized" in an endless loop on first deploy
 
 **Symptom:** Container starts (healthcheck green, all migrations run), but:
-- `GET /` → 302 redirect to `/v2/`
-- `GET /v2/` → 401 `{"title":"Unauthorized","instance":"/v2/"}`
-- `GET /login.html` → 302 to `/v2/` → 401
+- `GET /` → 401 JSON (shell never loads)
+- `GET /login` → 401 JSON
+- `GET /v2/` → 301 to `/` then the same 401
 - The user is stuck in a loop and never reaches the pilot password form
 
 **Root cause (fixed 2026-05-04 in fix/pilot-gate-lockout):**
 Earlier versions had an auth middleware design where the `/v2/` bundle was in the pilot-gate bypass list BUT not in the public-paths list. With `AUTH_TOKEN` set (all prod deploys), the authentication chain blocked the bundle with 401 before the React app could load and render PilotPasswordGate.
 
 **Fix:**
-`server/auth/middleware.js` `isPublicPath()` now returns `true` for:
-- `/v2`, `/v2/`, `/v2/index.html`
-- `/v2/assets/*`
-- `/api/pilot/status` and `/api/auth/pilot-password`
+`server/auth/middleware.js` `isPublicPath()` now returns `true` for
+every non-`/api/*` path (the shell and assets) plus
+`/api/pilot/status` and `/api/auth/pilot-password`.
 
 Frontend guards (PilotGuard → AuthGuard → OnboardingGuard) handle auth state after the bundle is loaded.
 
@@ -362,7 +357,7 @@ Frontend guards (PilotGuard → AuthGuard → OnboardingGuard) handle auth state
 1. Verify that the image is on `:main` or newer than commit `<post-fix-sha>`
 2. `docker compose pull` to fetch a fresh image
 3. `docker compose up -d --force-recreate familieassistenten`
-4. Test: `curl https://<deploy>/v2/` → must return 200 and the HTML bundle
+4. Test: `curl -sI https://<deploy>/` → 200 and HTML (not JSON 401)
 
 ### Pilot password is not accepted
 

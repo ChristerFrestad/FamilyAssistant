@@ -17,9 +17,8 @@ FamilyAssistant is building a new frontend from the ground up in **Vite + React 
 TypeScript (strict) + Tailwind v3 + React Router**. The source code lives in
 `client/`; the build output ends up in `public/v2/` (gitignored).
 
-The backend remains unchanged. The old app (vanilla JS in `public/*`)
-continues to work byte-identical on `/`. The new app runs on
-**`/v2/*`**.
+The backend is unchanged. The old vanilla-JS app on `/` was deleted
+in Sprint 8. The React app is the only UI and is served at `/`.
 
 When the redesign is complete (likely week 8-10), the roles swap:
 `/v2/*` becomes `/`, and the old app moves to `/v1/*` during a

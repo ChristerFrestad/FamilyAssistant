@@ -101,8 +101,8 @@ After redeploying the stack with new brand-config env-vars, verify:
    ```
    Expected: `<text ...>h</text>` for Husby.
 
-3. **Browser tab title** in `/v2/` reads "Husby" (not
-   "FamilyAssistant — v2"). Open a new tab, paste the URL, watch the
+3. **Browser tab title** on `/` reads "Husby" (not
+   "FamilyAssistant"). Open a new tab, paste the URL, watch the
    title resolve from the placeholder `&nbsp;` → `Husby`
    within ~200 ms.
 
