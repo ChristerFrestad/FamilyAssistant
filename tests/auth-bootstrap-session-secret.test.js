@@ -39,10 +39,8 @@ describe('generateSessionSecret', () => {
 describe('ensureSessionSecretInBootstrapFile — missing file', () => {
   test('returns { generated: false, secret: null } when file does not exist', () => {
     const p = tempBootstrapPath();
-    // Do not create the file.
     const r = ensureSessionSecretInBootstrapFile(p);
     assert.deepEqual(r, { generated: false, secret: null, createdFile: false });
-    // File should NOT have been created as a side effect.
     assert.equal(fs.existsSync(p), false);
   });
 
@@ -148,7 +146,6 @@ describe('ensureSessionSecretInBootstrapFile — atomic write', () => {
     fs.writeFileSync(p, JSON.stringify({ authToken: 'f'.repeat(32) }), 'utf8');
     ensureSessionSecretInBootstrapFile(p);
 
-    // Must be parseable JSON after rename; tmp file must be cleaned up.
     const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
     assert.ok(parsed.sessionSecret);
 
@@ -163,7 +160,9 @@ describe('ensureSessionSecretInBootstrapFile — error handling', () => {
     {
       // Root can write even to mode 0500 directories on Linux; the chmod
       // simulation only works for non-root. Skip on Windows and when euid==0.
-      skip: process.platform === 'win32' || (typeof process.getuid === 'function' && process.getuid() === 0),
+      skip:
+        process.platform === 'win32' ||
+        (typeof process.getuid === 'function' && process.getuid() === 0),
     },
     () => {
       const p = tempBootstrapPath();
@@ -171,13 +170,12 @@ describe('ensureSessionSecretInBootstrapFile — error handling', () => {
       const dir = path.dirname(p);
 
       try {
-        fs.chmodSync(dir, 0o500); // r-x — cannot create .tmp file
+        fs.chmodSync(dir, 0o500);
         assert.throws(
           () => ensureSessionSecretInBootstrapFile(p),
           (err) => err && typeof err.message === 'string'
         );
       } finally {
-        // Restore perms so the OS can clean up.
         try {
           fs.chmodSync(dir, 0o700);
         } catch {
@@ -187,12 +185,6 @@ describe('ensureSessionSecretInBootstrapFile — error handling', () => {
     }
   );
 });
-
-// ============================================================
-// Integration with the setup-wizard: handleComplete now writes
-// sessionSecret alongside authToken. Verifies the wiring between
-// bootstrap.js and bootstrap-session-secret.js.
-// ============================================================
 
 const bootstrap = require('../server/http/bootstrap');
 
@@ -236,7 +228,11 @@ describe('handleComplete integration (uke 2 B1)', () => {
     assert.equal(typeof persisted.sessionSecret, 'string');
     assert.equal(persisted.sessionSecret.length, 64);
     assert.match(persisted.sessionSecret, /^[0-9a-f]{64}$/);
-    assert.equal(persisted.version, 2, 'schema version bump to 2 when sessionSecret added');
+    assert.equal(
+      persisted.version,
+      2,
+      'schema version bump to 2 when sessionSecret added'
+    );
     assert.ok(persisted.sessionSecretGeneratedAt);
 
     await new Promise((r) => setImmediate(r));
@@ -253,8 +249,6 @@ describe('handleComplete integration (uke 2 B1)', () => {
     );
     const wizard = JSON.parse(fs.readFileSync(p1, 'utf8')).sessionSecret;
 
-    // Simulate an older install: remove sessionSecret from the file, then
-    // run the self-heal. The regenerated secret must differ.
     const mutated = JSON.parse(fs.readFileSync(p1, 'utf8'));
     delete mutated.sessionSecret;
     delete mutated.sessionSecretGeneratedAt;
