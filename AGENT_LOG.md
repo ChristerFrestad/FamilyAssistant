@@ -6,6 +6,23 @@
 
 ---
 
+2026-08-14 – G1-4 recipe editor + import URL
+
+Task: Replace G0-4 library note with adult New / Import URL, row
+links, and /recipes/new + /recipes/:id editor. Child read-only;
+deactivate via G1-3 POST /api/recipes/:id/deactivate.
+
+- Branch: feat/g1-4-recipe-editor (from feat/g1-integrate fe7fff3)
+- Files: Recipes.tsx, RecipeEditor.tsx, mealsApi.ts, App.tsx,
+  en/no recipes.json, GET ?includeInactive=1
+- Tests: Recipes 9, RecipeEditor 9, Meals 12, bundles 17 (47/47)
+- Recipes not added to primary nav
+- DOMAIN_MODEL.md updated: no
+
+Status: ready on feat/g1-4-recipe-editor
+
+---
+
 2026-08-14 – G5-1 SQLite busy_timeout + one retry
 
 Task: PRAGMA busy_timeout=5000 + withBusyRetry once on SQLITE_BUSY.

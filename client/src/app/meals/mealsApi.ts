@@ -13,11 +13,19 @@
 
 export class MealsApiError extends Error {
   status: number;
+  code: string | undefined;
+  mealPlanCount: number | undefined;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    extras: { code?: string; mealPlanCount?: number } = {}
+  ) {
     super(message);
     this.name = 'MealsApiError';
     this.status = status;
+    this.code = extras.code;
+    this.mealPlanCount = extras.mealPlanCount;
   }
 }
 
@@ -139,14 +147,18 @@ async function getJson<T>(path: string, options: FetchOptions = {}): Promise<T> 
   } catch {
     // Non-JSON body — fall through to status check.
   }
-  if (!res.ok) {
-    const detail =
-      parsed && typeof parsed === 'object' && 'detail' in parsed
-        ? String((parsed as { detail: unknown }).detail)
-        : `HTTP ${res.status}`;
-    throw new MealsApiError(res.status, detail);
-  }
+  if (!res.ok) throw toMealsApiError(res.status, parsed);
   return parsed as T;
+}
+
+function toMealsApiError(status: number, parsed: unknown): MealsApiError {
+  const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  const detail =
+    obj && 'detail' in obj && obj.detail != null ? String(obj.detail) : `HTTP ${status}`;
+  const extras: { code?: string; mealPlanCount?: number } = {};
+  if (obj && typeof obj.code === 'string') extras.code = obj.code;
+  if (obj && typeof obj.mealPlanCount === 'number') extras.mealPlanCount = obj.mealPlanCount;
+  return new MealsApiError(status, detail, extras);
 }
 
 // ============================================================
@@ -175,13 +187,29 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   } catch {
     /* fall through */
   }
-  if (!res.ok) {
-    const detail =
-      parsed && typeof parsed === 'object' && 'detail' in parsed
-        ? String((parsed as { detail: unknown }).detail)
-        : `HTTP ${res.status}`;
-    throw new MealsApiError(res.status, detail);
+  if (!res.ok) throw toMealsApiError(res.status, parsed);
+  return parsed as T;
+}
+
+async function sendJson<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const init: RequestInit = {
+    method,
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+  };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  const res = await fetch(path, init);
+  if (res.status === 204) return undefined as T;
+  let parsed: unknown = null;
+  try {
+    parsed = await res.json();
+  } catch {
+    /* fall through */
   }
+  if (!res.ok) throw toMealsApiError(res.status, parsed);
   return parsed as T;
 }
 
@@ -204,18 +232,73 @@ export async function applyMealDeduction(
 // Recipes — Sprint 6 plan picker
 // ============================================================
 
+export type RecipeSourceType = 'manual' | 'ai' | 'imported';
+export type RecipeSourceFilter = 'all' | 'mine' | 'imported' | 'ai';
+
+export interface RecipeBlockedIngredient {
+  name: string;
+  allergen?: string;
+}
+
 export interface RecipeSummary {
   id: number;
   name: string;
   category: RecipeCategory;
   prepTime: string | null;
   servings: number | null;
+  source?: string | null;
+  sourceType?: RecipeSourceType | string | null;
+  url?: string | null;
+  active?: boolean;
   /** Backend annotates each recipe with allergy/diet flags. */
   hiddenByAllergy?: boolean;
   hiddenByDiet?: boolean;
   shownWithDislikeWarning?: boolean;
+  safeForProfile?: boolean;
   /** Recipe-filter blocked-ingredients list when allergy hits. Empty when safe. */
-  blockedIngredients?: Array<{ name: string; allergen?: string }>;
+  blockedIngredients?: RecipeBlockedIngredient[];
+}
+
+export interface RecipeDetail extends RecipeSummary {
+  notes: string | null;
+  ingredients: RecipeIngredient[];
+  equipment?: string[];
+}
+
+export interface RecipeWriteBody {
+  name: string;
+  category: RecipeCategory;
+  prepTime?: string;
+  servings?: number;
+  notes?: string;
+  url?: string;
+  ingredients?: Array<{
+    name: string;
+    qty: number;
+    unit: string;
+    optional?: boolean;
+    productKey?: string;
+  }>;
+}
+
+export interface RecipeMutationResponse {
+  ok: true;
+  recipeId?: number;
+  recipe: RecipeDetail;
+}
+
+export interface ImportRecipeUrlResponse {
+  ok: true;
+  recipeId: number;
+  source?: string;
+  recipe?: RecipeDetail;
+  safeForProfile?: boolean;
+  blockedIngredients?: RecipeBlockedIngredient[];
+}
+
+export interface FetchRecipesQuery {
+  source?: RecipeSourceFilter;
+  includeInactive?: boolean;
 }
 
 export interface RecipesResponse {
@@ -233,14 +316,64 @@ export interface SwapMealResponse {
 }
 
 /**
- * GET /api/recipes — list all recipes for the current family with
- * allergy/diet annotations. The backend filters per-member; the
- * picker uses the annotations to grey out blocked rows.
+ * GET /api/recipes — list recipes for the current family with
+ * allergy/diet annotations. Optional `source` and `includeInactive`
+ * query params match the G1 library filters.
  */
-export async function fetchRecipes(signal?: AbortSignal): Promise<RecipesResponse> {
+export async function fetchRecipes(
+  signal?: AbortSignal,
+  query: FetchRecipesQuery = {}
+): Promise<RecipesResponse> {
   const init: FetchOptions = {};
   if (signal) init.signal = signal;
-  return getJson<RecipesResponse>('/api/recipes', init);
+  const params = new URLSearchParams();
+  if (query.source && query.source !== 'all') params.set('source', query.source);
+  if (query.includeInactive) params.set('includeInactive', '1');
+  const qs = params.toString();
+  return getJson<RecipesResponse>(qs ? `/api/recipes?${qs}` : '/api/recipes', init);
+}
+
+/** GET /api/recipes/:id — one recipe including ingredients. */
+export async function fetchRecipe(
+  id: number,
+  signal?: AbortSignal
+): Promise<{ recipe: RecipeDetail }> {
+  const init: FetchOptions = {};
+  if (signal) init.signal = signal;
+  return getJson<{ recipe: RecipeDetail }>(`/api/recipes/${id}`, init);
+}
+
+/** POST /api/recipes — adult create. Server stamps sourceType=manual. */
+export async function createRecipe(body: RecipeWriteBody): Promise<RecipeMutationResponse> {
+  return postJson<RecipeMutationResponse>('/api/recipes', body);
+}
+
+/** PATCH /api/recipes/:id — adult update. */
+export async function updateRecipe(
+  id: number,
+  body: Partial<RecipeWriteBody> & { active?: boolean }
+): Promise<RecipeMutationResponse> {
+  return sendJson<RecipeMutationResponse>('PATCH', `/api/recipes/${id}`, body);
+}
+
+/** POST /api/recipes/:id/deactivate — hide from the library. */
+export async function deactivateRecipe(id: number): Promise<RecipeMutationResponse> {
+  return postJson<RecipeMutationResponse>(`/api/recipes/${id}/deactivate`, {});
+}
+
+/** PATCH /api/recipes/:id { active: true } — restore a hidden recipe. */
+export async function reactivateRecipe(id: number): Promise<RecipeMutationResponse> {
+  return updateRecipe(id, { active: true });
+}
+
+/** DELETE /api/recipes/:id — 204, or 409 RECIPE_IN_USE / 405. */
+export async function deleteRecipe(id: number): Promise<void> {
+  await sendJson<undefined>('DELETE', `/api/recipes/${id}`);
+}
+
+/** POST /api/recipes/import-url — adult import from a public recipe page. */
+export async function importRecipeFromUrl(url: string): Promise<ImportRecipeUrlResponse> {
+  return postJson<ImportRecipeUrlResponse>('/api/recipes/import-url', { url });
 }
 
 /**
@@ -269,12 +402,6 @@ export async function swapMeal(
   } catch {
     /* fall through */
   }
-  if (!res.ok) {
-    const detail =
-      parsed && typeof parsed === 'object' && 'detail' in parsed
-        ? String((parsed as { detail: unknown }).detail)
-        : `HTTP ${res.status}`;
-    throw new MealsApiError(res.status, detail);
-  }
+  if (!res.ok) throw toMealsApiError(res.status, parsed);
   return parsed as SwapMealResponse;
 }

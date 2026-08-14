@@ -4,21 +4,90 @@
   "listAria": "Family recipes",
   "empty": {
     "title": "No recipes yet",
-    "body": "Recipes will appear here when they are added to the family library."
+    "body": "Add a recipe or import one from a link.",
+    "filtered": "No recipes match these filters.",
+    "bodyAdult": "Add a recipe or import one from a link.",
+    "bodyChild": "Ask an adult to add the family's recipes."
   },
   "errors": {
-    "loadFailed": "Could not load recipes."
+    "loadFailed": "Could not load recipes.",
+    "ingredientsRequired": "Add at least one ingredient.",
+    "saveFailed": "Could not save the recipe.",
+    "loadOneFailed": "Could not load this recipe.",
+    "deactivateFailed": "Could not hide the recipe.",
+    "forbiddenChild": "Only adults can change recipes."
   },
   "actions": {
-    "retry": "Try again"
+    "retry": "Try again",
+    "new": "New recipe",
+    "importUrl": "Import from URL",
+    "backToLibrary": "Back to library",
+    "save": "Save recipe",
+    "deactivate": "Hide from library",
+    "reactivate": "Show in library",
+    "delete": "Delete permanently",
+    "confirmDiscard": "Discard unsaved changes?",
+    "clearFilters": "Clear filters",
+    "more": "More"
   },
   "meta": {
-    "servings": "{{count}} servings"
+    "servings": "{{count}} servings",
+    "allergyWarning": "Check allergens",
+    "sourceImported": "Imported",
+    "sourceAi": "Suggested"
   },
   "category": {
     "rask": "Quick",
     "comfort": "Comfort",
     "helg": "Weekend"
   },
-  "g1Note": "Adding and editing recipes arrives in a later update."
+  "g1Note": "Adding and editing recipes arrives in a later update.",
+  "filters": {
+    "search": "Search recipes",
+    "source": "Source",
+    "sourceAll": "All",
+    "sourceMine": "Ours",
+    "sourceImported": "Imported",
+    "sourceAi": "Suggested",
+    "inactive": "Show hidden",
+    "categoryAria": "Filter by category"
+  },
+  "status": {
+    "inactive": "Hidden from library"
+  },
+  "editor": {
+    "createTitle": "New recipe",
+    "editTitle": "Edit recipe"
+  },
+  "fields": {
+    "name": "Name",
+    "category": "Category",
+    "prepTime": "Prep time",
+    "prepTimeHint": "Example: 25 min",
+    "servings": "Servings",
+    "url": "Source URL",
+    "notes": "Instructions",
+    "ingredients": "Ingredients",
+    "ingredientName": "Ingredient",
+    "qty": "Amount",
+    "unit": "Unit",
+    "optional": "Optional",
+    "addIngredient": "Add ingredient",
+    "removeIngredient": "Remove {{name}}",
+    "equipment": "Equipment",
+    "addEquipment": "Add"
+  },
+  "import": {
+    "title": "Import from URL",
+    "description": "Paste a recipe link. We read the page and save a draft you can fix.",
+    "url": "Recipe URL",
+    "submit": "Import",
+    "invalid": "That link could not be read as a recipe.",
+    "failed": "Import failed. Try again.",
+    "allergyWarning": "This recipe may not fit everyone: {{list}}. It is saved — review before you plan it."
+  },
+  "deactivate": {
+    "confirm": "Hide {{name}} from the library? Planned dinners keep the recipe.",
+    "conflict": "This recipe is on the meal plan ({{count}} day(s)). Hide it from the library instead?"
+  }
 }

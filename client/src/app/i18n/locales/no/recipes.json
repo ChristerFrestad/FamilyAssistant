@@ -4,21 +4,90 @@
   "listAria": "Familiens oppskrifter",
   "empty": {
     "title": "Ingen oppskrifter ennå",
-    "body": "Oppskrifter vises her når de er lagt til i familiens bibliotek."
+    "body": "Legg til en oppskrift eller importer fra en lenke.",
+    "filtered": "Ingen oppskrifter treffer filtrene.",
+    "bodyAdult": "Legg til en oppskrift eller importer fra en lenke.",
+    "bodyChild": "Be en voksen om å legge inn familiens oppskrifter."
   },
   "errors": {
-    "loadFailed": "Kunne ikke hente oppskrifter."
+    "loadFailed": "Kunne ikke hente oppskrifter.",
+    "ingredientsRequired": "Legg til minst én ingrediens.",
+    "saveFailed": "Kunne ikke lagre oppskriften.",
+    "loadOneFailed": "Kunne ikke hente denne oppskriften.",
+    "deactivateFailed": "Kunne ikke skjule oppskriften.",
+    "forbiddenChild": "Bare voksne kan endre oppskrifter."
   },
   "actions": {
-    "retry": "Prøv igjen"
+    "retry": "Prøv igjen",
+    "new": "Ny oppskrift",
+    "importUrl": "Importer fra lenke",
+    "backToLibrary": "Tilbake til biblioteket",
+    "save": "Lagre oppskrift",
+    "deactivate": "Skjul fra biblioteket",
+    "reactivate": "Vis i biblioteket",
+    "delete": "Slett for godt",
+    "confirmDiscard": "Forkaste ulagrede endringer?",
+    "clearFilters": "Nullstill filter",
+    "more": "Mer"
   },
   "meta": {
-    "servings": "{{count}} porsjoner"
+    "servings": "{{count}} porsjoner",
+    "allergyWarning": "Sjekk allergener",
+    "sourceImported": "Importert",
+    "sourceAi": "Foreslått"
   },
   "category": {
     "rask": "Rask",
     "comfort": "Hverdagskos",
     "helg": "Helg"
   },
-  "g1Note": "Å legge til og redigere oppskrifter kommer i en senere oppdatering."
+  "g1Note": "Å legge til og redigere oppskrifter kommer i en senere oppdatering.",
+  "filters": {
+    "search": "Søk i oppskrifter",
+    "source": "Kilde",
+    "sourceAll": "Alle",
+    "sourceMine": "Våre",
+    "sourceImported": "Importert",
+    "sourceAi": "Foreslått",
+    "inactive": "Vis skjulte",
+    "categoryAria": "Filtrer på kategori"
+  },
+  "status": {
+    "inactive": "Skjult fra biblioteket"
+  },
+  "editor": {
+    "createTitle": "Ny oppskrift",
+    "editTitle": "Rediger oppskrift"
+  },
+  "fields": {
+    "name": "Navn",
+    "category": "Kategori",
+    "prepTime": "Tilberedning",
+    "prepTimeHint": "Eksempel: 25 min",
+    "servings": "Porsjoner",
+    "url": "Kildelenke",
+    "notes": "Fremgangsmåte",
+    "ingredients": "Ingredienser",
+    "ingredientName": "Ingrediens",
+    "qty": "Mengde",
+    "unit": "Enhet",
+    "optional": "Valgfri",
+    "addIngredient": "Legg til ingrediens",
+    "removeIngredient": "Fjern {{name}}",
+    "equipment": "Utstyr",
+    "addEquipment": "Legg til"
+  },
+  "import": {
+    "title": "Importer fra lenke",
+    "description": "Lim inn en oppskriftslenke. Vi leser siden og lagrer et utkast du kan rette.",
+    "url": "Oppskriftslenke",
+    "submit": "Importer",
+    "invalid": "Den lenken kunne ikke leses som en oppskrift.",
+    "failed": "Import feilet. Prøv igjen.",
+    "allergyWarning": "Denne oppskriften passer kanskje ikke alle: {{list}}. Den er lagret — se over før du planlegger den."
+  },
+  "deactivate": {
+    "confirm": "Skjule {{name}} fra biblioteket? Planlagte middager beholder oppskriften.",
+    "conflict": "Denne oppskriften står på ukesmenyen ({{count}} dag(er)). Skjul den fra biblioteket i stedet?"
+  }
 }
