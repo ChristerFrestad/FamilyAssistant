@@ -77,11 +77,7 @@ describe('ensureSessionSecretInBootstrapFile — missing file', () => {
 describe('ensureSessionSecretInBootstrapFile — existing file without secret', () => {
   test('generates and merges sessionSecret into existing bootstrap.json', () => {
     const p = tempBootstrapPath();
-    fs.writeFileSync(
-      p,
-      JSON.stringify({ authToken: 'a'.repeat(32), version: 1 }, null, 2),
-      'utf8'
-    );
+    fs.writeFileSync(p, JSON.stringify({ authToken: 'a'.repeat(32), version: 1 }, null, 2), 'utf8');
     const r = ensureSessionSecretInBootstrapFile(p);
     assert.equal(r.generated, true);
     assert.equal(r.createdFile, false);
@@ -97,11 +93,7 @@ describe('ensureSessionSecretInBootstrapFile — existing file without secret', 
 
   test('is idempotent: second call returns existing secret without rewriting', () => {
     const p = tempBootstrapPath();
-    fs.writeFileSync(
-      p,
-      JSON.stringify({ authToken: 'b'.repeat(32) }, null, 2),
-      'utf8'
-    );
+    fs.writeFileSync(p, JSON.stringify({ authToken: 'b'.repeat(32) }, null, 2), 'utf8');
     const first = ensureSessionSecretInBootstrapFile(p);
     assert.equal(first.generated, true);
     const mtime1 = fs.statSync(p).mtimeMs;
@@ -228,11 +220,7 @@ describe('handleComplete integration (uke 2 B1)', () => {
     assert.equal(typeof persisted.sessionSecret, 'string');
     assert.equal(persisted.sessionSecret.length, 64);
     assert.match(persisted.sessionSecret, /^[0-9a-f]{64}$/);
-    assert.equal(
-      persisted.version,
-      2,
-      'schema version bump to 2 when sessionSecret added'
-    );
+    assert.equal(persisted.version, 2, 'schema version bump to 2 when sessionSecret added');
     assert.ok(persisted.sessionSecretGeneratedAt);
 
     await new Promise((r) => setImmediate(r));
