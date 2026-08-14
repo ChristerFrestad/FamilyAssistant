@@ -94,7 +94,7 @@ function buildFamilyExport(repos, familyId) {
   const familyProfile = safe(() => repos.familyProfile.get(), null);
   const inventory = safe(() => repos.inventory.getAll(), {});
   const inventoryLog = safe(() => repos.inventoryLog.getRecent(1000), []);
-  const recipes = safe(() => repos.recipes.getAll(), []);
+  const recipes = safe(() => repos.recipes.getAll({ includeInactive: true }), []);
   const chores = safe(() => repos.chores.getAll(), []);
   const consumables = safe(() => repos.consumables.getAll(), []);
   const calendarEvents = safe(() => repos.calendar.getEvents('2000-01-01', '2100-12-31'), []);

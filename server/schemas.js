@@ -275,6 +275,41 @@ const recipeImportTextBody = z
   })
   .strict();
 
+const recipeIngredientBody = z
+  .object({
+    name: z.string().min(1).max(200),
+    qty: z.number(),
+    unit: z.string().min(1).max(50),
+    optional: z.boolean().optional(),
+    productKey: z.string().min(1).max(100).optional(),
+  })
+  .strict();
+
+const recipeCreateBody = z
+  .object({
+    name: z.string().min(1).max(200),
+    category: z.enum(['rask', 'comfort', 'helg']),
+    prepTime: z.string().optional(),
+    servings: z.number().int().positive().optional(),
+    notes: z.string().optional(),
+    url: z.string().optional(),
+    ingredients: z.array(recipeIngredientBody).optional(),
+  })
+  .strict();
+
+const recipeUpdateBody = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    category: z.enum(['rask', 'comfort', 'helg']).optional(),
+    prepTime: z.string().optional(),
+    servings: z.number().int().positive().optional(),
+    notes: z.string().optional(),
+    url: z.string().optional(),
+    ingredients: z.array(recipeIngredientBody).optional(),
+    active: z.boolean().optional(),
+  })
+  .strict();
+
 const kbSearchQuery = z.object({
   q: z.string().max(500).optional(),
 });
@@ -514,6 +549,8 @@ module.exports = {
   receiptConfirmBody,
   receiptListQuery,
   recipeImportTextBody,
+  recipeCreateBody,
+  recipeUpdateBody,
   idParam,
   weekYearParam,
   dayOfWeekParam,

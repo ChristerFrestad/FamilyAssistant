@@ -31,7 +31,42 @@ authoritative source. When Claude works on a new task:
 > Each entity describes: fields, relationships, rules, lifecycle.
 > Short and concrete. The code is the truth; this is the explanation.
 
-*(No entities documented yet. Grows organically.)*
+### Recipe
+
+**Source file:** `server/routes.js` (POST/PATCH/GET/deactivate)
+**Repository:** `repos.recipes` in `server/repositories/recipe.repo.js`
+**Table:** `recipes` + `recipe_ingredients` (migration `033_recipes_active.sql` for `active`)
+
+**What it is:** A family-scoped dinner recipe. The library is listed
+on GET `/api/recipes` (active only). Planned meals keep a FK even
+after the recipe is hidden.
+
+**Fields:**
+- `id` – PK
+- `name`, `category` (`rask`|`comfort`|`helg`), `prep_time`, `servings`
+- `notes`, `url`, `source` (free text), `source_type` (`manual`|`ai`|`imported`)
+- `active` (INTEGER 0/1, default 1) — soft-hide flag
+- `family_id` — tenant scope via `getFamilyId()`
+
+**Relationships:**
+- 1 ↔ N `recipe_ingredients`
+- N meal_plans rows may reference `recipe_id` after deactivate
+
+**Rules:**
+- GET `/api/recipes` returns `active=1` only
+- `getById` returns inactive recipes so meal plans still resolve
+- `findByName` skips inactive (LLM swap should not reuse a hidden recipe)
+- No hard DELETE — POST `/api/recipes/:id/deactivate` or PATCH `{ active: false }`
+- Adult role required to create/update/deactivate
+- Cross-family GET/PATCH is 404 (family-scoped repo)
+
+**Lifecycle:**
+Created via POST `/api/recipes` (`source_type=manual`),
+`/api/recipes/from-llm` (`ai`), or import (`imported`).
+Updated via PATCH. Hidden via deactivate. Never physically deleted.
+
+**Covered by tests:**
+- `tests/recipe-crud.test.js`
 
 ### Format to follow when adding an entity
 

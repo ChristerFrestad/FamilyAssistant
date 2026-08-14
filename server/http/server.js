@@ -233,7 +233,7 @@ function createServer(router, { authenticate } = {}) {
         routeTemplate = dispatched.route.path;
         ctx.params = dispatched.params;
 
-        // Parse body for write methods (PATCH included for chore catalog).
+        // Parse body for write methods (PATCH: chore catalog + recipe update).
         if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
           try {
             ctx.body = await parseBody(req);

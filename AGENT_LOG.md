@@ -6,6 +6,18 @@
 
 ---
 
+2026-08-14 – G1-3 recipe create / update / soft-deactivate API
+
+Task: Manual POST/PATCH plus active-flag deactivate for recipes.
+Migration landed as 033 (G1-1 already used 032 for chores).
+
+- Branch: feat/g1-3-recipe-crud-api
+- Tests: recipe-crud + import + tenant isolation
+
+Status: merged into feat/g1-integrate
+
+---
+
 2026-08-14 – G1-1 chore catalog CRUD + today-label fix
 
 Task: Family-scoped chore CRUD (GET/POST/PATCH) and stop '?' labels
