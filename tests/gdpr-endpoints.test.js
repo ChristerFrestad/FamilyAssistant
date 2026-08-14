@@ -23,7 +23,46 @@ function createUser(email, role, familyName) {
   if (role === 'owner') server.repos.family.setOwner(fid, user.id);
   const sid = crypto.randomBytes(32).toString('hex');
   server.repos.auth.createSession({ id: sid, userId: user.id, ttlDays: 30 });
-  return { familyId: fid, userId: user.id, sid, cookie: cookieHeader(sid) };
+  return { familyId: fid, userId: user.id, sid, cookie: cookieHeader(sid), email };
+}
+
+function addUserToFamily(email, role, familyId) {
+  const user = server.repos.auth.createUser({ email, name: email });
+  server.repos.auth.setFamily(user.id, familyId, role);
+  const sid = crypto.randomBytes(32).toString('hex');
+  server.repos.auth.createSession({ id: sid, userId: user.id, ttlDays: 30 });
+  return { familyId, userId: user.id, sid, cookie: cookieHeader(sid), email };
+}
+
+function seedFamilyExportData(familyId, { recipe, event, member }) {
+  runWithFamily(familyId, () => {
+    server.repos.family.addMember(familyId, { name: member, category: 'adult' });
+    server.repos.recipes.insert({
+      name: recipe,
+      category: 'rask',
+      servings: 2,
+      ingredients: [{ name: 'Salt', qty: 1, unit: 'ts' }],
+    });
+    server.repos.calendar.insert({
+      title: event,
+      date: '2026-08-14',
+      allDay: true,
+    });
+  });
+}
+
+function assertExportIncludes(body, needles) {
+  const raw = JSON.stringify(body);
+  for (const n of needles) {
+    assert.ok(raw.includes(n), `export should contain ${n}`);
+  }
+}
+
+function assertExportExcludes(body, needles) {
+  const raw = JSON.stringify(body);
+  for (const n of needles) {
+    assert.ok(!raw.includes(n), `export must not contain ${n}`);
+  }
 }
 
 before(async () => {
@@ -90,6 +129,96 @@ test('GET /api/me/export for user without a family returns only personal data', 
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.user.email, 'no-fam@gdpr.test');
   assert.strictEqual(r.body.family, undefined);
+});
+
+test('GET /api/me/export isolates two families over HTTP cookies', async () => {
+  const a = createUser('g02-owner-a@iso.test', 'owner', 'G02-Iso-Fam-A-7f3c');
+  const b = createUser('g02-owner-b@iso.test', 'owner', 'G02-Iso-Fam-B-9e1d');
+  seedFamilyExportData(a.familyId, {
+    recipe: 'G02-Iso-Recipe-A-7f3c',
+    event: 'G02-Iso-Event-A-7f3c',
+    member: 'G02-Iso-Member-A-7f3c',
+  });
+  seedFamilyExportData(b.familyId, {
+    recipe: 'G02-Iso-Recipe-B-9e1d',
+    event: 'G02-Iso-Event-B-9e1d',
+    member: 'G02-Iso-Member-B-9e1d',
+  });
+
+  const ra = await request(server.baseUrl, 'GET', '/api/me/export', {
+    headers: { Cookie: a.cookie },
+  });
+  assert.strictEqual(ra.status, 200);
+  assertExportIncludes(ra.body, [
+    'G02-Iso-Fam-A-7f3c',
+    'G02-Iso-Recipe-A-7f3c',
+    'G02-Iso-Event-A-7f3c',
+    'g02-owner-a@iso.test',
+  ]);
+  assertExportExcludes(ra.body, [
+    'G02-Iso-Fam-B-9e1d',
+    'G02-Iso-Recipe-B-9e1d',
+    'G02-Iso-Event-B-9e1d',
+    'g02-owner-b@iso.test',
+    'G02-Iso-Member-B-9e1d',
+  ]);
+
+  const rb = await request(server.baseUrl, 'GET', '/api/me/export', {
+    headers: { Cookie: b.cookie },
+  });
+  assert.strictEqual(rb.status, 200);
+  assertExportIncludes(rb.body, [
+    'G02-Iso-Fam-B-9e1d',
+    'G02-Iso-Recipe-B-9e1d',
+    'G02-Iso-Event-B-9e1d',
+    'g02-owner-b@iso.test',
+  ]);
+  assertExportExcludes(rb.body, [
+    'G02-Iso-Fam-A-7f3c',
+    'G02-Iso-Recipe-A-7f3c',
+    'G02-Iso-Event-A-7f3c',
+    'g02-owner-a@iso.test',
+    'G02-Iso-Member-A-7f3c',
+  ]);
+});
+
+// Contract: any authenticated family member, including role===child,
+// receives the full family payload via /api/me/export (other members'
+// emails included). Isolation is family-scoped, not per-child. Tightening
+// child scope is residual risk for G4 — do not change here.
+test('GET /api/me/export as child stays inside own family (full-family contract)', async () => {
+  const a = createUser('g02-child-owner-a@iso.test', 'owner', 'G02-Child-Fam-A-aa11');
+  const b = createUser('g02-child-owner-b@iso.test', 'owner', 'G02-Child-Fam-B-bb22');
+  seedFamilyExportData(a.familyId, {
+    recipe: 'G02-Child-Recipe-A-aa11',
+    event: 'G02-Child-Event-A-aa11',
+    member: 'G02-Child-Member-A-aa11',
+  });
+  seedFamilyExportData(b.familyId, {
+    recipe: 'G02-Child-Recipe-B-bb22',
+    event: 'G02-Child-Event-B-bb22',
+    member: 'G02-Child-Member-B-bb22',
+  });
+  const child = addUserToFamily('g02-child-a@iso.test', 'child', a.familyId);
+
+  const r = await request(server.baseUrl, 'GET', '/api/me/export', {
+    headers: { Cookie: child.cookie },
+  });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.user.role, 'child');
+  assert.strictEqual(r.body.user.email, 'g02-child-a@iso.test');
+  assertExportIncludes(r.body, [
+    'G02-Child-Fam-A-aa11',
+    'G02-Child-Recipe-A-aa11',
+    'g02-child-owner-a@iso.test',
+  ]);
+  assertExportExcludes(r.body, [
+    'G02-Child-Fam-B-bb22',
+    'G02-Child-Recipe-B-bb22',
+    'G02-Child-Event-B-bb22',
+    'g02-child-owner-b@iso.test',
+    'G02-Child-Member-B-bb22',
+  ]);
 });
 
 // ============================================================

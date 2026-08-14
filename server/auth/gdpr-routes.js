@@ -3,6 +3,11 @@
 //   GET    /api/me/export    authenticated — returns a JSON blob with
 //                             everything the caller's family has stored.
 //                             Streaming is not required at MVP scale.
+//                             Any member (including role===child) gets the
+//                             full family payload, including other members'
+//                             emails. That is the documented Art. 15
+//                             contract; tightening child scope is residual
+//                             G4 risk, not a G0-2 isolation change.
 //
 //   DELETE /api/me            authenticated — soft-deletes the caller's
 //                             user row (users.deleted_at), clears all

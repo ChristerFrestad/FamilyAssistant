@@ -6,6 +6,41 @@
 
 ---
 
+2026-08-14 – G0-2 GDPR export isolation (HTTP dual-family)
+
+Task: Bevise via HTTP at familie A sitt GDPR-export aldri inneholder
+familie B sine data, og vurdere child/adult export-scope.
+
+Analysis: docs/analyses/2026-05-04-gdpr-family-export.md (eksisterende)
+- Journey: 2 familier, cookie-sesjoner, GET /api/me/export +
+  GET /api/family/export, child-export, owner-only family-export
+- Edge cases: non-owner 403, child får full familie (kontrakt),
+  last-owner DELETE allerede dekket
+- Decisions: 1 — behold documented full-family /api/me/export for
+  alle medlemmer inkl. child (ikke redesigne GDPR)
+- Portainer risk: no
+
+Plan: HTTP-isolasjonstester i gdpr-endpoints + gdpr-family-export;
+ikke endre export-payload; kommenter residual child-email risiko.
+
+Done:
+- Branch: feat/g0-2-gdpr-export-isolation
+- Files changed: 4 (gdpr-routes comment, 2 testfiler, AGENT_LOG)
+- Tests added: 4 HTTP-tester (me dual-family, child contract,
+  family dual-family, non-owner 403)
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: none — produksjons-scope uendret
+
+Security: Cross-tenant isolation bevist over HTTP cookies.
+Child /api/me/export inkluderer andre medlemmers e-post — residual
+G4-risiko, dokumentert i test + kommentar.
+
+ISO 25010: Security/compliance +0 (bevis, ikke ny funksjon).
+
+Status: waiting-for-operator
+
+---
+
 2026-08-14 – G0-1 to-familie passord-isolasjon (e2e)
 
 Oppgave: Bevis at to familier på samme SQLite-prosess ikke ser
@@ -77,11 +112,6 @@ ISO 25010: Functional suitability (calendar CRUD UI), security
 (tenant cache isolation), maintainability (type matches OpenAPI).
 
 Status: waiting-for-operator
-
-Decisions the operator must make (with recommendation):
-None. Recommend merge when CI is green.
-
-Next: review feat/g0-3-calendar-events and open PR.
 
 ---
 
