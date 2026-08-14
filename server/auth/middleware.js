@@ -10,6 +10,7 @@
 //   4. No AUTH_TOKEN configured and no cookie — legacy dev behaviour: treat
 //      the request as the local default family. Used when the app is run
 //      behind Tailscale/LAN without any auth configured.
+//      **Restricted to NODE_ENV !== 'production'** (Phase 0 hardening).
 //   5. Otherwise throw 401.
 //
 // requireRole(role) is a helper middleware that expects authenticate() has
@@ -265,8 +266,9 @@ function createAuthenticate(repos) {
     }
 
     // Legacy dev fallback: no AUTH_TOKEN configured and no session → allow as
-    // local user. This preserves the existing unauthenticated local dev flow.
-    if (!config.AUTH_TOKEN) {
+    // local user. Restricted to non-production (Phase 0).
+    // Production must never silently grant synthetic owner access.
+    if (!config.AUTH_TOKEN && config.NODE_ENV !== 'production') {
       attachLocalUser(ctx);
       return;
     }

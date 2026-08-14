@@ -432,6 +432,9 @@ function handleOnboardingComplete(ctx, repos) {
 }
 
 function handleLogout(ctx, repos) {
+  const hadSession = Boolean(ctx.sessionId);
+  const userId = ctx.user && !ctx.user._synthetic ? ctx.user.id : null;
+  const familyId = ctx.familyId || (ctx.user && ctx.user.family_id) || null;
   if (ctx.sessionId) {
     try {
       repos.auth.deleteSession(ctx.sessionId);
@@ -440,6 +443,30 @@ function handleLogout(ctx, repos) {
     }
   }
   clearSessionCookie(ctx.res, ctx.req);
+  try {
+    if (familyId) {
+      repos._db
+        .prepare(
+          `INSERT INTO audit_log
+             (family_id, request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          familyId,
+          ctx.requestId || 'unknown',
+          userId ? `user:${userId}` : 'anonymous',
+          'POST',
+          'session',
+          ctx.sessionId || null,
+          '/api/auth/logout',
+          null,
+          null,
+          JSON.stringify({ event: 'logout', hadSession }).slice(0, 2000)
+        );
+    }
+  } catch {
+    /* audit must never break the response */
+  }
   return { ok: true };
 }
 

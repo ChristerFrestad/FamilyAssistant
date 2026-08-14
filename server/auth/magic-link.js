@@ -134,6 +134,31 @@ async function handleMagicLinkStart(ctx, repos) {
 
   await issueMagicLink(repos, { email, purpose: 'login', userId: null, ctx });
 
+  // Audit magic-link generation (enumeration-safe).
+  // Pre-family / system events may lack a valid family_id — swallow FK errors.
+  try {
+    repos._db
+      .prepare(
+        `INSERT INTO audit_log
+           (family_id, request_id, actor, action, entity_type, entity_id, route, before_hash, after_hash, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        0,
+        ctx.requestId || 'unknown',
+        `email:${email}`,
+        'POST',
+        'auth',
+        null,
+        '/api/auth/magic-link/start',
+        null,
+        null,
+        JSON.stringify({ event: 'magic_link_issued', purpose: 'login' }).slice(0, 2000)
+      );
+  } catch {
+    /* ignore */
+  }
+
   return { ok: true, message: 'If the address is valid you will receive a login email shortly.' };
 }
 

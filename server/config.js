@@ -1,6 +1,6 @@
 // Centralised configuration with Zod-validated env vars.
 // All env vars are read and validated here. Code reads from config.X
-// i stedet for process.env.X, s\u00e5 feil konfigurasjon fanges ved oppstart.
+// i stedet for process.env.X, så feil konfigurasjon fanges ved oppstart.
 
 const fs = require('fs');
 const path = require('path');
@@ -190,6 +190,11 @@ const envSchema = z.object({
   // Set by docker-compose.yml; never set in a bare-metal deploy.
   BOOTSTRAP_ALLOWED: envBoolean.default(false),
   BOOTSTRAP_FILE: z.string().optional(),
+
+  // When true, cookies get the Secure flag even if the Node process
+  // itself is speaking plain HTTP (typical behind Cloudflare Tunnel /
+  // Caddy / nginx TLS termination). Read via config, not raw process.env.
+  HTTPS_TERMINATED: envBoolean.default(false),
 });
 
 // Auto-detect node --test and set NODE_ENV=test if not explicitly set.
@@ -326,7 +331,7 @@ function loadConfig() {
     cfg.LOG_PRETTY = true;
   }
 
-  // ALLOWED_ORIGINS kan v\u00e6re komma-separert liste eller '*'
+  // ALLOWED_ORIGINS kan være komma-separert liste eller '*'
   cfg.ALLOWED_ORIGINS_LIST =
     cfg.ALLOWED_ORIGINS === '*'
       ? '*'
