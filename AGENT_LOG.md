@@ -6,6 +6,42 @@
 
 ---
 
+2026-08-14 – G2-2 children cannot complete sibling chores
+
+Task: Child + assigneeMemberId set + profile_member_id !== assignee
+→ 403 on PUT /api/chores/complete. Unassigned, own, adult/owner stay 200.
+
+Analysis: none (scoped enforcement on existing assignee field)
+- Journey: complete → getById → child/assignee check → markDone
+- Edge cases: unassigned anyone; own child; adult on sibling chore;
+  missing chore 404
+- Decisions: 1 (404 on missing chore — role-enforcement still passes)
+- Portainer risk: no
+
+Plan: load chore in complete; forbid sibling complete; expose
+assigneeMemberId on today; add enforcement tests.
+
+Done:
+- Branch: feat/g2-2-chore-assignee-403 (from feat/g1-integrate @ b922731)
+- Commits: 1
+- Files: server/routes.js, openapi.yaml,
+  tests/chore-assignee-enforcement.test.js, AGENT_LOG.md
+- Tests: chore-assignee-enforcement 2/2 + role-enforcement 15/15
+  (17/17)
+- DOMAIN_MODEL.md updated: no (assignee already exists)
+- Deviation from plan: worktree so mid-merge on feat/g1-integrate
+  was left untouched
+
+Security: children cannot mark a sibling's assigned chore done.
+
+ISO 25010: Security up (authorization on complete); others unchanged.
+
+Status: waiting-for-operator (local commit, no push)
+
+Next: operator review / merge into feat/g1-integrate.
+
+---
+
 2026-08-14 – G2-1 weekly chore cron loops all families
 
 Task: weeklyChoresJob seeded only family 1 because choreSchedules
