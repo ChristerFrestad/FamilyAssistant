@@ -29,103 +29,168 @@ const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$|^[a-z0-9]{2,32}$/;
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 128;
 
+function assertPasswordAuthEnabled() {
+  if (config.PASSWORD_AUTH_ENABLED !== true) {
+    throw errors.serviceUnavailable('Password authentication is not enabled on this server.');
+  }
+}
+
+function normaliseUsername(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim().toLowerCase();
+  if (!USERNAME_RE.test(trimmed)) return null;
+  return trimmed;
+}
+
+function validatePassword(raw) {
+  if (typeof raw !== 'string') return { ok: false, reason: 'required' };
+  if (raw.length < MIN_PASSWORD) return { ok: false, reason: 'too_short' };
+  if (raw.length > MAX_PASSWORD) return { ok: false, reason: 'too_long' };
+  return { ok: true };
+}
+
+function syntheticEmailFor(username) {
+  return `local+${username}@${SYNTHETIC_EMAIL_DOMAIN}`;
+}
+
+function parseCreatedAtMs(user) {
+  if (!user?.created_at) return Date.now();
+  const ms = Date.parse(String(user.created_at).replace(' ', 'T') + 'Z');
+  return Number.isFinite(ms) ? ms : Date.now();
+}
+
+function graceDeadlineMs(user) {
+  const graceSec = config.EMAIL_VERIFICATION_GRACE_SECONDS;
+  return parseCreatedAtMs(user) + graceSec * 1000;
+}
+
+function isEmailVerified(user) {
+  return !!(user && user.email_verified_at);
+}
+
+function isWithinGrace(user) {
+  return Date.now() < graceDeadlineMs(user);
+}
+
+function mustVerifyToLogin(user) {
+  return !isEmailVerified(user) && !isWithinGrace(user);
+}
+
+function hasRealEmail(user) {
+  if (!user?.email) return false;
+  return !isSyntheticLocalEmail(user.email);
+}
+
 function publicUser(user) {
   if (!user) return null;
+  const verified = isEmailVerified(user);
+  const withinGrace = isWithinGrace(user);
   return {
     id: user.id,
+    email: hasRealEmail(user) ? user.email : null,
     username: user.username || null,
-    email: user.email || null,
-    name: user.name || null,
-    role: user.role || 'owner',
+    name: user.name,
+    role: user.role,
     avatarUrl: user.avatar_url || null,
     familyId: user.family_id || null,
     profileMemberId: user.profile_member_id || null,
     onboardingCompleted: !!user.onboarding_completed,
-    emailVerifiedAt: user.email_verified_at || null,
-    mustResetPassword: !!user.must_reset_password,
+    synthetic: false,
     isAdmin: !!user.is_admin,
+    emailVerified: verified,
+    withinGrace: verified ? true : withinGrace,
+    verificationDueAt: verified ? null : new Date(graceDeadlineMs(user)).toISOString(),
+    passwordResetRequired: !!user.password_reset_required,
   };
 }
 
 function redirectFor(user) {
-  if (!user) return '/';
-  if (!user.onboarding_completed) return '/onboarding';
-  return '/';
+  if (user.password_reset_required) return '/v2/set-password';
+  if (user.onboarding_completed) return '/v2/dashboard';
+  return '/v2/onboarding/family';
 }
 
-function hasRealEmail(user) {
-  return Boolean(
-    user && user.email && !String(user.email).endsWith('@' + SYNTHETIC_EMAIL_DOMAIN)
-  );
-}
-
-function mustVerifyToLogin(user) {
-  if (!user) return false;
-  if (user.email_verified_at) return false;
-  if (user.must_reset_password) return true;
-  const grace = Number(config.EMAIL_VERIFICATION_GRACE_SECONDS || 0);
-  if (grace <= 0) return true;
-  const created = user.created_at ? new Date(user.created_at + 'Z').getTime() : 0;
-  if (!created) return true;
-  return Date.now() - created > grace * 1000;
-}
-
-function validateUsername(username) {
-  if (typeof username !== 'string') return 'Username is required.';
-  const u = username.trim().toLowerCase();
-  if (u.length < 2 || u.length > 32) return 'Username must be 2–32 characters.';
-  if (!USERNAME_RE.test(u)) {
-    return 'Username may only contain lowercase letters, digits, dots, underscores and hyphens.';
-  }
-  return null;
-}
-
-function validatePassword(password) {
-  if (typeof password !== 'string') return 'Password is required.';
-  if (password.length < MIN_PASSWORD)
-    return `Password must be at least ${MIN_PASSWORD} characters.`;
-  if (password.length > MAX_PASSWORD)
-    return `Password must be at most ${MAX_PASSWORD} characters.`;
-  return null;
-}
+// ============================================================
+// POST /api/auth/password/register
+// ============================================================
 
 async function handlePasswordRegister(ctx, repos) {
-  if (!config.PASSWORD_AUTH_ENABLED) {
-    throw errors.serviceUnavailable('Password authentication is not enabled.');
-  }
-  if (!config.PASSWORD_AUTH_OPEN_REGISTER) {
-    throw errors.forbidden('Open registration is disabled.');
+  assertPasswordAuthEnabled();
+  if (config.PASSWORD_AUTH_OPEN_REGISTER !== true) {
+    throw errors.forbidden('Self-registration is disabled on this server.');
   }
 
-  const usernameRaw = ctx.body?.username;
-  const password = ctx.body?.password;
-  const name = String(ctx.body?.name || usernameRaw || '')
-    .trim()
-    .slice(0, 80);
-
-  const usernameErr = validateUsername(usernameRaw);
-  if (usernameErr) throw errors.badRequest(usernameErr);
-  const passwordErr = validatePassword(password);
-  if (passwordErr) throw errors.badRequest(passwordErr);
-
-  const username = String(usernameRaw).trim().toLowerCase();
-
-  const existing = repos.auth.findByUsername(username);
-  if (existing) {
-    throw errors.conflict('Username is already taken.');
+  const username = normaliseUsername(ctx.body?.username);
+  if (!username) {
+    throw errors.badRequest(
+      'Username must be 2–32 characters: letters, digits, dot, underscore or hyphen.'
+    );
   }
 
-  const passwordHash = await hashPassword(password);
-  const user = repos.auth.createUser({
-    username,
-    name: name || username,
-    passwordHash,
-  });
+  const pw = validatePassword(ctx.body?.password);
+  if (!pw.ok) {
+    if (pw.reason === 'too_short') {
+      throw errors.badRequest(`Password must be at least ${MIN_PASSWORD} characters.`);
+    }
+    if (pw.reason === 'too_long') {
+      throw errors.badRequest(`Password must be at most ${MAX_PASSWORD} characters.`);
+    }
+    throw errors.badRequest('Password is required.');
+  }
+
+  let email = null;
+  if (ctx.body?.email != null && String(ctx.body.email).trim() !== '') {
+    email = normaliseEmail(ctx.body.email);
+    if (!email) throw errors.badRequest('A valid email address is required.');
+    if (isSyntheticLocalEmail(email)) {
+      throw errors.badRequest('That email domain is reserved.');
+    }
+  }
+
+  const name =
+    typeof ctx.body?.name === 'string' && ctx.body.name.trim()
+      ? ctx.body.name.trim().slice(0, 100)
+      : username;
+
+  if (repos.auth.findByUsername(username)) {
+    throw errors.conflict('That username is already taken.');
+  }
+
+  const storedEmail = email || syntheticEmailFor(username);
+  if (email && repos.auth.findByEmail(email)) {
+    // Real email already claimed (e.g. by a magic-link user).
+    throw errors.conflict('That email is already registered.');
+  }
+  // Synthetic email should be unique per username; defensive check.
+  if (!email && repos.auth.findByEmail(storedEmail)) {
+    throw errors.conflict('That username is already taken.');
+  }
+
+  const passwordHash = await hashPassword(ctx.body.password);
+  let user;
+  try {
+    user = repos.auth.createUser({
+      email: storedEmail,
+      name,
+      username,
+      passwordHash,
+      emailVerifiedAt: null,
+      passwordResetRequired: 0,
+    });
+  } catch (err) {
+    // UNIQUE race
+    if (err && /UNIQUE|constraint/i.test(String(err.message))) {
+      throw errors.conflict('That username is already taken.');
+    }
+    throw err;
+  }
 
   const sessionId = createSessionForUser(repos, { userId: user.id, req: ctx.req });
   setSessionCookie(ctx.res, ctx.req, sessionId);
   repos.auth.touchLastSeen(user.id);
 
+  // Re-read for consistent public shape
+  user = repos.auth.findById(user.id);
   return {
     ok: true,
     user: publicUser(user),
@@ -133,16 +198,15 @@ async function handlePasswordRegister(ctx, repos) {
   };
 }
 
+// ============================================================
+// POST /api/auth/password/login
+// ============================================================
+
 async function handlePasswordLogin(ctx, repos) {
-  if (!config.PASSWORD_AUTH_ENABLED) {
-    throw errors.serviceUnavailable('Password authentication is not enabled.');
-  }
+  assertPasswordAuthEnabled();
 
-  const username = String(ctx.body?.username || '')
-    .trim()
-    .toLowerCase();
+  const username = normaliseUsername(ctx.body?.username);
   const password = ctx.body?.password;
-
   if (!username || typeof password !== 'string') {
     throw errors.badRequest('Username and password are required.');
   }
@@ -220,7 +284,7 @@ async function handlePasswordLogin(ctx, repos) {
         );
     }
   } catch {
-    /* ignore */
+    /* audit must never break the response */
   }
 
   return {
@@ -230,62 +294,116 @@ async function handlePasswordLogin(ctx, repos) {
   };
 }
 
+// ============================================================
+// POST /api/auth/password/start-verification
+//
+// Proves identity with username+password (or active session) and
+// sends a magic link that verifies the email. When the account is
+// past grace, the link purpose is email_verify_reset (forces
+// password change after click).
+// ============================================================
+
 async function handleStartVerification(ctx, repos) {
-  if (!config.PASSWORD_AUTH_ENABLED) {
-    throw errors.serviceUnavailable('Password authentication is not enabled.');
+  assertPasswordAuthEnabled();
+
+  let user = null;
+
+  // Prefer session if present (soft-auth path).
+  if (ctx.user && !ctx.user._synthetic) {
+    user = repos.auth.findById(ctx.user.id);
   }
+
+  if (!user) {
+    const username = normaliseUsername(ctx.body?.username);
+    const password = ctx.body?.password;
+    if (!username || typeof password !== 'string') {
+      throw errors.badRequest('Username and password are required.');
+    }
+    user = repos.auth.findByUsername(username);
+    const ok = await verifyPasswordOrDummy(password, user?.password_hash || null);
+    if (!ok || !user) {
+      throw errors.unauthorized('Invalid username or password.');
+    }
+  }
+
+  if (isEmailVerified(user) && !user.password_reset_required) {
+    return {
+      ok: true,
+      alreadyVerified: true,
+      message: 'Email is already verified.',
+    };
+  }
+
+  let email = hasRealEmail(user) ? user.email : null;
+  if (ctx.body?.email != null && String(ctx.body.email).trim() !== '') {
+    const next = normaliseEmail(ctx.body.email);
+    if (!next) throw errors.badRequest('A valid email address is required.');
+    if (isSyntheticLocalEmail(next)) {
+      throw errors.badRequest('That email domain is reserved.');
+    }
+    // If another account owns this email, reject.
+    const owner = repos.auth.findByEmail(next);
+    if (owner && owner.id !== user.id) {
+      throw errors.conflict('That email is already registered to another account.');
+    }
+    if (!email || email.toLowerCase() !== next) {
+      repos.auth.setEmailUnverified(user.id, next);
+      user = repos.auth.findById(user.id);
+    }
+    email = next;
+  }
+
+  if (!email) {
+    throw errors.badRequest('An email address is required to verify your account.');
+  }
+
+  const forceReset = mustVerifyToLogin(user) || !!user.password_reset_required;
+  const purpose = forceReset ? 'email_verify_reset' : 'email_verify';
+
+  await issueMagicLink(repos, {
+    email,
+    purpose,
+    userId: user.id,
+    ctx,
+  });
+
+  return {
+    ok: true,
+    message: 'If the address is valid you will receive a verification email shortly.',
+    purpose,
+    mustResetPassword: forceReset,
+  };
+}
+
+// ============================================================
+// POST /api/auth/password/set
+//
+// Authenticated. When password_reset_required is set this is the
+// only way forward; otherwise any logged-in password user may
+// change their password.
+// ============================================================
+
+async function handleSetPassword(ctx, repos) {
+  assertPasswordAuthEnabled();
   if (!ctx.user || ctx.user._synthetic) {
     throw errors.unauthorized('Login required.');
   }
 
-  const email = normaliseEmail(ctx.body?.email);
-  if (!email || isSyntheticLocalEmail(email)) {
-    throw errors.badRequest('A valid email address is required.');
+  const pw = validatePassword(ctx.body?.password);
+  if (!pw.ok) {
+    if (pw.reason === 'too_short') {
+      throw errors.badRequest(`Password must be at least ${MIN_PASSWORD} characters.`);
+    }
+    if (pw.reason === 'too_long') {
+      throw errors.badRequest(`Password must be at most ${MAX_PASSWORD} characters.`);
+    }
+    throw errors.badRequest('Password is required.');
   }
 
-  await issueMagicLink(repos, {
-    email,
-    purpose: 'verify-email',
-    userId: ctx.user.id,
-    ctx,
+  const passwordHash = await hashPassword(ctx.body.password);
+  const user = repos.auth.setPasswordHash(ctx.user.id, passwordHash, {
+    clearResetRequired: true,
   });
-
-  return { ok: true, message: 'Verification email sent if the address is valid.' };
-}
-
-async function handleSetPassword(ctx, repos) {
-  if (!config.PASSWORD_AUTH_ENABLED) {
-    throw errors.serviceUnavailable('Password authentication is not enabled.');
-  }
-
-  const token = String(ctx.body?.token || '').trim();
-  const password = ctx.body?.password;
-
-  if (!token) throw errors.badRequest('Token is required.');
-  const passwordErr = validatePassword(password);
-  if (passwordErr) throw errors.badRequest(passwordErr);
-
-  const { resolveMagicLinkToken } = require('./magic-link');
-  const resolved = await resolveMagicLinkToken(repos, token, {
-    allowedPurposes: ['verify-email', 'reset'],
-  });
-
-  if (!resolved || !resolved.userId) {
-    throw errors.unauthorized('Invalid or expired token.');
-  }
-
-  const passwordHash = await hashPassword(password);
-  repos.auth.setPassword(resolved.userId, passwordHash);
-  if (resolved.email) {
-    repos.auth.markEmailVerified(resolved.userId, resolved.email);
-  }
-  if (typeof repos.auth.clearMustResetPassword === 'function') {
-    repos.auth.clearMustResetPassword(resolved.userId);
-  }
-
-  const user = repos.auth.findById(resolved.userId);
-  const sessionId = createSessionForUser(repos, { userId: user.id, req: ctx.req });
-  setSessionCookie(ctx.res, ctx.req, sessionId);
 
   return {
     ok: true,
@@ -300,6 +418,16 @@ module.exports = {
   handleStartVerification,
   handleSetPassword,
   publicUser,
+  normaliseUsername,
+  validatePassword,
+  syntheticEmailFor,
+  isEmailVerified,
+  isWithinGrace,
   mustVerifyToLogin,
   hasRealEmail,
+  graceDeadlineMs,
+  redirectFor,
+  USERNAME_RE,
+  MIN_PASSWORD,
+  MAX_PASSWORD,
 };
