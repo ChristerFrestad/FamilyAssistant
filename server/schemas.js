@@ -152,6 +152,27 @@ const choreCompleteBody = z.object({
   choreId: positiveId,
 });
 
+const choreStatsQuery = z.object({
+  week: weekYear.optional(),
+});
+
+const familyGamificationBody = z
+  .object({
+    enabled: z.boolean().optional(),
+    weekGoal: z.number().int().min(1).max(100).optional(),
+  })
+  .strict()
+  .refine((v) => v.enabled !== undefined || v.weekGoal !== undefined, {
+    message: 'enabled or weekGoal is required',
+  });
+
+const familyBackupImportBody = z
+  .object({
+    mode: z.enum(['merge', 'replace']),
+    payload: z.record(z.unknown()),
+  })
+  .strict();
+
 const choreFrequency = z.enum(['ukentlig', '14_dager', 'etter_behov', 'weekly', 'interval']);
 
 const choreCreateBody = z
@@ -528,6 +549,9 @@ module.exports = {
   shoppingItemAddBody,
   chorePostponeBody,
   choreCompleteBody,
+  choreStatsQuery,
+  familyGamificationBody,
+  familyBackupImportBody,
   choreCreateBody,
   choreUpdateBody,
   consumableUpdateBody,

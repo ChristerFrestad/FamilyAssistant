@@ -166,7 +166,7 @@ describe('Settings — sections', () => {
     expect(badges.length).toBeGreaterThan(0);
     const texts = badges.map((b) => b.textContent ?? '');
     // Post-pilot badge for features deferred until after pilot launch:
-    // timezone, mealTimes, gamification, pushNotifications.
+    // timezone, mealTimes, pushNotifications.
     expect(texts.some((t) => t.includes('post-pilot'))).toBe(true);
     // emailNotifications keeps the Resend-gate badge — it activates in
     // Sprint 7 once Christer wires RESEND_API_KEY.

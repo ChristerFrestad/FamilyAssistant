@@ -216,8 +216,8 @@ function createChoreRepos(db) {
         // History insert — atomic with the schedule update so we never
         // end up with status='done' but no history row (or vice versa).
         db.prepare(
-          `INSERT INTO chore_completions (family_id, week_year, chore_id, user_id)
-             VALUES (?, ?, ?, ?)`
+          `INSERT INTO chore_completions (family_id, week_year, chore_id, user_id, xp_awarded)
+             VALUES (?, ?, ?, ?, 10)`
         ).run(familyId, weekYear, choreId, userId);
       });
       tx();

@@ -34,6 +34,11 @@ function createFamilyRepo(db) {
   const setOwnerStmt = db.prepare('UPDATE families SET owner_user_id = ? WHERE id = ?');
   const deleteFamilyStmt = db.prepare('DELETE FROM families WHERE id = ?');
   const listIdsStmt = db.prepare('SELECT id FROM families ORDER BY id');
+  const updateGamificationStmt = db.prepare(
+    `UPDATE families
+        SET gamification_enabled = ?, week_goal = ?, updated_at = datetime('now')
+      WHERE id = ?`
+  );
 
   function createFamily(name, ownerUserId = null) {
     if (typeof name !== 'string' || !name.trim()) {
@@ -72,6 +77,16 @@ function createFamilyRepo(db) {
   // every tenant. Not family-context-scoped — families is the tenant table.
   function listIds() {
     return listIdsStmt.all().map((row) => Number(row.id));
+  }
+
+  function updateGamification(id, { enabled, weekGoal }) {
+    const current = findFamilyById(id);
+    if (!current) return null;
+    const nextEnabled =
+      enabled === undefined ? (current.gamification_enabled === 0 ? 0 : 1) : enabled ? 1 : 0;
+    const nextGoal = weekGoal === undefined ? Number(current.week_goal) || 5 : Number(weekGoal);
+    updateGamificationStmt.run(nextEnabled, nextGoal, id);
+    return findFamilyById(id);
   }
 
   // ============================================================
@@ -564,6 +579,7 @@ function createFamilyRepo(db) {
     setOwner,
     deleteFamily,
     listIds,
+    updateGamification,
     // members
     addMember,
     listMembers,

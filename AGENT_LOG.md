@@ -6,7 +6,46 @@
 
 ---
 
-2026-08-14 � G2-2 child cannot complete sibling assigned chore
+2026-08-14 – G4 XP, week stats, backup import, child export
+
+Task: Award 10 XP on markDone, week stats, family gamification
+settings, owner backup/import, child-scoped GDPR export.
+
+Analysis: none (scoped implementer brief; no domain change beyond
+XP + backup + child export already implied by G1 completions)
+
+- Journey: complete chore → xp_awarded=10 → stats/week XP;
+  owner download/import remaps ids; child export is self-only
+- Edge cases: undo drops XP; two-family stats isolation;
+  payload.family.id rejected; child 403 on backup
+- Decisions: 1 (in-memory 3/hour/family import limit)
+- Portainer risk: no (additive migration 035 defaults)
+
+Plan: markDone XP + stats; migration 035 + PATCH; backup GET/POST;
+child /api/me/export; tests; thin settings/dashboard UI.
+
+Done:
+- Branch: feat/g4-xp-backup (from feat/g1-integrate)
+- Commits: 1
+- Files: chore.repo, chore-completion.repo, family.repo,
+  family-backup.service, gdpr-routes, family-routes, routes,
+  035_family_gamification.sql, tests, settings/dashboard UI, i18n
+- Tests: gamification-xp + family-backup + gdpr-endpoints +
+  chore-completion 35/35
+- DOMAIN_MODEL.md updated: yes (ChoreCompletion XP + Family backup)
+- Deviation from plan: none
+
+Security: backup omits hashes/tokens/LLM keys; import remaps into
+caller family; child export has no other members' emails.
+
+ISO 25010: Security up (child-scoped export, tenant-isolated
+backup); Functional suitability up (XP/stats/backup).
+
+Status: waiting-for-operator (fix/ branch — DEL 5.3, no push)
+
+---
+
+2026-08-14 – G2-2 child cannot complete sibling assigned chore
 
 - Branch: feat/g2-2-chore-assignee-403
 - PUT /api/chores/complete 403 when child vs other assignee
@@ -14,7 +53,7 @@
 - Status: merged into feat/g1-integrate
 
 ---
-2026-08-14 � G1-4 recipe editor + import URL
+2026-08-14 � G1-4 recipe editor + import URL
 
 - Branch: feat/g1-4-recipe-editor
 - Editor /recipes/new and /recipes/:id, import URL, deactivate

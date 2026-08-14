@@ -26,6 +26,9 @@
     "itemsRemaining_one": "{{count}} vare igjen",
     "itemsRemaining_other": "{{count}} varer igjen"
   },
+  "chores": {
+    "weekXp": "{{xp}} XP denne uken"
+  },
   "more": {
     "chores_one": "+ {{count}} til",
     "chores_other": "+ {{count}} flere",

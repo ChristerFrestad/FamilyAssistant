@@ -3,7 +3,8 @@
 // Surfaces (Christer-confirmed tett-scope):
 //   - System: Language (LanguageSwitcher), Theme (ThemeToggle)
 //   - Family: Name (InlineEditableText, owner-only), Timezone /
-//             Meal times / Gamification (disabled, "Coming soon")
+//             Meal times (disabled), Gamification + week goal (owner),
+//             family backup download/import (owner)
 //   - User:   Email + Push notifications (disabled, "Krever Resend")
 //   - Account: Data export (GDPR), Delete account (GDPR), Version footer
 //
@@ -17,7 +18,7 @@
 // data state once family is available. Routing is handled by App.tsx
 // where /settings is wrapped in ErrorBoundary.
 
-import type { JSX } from 'react';
+import type { ChangeEvent, JSX } from 'react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -25,6 +26,8 @@ import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { LanguageSwitcher } from '../components/form/LanguageSwitcher';
 import { ThemeToggle } from '../components/form/ThemeToggle';
+import { Toggle } from '../components/form/Toggle';
+import { Input } from '../components/form/Input';
 import { SettingsSection } from '../components/settings/SettingsSection';
 import { SettingsRow } from '../components/settings/SettingsRow';
 import { InlineEditableText } from '../components/settings/InlineEditableText';
@@ -51,6 +54,9 @@ export function Settings(): JSX.Element {
     renameFamily,
     exportMyData,
     deleteMyAccount,
+    patchGamification,
+    downloadFamilyBackup,
+    importFamilyBackup,
     clearUserFacingError,
   } = useSettingsData();
 
@@ -165,9 +171,97 @@ export function Settings(): JSX.Element {
             <SettingsRow
               label={t('settings:family.gamification.label')}
               description={t('settings:family.gamification.description')}
-              disabled
-              badge={t('settings:badge.postPilot')}
+              control={
+                isOwner ? (
+                  <Toggle
+                    checked={family?.family.gamificationEnabled !== false}
+                    onChange={(checked) => {
+                      void patchGamification({ enabled: checked });
+                    }}
+                    aria-label={t('settings:family.gamification.label')}
+                  />
+                ) : undefined
+              }
+              disabled={!isOwner}
             />
+            <SettingsRow
+              label={t('settings:family.weekGoal.label')}
+              description={t('settings:family.weekGoal.description')}
+              control={
+                isOwner ? (
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    className="w-20"
+                    aria-label={t('settings:family.weekGoal.inputAriaLabel')}
+                    defaultValue={String(family?.family.weekGoal ?? 5)}
+                    onBlur={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isInteger(n) && n >= 1 && n <= 100) {
+                        void patchGamification({ weekGoal: n });
+                      }
+                    }}
+                  />
+                ) : undefined
+              }
+              disabled={!isOwner}
+            />
+            {isOwner ? (
+              <>
+                <SettingsRow
+                  label={t('settings:family.backup.label')}
+                  description={t('settings:family.backup.description')}
+                  control={
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      data-testid="settings-backup-download"
+                      onClick={() => {
+                        void downloadFamilyBackup().then((payload) => {
+                          if (payload == null) return;
+                          const json = JSON.stringify(payload, null, 2);
+                          const blob = new Blob([json], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'family-backup.json';
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        });
+                      }}
+                    >
+                      {t('settings:family.backup.download')}
+                    </Button>
+                  }
+                />
+                <SettingsRow
+                  label={t('settings:family.backup.importLabel')}
+                  description={t('settings:family.backup.importDescription')}
+                  control={
+                    <Input
+                      type="file"
+                      accept="application/json,.json"
+                      aria-label={t('settings:family.backup.importAria')}
+                      data-testid="settings-backup-import"
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        void file.text().then((text) => {
+                          try {
+                            const parsed: unknown = JSON.parse(text);
+                            return importFamilyBackup('merge', parsed);
+                          } catch {
+                            return false;
+                          }
+                        });
+                      }}
+                    />
+                  }
+                />
+              </>
+            ) : null}
           </SettingsSection>
 
           <SettingsSection title={t('settings:sections.user')} id="user">

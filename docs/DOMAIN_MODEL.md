@@ -103,6 +103,42 @@ in the family/household.
 
 ---
 
+### ChoreCompletion / week XP
+
+**Source file:** `server/repositories/chore.repo.js` (`markDone`)
+**Repository:** `repos.choreCompletions` in `server/repositories/chore-completion.repo.js`
+**Table:** `chore_completions` (migration `019_chore_completions.sql`; XP written by `markDone`)
+
+**What it is:** Append-only history of chore completions. Each `markDone` awards 10 XP (`xp_awarded`). Undo deletes the newest row for that (family, week, chore).
+
+**Rules:**
+- `GET /api/chores/stats?week=YYYY-WNN` returns `{ enabled, goal, byUser, streakByUser }`
+- Week XP is `SUM(xp_awarded)` per user for that family+week
+- Streak is consecutive ISO weeks (ending at the requested week) with ≥1 completion
+- `families.gamification_enabled` / `families.week_goal` (migration `035`) gate the UI; owner `PATCH /api/family/gamification`
+
+**Covered by tests:**
+- `tests/gamification-xp.test.js`
+
+### Family backup
+
+**Source file:** `server/services/family-backup.service.js`
+**Endpoints:** `GET /api/family/backup`, `POST /api/family/backup/import` (owner)
+
+**What it is:** Portable JSON (`schemaVersion` 2) of family name, roster, recipes (active+inactive), chores, meal plans, shopping lists, pantry, and local calendar events. No password hashes, session ids, invitation tokens, or LLM keys.
+
+**Rules:**
+- Import always targets the caller's family; `payload.family.id` is rejected
+- Row ids are remapped; mode is `merge` or `replace`
+- JSON only, max 2 MB; 3 imports/hour/family (in-memory)
+- Child `GET /api/me/export` is self-scoped (user + own profile member + own completions)
+
+**Covered by tests:**
+- `tests/family-backup.test.js`
+- `tests/gdpr-endpoints.test.js`
+
+---
+
 ## BUSINESS RULES
 
 > Rules that cut across multiple entities. Numbered for reference

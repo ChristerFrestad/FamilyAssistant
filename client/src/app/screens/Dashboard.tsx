@@ -16,12 +16,14 @@
 // events) render their actual list entries.
 
 import type { JSX } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { WelcomeHeader } from '../components/dashboard/WelcomeHeader';
 import { DashboardCard } from '../components/dashboard/DashboardCard';
 import { QuickActions } from '../components/dashboard/QuickActions';
 import { useDashboardData } from '../dashboard/useDashboardData';
+import { fetchChoreStats } from '../chores/choresApi';
 import type { CalendarEvent, TodayChore, TodayResponse } from '../dashboard/dashboardApi';
 
 const CHORES_LIMIT = 3;
@@ -42,6 +44,31 @@ export function Dashboard(): JSX.Element {
   const navigate = useNavigate();
   const { today, shopping, upcoming, retryToday, retryShopping, retryUpcoming } =
     useDashboardData();
+  const [weekXp, setWeekXp] = useState<number | null>(null);
+
+  useEffect(() => {
+    const week = today.data?.weekYear;
+    if (!week) {
+      setWeekXp(null);
+      return undefined;
+    }
+    const ctrl = new AbortController();
+    fetchChoreStats(week, ctrl.signal).then(
+      (stats) => {
+        if (ctrl.signal.aborted) return;
+        if (!stats.enabled) {
+          setWeekXp(null);
+          return;
+        }
+        const total = (stats.byUser || []).reduce((sum, u) => sum + (Number(u.xp) || 0), 0);
+        setWeekXp(total);
+      },
+      () => {
+        if (!ctrl.signal.aborted) setWeekXp(null);
+      }
+    );
+    return () => ctrl.abort();
+  }, [today.data?.weekYear]);
 
   // Derived per-card data. Keep these as plain locals — the
   // mappings are O(N) over <=10 items and re-computing on each
@@ -103,6 +130,7 @@ export function Dashboard(): JSX.Element {
           limit={CHORES_LIMIT}
           formatMore={(n) => t('dashboard:more.chores', { count: n })}
           onRetry={retryToday}
+          footer={weekXp != null ? t('dashboard:chores.weekXp', { xp: weekXp }) : undefined}
         />
 
         <DashboardCard<ShoppingSummaryRow>

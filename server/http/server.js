@@ -236,7 +236,8 @@ function createServer(router, { authenticate } = {}) {
         // Parse body for write methods (PATCH: chore catalog + recipe update).
         if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
           try {
-            ctx.body = await parseBody(req);
+            const maxBytes = pathname === '/api/family/backup/import' ? 2 * 1024 * 1024 : undefined;
+            ctx.body = await parseBody(req, maxBytes ? { maxBytes } : {});
           } catch (err) {
             ctx.problem(err instanceof HttpError ? err : errors.badRequest(err.message));
             const dur = Date.now() - started;

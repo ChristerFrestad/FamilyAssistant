@@ -114,6 +114,30 @@ async function sendJson<T>(path: string, method: string, body: unknown): Promise
   return parsed as T;
 }
 
+export interface ChoreStatsUser {
+  userId: number | null;
+  name: string | null;
+  xp: number;
+  completions: number;
+}
+
+export interface ChoreStatsResponse {
+  enabled: boolean;
+  goal: number;
+  byUser: ChoreStatsUser[];
+  streakByUser?: { userId: number; streak: number }[];
+}
+
+export async function fetchChoreStats(
+  week?: string,
+  signal?: AbortSignal
+): Promise<ChoreStatsResponse> {
+  const q = week ? `?week=${encodeURIComponent(week)}` : '';
+  const init: FetchOptions = {};
+  if (signal) init.signal = signal;
+  return getJson<ChoreStatsResponse>(`/api/chores/stats${q}`, init);
+}
+
 export async function fetchChoresCurrent(signal?: AbortSignal): Promise<ChoresCurrentResponse> {
   const init: FetchOptions = {};
   if (signal) init.signal = signal;
