@@ -1653,6 +1653,17 @@ function registerRoutes(router, { repos, serverState }) {
   router.put('/api/chores/complete', validateBody(schemas.choreCompleteBody), (ctx) => {
     const { weekYear, choreId } = ctx.body;
     const wk = weekYear || ensureCurrentWeek(repos);
+    const chore = repos.chores.getById(choreId);
+    if (!chore) throw errors.notFound('Oppgave ikke funnet');
+    const assignee = chore.assignee_member_id;
+    if (
+      ctx.user &&
+      ctx.user.role === 'child' &&
+      assignee != null &&
+      Number(ctx.user.profile_member_id) !== Number(assignee)
+    ) {
+      throw errors.forbidden();
+    }
     // B5 gamification: attribute the completion to a real user id when
     // possible. Synthetic LOCAL_USER (pilot single-tenant) has id=0 and
     // is not a row in users — pass null so the chore_completions.user_id
@@ -2238,7 +2249,12 @@ function registerRoutes(router, { repos, serverState }) {
         })
         .map((s) => {
           const chore = choresMap.get(s.choreId);
-          return { ...s, task: chore?.task, icon: chore?.icon };
+          return {
+            ...s,
+            task: chore?.task,
+            icon: chore?.icon,
+            assigneeMemberId: chore?.assignee_member_id ?? null,
+          };
         });
 
       const todayStr = new Date().toISOString().slice(0, 10);

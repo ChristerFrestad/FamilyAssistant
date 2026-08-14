@@ -6,6 +6,14 @@
 
 ---
 
+2026-08-14 – G2-2 child cannot complete sibling assigned chore
+
+- Branch: feat/g2-2-chore-assignee-403
+- PUT /api/chores/complete 403 when child vs other assignee
+- Tests: chore-assignee-enforcement + role-enforcement 17/17
+- Status: merged into feat/g1-integrate
+
+---
 2026-08-14 – G1-4 recipe editor + import URL
 
 - Branch: feat/g1-4-recipe-editor

@@ -131,6 +131,7 @@ components:
         effectiveDay: { type: integer }
         dayName: { type: string }
         status: { type: string, enum: [pending, done, postponed] }
+        assigneeMemberId: { type: integer, nullable: true }
 
     ChoreCatalogItem:
       type: object
@@ -519,6 +520,8 @@ paths:
                 choreId: { type: integer }
       responses:
         '200': { description: Marked done }
+        '403': { description: Child cannot complete a chore assigned to another member }
+        '404': { description: Chore not found }
 
   /api/calendar/events:
     get:
