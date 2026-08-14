@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react';
 import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { SideNav } from './SideNav';
-import { PRIMARY_NAV_ITEMS, SECONDARY_NAV_ITEMS } from './nav-items';
+import { DESKTOP_NAV_ITEMS, SECONDARY_NAV_ITEMS } from './nav-items';
 
 function renderAt(pathname: string): void {
   render(
@@ -24,10 +24,11 @@ describe('SideNav structure', () => {
     expect(nav).toBeInTheDocument();
   });
 
-  test('renders all five primary nav items plus Settings', () => {
+  test('renders six primary nav items plus Settings', () => {
     renderAt('/dashboard');
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Familie' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Gjøremål' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Måltider' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Handleliste' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kalender' })).toBeInTheDocument();
@@ -35,9 +36,8 @@ describe('SideNav structure', () => {
   });
 
   test('exposes the source-of-truth nav-items split', () => {
-    // Five primary + one secondary. Locking the split here so
-    // accidental moves between the two arrays trip the test.
-    expect(PRIMARY_NAV_ITEMS.length).toBe(5);
+    // Six primary (Family stays on desktop) + one secondary.
+    expect(DESKTOP_NAV_ITEMS.length).toBe(6);
     expect(SECONDARY_NAV_ITEMS.length).toBe(1);
     expect(SECONDARY_NAV_ITEMS[0]?.id).toBe('settings');
   });
@@ -47,6 +47,18 @@ describe('SideNav active-route highlighting', () => {
   test('highlights Dashboard on /dashboard', () => {
     renderAt('/dashboard');
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('highlights Family on /family', () => {
+    renderAt('/family');
+    expect(screen.getByRole('link', { name: 'Familie' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Gjøremål' })).not.toHaveAttribute('aria-current');
+  });
+
+  test('highlights Chores on /chores', () => {
+    renderAt('/chores');
+    expect(screen.getByRole('link', { name: 'Gjøremål' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Familie' })).not.toHaveAttribute('aria-current');
   });
 
   test('highlights Settings on /settings', () => {

@@ -454,6 +454,29 @@
   animation: wobble 2.4s ease-in-out infinite;
 }
 
+/* Chores complete control — 180 ms scale-to-dot, then settle. */
+@keyframes chore-complete-scale {
+  0% {
+    transform: scale(1);
+  }
+  39% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.chore-complete-pop {
+  animation: chore-complete-scale 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chore-complete-pop {
+    animation: none;
+  }
+}
+
 /* ---------------------------------------------------------------------
    10. Theme-transition: 200 ms fade on color properties only
    --------------------------------------------------------------------- */

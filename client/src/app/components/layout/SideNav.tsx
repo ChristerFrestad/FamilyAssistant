@@ -22,7 +22,7 @@
 import type { JSX } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { PRIMARY_NAV_ITEMS, SECONDARY_NAV_ITEMS, type NavItem } from './nav-items';
+import { DESKTOP_NAV_ITEMS, SECONDARY_NAV_ITEMS, type NavItem } from './nav-items';
 
 export interface SideNavProps {
   /** Optional class on the wrapper. */
@@ -85,7 +85,7 @@ export function SideNav({ className }: SideNavProps): JSX.Element {
         .join(' ')}
     >
       <ul className="flex flex-col gap-1">
-        {PRIMARY_NAV_ITEMS.map((item) => {
+        {DESKTOP_NAV_ITEMS.map((item) => {
           const active = isActive(item, pathname);
           return (
             <li key={item.id}>

@@ -1,0 +1,65 @@
+{
+  "title": "Gjøremål",
+  "weekHeader": {
+    "label": "Denne uken",
+    "week": "Uke {{weekYear}}"
+  },
+  "dayStripAria": "Velg dag denne uken",
+  "weekList": {
+    "heading": "Hele uka",
+    "pending": "{{count}} igjen",
+    "emptyRow": "Ingenting planlagt"
+  },
+  "empty": {
+    "weekTitle": "Ingen gjøremål denne uken",
+    "weekBody": "Legg til en oppgave for å komme i gang.",
+    "dayTitle": "Ingenting denne dagen",
+    "dayBody": "Andre dager har fortsatt oppgaver."
+  },
+  "errors": {
+    "loadFailed": "Kunne ikke hente gjøremål.",
+    "completeFailed": "Kunne ikke markere som gjort.",
+    "undoFailed": "Kunne ikke angre.",
+    "postponeFailed": "Kunne ikke utsette.",
+    "saveFailed": "Kunne ikke lagre oppgaven."
+  },
+  "actions": {
+    "retry": "Prøv igjen",
+    "add": "Ny oppgave",
+    "addForDay": "Legg til denne dagen",
+    "complete": "Marker {{task}} som gjort",
+    "completed": "{{task}} er gjort. Angre",
+    "undo": "Angre",
+    "postpone": "Utsett"
+  },
+  "status": {
+    "overdue": "Forfalt",
+    "postponedTo": "Flyttet til {{day}}",
+    "done": "Gjort"
+  },
+  "live": {
+    "completed": "{{task}} markert som gjort",
+    "undone": "{{task}} er åpen igjen",
+    "postponed": "{{task}} flyttet til {{day}}",
+    "postponedNextWeek": "{{task}} flyttet til neste mandag"
+  },
+  "addModal": {
+    "title": "Ny oppgave",
+    "submit": "Lagre oppgave"
+  },
+  "fields": {
+    "task": "Oppgave",
+    "details": "Detaljer",
+    "detailsHint": "Valgfritt. Hva «gjort» betyr.",
+    "frequency": "Hvor ofte",
+    "defaultDay": "Fast dag",
+    "icon": "Ikon",
+    "assignee": "Tildelt",
+    "anyone": "Alle"
+  },
+  "frequency": {
+    "ukentlig": "Ukentlig",
+    "14_dager": "Hver 14. dag",
+    "etter_behov": "Etter behov"
+  }
+}

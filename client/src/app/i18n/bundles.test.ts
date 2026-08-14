@@ -12,6 +12,7 @@ import noAuth from './locales/no/auth.json';
 import noDashboard from './locales/no/dashboard.json';
 import noFamily from './locales/no/family.json';
 import noMeals from './locales/no/meals.json';
+import noChores from './locales/no/chores.json';
 import noRecipes from './locales/no/recipes.json';
 import noShopping from './locales/no/shopping.json';
 import noCalendar from './locales/no/calendar.json';
@@ -24,6 +25,7 @@ import enAuth from './locales/en/auth.json';
 import enDashboard from './locales/en/dashboard.json';
 import enFamily from './locales/en/family.json';
 import enMeals from './locales/en/meals.json';
+import enChores from './locales/en/chores.json';
 import enRecipes from './locales/en/recipes.json';
 import enShopping from './locales/en/shopping.json';
 import enCalendar from './locales/en/calendar.json';
@@ -37,6 +39,7 @@ const NO_BUNDLES: Record<string, unknown> = {
   dashboard: noDashboard,
   family: noFamily,
   meals: noMeals,
+  chores: noChores,
   recipes: noRecipes,
   shopping: noShopping,
   calendar: noCalendar,
@@ -51,6 +54,7 @@ const EN_BUNDLES: Record<string, unknown> = {
   dashboard: enDashboard,
   family: enFamily,
   meals: enMeals,
+  chores: enChores,
   recipes: enRecipes,
   shopping: enShopping,
   calendar: enCalendar,
@@ -78,9 +82,9 @@ function flattenKeys(obj: unknown, prefix = ''): string[] {
 }
 
 describe('i18n setup', () => {
-  test('config exports both supported languages and all eleven namespaces', () => {
+  test('config exports both supported languages and all twelve namespaces', () => {
     expect(SUPPORTED_LANGUAGES).toEqual(['no', 'en']);
-    expect(NAMESPACES.length).toBe(11);
+    expect(NAMESPACES.length).toBe(12);
     expect(new Set(NAMESPACES)).toEqual(
       new Set([
         'common',
@@ -88,6 +92,7 @@ describe('i18n setup', () => {
         'dashboard',
         'family',
         'meals',
+        'chores',
         'recipes',
         'shopping',
         'calendar',

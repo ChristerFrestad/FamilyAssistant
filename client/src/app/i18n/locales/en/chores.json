@@ -1,0 +1,65 @@
+{
+  "title": "Chores",
+  "weekHeader": {
+    "label": "This week",
+    "week": "Week {{weekYear}}"
+  },
+  "dayStripAria": "Choose a day this week",
+  "weekList": {
+    "heading": "Whole week",
+    "pending": "{{count}} to do",
+    "emptyRow": "Nothing planned"
+  },
+  "empty": {
+    "weekTitle": "No chores this week",
+    "weekBody": "Add a chore to start the week.",
+    "dayTitle": "Nothing on this day",
+    "dayBody": "Other days still have chores."
+  },
+  "errors": {
+    "loadFailed": "Could not load chores.",
+    "completeFailed": "Could not mark this done.",
+    "undoFailed": "Could not undo.",
+    "postponeFailed": "Could not postpone.",
+    "saveFailed": "Could not save the chore."
+  },
+  "actions": {
+    "retry": "Try again",
+    "add": "Add chore",
+    "addForDay": "Add for this day",
+    "complete": "Mark {{task}} done",
+    "completed": "{{task}} is done. Undo",
+    "undo": "Undo",
+    "postpone": "Postpone"
+  },
+  "status": {
+    "overdue": "Overdue",
+    "postponedTo": "Moved to {{day}}",
+    "done": "Done"
+  },
+  "live": {
+    "completed": "{{task}} marked done",
+    "undone": "{{task}} is open again",
+    "postponed": "{{task}} moved to {{day}}",
+    "postponedNextWeek": "{{task}} moved to next Monday"
+  },
+  "addModal": {
+    "title": "New chore",
+    "submit": "Save chore"
+  },
+  "fields": {
+    "task": "Chore",
+    "details": "Details",
+    "detailsHint": "Optional. What “done” looks like.",
+    "frequency": "How often",
+    "defaultDay": "Default day",
+    "icon": "Icon",
+    "assignee": "Assigned to",
+    "anyone": "Anyone"
+  },
+  "frequency": {
+    "ukentlig": "Weekly",
+    "14_dager": "Every 2 weeks",
+    "etter_behov": "As needed"
+  }
+}

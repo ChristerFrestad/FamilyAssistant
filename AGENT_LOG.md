@@ -6,6 +6,17 @@
 
 ---
 
+2026-08-14 – G1-2 chores screen + nav slot
+
+Oppgave: `/chores` uke-tavle, BottomNav-plass, complete/undo/postpone/add.
+
+- Branch: feat/g1-2-chores-screen
+- Tester: 50/50 vitest
+
+Status: merged into feat/g1-integrate
+
+---
+
 2026-08-14 – G5-1 SQLite busy_timeout + one retry
 
 Task: PRAGMA busy_timeout=5000 + withBusyRetry once on SQLITE_BUSY.

@@ -31,11 +31,13 @@
     "meals": "Måltider",
     "shopping": "Handleliste",
     "calendar": "Kalender",
+    "chores": "Gjøremål",
     "settings": "Innstillinger"
   },
   "userMenu": {
     "label": "Bruker-meny",
     "open": "Åpne bruker-meny",
+    "family": "Familie",
     "account": "Min konto",
     "logout": "Logg ut"
   },
