@@ -152,6 +152,35 @@ const choreCompleteBody = z.object({
   choreId: positiveId,
 });
 
+const choreFrequency = z.enum(['ukentlig', '14_dager', 'etter_behov', 'weekly', 'interval']);
+
+const choreCreateBody = z
+  .object({
+    task: z.string().min(1).max(200),
+    details: z.string().max(1000).optional().nullable(),
+    frequency: choreFrequency,
+    defaultDay: dayOfWeek.optional().nullable(),
+    icon: z.string().max(16).optional().nullable(),
+    assigneeMemberId: positiveId.optional().nullable(),
+    intervalDays: z.number().int().positive().optional().nullable(),
+    active: z.boolean().optional(),
+  })
+  .strict();
+
+const choreUpdateBody = z
+  .object({
+    task: z.string().min(1).max(200).optional(),
+    details: z.string().max(1000).optional().nullable(),
+    frequency: choreFrequency.optional(),
+    defaultDay: dayOfWeek.optional().nullable(),
+    icon: z.string().max(16).optional().nullable(),
+    assigneeMemberId: positiveId.optional().nullable(),
+    intervalDays: z.number().int().positive().optional().nullable(),
+    active: z.boolean().optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, { message: 'At least one field required' });
+
 // ============================================================
 // Consumables
 // ============================================================
@@ -464,6 +493,8 @@ module.exports = {
   shoppingItemAddBody,
   chorePostponeBody,
   choreCompleteBody,
+  choreCreateBody,
+  choreUpdateBody,
   consumableUpdateBody,
   consumableBoughtBody,
   calendarEventBody,

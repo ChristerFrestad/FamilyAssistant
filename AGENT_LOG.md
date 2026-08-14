@@ -6,6 +6,19 @@
 
 ---
 
+2026-08-14 – G1-1 chore catalog CRUD + today-label fix
+
+Task: Family-scoped chore CRUD (GET/POST/PATCH) and stop '?' labels
+on today/current/LLM by joining repos.chores instead of seed ids.
+
+- Branch: feat/g1-1-chore-crud-api
+- Files: migration 032_chore_assignee, chore.repo, routes, schemas, PATCH
+- Tests: chore-crud 9/9, specified suite 55/55, e2e 11/11
+
+Status: merged into feat/g1-integrate
+
+---
+
 2026-08-14 – G1 UX spec: chores + recipes
 
 Oppgave: Konkret UX-spes for G1 implementører. Ingen React-skjermer.
@@ -21,7 +34,7 @@ Oppgave: Konkret UX-spes for G1 implementører. Ingen React-skjermer.
 - i18n: nøkler listet (chores ns + recipes/common), JSON urørt
 - Tester: 0 (docs only). DOMAIN_MODEL: nei
 
-Status: waiting-for-operator
+Status: merged into feat/g1-integrate
 
 ---
 

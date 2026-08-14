@@ -132,6 +132,19 @@ components:
         dayName: { type: string }
         status: { type: string, enum: [pending, done, postponed] }
 
+    ChoreCatalogItem:
+      type: object
+      properties:
+        id: { type: integer }
+        task: { type: string }
+        details: { type: string, nullable: true }
+        frequency: { type: string, enum: [ukentlig, 14_dager, etter_behov, weekly, interval] }
+        defaultDay: { type: integer, nullable: true, minimum: 0, maximum: 6 }
+        icon: { type: string, nullable: true }
+        assigneeMemberId: { type: integer, nullable: true }
+        intervalDays: { type: integer, nullable: true }
+        active: { type: boolean }
+
     CalendarEvent:
       type: object
       required: [title, date]
@@ -406,6 +419,74 @@ paths:
                 quantity: { type: number }
       responses:
         '200': { description: Added }
+
+  /api/chores:
+    get:
+      summary: Family chore catalog
+      parameters:
+        - in: query
+          name: includeInactive
+          schema: { type: string, enum: ['1'] }
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chores:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChoreCatalogItem" }
+        '401': { description: Unauthorized }
+    post:
+      summary: Create a family chore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChoreCatalogItem" }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  chore: { $ref: "#/components/schemas/ChoreCatalogItem" }
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '403': { description: Requires adult }
+
+  /api/chores/{id}:
+    patch:
+      summary: Update or deactivate a family chore
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChoreCatalogItem" }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  chore: { $ref: "#/components/schemas/ChoreCatalogItem" }
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '403': { description: Requires adult }
+        '404': { description: Not found }
 
   /api/chores/current:
     get:

@@ -2,15 +2,118 @@
 
 const { getFamilyId } = require('../auth/family-context');
 
+function canonicalizeFrequency(frequency) {
+  if (frequency === 'weekly') return 'ukentlig';
+  return frequency;
+}
+
+function assertAssigneeInFamily(db, familyId, assigneeMemberId) {
+  if (assigneeMemberId == null) return;
+  const member = db
+    .prepare('SELECT id FROM family_profile_members WHERE id = ? AND family_id = ?')
+    .get(assigneeMemberId, familyId);
+  if (!member) {
+    throw new Error('assigneeMemberId does not belong to this family');
+  }
+}
+
 function createChoreRepos(db) {
   const chores = {
-    getAll() {
+    getById(id) {
       const familyId = getFamilyId();
+      return (
+        db.prepare('SELECT * FROM chores WHERE family_id = ? AND id = ?').get(familyId, id) || null
+      );
+    },
+    getAll({ includeInactive } = {}) {
+      const familyId = getFamilyId();
+      if (includeInactive) {
+        return db
+          .prepare('SELECT * FROM chores WHERE family_id = ? ORDER BY default_day, task')
+          .all(familyId);
+      }
       return db
         .prepare(
           'SELECT * FROM chores WHERE family_id = ? AND active = 1 ORDER BY default_day, task'
         )
         .all(familyId);
+    },
+    insert({ task, details, frequency, defaultDay, icon, assigneeMemberId, intervalDays, active }) {
+      const familyId = getFamilyId();
+      assertAssigneeInFamily(db, familyId, assigneeMemberId);
+      const result = db
+        .prepare(
+          `
+        INSERT INTO chores (
+          family_id, task, details, frequency, default_day, icon,
+          assignee_member_id, interval_days, active
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+        )
+        .run(
+          familyId,
+          task,
+          details ?? null,
+          canonicalizeFrequency(frequency),
+          defaultDay ?? null,
+          icon ?? null,
+          assigneeMemberId ?? null,
+          intervalDays ?? null,
+          active === false ? 0 : 1
+        );
+      return chores.getById(Number(result.lastInsertRowid));
+    },
+    update(id, patch) {
+      const familyId = getFamilyId();
+      const existing = chores.getById(id);
+      if (!existing) return null;
+      if (Object.prototype.hasOwnProperty.call(patch, 'assigneeMemberId')) {
+        assertAssigneeInFamily(db, familyId, patch.assigneeMemberId);
+      }
+      const fields = [];
+      const values = [];
+      if (Object.prototype.hasOwnProperty.call(patch, 'task')) {
+        fields.push('task = ?');
+        values.push(patch.task);
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'details')) {
+        fields.push('details = ?');
+        values.push(patch.details ?? null);
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'frequency')) {
+        fields.push('frequency = ?');
+        values.push(canonicalizeFrequency(patch.frequency));
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'defaultDay')) {
+        fields.push('default_day = ?');
+        values.push(patch.defaultDay ?? null);
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'icon')) {
+        fields.push('icon = ?');
+        values.push(patch.icon ?? null);
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'assigneeMemberId')) {
+        fields.push('assignee_member_id = ?');
+        values.push(patch.assigneeMemberId ?? null);
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'intervalDays')) {
+        fields.push('interval_days = ?');
+        values.push(patch.intervalDays ?? null);
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'active')) {
+        fields.push('active = ?');
+        values.push(patch.active ? 1 : 0);
+      }
+      if (fields.length === 0) return existing;
+      values.push(familyId, id);
+      db.prepare(`UPDATE chores SET ${fields.join(', ')} WHERE family_id = ? AND id = ?`).run(
+        ...values
+      );
+      return chores.getById(id);
+    },
+    setActive(id, active) {
+      return chores.update(id, { active: !!active });
     },
     /**
      * Insert seed chores for the current family. Does NOT pass a

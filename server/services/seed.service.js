@@ -61,7 +61,7 @@ function seedIfEmpty(repos) {
   }
 
   // === CHORES === (per-family — startup seed lands on legacy family 1)
-  if (chores.getAll().length === 0) {
+  if (chores.getAll({ includeInactive: true }).length === 0) {
     chores.upsertMany(seed.chores);
     console.log(`[SEED] Seeded ${seed.chores.length} chores`);
   }
@@ -135,7 +135,7 @@ function seedFamilyDefaults(repos, familyId) {
     }
 
     // 2. Chores
-    if (chores.getAll().length === 0) {
+    if (chores.getAll({ includeInactive: true }).length === 0) {
       chores.upsertMany(seed.chores);
       summary.choresInserted = seed.chores.length;
     }
