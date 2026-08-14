@@ -72,7 +72,7 @@ export function Chores(): JSX.Element {
     setLocalChores(null);
   }, [week]);
 
-  const chores = localChores ?? week?.chores ?? [];
+  const chores = useMemo(() => localChores ?? week?.chores ?? [], [localChores, week?.chores]);
   const visible = chores.filter(isVisibleThisWeek);
   const weekEmpty = !isLoading && error === null && week !== null && visible.length === 0;
 

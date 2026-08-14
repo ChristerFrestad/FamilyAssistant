@@ -51,6 +51,6 @@
     "disconnectFailed": "Kunne ikke koble fra kalenderen."
   },
   "placeholder": {
-    "description": "Kommer i Fase 2D — Google-kalender pass-through + familie-events."
+    "description": "Ingen hendelser i denne perioden."
   }
 }

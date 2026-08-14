@@ -299,6 +299,8 @@ function registerRoutes(router, { repos, serverState }) {
   router.get('/health', (ctx) => {
     ctx.json({
       status: 'ok',
+      version: require('../package.json').version,
+      spa: 'chores-calendar-g1',
       uptimeSec: Math.round((Date.now() - serverState.startedAt) / 1000),
       pid: process.pid,
       memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),

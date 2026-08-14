@@ -49,8 +49,8 @@ function serveStatic(res, filePath) {
     const basename = path.basename(filePath);
     // M5.2: Service worker MUST be served without long-term cache and must be able to control
     // roten av originen. Service-Worker-Allowed tillater dette eksplisitt.
-    if (basename === 'sw.js') {
-      headers['Service-Worker-Allowed'] = '/';
+    if (basename === 'sw.js' || basename === 'index.html') {
+      if (basename === 'sw.js') headers['Service-Worker-Allowed'] = '/';
       headers['Cache-Control'] = 'no-cache, must-revalidate';
     }
     res.writeHead(200, headers);

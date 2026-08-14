@@ -8,6 +8,16 @@ day-to-day operation of FamilyAssistant on Raspberry Pi 5.
 
 > For first-time installation, see [DEPLOY.md](./DEPLOY.md).
 
+### Portainer: new UI is in the image, not the Git checkout
+
+`docker-compose.yml` runs `ghcr.io/christerfrestad/familyassistant:main`.
+Redeploying the Git stack without **Re-pull image** keeps the old SPA
+(Calendar still says "Fase 2D", no Chores nav).
+
+1. Stack → Editor → check **Re-pull image and redeploy** → Update.
+2. Confirm `GET /health` includes `"version":"1.4.0"` and `"spa":"chores-calendar-g1"`.
+3. Hard-refresh the browser (or clear site data). The PWA worker caches the old shell.
+
 ---
 
 ## 1. Daily Commands

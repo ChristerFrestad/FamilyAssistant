@@ -51,6 +51,6 @@
     "disconnectFailed": "Could not disconnect the calendar."
   },
   "placeholder": {
-    "description": "Coming in Phase 2D — Google Calendar pass-through and shared family events."
+    "description": "No events in this period."
   }
 }

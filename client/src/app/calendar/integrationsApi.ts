@@ -29,7 +29,7 @@ async function callApi(path: string, init: RequestInit, signal?: AbortSignal): P
   try {
     parsed = await res.json();
   } catch {
-    parsed = null;
+    // Non-JSON body — leave parsed as null.
   }
   if (!res.ok) {
     const reason =
