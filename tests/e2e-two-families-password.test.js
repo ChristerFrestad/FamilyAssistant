@@ -304,11 +304,14 @@ describe(
       // Chore labels after onboarding are copies of the same seed catalog
       // (same task strings is OK). Isolation is the row identity:
       // family-scoped chore / schedule IDs must not overlap.
-      //
-      // Product note: GET /api/today and GET /api/chores/current look up
-      // task labels from the global seedChores array keyed by seed id,
-      // not from family-scoped chore rows. Custom labels therefore do
-      // not appear on these endpoints — same labels are expected.
+      // Labels come from repos.chores (family rows), not seed ids.
+      const todayTasksA = (todayA.body.chores || []).map((c) => c.task).filter(Boolean);
+      const todayTasksB = (todayB.body.chores || []).map((c) => c.task).filter(Boolean);
+      const allTodayTasks = [...todayTasksA, ...todayTasksB];
+      assert.ok(
+        allTodayTasks.some((t) => t !== '?'),
+        "onboarded today chores should include a real task string, not only '?'"
+      );
       const idsA = choreIds(todayA.body);
       const idsB = choreIds(todayB.body);
       const todayOverlap = idsA.filter((id) => idsB.includes(id));
@@ -328,6 +331,11 @@ describe(
       assert.equal(choresB.status, 200);
       assert.ok((choresA.body.chores || []).length > 0, 'A should have seeded chores');
       assert.ok((choresB.body.chores || []).length > 0, 'B should have seeded chores');
+      const labeled = [...(choresA.body.chores || []), ...(choresB.body.chores || [])];
+      assert.ok(
+        labeled.some((c) => typeof c.task === 'string' && c.task !== '?'),
+        "chores/current after onboarding must expose a real task, not '?'"
+      );
       const cIdsA = choreIds(choresA.body);
       const cIdsB = choreIds(choresB.body);
       const overlap = cIdsA.filter((id) => cIdsB.includes(id));

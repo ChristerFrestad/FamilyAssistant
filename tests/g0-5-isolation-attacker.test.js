@@ -684,17 +684,24 @@ describe('G0-5 isolation attacker', { concurrency: false, timeout: 120_000 }, ()
     assert.equal(res.status, 403, `child calendar POST ${res.status} ${haystack(res.body)}`);
   });
 
-  test('probe 6b: child in A POST chore is 403/404/405 (no create route)', async () => {
-    for (const path of ['/api/chores', '/api/chores/create', '/api/chores/add']) {
-      const res = await request(server.baseUrl, 'POST', path, {
+  test('probe 6b: child in A POST /api/chores is 403 (route exists)', async () => {
+    const res = await request(server.baseUrl, 'POST', '/api/chores', {
+      headers: authHeaders(A.childCookie),
+      body: { task: 'sneak chore', frequency: 'ukentlig', family_id: B.familyId },
+    });
+    assert.equal(res.status, 403, `child POST /api/chores ${res.status} ${haystack(res.body)}`);
+    assertNoMarkers(res, uniqueMarkers(B), 'child POST /api/chores');
+
+    for (const path of ['/api/chores/create', '/api/chores/add']) {
+      const extra = await request(server.baseUrl, 'POST', path, {
         headers: authHeaders(A.childCookie),
         body: { task: 'sneak chore', family_id: B.familyId },
       });
       assert.ok(
-        res.status === 403 || res.status === 404 || res.status === 405,
-        `child POST ${path} status ${res.status}`
+        extra.status === 403 || extra.status === 404 || extra.status === 405,
+        `child POST ${path} status ${extra.status}`
       );
-      assertNoMarkers(res, uniqueMarkers(B), `child POST ${path}`);
+      assertNoMarkers(extra, uniqueMarkers(B), `child POST ${path}`);
     }
   });
 

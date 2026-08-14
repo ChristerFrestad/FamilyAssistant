@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const { getWeekYear, chores: seedChores } = require('./seed');
+const { getWeekYear } = require('./seed');
 const { errors } = require('./http/errors');
 const { validateBody } = require('./http/validate');
 const { registerAuthRoutes } = require('./auth/routes');
@@ -17,7 +17,7 @@ const { registerFeedbackRoutes } = require('./http/feedback-routes');
 const { registerBootstrapRoutes } = require('./http/bootstrap');
 const { registerBrandingRoutes } = require('./http/branding');
 const { config } = require('./config');
-const { requireRole } = require('./auth/middleware');
+const { requireRole, hasRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
 const schemas = require('./schemas');
@@ -74,6 +74,25 @@ const DAY_NAMES = [
  * 2026-05-03 (PR shopping-smart-merge). Errors are swallowed so the
  * meal update itself does not fail because of shopping-list issues.
  */
+function toChoreDto(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    task: row.task,
+    details: row.details ?? null,
+    frequency: row.frequency,
+    defaultDay: row.default_day ?? null,
+    icon: row.icon ?? null,
+    assigneeMemberId: row.assignee_member_id ?? null,
+    intervalDays: row.interval_days ?? null,
+    active: !!row.active,
+  };
+}
+
+function choreCatalogMap(repos) {
+  return new Map(repos.chores.getAll({ includeInactive: true }).map((c) => [c.id, c]));
+}
+
 function maybeAutogenerateShoppingList(repos, weekYear) {
   try {
     if (!repos.mealPlans.isWeekComplete(weekYear)) return null;
@@ -213,6 +232,7 @@ function registerRoutes(router, { repos, serverState }) {
   //
   // Endpoints with no role middleware but behind authenticate() require
   // only a logged-in user:
+  //   GET  /api/chores                  — any family member can list catalog.
   //   PUT  /api/chores/complete         — any family member can check off
   //                                       chores (plan matrix allows this).
   //   POST /api/profile/filter-usage    — low-risk usage tracker, child OK.
@@ -1496,12 +1516,55 @@ function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // CHORES
   // ============================================================
+  router.get('/api/chores', (ctx) => {
+    const includeInactive = ctx.query.includeInactive === '1' && hasRole(ctx.user, 'adult');
+    const chores = repos.chores.getAll({ includeInactive }).map(toChoreDto);
+    ctx.json({ chores });
+  });
+
+  router.post('/api/chores', requireRole('adult'), validateBody(schemas.choreCreateBody), (ctx) => {
+    let row;
+    try {
+      row = repos.chores.insert(ctx.body);
+    } catch (err) {
+      throw errors.badRequest(err.message);
+    }
+    const defaultDay = ctx.body.defaultDay;
+    if (defaultDay != null) {
+      const wk = getWeekYear();
+      if (repos.choreSchedules.exists(wk)) {
+        repos.choreSchedules.add(wk, row.id, defaultDay);
+      }
+    }
+    invalidate('chores', 'today');
+    ctx.json({ ok: true, chore: toChoreDto(row) }, 201);
+  });
+
+  router.patch(
+    '/api/chores/:id',
+    requireRole('adult'),
+    validateBody(schemas.choreUpdateBody),
+    (ctx) => {
+      const id = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+      let row;
+      try {
+        row = repos.chores.update(id, ctx.body);
+      } catch (err) {
+        throw errors.badRequest(err.message);
+      }
+      if (!row) throw errors.notFound('Oppgave ikke funnet');
+      invalidate('chores', 'today');
+      ctx.json({ ok: true, chore: toChoreDto(row) });
+    }
+  );
+
   router.get(
     '/api/chores/current',
     withCache(['chores'], (ctx) => {
       const wk = ensureCurrentWeek(repos);
       const schedule = repos.choreSchedules.getWeek(wk);
-      const choresMap = new Map(seedChores.map((c) => [c.id, c]));
+      const choresMap = choreCatalogMap(repos);
       const result = schedule
         .map((s) => {
           const chore = choresMap.get(s.choreId);
@@ -2124,7 +2187,7 @@ function registerRoutes(router, { repos, serverState }) {
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
       const recipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
 
-      const choresMap = new Map(seedChores.map((c) => [c.id, c]));
+      const choresMap = choreCatalogMap(repos);
       const todayChores = repos.choreSchedules
         .getWeek(wk)
         .filter((s) => {
@@ -2358,7 +2421,7 @@ function registerRoutes(router, { repos, serverState }) {
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
       const todayRecipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
 
-      const choresMap = new Map(seedChores.map((c) => [c.id, c]));
+      const choresMap = choreCatalogMap(repos);
       const todayChoresList = repos.choreSchedules
         .getWeek(wk)
         .filter((s) => {

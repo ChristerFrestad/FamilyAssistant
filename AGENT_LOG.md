@@ -6,6 +6,47 @@
 
 ---
 
+2026-08-14 – G1-1 chore catalog CRUD + today-label fix
+
+Task: Family-scoped chore CRUD (GET/POST/PATCH) and stop '?' labels
+on today/current/LLM by joining repos.chores instead of seed ids.
+
+Analysis: none (implementer brief; no new analysis doc)
+- Journey: adult creates/edits catalog → current week + today + chat
+- Edge cases: child 403, cross-family 404, foreign assignee 400,
+  includeInactive adult-only, deactivate hidden, DB labels after seed
+- Decisions: weekly→ukentlig; interval stored as given; PATCH enabled
+  on router/body/CORS
+- Portainer risk: yes (migration 032 ADD COLUMN, additive/nullable)
+
+Plan: tests first → migration/schemas/repo/routes/label-fix → specified
+tests green → AGENT_LOG + single commit.
+
+Done:
+- Branch: feat/g1-1-chore-crud-api (worktree FamilyAssistant-g1-1)
+- Commits: 1 (pending)
+- Files: migration 032, chore.repo, routes, schemas, router PATCH,
+  seed empty-check, openapi, chore-crud.test.js, e2e + g0-5
+- Tests: chore-crud 9/9, specified suite 55/55, e2e 11/11
+- DOMAIN_MODEL.md updated: no
+- Deviation: none material; added router.patch + body/CORS PATCH so
+  the specified PATCH route works
+
+Security: getFamilyId() on every query; assignee validated against
+family_profile_members; child cannot write; cross-family PATCH 404.
+
+ISO 25010: Functional suitability + (catalog + real labels).
+Security unchanged (family-scoped). Maintainability not affected.
+
+Status: waiting-for-operator
+
+Decisions the operator must make:
+None for this slice. Recommendation: review then continue G1 UX.
+
+Next: not pushed (no «push» in the brief).
+
+---
+
 2026-08-14 – G0-5 Isolation attacker (swapped family ids)
 
 Oppgave: Adversarial tester som prøver å lekke familie B mens A er
