@@ -37,6 +37,7 @@ import { Family } from './screens/Family';
 import { Chores } from './screens/Chores';
 import { Meals } from './screens/Meals';
 import { Recipes } from './screens/Recipes';
+import { RecipeEditor } from './screens/RecipeEditor';
 import { Shopping } from './screens/Shopping';
 import { Calendar } from './screens/Calendar';
 import { Settings } from './screens/Settings';
@@ -131,6 +132,8 @@ function AppRoutes(): JSX.Element {
                   <Route path="/chores" element={<Chores />} />
                   <Route path="/meals" element={<Meals />} />
                   <Route path="/recipes" element={<Recipes />} />
+                  <Route path="/recipes/new" element={<RecipeEditor />} />
+                  <Route path="/recipes/:id" element={<RecipeEditor />} />
                   <Route
                     path="/shopping"
                     element={

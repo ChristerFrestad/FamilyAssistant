@@ -6,6 +6,14 @@
 
 ---
 
+2026-08-14 – G1-4 recipe editor + import URL
+
+- Branch: feat/g1-4-recipe-editor
+- Editor /recipes/new and /recipes/:id, import URL, deactivate
+- Tests: 47/47 vitest
+- Status: merged into feat/g1-integrate
+
+---
 2026-08-14 â€“ G1-2 chores screen + nav slot
 
 Oppgave: `/chores` uke-tavle, BottomNav-plass, complete/undo/postpone/add.

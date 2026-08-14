@@ -6,7 +6,14 @@
 //   3. AbortSignal flows through to fetch.
 
 import { test, expect, vi, beforeEach, afterEach, describe } from 'vitest';
-import { fetchMealsCurrent, MealsApiError } from './mealsApi';
+import {
+  createRecipe,
+  deactivateRecipe,
+  fetchMealsCurrent,
+  fetchRecipes,
+  importRecipeFromUrl,
+  MealsApiError,
+} from './mealsApi';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -93,5 +100,50 @@ describe('fetchMealsCurrent', () => {
     await fetchMealsCurrent(ctrl.signal);
     const callArgs = fetchSpy.mock.calls[0]?.[1];
     expect((callArgs as RequestInit | undefined)?.signal).toBe(ctrl.signal);
+  });
+});
+
+describe('recipe mutations', () => {
+  test('fetchRecipes appends source and includeInactive query params', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { recipes: [], filter: {} }));
+    await fetchRecipes(undefined, { source: 'imported', includeInactive: true });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/recipes?source=imported&includeInactive=1',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+  });
+
+  test('createRecipe POSTs /api/recipes and returns recipeId', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(201, { ok: true, recipeId: 8, recipe: { id: 8 } }));
+    const res = await createRecipe({
+      name: 'Taco',
+      category: 'rask',
+      ingredients: [{ name: 'kjøttdeig', qty: 400, unit: 'g' }],
+    });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/recipes',
+      expect.objectContaining({ method: 'POST', credentials: 'include' })
+    );
+    expect(res.recipeId).toBe(8);
+  });
+
+  test('deactivateRecipe POSTs /api/recipes/:id/deactivate', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, { ok: true, recipe: { id: 3, active: false } })
+    );
+    await deactivateRecipe(3);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/recipes/3/deactivate',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  test('importRecipeFromUrl POSTs the URL and surfaces 400 as MealsApiError', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(400, { detail: 'Missing url' }));
+    await expect(importRecipeFromUrl('')).rejects.toMatchObject({
+      name: 'MealsApiError',
+      status: 400,
+      message: 'Missing url',
+    });
   });
 });

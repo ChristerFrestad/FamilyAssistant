@@ -743,8 +743,10 @@ function registerRoutes(router, { repos, serverState }) {
   router.get('/api/recipes', (ctx) => {
     // Phase F7: supports ?source=mine|ai|all|imported
     // Filters on recipes.source_type (enum), not recipes.source (free text)
+    // G1 library: adults may pass ?includeInactive=1 to see deactivated rows.
     const source = ctx.query.source;
-    const all = repos.recipes.getAll();
+    const includeInactive = ctx.query.includeInactive === '1' && hasRole(ctx.user, 'adult');
+    const all = repos.recipes.getAll({ includeInactive });
     let filtered = all;
     if (source === 'mine') {
       filtered = all.filter((r) => (r.source_type || r.sourceType || 'manual') === 'manual');
