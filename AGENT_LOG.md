@@ -6,6 +6,46 @@
 
 ---
 
+2026-08-14 – G5-1 SQLite busy_timeout + one retry
+
+Task: Wait 5s on lock after open, and retry a repo write once
+on SQLITE_BUSY / "database is locked".
+
+Analysis: skipped (parent: keep scope small; no domain change).
+- Journey: n/a (infra helper)
+- Edge cases: first busy then ok; double busy rethrows
+- Decisions: 1 (pragma after open; helper not wired into every repo)
+- Portainer risk: yes (touches server/db.js) — one standard
+  PRAGMA busy_timeout = 5000 after better-sqlite3 open. If
+  pragma threw, init would fall back to sql.js. Rollback:
+  drop the pragma line.
+
+Plan: pragma + withBusyRetry + two unit tests + one commit.
+
+Done:
+- Branch: feat/g5-1-sqlite-busy-retry (from feat/g1-integrate)
+- Commits: 1
+- Files: server/db.js, server/repositories/with-busy-retry.js,
+  tests/sqlite-busy-retry.test.js, AGENT_LOG.md
+- Tests added: 2 (node --test tests/sqlite-busy-retry.test.js
+  2/2 pass)
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: none. Helper is exported, not yet
+  wrapping existing repo methods (out of scope).
+
+Security: no input, auth, or secrets. SQL still parameterized.
+
+ISO 25010: Reliability slightly better under WAL lock; others
+not affected. No ≥8.0 characteristic pulled down.
+
+Status: waiting-for-operator (local commit, no push)
+
+Decisions the operator must make: none.
+
+Next: G5 follow-ups can wrap hot write paths with withBusyRetry.
+
+---
+
 2026-08-14 – G1-3 recipe create / update / soft-deactivate API
 
 Task: Manual POST/PATCH plus active-flag deactivate for recipes.

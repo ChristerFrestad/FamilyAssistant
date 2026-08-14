@@ -66,6 +66,7 @@ function tryBetterSqlite3() {
 
   try {
     const db = new Database(DB_PATH);
+    db.pragma('busy_timeout = 5000');
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('foreign_keys = ON');
