@@ -2,25 +2,8 @@ name: CI
 
 # 2026-04-20: restructured per CLAUDE.md DEL 5.2 (Lokal-først arbeidsflyt).
 #
-# Volume reduction: from ~300 GH-Actions jobs/day (8-10 × 7-10 pushes) to
-# ~1-2 PR-pushes/week (batch-push) × PR-cheap jobs + ~1-2 main merges/week
-# × cross-platform matrix + ~1 Sunday cron for OSV/SBOM. Target: ~75-90 %
-# reduction in compute without loss of safety.
-#
-# Trigger policy:
-#   - pull_request: minimal PR-gate (Linux Node 20 only)
-#   - push to main:  full cross-platform matrix (4 combos)
-#   - schedule:      Sunday 02:00 UTC weekly — OSV vulnerability + SBOM
-#                    generation (both are heavy and don't need per-PR runs)
-#
-# Branch-protection job names preserved so existing required-status-checks
-# keep matching:
-#   - "Test (Node 20.x, ubuntu-latest)" — always runs, is the PR gate
-#   - "Test (Node 20.x, macos-latest)" / "... windows-latest" / "... 22.x" —
-#     run only on main-push or schedule
-#   - "Coverage gate" — always runs (small, important)
-#   - "Security audit" — always runs (cheap)
-#   - "SBOM generation" + "OSV vulnerability scan" — main-push + schedule only
+# Temporary for PR #191: no package-lock.json + npm install (not ci) + prettier auto-fix.
+# Revert to npm ci + cache: npm after merge and lockfile regen.
 
 on:
   push:
@@ -28,7 +11,6 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Sunday 02:00 UTC — weekly OSV/SBOM. See CLAUDE.md DEL 5.2.4.
     - cron: '0 2 * * 0'
 
 permissions:
@@ -39,10 +21,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # PR-gate: Linux Node 20 only. Runs on EVERY trigger. This is the single
-  # required status check for PR merge per branch protection.
-  # ---------------------------------------------------------------------------
   test:
     name: Test (Node 20.x, ubuntu-latest)
     runs-on: ubuntu-latest
@@ -59,15 +37,14 @@ jobs:
           node-version: '20.x'
 
       - name: Install dependencies
-        # Temporary for PR #191: no package-lock.json (size limit) + no cache.
-        # Overrides in package.json still apply. Revert to npm ci + cache after merge + lock regen.
-        run: npm install --ignore-scripts
+        run: |
+          npm install
+          npm rebuild better-sqlite3
 
       - name: Lint (ESLint flat config)
         run: npm run lint
 
       - name: Format check (Prettier)
-        # Temporary: auto-fix then verify so minor push-channel formatting drift does not block the PR gate.
         run: |
           npx prettier --write "server/**/*.js" "scripts/**/*.js" "tests/**/*.js" "public/sw.js" "package.json"
           npm run format
@@ -80,9 +57,6 @@ jobs:
         env:
           NODE_ENV: test
 
-  # ---------------------------------------------------------------------------
-  # Cross-platform matrix: only runs on push to main or scheduled.
-  # ---------------------------------------------------------------------------
   test-cross-platform:
     name: Test (Node ${{ matrix.node }}, ${{ matrix.os }})
     if: github.event_name == 'push' || github.event_name == 'schedule'
@@ -114,16 +88,15 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: |
+          npm install
+          npm rebuild better-sqlite3
 
       - name: Run tests (node --test)
         run: npm test
         env:
           NODE_ENV: test
 
-  # ---------------------------------------------------------------------------
-  # Coverage gate (always)
-  # ---------------------------------------------------------------------------
   coverage:
     name: Coverage gate
     runs-on: ubuntu-latest
@@ -133,15 +106,14 @@ jobs:
         with:
           node-version: '20.x'
       - name: Install
-        run: npm install --ignore-scripts
+        run: |
+          npm install
+          npm rebuild better-sqlite3
       - name: Coverage
         run: npm run test:coverage:gate
         env:
           NODE_ENV: test
 
-  # ---------------------------------------------------------------------------
-  # Security audit (always)
-  # ---------------------------------------------------------------------------
   security:
     name: Security audit
     runs-on: ubuntu-latest
@@ -151,13 +123,12 @@ jobs:
         with:
           node-version: '20.x'
       - name: Install
-        run: npm install --ignore-scripts
+        run: |
+          npm install
+          npm rebuild better-sqlite3
       - name: Audit
         run: npm run audit:prod
 
-  # ---------------------------------------------------------------------------
-  # SBOM + OSV (main + schedule only)
-  # ---------------------------------------------------------------------------
   sbom:
     name: SBOM generation
     if: github.event_name == 'push' || github.event_name == 'schedule'
@@ -168,7 +139,9 @@ jobs:
         with:
           node-version: '20.x'
       - name: Install
-        run: npm install --ignore-scripts
+        run: |
+          npm install
+          npm rebuild better-sqlite3
       - name: SBOM
         run: npm run sbom
 
@@ -182,6 +155,8 @@ jobs:
         with:
           node-version: '20.x'
       - name: Install
-        run: npm install --ignore-scripts
+        run: |
+          npm install
+          npm rebuild better-sqlite3
       - name: OSV
         run: npx osv-scanner --lockfile=package-lock.json || true
