@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
+import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
 import { Badge } from '../components/display/Badge';
 import { Field } from '../components/form/Field';
@@ -107,15 +108,12 @@ export function Recipes(): JSX.Element {
 
   return (
     <section aria-labelledby="recipes-heading" className="flex flex-col gap-4">
-      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 id="recipes-heading" className="font-display text-display-md text-text-1">
-            {t('recipes:title')}
-          </h1>
-          <p className="font-body text-body text-text-2">{t('recipes:description')}</p>
-        </div>
-        {adultActions}
-      </header>
+      <ScreenHeader
+        title={t('recipes:title')}
+        titleId="recipes-heading"
+        subtitle={t('recipes:description')}
+        actions={adultActions}
+      />
 
       {!isLoading && error === null ? (
         <div className="flex flex-col gap-3" data-testid="recipes-filters">

@@ -1,6 +1,7 @@
-// Page header for the Shopping screen: title + compact statistics
-// strip (total / bought / remaining) plus optional remaining-price
-// badge when at least one item carries a Kassal-enriched estPrice.
+// Page header for the Shopping screen: ScreenHeader title + compact
+// statistics strip (total / bought / remaining) plus optional
+// remaining-price badge when at least one item carries a Kassal-enriched
+// estPrice.
 //
 // Falls back to "Handleliste" for the title when no override is
 // provided. Stats are rendered as plain text — the progress-ring
@@ -8,6 +9,7 @@
 
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ScreenHeader } from '../layout/ScreenHeader';
 import type { ShoppingStats } from '../../shopping/useShoppingData';
 
 export interface ShoppingHeaderProps {
@@ -33,10 +35,7 @@ export function ShoppingHeader({
   const partial = showRemainingPrice && stats.itemsWithPriceCount < stats.remaining;
 
   return (
-    <header className="space-y-2" data-testid="shopping-header">
-      <h1 className="font-display text-display-md text-text-1" id="screen-heading">
-        {t('shopping:title')}
-      </h1>
+    <ScreenHeader title={t('shopping:title')} data-testid="shopping-header">
       {!isEmpty && stats.total > 0 && (
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 font-body text-meta text-text-2">
           <span>
@@ -89,6 +88,6 @@ export function ShoppingHeader({
           )}
         </div>
       )}
-    </header>
+    </ScreenHeader>
   );
 }

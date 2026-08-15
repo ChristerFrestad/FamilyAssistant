@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { Card } from '../components/layout/Card';
+import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
 import { choreDayDots } from '../components/chores/ChoresDayStrip';
 import { WeekStrip } from '../components/layout/WeekStrip';
@@ -179,17 +180,12 @@ export function Chores(): JSX.Element {
 
   return (
     <section aria-labelledby="chores-heading" className="flex flex-col gap-4">
-      <header className="flex flex-col gap-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="font-body text-meta uppercase tracking-wider text-text-3">
-              {t('chores:weekHeader.label')}
-            </span>
-            <h1 id="chores-heading" className="font-display text-display-md text-text-1">
-              {t('chores:title')}
-            </h1>
-          </div>
-          {isAdult ? (
+      <ScreenHeader
+        eyebrow={t('chores:weekHeader.label')}
+        title={t('chores:title')}
+        titleId="chores-heading"
+        actions={
+          isAdult ? (
             <Button
               type="button"
               variant="primary"
@@ -199,15 +195,16 @@ export function Chores(): JSX.Element {
             >
               {t('chores:actions.add')}
             </Button>
-          ) : null}
-        </div>
+          ) : null
+        }
+      >
         {week?.weekYear ? (
           <p className="font-body text-meta text-text-2" data-testid="chores-week-year">
             {t('chores:weekHeader.week', { weekYear: week.weekYear })}
           </p>
         ) : null}
         {/* G2: chores-xp-slot — Ring + week goal. Do not render. */}
-      </header>
+      </ScreenHeader>
 
       <div className="sr-only" aria-live="polite">
         {liveMessage}

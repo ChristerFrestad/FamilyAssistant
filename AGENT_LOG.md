@@ -6,6 +6,13 @@
 
 ---
 
+2026-08-14 – U0-2 shared ScreenHeader
+
+- Branch: feat/u0-2-screen-header
+- Tests: 102/102
+- Status: merged
+
+---
 2026-08-14 – U0-3 shared WeekStrip for meals and chores
 
 - Branch: feat/u0-3-week-strip

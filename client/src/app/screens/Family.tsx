@@ -28,6 +28,7 @@ import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
+import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
 import { MemberCard } from '../components/family/MemberCard';
 import { InviteMemberModal } from '../components/family/InviteMemberModal';
@@ -85,9 +86,7 @@ export function Family(): JSX.Element {
 
   return (
     <section aria-labelledby="family-heading" className="flex flex-col gap-6">
-      <h1 id="family-heading" className="sr-only">
-        {t('family:title')}
-      </h1>
+      <ScreenHeader title={t('family:title')} titleHidden titleId="family-heading" />
 
       {/* Family header card */}
       <Card padding="md" shadow="low" data-testid="family-header">
