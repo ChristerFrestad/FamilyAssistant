@@ -153,7 +153,6 @@
           <span class="p">Hverdags</span><span class="a">planleggeren</span>
         </a>
         <nav class="nav-wide" aria-label="Hoved">
-          <a href="#flyt">Slik det virker</a>
           <a href="#faq">Spørsmål</a>
         </nav>
         <div class="top-actions">
@@ -165,239 +164,17 @@
 
     <main id="innhold">
       <section class="hero">
-        <div class="wrap hero-grid">
-          <div class="hero-copy">
-            <h1 class="serif">Ett sted for middag, gjøremål, kjøkkenet og handlelisten.</h1>
-            <p class="lede">
-              Listen bygges fra menyen og hopper over det dere allerede har hjemme.
-            </p>
-            <div class="cta-row">
-              <a class="btn btn-primary" href="/login?mode=register">Kom i gang</a>
-              <a class="link-quiet" href="/login">Har du konto? Logg inn</a>
-            </div>
-            <p class="micro">Gratis å ta i bruk. Dataene blir hos dere.</p>
+        <div class="wrap hero-copy">
+          <h1 class="serif">Ett sted for middag, gjøremål, kjøkkenet og handlelisten.</h1>
+          <p class="lede">
+            Listen bygges fra menyen og hopper over det dere allerede har hjemme.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="/login?mode=register">Kom i gang</a>
+            <a class="link-quiet" href="/login">Har du konto? Logg inn</a>
           </div>
-
-          <div class="hero-visual">
-            <figure class="board">
-              <div class="board-chrome" aria-hidden="true">
-                <span class="board-dots"></span>
-                <span class="board-time">18:42</span>
-                <span class="board-pill">I dag</span>
-                <span class="board-sig"></span>
-              </div>
-              <figcaption class="sr">I dag: middag, gjøremål, kjøkken og handleliste</figcaption>
-              <div class="board-screen">
-                <p class="board-hi serif">God kveld</p>
-                <ul class="tiles">
-                  <li class="tile tile-meal">
-                    <span class="k">Middag</span>
-                    <strong>Lakseovn</strong>
-                    <span class="meta">30 min</span>
-                  </li>
-                  <li class="tile tile-chore">
-                    <span class="k">Gjøremål</span>
-                    <strong>Tøm oppvaskmaskin</strong>
-                    <span class="meta">Alex</span>
-                  </li>
-                  <li class="tile tile-pantry">
-                    <span class="k">Kjøkken</span>
-                    <strong>Melk · 1 liter</strong>
-                    <span class="meta">hjemme</span>
-                  </li>
-                  <li class="tile tile-list">
-                    <span class="k">Handleliste</span>
-                    <strong>6 varer igjen</strong>
-                    <span class="meta">fra ukens meny</span>
-                  </li>
-                </ul>
-              </div>
-            </figure>
-          </div>
+          <p class="micro">Gratis å ta i bruk. Dataene blir hos dere.</p>
         </div>
-      </section>
-
-      <section class="flyt" id="flyt">
-        <div class="wrap">
-          <p class="eyebrow">Slik det virker</p>
-          <h2 class="serif">Velg middag. Skapet trekker fra. Listen er klar.</h2>
-          <p class="lead-sm">Slutt på lapper, gruppechat og melk tre ganger.</p>
-
-          <div class="demo" data-week>
-            <div class="demo-plan">
-              <div class="day-nav">
-                <button type="button" class="icon-btn" data-prev aria-label="Forrige dag">‹</button>
-                <p class="day-now"><span data-day-label>Tirsdag</span></p>
-                <button type="button" class="icon-btn" data-next aria-label="Neste dag">›</button>
-              </div>
-              <p class="meal-now serif" data-meal>Lakseovn</p>
-              <ol class="chain">
-                <li>
-                  <span class="num">1</span>
-                  <div>
-                    <strong>Sett uken</strong>
-                    <p data-step-meal>Tirsdag blir lakseovn. Porsjoner følger dem som spiser.</p>
-                  </div>
-                </li>
-                <li>
-                  <span class="num">2</span>
-                  <div>
-                    <strong>Skapet trekker fra</strong>
-                    <p>Det som allerede står på kjøkkenet, kommer ikke med.</p>
-                  </div>
-                </li>
-                <li>
-                  <span class="num">3</span>
-                  <div>
-                    <strong>Handle</strong>
-                    <p>Listen er klar. Kryss av i butikken.</p>
-                  </div>
-                </li>
-              </ol>
-            </div>
-            <aside class="demo-list" aria-label="Handleliste for dagen">
-              <p class="k">Handleliste</p>
-              <p class="list-head serif">Fra menyen</p>
-              <ul class="shop" data-shop>
-                <li>
-                  <span class="box"></span><span>Laks</span><span>600 g</span>
-                </li>
-                <li>
-                  <span class="box"></span><span>Sitron</span><span>1 stk</span>
-                </li>
-                <li class="home">
-                  <span class="box"></span><span>Potet</span><span class="tag">har hjemme</span>
-                </li>
-              </ul>
-            </aside>
-          </div>
-        </div>
-      </section>
-
-      <section class="flater" id="flater">
-        <div class="wrap">
-          <p class="eyebrow">I appen</p>
-          <h2 class="serif">Fire flater. Samme brett.</h2>
-          <div class="tabs" data-tabs>
-            <div class="tab-list" role="tablist" aria-label="Flater">
-              <button
-                type="button"
-                role="tab"
-                id="tab-middag"
-                aria-controls="panel-middag"
-                aria-selected="true"
-                class="is-on"
-                tabindex="0"
-                data-tab="middag"
-              >
-                Middag
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="tab-gjoremål"
-                aria-controls="panel-gjoremål"
-                aria-selected="false"
-                tabindex="-1"
-                data-tab="gjoremål"
-              >
-                Gjøremål
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="tab-kjøkken"
-                aria-controls="panel-kjøkken"
-                aria-selected="false"
-                tabindex="-1"
-                data-tab="kjøkken"
-              >
-                Kjøkken
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="tab-liste"
-                aria-controls="panel-liste"
-                aria-selected="false"
-                tabindex="-1"
-                data-tab="liste"
-              >
-                Liste
-              </button>
-            </div>
-
-            <div
-              class="tab-panel"
-              role="tabpanel"
-              id="panel-middag"
-              data-panel="middag"
-              aria-labelledby="tab-middag"
-            >
-              <div class="peek peek-week" aria-hidden="true">
-                <span>Ma</span><span>Ti</span><span class="on">On</span><span>To</span
-                ><span>Fr</span><span>Lø</span><span>Sø</span>
-              </div>
-              <p>Uken ligger ferdig. Ett trykk per dag.</p>
-              <a href="/middag/">Mer om middag</a>
-            </div>
-            <div
-              class="tab-panel"
-              role="tabpanel"
-              id="panel-gjoremål"
-              data-panel="gjoremål"
-              hidden
-              aria-labelledby="tab-gjoremål"
-            >
-              <ul class="peek peek-chores" aria-hidden="true">
-                <li><span class="tick"></span><strong>Tøm oppvaskmaskin</strong><em>Alex</em></li>
-                <li><span class="tick"></span><strong>Ta ut søppel</strong><em>Sam</em></li>
-                <li class="done"><span class="tick"></span><strong>Re sengen</strong><em>Eli</em></li>
-              </ul>
-              <p>Tildelt, synlig i dag, ferdig med ett trykk.</p>
-              <a href="/gjoremål/">Mer om gjøremål</a>
-            </div>
-            <div
-              class="tab-panel"
-              role="tabpanel"
-              id="panel-kjøkken"
-              data-panel="kjøkken"
-              hidden
-              aria-labelledby="tab-kjøkken"
-            >
-              <ul class="peek peek-pantry" aria-hidden="true">
-                <li><strong>Melk</strong><span>3 dager</span></li>
-                <li><strong>Potet</strong><span>hjemme</span></li>
-                <li class="warn"><strong>Rømme</strong><span>i dag</span></li>
-              </ul>
-              <p>Skapet vet hva som er hjemme, og hva som snart går ut.</p>
-              <a href="/handleliste/#skap">Mer om kjøkkenet</a>
-            </div>
-            <div
-              class="tab-panel"
-              role="tabpanel"
-              id="panel-liste"
-              data-panel="liste"
-              hidden
-              aria-labelledby="tab-liste"
-            >
-              <ul class="peek peek-shop" aria-hidden="true">
-                <li><span class="box"></span>Laks</li>
-                <li><span class="box"></span>Sitron</li>
-                <li class="home"><span class="box"></span>Potet · har hjemme</li>
-              </ul>
-              <p>Bygget fra menyen. Hopper over det som allerede står i skapet.</p>
-              <a href="/handleliste/">Mer om handlelisten</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="trust" aria-label="Tillit">
-        <p class="wrap trust-line">
-          Gratis å ta i bruk. Dataene blir hos dere. Ingen App Store.
-          <a href="/personvern">Personvern</a>
-        </p>
       </section>
 
       <section class="faq" id="faq">
@@ -470,6 +247,5 @@
         </div>
       </div>
     </footer>
-    <script src="/site/site.js" defer></script>
   </body>
 </html>
