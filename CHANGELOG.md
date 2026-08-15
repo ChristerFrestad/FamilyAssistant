@@ -6,6 +6,16 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed — PWA no longer replaces the landing page with /login
+
+Workbox default `directoryIndex` mapped `GET /` to the precached SPA
+`index.html` before `navigateFallbackDenylist` ran. After a visit to
+`/login` the worker controlled the origin, so apex `/` became the
+React shell and AuthGuard sent anonymous users to `/login`.
+
+- `directoryIndex: null` and `cleanURLs: false` in the Vite PWA config
+- Apex `/` goes to the network again (marketing HTML)
+
 ### Changed — Marketing homepage: one story, no cropped screenshots
 
 Mobile-first rewrite of `GET /`. HTML mock of «I dag» instead of
