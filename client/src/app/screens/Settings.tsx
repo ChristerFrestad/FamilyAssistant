@@ -19,7 +19,7 @@
 // where /settings is wrapped in ErrorBoundary.
 
 import type { ChangeEvent, JSX } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Card } from '../components/layout/Card';
@@ -38,9 +38,9 @@ import { LogoutButton } from '../components/settings/LogoutButton';
 import { EmailVerificationBanner } from '../components/settings/EmailVerificationBanner';
 import { useSettingsData } from '../settings/useSettingsData';
 import { useAuthContext } from '../auth/AuthContext';
+import { fetchHealth } from '../settings/settingsApi';
 
 const TOAST_DISMISS_MS = 4000;
-const APP_VERSION = '1.3.0';
 
 export function Settings(): JSX.Element {
   const { t } = useTranslation(['settings', 'common']);
@@ -60,6 +60,20 @@ export function Settings(): JSX.Element {
     importFamilyBackup,
     clearUserFacingError,
   } = useSettingsData();
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetchHealth(ctrl.signal).then(
+      (h) => {
+        if (!ctrl.signal.aborted && h.version) setAppVersion(h.version);
+      },
+      () => {
+        if (!ctrl.signal.aborted) setAppVersion(null);
+      }
+    );
+    return () => ctrl.abort();
+  }, []);
 
   useEffect(() => {
     if (userFacingError === null) return undefined;
@@ -317,9 +331,14 @@ export function Settings(): JSX.Element {
             />
           </SettingsSection>
 
-          <p className="text-center font-mono text-meta text-text-3" data-testid="settings-version">
-            {t('settings:footer.version', { version: APP_VERSION })}
-          </p>
+          {appVersion ? (
+            <p
+              className="text-center font-mono text-meta text-text-3"
+              data-testid="settings-version"
+            >
+              {t('settings:footer.version', { version: appVersion })}
+            </p>
+          ) : null}
         </>
       )}
 

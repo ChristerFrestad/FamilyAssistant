@@ -160,6 +160,18 @@ async function sendJson<T>(
 // Public API
 // ============================================================
 
+export interface HealthResponse {
+  status: string;
+  version?: string;
+  spa?: string;
+}
+
+export async function fetchHealth(signal?: AbortSignal): Promise<HealthResponse> {
+  const opts: FetchOptions = {};
+  if (signal) opts.signal = signal;
+  return getJson<HealthResponse>('/health', opts);
+}
+
 export async function fetchFamily(signal?: AbortSignal): Promise<FamilyResponse> {
   const opts: FetchOptions = {};
   if (signal) opts.signal = signal;

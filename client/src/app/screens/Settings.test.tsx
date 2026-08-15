@@ -103,8 +103,13 @@ function mountSettings(user: AuthUser = ownerUser) {
 function mockFetchByPath(handlers: Record<string, (init?: RequestInit) => Response>): void {
   fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
-    for (const [pattern, handler] of Object.entries(handlers)) {
-      if (url === pattern) return Promise.resolve(handler(init));
+    const defaults: Record<string, (init?: RequestInit) => Response> = {
+      '/health': () =>
+        jsonResponse(200, { status: 'ok', version: '1.4.0', spa: 'chores-calendar-g1' }),
+    };
+    const all = { ...defaults, ...handlers };
+    for (const [pattern, handler] of Object.entries(all)) {
+      if (url === pattern || url.endsWith(pattern)) return Promise.resolve(handler(init));
     }
     return Promise.reject(new Error(`Unmocked fetch: ${url}`));
   });
@@ -181,7 +186,7 @@ describe('Settings — sections', () => {
     });
     mountSettings();
     await waitFor(() => expect(screen.getByTestId('settings-version')).toBeInTheDocument());
-    expect(screen.getByTestId('settings-version').textContent).toContain('v1.3.0');
+    expect(screen.getByTestId('settings-version').textContent).toContain('v1.4.0');
   });
 });
 
