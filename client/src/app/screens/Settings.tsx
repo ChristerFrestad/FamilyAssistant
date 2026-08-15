@@ -23,6 +23,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Card } from '../components/layout/Card';
+import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
 import { LanguageSwitcher } from '../components/form/LanguageSwitcher';
 import { ThemeToggle } from '../components/form/ThemeToggle';
@@ -84,12 +85,7 @@ export function Settings(): JSX.Element {
       className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-2"
       data-testid="settings-screen"
     >
-      <header>
-        <h1 id="screen-heading" className="font-display text-display-md text-text-1">
-          {t('settings:title')}
-        </h1>
-        <p className="mt-1 font-body text-body text-text-2">{t('settings:header.subtitle')}</p>
-      </header>
+      <ScreenHeader title={t('settings:title')} subtitle={t('settings:header.subtitle')} />
 
       {isLoading && (
         <div

@@ -11,6 +11,7 @@ import type { FormEvent, JSX } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout/Card';
+import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
 import { Field } from '../components/form/Field';
 import { Input } from '../components/form/Input';
@@ -238,18 +239,14 @@ export function Calendar(): JSX.Element {
       className="flex flex-col gap-6"
       data-testid="calendar-screen"
     >
-      <header className="flex flex-col gap-1">
-        <h1 id="screen-heading" className="font-display text-display-md text-text-1">
-          {t('calendar:title')}
-        </h1>
-        <p className="font-body text-body text-text-2">{t('calendar:subtitle')}</p>
+      <ScreenHeader title={t('calendar:title')} subtitle={t('calendar:subtitle')}>
         <p className="font-body text-meta text-text-3" data-testid="calendar-range">
           {t('calendar:range', {
             from: formatRangeDate(from, locale),
             to: formatRangeDate(to, locale),
           })}
         </p>
-      </header>
+      </ScreenHeader>
 
       {isLoading ? (
         <div

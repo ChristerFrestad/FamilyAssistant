@@ -6,7 +6,54 @@
 
 ---
 
-2026-08-14 � G4 XP, backup import, child-scoped export
+2026-08-15 – U0-2 shared ScreenHeader
+
+Task: Én felles page-heading for primære AppShell-skjermer
+(eyebrow + h1 + subtitle + trailing actions + meta-children),
+slik at Meals/Chores-markupen ikke kopieres videre.
+
+Analysis: ingen separat ANALYSIS — scoped UI-ekstraksjon.
+
+- Journey: ScreenHeader API → migrate 7 skjermer + ShoppingHeader
+  → eksisterende heading-queries uendret
+- Edge cases: titleHidden (sr-only h1), titleId default
+  screen-heading, actions bytter wrap til row, children under
+  subtitle (uke/år, kalender-range, shopping-stats)
+- Decisions: 1 (ikke røre Dashboard WelcomeHeader i denne PR)
+- Portainer risk: no
+
+Plan: ny primitive + tester; migrer Meals, Chores, Calendar,
+Recipes, Settings, ShoppingHeader, Family; behold visuell
+resultat og tilgjengelige heading-navn.
+
+Done:
+- Branch: feat/u0-2-screen-header (worktree fra main; feat/u0-1
+  hadde ikke landet)
+- Commits: 1
+- Files: ScreenHeader.tsx + .test.tsx, Meals/Chores/Calendar/
+  Recipes/Settings/Family.tsx, ShoppingHeader.tsx, AGENT_LOG.md
+- Tests: 102/102 (ScreenHeader 6, screen suites + ShoppingHeader)
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: Recipes adult-actions er trailing på alle
+  breakpoints (var stacked under tittel på mobil). Samme tokens.
+
+Ikke i denne PR: Dashboard WelcomeHeader er uendret. Family
+beholder synlig kort-tittel (h2) og bruker ScreenHeader kun
+for den ekte sr-only h1. EN/NO uendret.
+
+Security: ingen nye endepunkter eller auth-endringer.
+
+ISO 25010: Maintainability up (én heading-primitive).
+Accessibility uendret (samme h1-navn og ids).
+
+Status: waiting-for-operator
+
+Next: review/merge etter feat/u0-1 om visuell system-PR
+skal ligge under.
+
+---
+
+2026-08-14 – G4 XP, backup import, child-scoped export
 
 - Branch: feat/g4-xp-backup
 - xp_awarded=10, stats, family backup v2, child export tightened
@@ -14,7 +61,7 @@
 - Status: merged into feat/g1-integrate
 
 ---
-2026-08-14 � G3 calendar integrations (Google + iCloud)
+2026-08-14 � G3 calendar integrations (Google + iCloud)
 
 - Branch: feat/g3-calendar-sync
 - Migration 034, PATCH/DELETE 404, CalDAV+Google mocks, Settings/Calendar footer
