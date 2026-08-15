@@ -24,7 +24,9 @@ on:
       - 'server/**'
       - 'public/**'
       - 'client/**'
+      - 'marketing/**'
       - 'scripts/load-baseline.js'
+      - 'scripts/build-marketing.js'
       - '.github/workflows/docker.yml'
   pull_request:
     branches: [main]
@@ -34,6 +36,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'client/**'
+      - 'marketing/**'
   workflow_dispatch:
 
 permissions:
