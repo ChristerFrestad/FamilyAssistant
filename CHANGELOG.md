@@ -6,6 +6,12 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed — Marketing homepage: one story, no cropped screenshots
+
+Mobile-first rewrite of `GET /`. HTML mock of «I dag» instead of
+widescreen English captures in a phone frame. One how-it-works
+block. Four tabs, four FAQ, no Pi/Portainer on the front.
+
 ### Added — Public marketing site for Hverdagsplanleggeren (2026-08-15)
 
 When `MARKETING_HOSTS` is set, `GET /` can serve a crawlable landing

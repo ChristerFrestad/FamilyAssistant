@@ -6,7 +6,7 @@
     <title>Hverdagsplanleggeren — middag, gjøremål, kjøkken og handleliste</title>
     <meta
       name="description"
-      content="Ett sted for middag, gjøremål, det som står på kjøkkenet og handlelisten. Norsk familieapp. Gratis å ta i bruk. Dataene blir hos dere."
+      content="Ett sted for middag, gjøremål, det som står på kjøkkenet og handlelisten. Listen bygges fra menyen og hopper over det dere allerede har hjemme."
     />
     <link rel="canonical" href="{{CANONICAL}}/" />
     <link rel="alternate" hreflang="nb-NO" href="{{CANONICAL}}/" />
@@ -21,13 +21,19 @@
     />
     <meta
       property="og:description"
-      content="Ett sted for middag, gjøremål, kjøkkenet og handlelisten. Gratis. Privat. Norsk."
+      content="Ett sted for middag, gjøremål, kjøkkenet og handlelisten. Gratis. Dataene blir hos dere."
     />
-    <meta property="og:image" content="{{CANONICAL}}/screens/01-dashboard.png" />
+    <meta property="og:image" content="{{CANONICAL}}/site/emblem.svg" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#F7F3E8" />
     <link rel="icon" type="image/svg+xml" href="/site/emblem.svg" />
-    <link rel="preload" href="/fonts/InstrumentSerif-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link
+      rel="preload"
+      href="/fonts/InstrumentSerif-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="preload" href="/fonts/Geist.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site/styles.css" />
     <script type="application/ld+json">
@@ -39,11 +45,7 @@
             "@id": "{{CANONICAL}}/#org",
             "name": "Hverdagsplanleggeren",
             "url": "{{CANONICAL}}/",
-            "logo": "{{CANONICAL}}/site/emblem.svg",
-            "sameAs": [
-              "https://github.com/ChristerFrestad/FamilyAssistant",
-              "https://christerfrestad.com"
-            ]
+            "logo": "{{CANONICAL}}/site/emblem.svg"
           },
           {
             "@type": "WebSite",
@@ -68,43 +70,30 @@
               "Kjøkken og matskap med holdbarhet",
               "Handleliste som kjenner skapet"
             ],
-            "url": "{{CANONICAL}}/",
-            "screenshot": "{{CANONICAL}}/screens/01-dashboard.png",
-            "author": {
-              "@type": "Person",
-              "name": "Christer Frestad",
-              "sameAs": "https://christerfrestad.com"
-            }
+            "url": "{{CANONICAL}}/"
           },
           {
             "@type": "HowTo",
             "name": "Slik henger middag, kjøkken og handleliste sammen",
             "totalTime": "PT10M",
-            "tool": { "@type": "HowToTool", "name": "Nettleser" },
             "step": [
               {
                 "@type": "HowToStep",
                 "position": 1,
-                "name": "Velg middager",
-                "text": "Sett ukens middager. Porsjoner følger familiemedlemmene."
+                "name": "Sett uken",
+                "text": "Velg middager for uken. Porsjoner følger dem som spiser."
               },
               {
                 "@type": "HowToStep",
                 "position": 2,
-                "name": "Se gjøremål",
-                "text": "Husarbeid ligger på samme brett som maten, tildelt den det gjelder."
+                "name": "Skapet trekker fra",
+                "text": "Det som allerede står på kjøkkenet, hoppes over på listen."
               },
               {
                 "@type": "HowToStep",
                 "position": 3,
-                "name": "Sjekk kjøkkenet",
-                "text": "Det som allerede står i skapet, hoppes over på listen."
-              },
-              {
-                "@type": "HowToStep",
-                "position": 4,
                 "name": "Handle",
-                "text": "Listen er klar. Kryss av i butikken — resten av familien ser det."
+                "text": "Listen er klar. Kryss av i butikken."
               }
             ]
           },
@@ -137,42 +126,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Kan barna ha egen bruker?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Hverdagsplanleggeren har roller for eier, voksen og barn. Barn kan se og krysse av egne gjøremål uten å styre hele huset."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Hvor lagres dataene?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Hverdagsplanleggeren lagrer familie data på maskinen som kjører tjenesten. Det er ingen påkrevd skylogg. Dere kan eksportere og slette kontoen."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "Trenger jeg en app i App Store?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Hverdagsplanleggeren er en nettside dere kan installere på telefonen som en PWA. Ingen App Store-krav."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Finnes det engelsk?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Hverdagsplanleggeren har norsk og engelsk i appen. Denne siden finnes også på engelsk."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Kan jeg kjøre den selv på en Raspberry Pi?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Hverdagsplanleggeren kjører på FamilyAssistant, som er åpen kilde. Dere kan deploye imaget selv på en Raspberry Pi 5 via Portainer."
+                  "text": "Hverdagsplanleggeren er en nettside dere kan installere på telefonen. Ingen App Store-krav."
                 }
               }
             ]
@@ -185,20 +142,16 @@
     <a class="skip" href="#innhold">Hopp til innhold</a>
     <header class="topbar">
       <div class="wrap topbar-inner">
-        <a class="wordmark" href="/"><span class="p">Hverdags</span><span class="a">planleggeren</span></a>
-        <nav class="nav" aria-label="Hoved">
-          <a href="#flyt">Slik virker det</a>
-          <a href="/middag/">Middag</a>
-          <a href="/gjoremål/">Gjøremål</a>
-          <a href="/handleliste/">Kjøkken og liste</a>
-          <a href="#faq">FAQ</a>
+        <a class="wordmark" href="/"
+          ><span class="p">Hverdags</span><span class="a">planleggeren</span></a
+        >
+        <nav class="nav-wide" aria-label="Hoved">
+          <a href="#flyt">Slik det virker</a>
+          <a href="#faq">Spørsmål</a>
         </nav>
         <div class="top-actions">
-          <a class="lang" href="/" aria-current="true">NO</a>
-          <a class="lang" href="/en/">EN</a>
-          <a class="btn btn-ghost" href="/login">Logg inn</a>
+          <a class="link-quiet wide-only" href="/login">Logg inn</a>
           <a class="btn btn-primary" href="/login?mode=register">Kom i gang</a>
-          <button class="menu-btn" type="button" aria-expanded="false" aria-label="Meny">☰</button>
         </div>
       </div>
     </header>
@@ -206,211 +159,169 @@
     <main id="innhold">
       <section class="hero">
         <div class="wrap hero-grid">
-          <div>
-            <p class="eyebrow reveal">Hverdagen, på ett brett</p>
-            <h1 class="serif reveal d1">Ett sted for middag, gjøremål, kjøkkenet og handlelisten.</h1>
-            <p class="lede reveal d2">
-              Hverdagsplanleggeren er en norsk familieapp som samler middag, gjøremål, det som
-              står på kjøkkenet og handlelisten. Listen bygges fra menyen og hopper over det dere
-              allerede har hjemme. Gratis å ta i bruk. Dataene blir hos dere.
+          <div class="hero-copy">
+            <h1 class="serif">Ett sted for middag, gjøremål, kjøkkenet og handlelisten.</h1>
+            <p class="lede">
+              Listen bygges fra menyen og hopper over det dere allerede har hjemme.
             </p>
-            <div class="cta-row reveal d3">
+            <div class="cta-row">
               <a class="btn btn-primary" href="/login?mode=register">Kom i gang</a>
-              <a class="btn btn-ghost" href="#flyt">Se hvordan det henger sammen</a>
+              <a class="link-quiet" href="/login">Har du konto? Logg inn</a>
             </div>
-            <p class="proof reveal d4">
-              <span>Middag</span>
-              <span>Gjøremål</span>
-              <span>Kjøkken</span>
-              <span>Handleliste</span>
-            </p>
+            <p class="micro">Gratis å ta i bruk. Dataene blir hos dere.</p>
           </div>
+
           <div class="hero-visual">
-            <div class="aurora" aria-hidden="true"></div>
-            <figure class="device reveal d3">
-              <div class="device-bar"><span>18:42</span><span>Hverdagsplanleggeren</span></div>
-              <div class="device-screen" data-device-frame>
-                <img src="/screens/01-dashboard.png" width="800" height="1422" alt="I dag: middag, gjøremål og handleliste på ett brett" />
-                <img src="/screens/02-meals-weekplan.png" width="800" height="1422" alt="Ukesmeny med middag for syv dager" />
-                <img src="/screens/04-pantry.png" width="800" height="1422" alt="Kjøkkenet: matskap med det dere har hjemme" />
-                <img src="/screens/03-shopping-list.png" width="800" height="1422" alt="Handleliste bygget fra menyen" />
+            <div class="phone" aria-hidden="false">
+              <div class="phone-bar"><span>18:42</span><span>I dag</span></div>
+              <p class="phone-hi serif">God kveld</p>
+              <ul class="today-list">
+                <li>
+                  <span class="k">Middag</span>
+                  <strong>Lakseovn</strong>
+                  <em>30 min</em>
+                </li>
+                <li>
+                  <span class="k">Gjøremål</span>
+                  <strong>Tøm oppvaskmaskin</strong>
+                  <em>Alex</em>
+                </li>
+                <li>
+                  <span class="k">Kjøkken</span>
+                  <strong>Melk · 1 liter</strong>
+                  <em>hjemme</em>
+                </li>
+                <li>
+                  <span class="k">Handleliste</span>
+                  <strong>6 varer igjen</strong>
+                  <em>fra ukens meny</em>
+                </li>
+              </ul>
+            </div>
+
+            <div class="browser" aria-hidden="true">
+              <div class="browser-bar">
+                <span class="dots" aria-hidden="true"></span>
+                <span>I dag</span>
               </div>
-              <figcaption class="device-cap">Slik ser I dag ut hos en familie.</figcaption>
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <section class="notes">
-        <div class="wrap">
-          <div class="notes-grid" data-reveal>
-            <article class="note">
-              <p class="eyebrow">Lapp på kjøleskapet</p>
-              <p>Hva skal vi ha i kveld?</p>
-            </article>
-            <article class="note">
-              <p class="eyebrow">Gruppechat</p>
-              <p>Hvem tar oppvasken?</p>
-            </article>
-            <article class="note">
-              <p class="eyebrow">Handlelapp</p>
-              <p>Melk. Melk. Melk.</p>
-            </article>
-          </div>
-          <p class="notes-close">Tre samtaler, null oversikt. Det er det vi fjerner.</p>
-        </div>
-      </section>
-
-      <section class="surfaces" id="flater">
-        <div class="wrap">
-          <p class="eyebrow">Fire ting. Ett brett.</p>
-          <h2 class="serif">Middag, gjøremål, kjøkken og handleliste — synlig på fem sekunder.</h2>
-          <div class="surface-grid">
-            <figure class="surface-card wide">
-              <img src="/screens/02-meals-weekplan.png" width="1200" height="750" alt="Ukesmeny med middag per dag og porsjoner" />
-              <figcaption>
-                <h3 class="serif">Middag</h3>
-                <p>Uken ligger ferdig. Porsjoner følger dem som spiser.</p>
-              </figcaption>
-            </figure>
-            <figure class="surface-card">
-              <img src="/screens/01-dashboard.png" width="800" height="500" alt="Dagens gjøremål på hjemskjermen" />
-              <figcaption>
-                <h3 class="serif">Gjøremål</h3>
-                <p>Husarbeid tildelt, synlig i dag, ferdig med ett trykk.</p>
-              </figcaption>
-            </figure>
-            <figure class="surface-card">
-              <img src="/screens/04-pantry.png" width="800" height="500" alt="Matskap med varer som står på kjøkkenet" />
-              <figcaption>
-                <h3 class="serif">På kjøkkenet</h3>
-                <p>Skapet vet hva som er hjemme, og hva som snart går ut.</p>
-              </figcaption>
-            </figure>
-            <figure class="surface-card">
-              <img src="/screens/03-shopping-list.png" width="800" height="500" alt="Handleliste generert fra ukesmenyen" />
-              <figcaption>
-                <h3 class="serif">Handleliste</h3>
-                <p>Bygget fra menyen. Hopper over det som allerede står i skapet.</p>
-              </figcaption>
-            </figure>
+              <p class="browser-hi serif">God kveld</p>
+              <div class="today-grid">
+                <article>
+                  <span class="k">Middag</span>
+                  <strong>Lakseovn</strong>
+                  <em>30 min</em>
+                </article>
+                <article>
+                  <span class="k">Gjøremål</span>
+                  <strong>Tøm oppvaskmaskin</strong>
+                  <em>Alex</em>
+                </article>
+                <article>
+                  <span class="k">Kjøkken</span>
+                  <strong>Melk · 1 liter</strong>
+                  <em>hjemme</em>
+                </article>
+                <article>
+                  <span class="k">Handleliste</span>
+                  <strong>6 varer igjen</strong>
+                  <em>fra ukens meny</em>
+                </article>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="flyt" id="flyt">
         <div class="wrap">
-          <p class="eyebrow">Slik henger det sammen</p>
-          <h2 class="serif">Velg middag. Se kjøkkenet. Få listen.</h2>
-          <div class="flyt-grid">
-            <ol class="steps">
+          <p class="eyebrow">Slik det virker</p>
+          <h2 class="serif">Velg middag. Skapet trekker fra. Listen er klar.</h2>
+          <p class="lead-sm">Slutt på lapper, gruppechat og melk tre ganger.</p>
+
+          <div class="demo" data-week>
+            <div class="day-nav">
+              <button type="button" class="icon-btn" data-prev aria-label="Forrige dag">‹</button>
+              <p class="day-now"><span data-day-label>Tirsdag</span></p>
+              <button type="button" class="icon-btn" data-next aria-label="Neste dag">›</button>
+            </div>
+            <p class="meal-now serif" data-meal>Lakseovn</p>
+            <ol class="chain">
               <li>
                 <span class="num">1</span>
                 <div>
-                  <strong>Velg middager for uken.</strong>
-                  <p>Ett trykk per dag. Porsjoner følger familiemedlemmene.</p>
+                  <strong>Sett uken</strong>
+                  <p data-step-meal>Tirsdag blir lakseovn. Porsjoner følger dem som spiser.</p>
                 </div>
               </li>
               <li>
                 <span class="num">2</span>
                 <div>
-                  <strong>Gjøremål ligger ved siden av.</strong>
-                  <p>Oppvask, søppel, barnevakt — tildelt, ikke i en egen app.</p>
+                  <strong>Skapet trekker fra</strong>
+                  <p>Det som allerede står på kjøkkenet, kommer ikke med.</p>
                 </div>
               </li>
               <li>
                 <span class="num">3</span>
                 <div>
-                  <strong>Kjøkkenet trekkes fra.</strong>
-                  <p>Det som allerede står i skapet, kommer ikke med på listen.</p>
-                </div>
-              </li>
-              <li>
-                <span class="num">4</span>
-                <div>
-                  <strong>Handle. Kryss av. Ferdig.</strong>
-                  <p>Resten av familien ser det i sanntid.</p>
+                  <strong>Handle</strong>
+                  <p>Listen er klar. Kryss av i butikken.</p>
                 </div>
               </li>
             </ol>
-            <div class="demo" aria-label="Demo av uke og handleliste">
-              <p class="eyebrow">Familien Hav · denne uken</p>
-              <div class="days" data-days></div>
-              <p class="meal-now serif" data-meal>Lakseovn</p>
-              <ul class="shop" data-shop>
-                <li><span>Laks</span><span>600 g</span></li>
-                <li><span>Sitron</span><span>1 stk</span></li>
-                <li class="home"><span>Potet</span><span class="tag">har hjemme</span></li>
-              </ul>
+            <ul class="shop" data-shop>
+              <li><span>Laks</span><span>600 g</span></li>
+              <li><span>Sitron</span><span>1 stk</span></li>
+              <li class="home"><span>Potet</span><span class="tag">har hjemme</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="flater" id="flater">
+        <div class="wrap">
+          <p class="eyebrow">I appen</p>
+          <h2 class="serif">Fire flater. Samme brett.</h2>
+          <div class="tabs" data-tabs>
+            <div class="tab-list" role="tablist" aria-label="Flater">
+              <button type="button" role="tab" aria-selected="true" data-tab="middag">Middag</button>
+              <button type="button" role="tab" aria-selected="false" data-tab="gjoremål">
+                Gjøremål
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-tab="kjøkken">
+                Kjøkken
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-tab="liste">Liste</button>
+            </div>
+            <div class="tab-panel" data-panel="middag">
+              <p>Uken ligger ferdig. Ett trykk per dag.</p>
+              <a href="/middag/">Mer om middag</a>
+            </div>
+            <div class="tab-panel" hidden data-panel="gjoremål">
+              <p>Tildelt, synlig i dag, ferdig med ett trykk.</p>
+              <a href="/gjoremål/">Mer om gjøremål</a>
+            </div>
+            <div class="tab-panel" hidden data-panel="kjøkken">
+              <p>Skapet vet hva som er hjemme, og hva som snart går ut.</p>
+              <a href="/handleliste/#skap">Mer om kjøkkenet</a>
+            </div>
+            <div class="tab-panel" hidden data-panel="liste">
+              <p>Bygget fra menyen. Hopper over det som allerede står i skapet.</p>
+              <a href="/handleliste/">Mer om handlelisten</a>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="deep">
-        <div class="wrap">
-          <p class="eyebrow">Dypere</p>
-          <h2 class="serif">Fire flater, ikke fire apper.</h2>
-          <div class="deep-grid">
-            <a href="/middag/">
-              <div>
-                <h3>Middag</h3>
-                <p>Ukesmeny, porsjoner per person, allergi og oppskrift fra lenke.</p>
-              </div>
-              <p class="example">Tirsdag: lakseovn · 30 min</p>
-            </a>
-            <a href="/gjoremål/">
-              <div>
-                <h3>Gjøremål</h3>
-                <p>Ukehjul, tildeling, fullfør og angre. Synlig på I dag.</p>
-              </div>
-              <p class="example">Tøm oppvaskmaskin · Alex</p>
-            </a>
-            <a href="/handleliste/#skap">
-              <div>
-                <h3>På kjøkkenet</h3>
-                <p>Matskap med holdbarhet. Bruk denne først.</p>
-              </div>
-              <p class="example">1 liter melk · i skapet</p>
-            </a>
-            <a href="/handleliste/">
-              <div>
-                <h3>Handleliste</h3>
-                <p>Fra menyen. Smart sammenslåing. Vet hva som er hjemme.</p>
-              </div>
-              <p class="example">Melk hoppes over</p>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section class="trust">
-        <div class="wrap">
-          <p class="eyebrow">Tillit</p>
-          <h2 class="serif">Hjemmet deres. Maskinen deres.</h2>
-          <div class="trust-grid">
-            <div>
-              <h3>Kjører hos dere</h3>
-              <p>Tjenesten kjører på maskin dere kontrollerer. Typisk hjemme.</p>
-            </div>
-            <div>
-              <h3>Ingen påkrevd sky</h3>
-              <p>Valgfri AI, nøkler kryptert. Ingenting må sendes ut.</p>
-            </div>
-            <div>
-              <h3>Eksport og slett</h3>
-              <p>GDPR-eksport og slett konto ligger i innstillinger.</p>
-            </div>
-          </div>
-          <a class="btn btn-primary" href="/personvern">Les personvernerklæringen</a>
-        </div>
-      </section>
+      <p class="trust-line wrap">
+        Gratis å ta i bruk. Dataene blir hos dere. Ingen App Store.
+        <a href="/personvern">Personvern</a>
+      </p>
 
       <section class="faq" id="faq">
         <div class="wrap">
           <p class="eyebrow">Spørsmål</p>
           <h2 class="serif">Kort og rett.</h2>
-          <details open>
+          <details>
             <summary>Hva er Hverdagsplanleggeren?</summary>
             <p>
               Hverdagsplanleggeren er en norsk familieapp som samler middag, gjøremål, det som
@@ -420,7 +331,10 @@
           </details>
           <details>
             <summary>Er Hverdagsplanleggeren gratis?</summary>
-            <p>Hverdagsplanleggeren er gratis å ta i bruk. Dere oppretter konto og kan planlegge uken med en gang.</p>
+            <p>
+              Hverdagsplanleggeren er gratis å ta i bruk. Dere oppretter konto og kan planlegge
+              uken med en gang.
+            </p>
           </details>
           <details>
             <summary>Skiller den mellom handleliste og det vi har på kjøkkenet?</summary>
@@ -430,32 +344,10 @@
             </p>
           </details>
           <details>
-            <summary>Kan barna ha egen bruker?</summary>
-            <p>
-              Hverdagsplanleggeren har roller for eier, voksen og barn. Barn kan se og krysse av
-              egne gjøremål uten å styre hele huset.
-            </p>
-          </details>
-          <details>
-            <summary>Hvor lagres dataene?</summary>
-            <p>
-              Hverdagsplanleggeren lagrer familiedata på maskinen som kjører tjenesten. Det er
-              ingen påkrevd skylogg. Dere kan eksportere og slette kontoen.
-            </p>
-          </details>
-          <details>
             <summary>Trenger jeg en app i App Store?</summary>
-            <p>Hverdagsplanleggeren er en nettside dere kan installere på telefonen som en PWA. Ingen App Store-krav.</p>
-          </details>
-          <details>
-            <summary>Finnes det engelsk?</summary>
-            <p>Hverdagsplanleggeren har norsk og engelsk i appen. Denne siden finnes også på engelsk.</p>
-          </details>
-          <details>
-            <summary>Kan jeg kjøre den selv på en Raspberry Pi?</summary>
             <p>
-              Hverdagsplanleggeren kjører på FamilyAssistant, som er åpen kilde. Dere kan deploye
-              imaget selv på en Raspberry Pi 5 via Portainer.
+              Hverdagsplanleggeren er en nettside dere kan installere på telefonen. Ingen App
+              Store-krav.
             </p>
           </details>
         </div>
@@ -463,8 +355,7 @@
 
       <section class="end">
         <div class="wrap">
-          <h2 class="serif">Sett uken på plass i kveld.</h2>
-          <p class="lede">Opprett konto på ett minutt. E-post kan vente. Middag, gjøremål, kjøkken og handleliste ligger klart.</p>
+          <h2 class="serif">Sett uken på plass.</h2>
           <a class="btn btn-primary" href="/login?mode=register">Kom i gang</a>
         </div>
       </section>
@@ -473,16 +364,17 @@
     <footer class="footer">
       <div class="wrap footer-grid">
         <div>
-          <a class="wordmark" href="/"><span class="p">Hverdags</span><span class="a">planleggeren</span></a>
-          <p>Ett sted for middag, gjøremål, kjøkkenet og handlelisten. Laget i Kristiansand.</p>
+          <a class="wordmark" href="/"
+            ><span class="p">Hverdags</span><span class="a">planleggeren</span></a
+          >
+          <p>Ett sted for middag, gjøremål, kjøkkenet og handlelisten.</p>
         </div>
         <div>
           <strong>Produkt</strong>
           <ul>
             <li><a href="/middag/">Middag</a></li>
             <li><a href="/gjoremål/">Gjøremål</a></li>
-            <li><a href="/handleliste/">Handleliste og kjøkken</a></li>
-            <li><a href="/slik-fungerer-det/">Slik virker det</a></li>
+            <li><a href="/handleliste/">Kjøkken og liste</a></li>
           </ul>
         </div>
         <div>
@@ -490,14 +382,7 @@
           <ul>
             <li><a href="/personvern">Personvern</a></li>
             <li><a href="/vilkar">Vilkår</a></li>
-          </ul>
-        </div>
-        <div>
-          <strong>Utviklere</strong>
-          <ul>
-            <li><a href="https://github.com/ChristerFrestad/FamilyAssistant">FamilyAssistant på GitHub</a></li>
-            <li><a href="https://christerfrestad.com">Christer Frestad</a></li>
-            <li><a href="/llms.txt">llms.txt</a></li>
+            <li><a href="/en/">English</a></li>
           </ul>
         </div>
       </div>
