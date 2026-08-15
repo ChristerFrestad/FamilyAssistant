@@ -1,7 +1,7 @@
 // Tests for DayStrip — the horizontal day-pill row.
 //
 // Pure render — no hooks, no fetch. We assert on the buttons,
-// active state, today-marker, and planned-vs-empty dot. The
+// active state, today-marker, and active-vs-empty dot. The
 // component owns no side effects so the assertions can be
 // straightforward DOM checks.
 
@@ -86,7 +86,7 @@ describe('DayStrip', () => {
     expect(screen.queryByTestId('day-pill-0-today')).toBeNull();
   });
 
-  test('shows planned dot when slot has a recipe and status is not removed/skipped', () => {
+  test('shows active dot when slot has a recipe and status is not removed/skipped', () => {
     const slots = makeSlots([
       {},
       { recipe: null, recipeId: null }, // empty
@@ -104,7 +104,7 @@ describe('DayStrip', () => {
         onSelect={() => undefined}
       />
     );
-    expect(screen.getByTestId('day-pill-0-planned')).toBeInTheDocument();
+    expect(screen.getByTestId('day-pill-0-active')).toBeInTheDocument();
     expect(screen.getByTestId('day-pill-1-empty')).toBeInTheDocument();
     expect(screen.getByTestId('day-pill-2-empty')).toBeInTheDocument();
     expect(screen.getByTestId('day-pill-3-empty')).toBeInTheDocument();

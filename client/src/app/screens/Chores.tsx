@@ -1,6 +1,6 @@
 // Chores week board — G1 primary nav screen.
 //
-// Layout matches Meals: eyebrow + h1, DayStrip, selected-day rows,
+// Layout matches Meals: eyebrow + h1, WeekStrip, selected-day rows,
 // week summary. Adult create is a desktop header button + mobile FAB.
 // Child gets the same list without add / postpone / edit.
 
@@ -10,7 +10,8 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
-import { ChoresDayStrip } from '../components/chores/ChoresDayStrip';
+import { choreDayDots } from '../components/chores/ChoresDayStrip';
+import { WeekStrip } from '../components/layout/WeekStrip';
 import { ChoresWeekList } from '../components/chores/ChoresWeekList';
 import { ChoreRow } from '../components/chores/ChoreRow';
 import { AddChoreModal } from '../components/chores/AddChoreModal';
@@ -252,15 +253,15 @@ export function Chores(): JSX.Element {
 
       {!isLoading && error === null && week !== null ? (
         <div className="flex flex-col gap-4" data-testid="chores-content">
-          <ChoresDayStrip
+          <WeekStrip
             selectedIndex={selectedDayIndex}
             todayIndex={todayIndex}
             shortDayLabels={shortDayLabels}
             todayLabel={todayLabel}
             ariaLabel={t('chores:dayStripAria')}
-            pendingByDay={pendingByDay}
-            overdueByDay={overdueByDay}
             onSelect={selectDay}
+            dots={choreDayDots(pendingByDay, overdueByDay)}
+            testIdPrefix="chores-day"
           />
 
           {weekEmpty ? (
