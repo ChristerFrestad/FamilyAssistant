@@ -6,6 +6,14 @@
 
 ---
 
+2026-08-15 – Marketing homepage polish
+
+Rewrote GET /: shorter IA, HTML today-cards (no cropped desktop
+PNGs), prev/next day demo, four tabs, four FAQ. Mobile topbar is
+wordmark + CTA only.
+
+---
+
 2026-08-15 – Strip operator hostnames from public repo
 
 Public git must not contain the operator production hostname.

@@ -49,3 +49,9 @@ test('canonical, hreflang and CTA are present', () => {
 test('source HTML does not embed operator production hostnames', () => {
   assert.doesNotMatch(HOME, /hverdagsplanleggeren\.com/i);
 });
+
+test('homepage does not dump widescreen screenshots or Pi FAQ', () => {
+  assert.doesNotMatch(HOME, /screens\/0[1-4]-/);
+  assert.doesNotMatch(HOME, /Raspberry Pi/i);
+  assert.doesNotMatch(HOME, /Portainer/);
+});
