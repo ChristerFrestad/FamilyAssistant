@@ -6,6 +6,24 @@
 
 ---
 
+2026-08-16 – PWA stole marketing GET /
+
+Visitors on the public apex landed on /login. curl GET /
+was the marketing HTML (200, index follow). Browser-only.
+
+Cause: after /login the Vite PWA worker controls the origin.
+Workbox precacheAndRoute default directoryIndex=index.html maps
+`/` to the SPA shell *before* navigateFallbackDenylist. AuthGuard
+then Navigate → /login.
+
+Fix: directoryIndex null (GenerateSW rejects cleanURLs). Tests
+lock the Vite config, schema, and Workbox URL variations.
+
+APP_PUBLIC_URL is unused for CTAs (same-origin /login). app.
+already serves the SPA; not part of this bug.
+
+---
+
 2026-08-15 – Marketing homepage polish
 
 Rewrote GET /: shorter IA, HTML today-cards (no cropped desktop

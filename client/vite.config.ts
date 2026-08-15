@@ -63,6 +63,10 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
+        // Precache maps `/` → `/index.html` unless this is off. That
+        // ran *before* navigateFallbackDenylist, so apex `/` served
+        // the SPA shell and AuthGuard bounced visitors to /login.
+        directoryIndex: null,
         // Same origin as the landing page: do not let the PWA navigation
         // fallback swallow / or /middag/ with the SPA shell.
         navigateFallbackDenylist: [
