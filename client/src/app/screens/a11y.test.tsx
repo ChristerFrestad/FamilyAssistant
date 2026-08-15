@@ -87,7 +87,7 @@ const TODAY_DATA = {
   },
   chores: [
     {
-      choreId: 'vask',
+      choreId: 1,
       task: 'Vaske gulv',
       icon: '🧹',
       status: 'pending',

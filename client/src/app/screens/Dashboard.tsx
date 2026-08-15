@@ -16,14 +16,16 @@
 // events) render their actual list entries.
 
 import type { JSX } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { WelcomeHeader } from '../components/dashboard/WelcomeHeader';
 import { DashboardCard } from '../components/dashboard/DashboardCard';
 import { QuickActions } from '../components/dashboard/QuickActions';
+import { TodayChoreRow } from '../components/dashboard/TodayChoreRow';
 import { useDashboardData } from '../dashboard/useDashboardData';
-import { fetchChoreStats } from '../chores/choresApi';
+import { useAuthContext } from '../auth/AuthContext';
+import { completeChore, fetchChoreStats, undoChore } from '../chores/choresApi';
 import type { CalendarEvent, TodayChore, TodayResponse } from '../dashboard/dashboardApi';
 
 const CHORES_LIMIT = 3;
@@ -42,9 +44,15 @@ interface ShoppingSummaryRow {
 export function Dashboard(): JSX.Element {
   const { t } = useTranslation(['dashboard', 'common']);
   const navigate = useNavigate();
+  const { user } = useAuthContext();
   const { today, shopping, upcoming, retryToday, retryShopping, retryUpcoming } =
     useDashboardData();
   const [weekXp, setWeekXp] = useState<number | null>(null);
+  const [choreStatusById, setChoreStatusById] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    setChoreStatusById({});
+  }, [today.data]);
 
   useEffect(() => {
     const week = today.data?.weekYear;
@@ -74,7 +82,42 @@ export function Dashboard(): JSX.Element {
   // mappings are O(N) over <=10 items and re-computing on each
   // render is cheaper than a useMemo cache.
   const mealItems: NonNullable<TodayResponse['meal']>[] = today.data?.meal ? [today.data.meal] : [];
-  const choreItems: TodayChore[] = today.data?.chores ?? [];
+  const choreItems: TodayChore[] = (today.data?.chores ?? []).map((chore) => {
+    const override = choreStatusById[chore.choreId];
+    return override ? { ...chore, status: override } : chore;
+  });
+
+  const handleComplete = useCallback(
+    async (chore: TodayChore): Promise<void> => {
+      const choreId = Number(chore.choreId);
+      if (!Number.isFinite(choreId)) return;
+      setChoreStatusById((prev) => ({ ...prev, [choreId]: 'done' }));
+      try {
+        await completeChore(choreId, today.data?.weekYear);
+      } catch {
+        setChoreStatusById((prev) => {
+          const next = { ...prev };
+          delete next[choreId];
+          return next;
+        });
+      }
+    },
+    [today.data?.weekYear]
+  );
+
+  const handleUndo = useCallback(
+    async (chore: TodayChore): Promise<void> => {
+      const choreId = Number(chore.choreId);
+      if (!Number.isFinite(choreId)) return;
+      setChoreStatusById((prev) => ({ ...prev, [choreId]: 'pending' }));
+      try {
+        await undoChore(choreId, today.data?.weekYear);
+      } catch {
+        setChoreStatusById((prev) => ({ ...prev, [choreId]: 'done' }));
+      }
+    },
+    [today.data?.weekYear]
+  );
 
   // Shopping is a summary card. Convert the items[] into a single
   // synthesized "summary row" so DashboardCard's per-item renderer
@@ -120,7 +163,15 @@ export function Dashboard(): JSX.Element {
           data={today.data ? choreItems : null}
           isLoading={today.isLoading}
           error={today.error}
-          renderItem={renderChore}
+          renderItem={(chore) => (
+            <TodayChoreRow
+              chore={chore}
+              role={user?.role}
+              profileMemberId={user?.profileMemberId}
+              onComplete={(c) => void handleComplete(c)}
+              onUndo={(c) => void handleUndo(c)}
+            />
+          )}
           itemKey={(item) => `chore-${item.choreId}`}
           emptyMessage={t('dashboard:empty.noChores')}
           emptyCta={{
@@ -192,15 +243,6 @@ function renderMeal(meal: NonNullable<TodayResponse['meal']>): JSX.Element {
         <span className="font-body text-meta text-text-3">{meal.recipe.prepTime}</span>
       ) : null}
     </div>
-  );
-}
-
-function renderChore(chore: TodayChore): JSX.Element {
-  return (
-    <span className="font-body text-body text-text-1 line-clamp-1">
-      {chore.icon ? <span aria-hidden="true">{chore.icon} </span> : null}
-      {chore.task}
-    </span>
   );
 }
 

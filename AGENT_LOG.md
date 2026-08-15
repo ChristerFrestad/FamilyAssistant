@@ -6,6 +6,13 @@
 
 ---
 
+2026-08-14 – U1-1 dashboard complete chores in place
+
+- Branch: feat/u1-1-dashboard-complete-chore
+- Tests: Dashboard 8/8
+- Status: merged
+
+---
 2026-08-15 â€“ U4-1 Friday postpone lands on next Monday
 
 Task: PUT /api/chores/postpone on Friday (day 4) left the chore on
