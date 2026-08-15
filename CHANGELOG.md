@@ -6,6 +6,21 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added — Public marketing site for Hverdagsplanleggeren (2026-08-15)
+
+Apex `hverdagsplanleggeren.com` can serve a crawlable landing page
+instead of bouncing visitors to `/login`. The 5-second sentence is
+one place for dinner, chores, the kitchen (pantry), and the shopping
+list.
+
+- `MARKETING_HOSTS` (default empty — self-host `/` is still the SPA)
+- Static HTML in `marketing/`, host-gated in `server/http/marketing.js`
+- `robots.txt`, `sitemap.xml`, `llms.txt`, JSON-LD for agentic search
+- App hosts send `X-Robots-Tag: noindex, nofollow`
+- Login accepts `?mode=register`
+
+Cloudflare must drop the apex→`app.` 301 or the page stays invisible.
+
 ### Added — Username/password auth with progressive email verification (2026-08-10)
 
 Low-barrier registration with username + password. Progressive email

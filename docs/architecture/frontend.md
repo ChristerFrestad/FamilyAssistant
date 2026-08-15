@@ -1,22 +1,29 @@
 # Frontend architecture
 
-Last updated: 2026-08-14 (SPA at site root; `/v2` prefix retired)
+Last updated: 2026-08-15 (public marketing on listed hosts)
 
 ## Overview
 
-FamilyAssistant has **one** frontend: Vite + React + TypeScript in
+FamilyAssistant has **one** product frontend: Vite + React + TypeScript in
 `client/`. The production bundle is written to `public/v2/` (that
 folder name is leftover from the coexistence era; it is **not** a
-URL). `server/http/server.js` maps that folder onto `/`.
+URL). `server/http/server.js` maps that folder onto `/` **except**
+when the `Host` header is listed in `MARKETING_HOSTS`.
 
-There is no second app. The old vanilla-JS UI (`public/index.html`,
-`public/js/*`) was deleted in Sprint 8 (2026-05-05).
+There is a second, **optional** public surface: the Hverdagsplanleggeren
+marketing site in `marketing/`. It is static HTML (no React). Empty
+`MARKETING_HOSTS` (the default) means every host keeps serving the SPA.
+Self-hosters are unchanged.
+
+The old vanilla-JS UI (`public/index.html`, `public/js/*`) was deleted
+in Sprint 8 (2026-05-05).
 
 ## URL structure
 
 | URL | Served as | Notes |
 |---|---|---|
-| `/` | `public/v2/index.html` | React shell. In `BOOTSTRAP_MODE` only, 302 → `/setup.html` |
+| `/` on a marketing host | `marketing/index.html` (or `public/www/`) | Crawlable landing. Never the SPA. |
+| `/` on app / LAN | `public/v2/index.html` | React shell. In `BOOTSTRAP_MODE` only, 302 → `/setup.html` |
 | `/login`, `/dashboard`, `/invite/:token`, … | same `index.html` | SPA fallback for paths without a file extension |
 | `/assets/main-XXX.js` | `public/v2/assets/…` | Vite chunks, CSS, fonts |
 | `/v2`, `/v2/…` | **301** to the same path without `/v2` | Bookmarks and old emails |
@@ -39,11 +46,16 @@ Vite `base` is `/`. React Router has no `basename`.
 
 ## Server helpers (`server/http/server.js`)
 
-1. **`tryRedirectLegacyV2`** — `GET/HEAD /v2` and `/v2/*` → 301.
-2. **`tryServeSpaApp`** — files from `public/v2/` at the site root;
+0. **`tryHandleMarketing`** — if `Host` ∈ `MARKETING_HOSTS`, serve
+   `marketing/` (or `public/www/`). `www.` 301s to `MARKETING_CANONICAL`.
+   `/health` `/ready` `/metrics` `/api/*` still hit the app.
+1. **`tryServeAppRobots`** — on non-marketing hosts, `/robots.txt` is
+   `Disallow: /` plus `X-Robots-Tag: noindex, nofollow`.
+2. **`tryRedirectLegacyV2`** — `GET/HEAD /v2` and `/v2/*` → 301.
+3. **`tryServeSpaApp`** — files from `public/v2/` at the site root;
    HTML fallback for extensionless routes.
-3. **`tryServePublicFile`** — allowlist: privacy, terms, setup.
-4. **`tryServeSw`** — prefer the bundled PWA worker, else tombstone.
+4. **`tryServePublicFile`** — allowlist: privacy, terms, setup.
+5. **`tryServeSw`** — prefer the bundled PWA worker, else tombstone.
 
 Auth middleware treats every non-`/api/*` path as public at the HTTP
 layer so the shell can load. `PilotGuard`, `AuthGuard` and

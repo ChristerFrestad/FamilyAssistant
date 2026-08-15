@@ -18,6 +18,7 @@ const { rateLimit, applySecurityHeaders } = require('./security');
 const { runWithFamily } = require('../auth/family-context');
 const metrics = require('./metrics');
 const sentry = require('../observability/sentry');
+const { isMarketingHost, tryHandleMarketing, tryServeAppRobots } = require('./marketing');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
@@ -173,7 +174,27 @@ function createServer(router, { authenticate } = {}) {
     const ctx = createContext(req, res, pathname, query);
     let routeTemplate = pathname; // overridet etter dispatch
 
+    const marketing = isMarketingHost(req.headers.host, config.MARKETING_HOST_SET);
+    res.setHeader('X-Robots-Tag', marketing ? 'index, follow' : 'noindex, nofollow');
+
     try {
+      // Apex / listed marketing hosts serve crawlable HTML, never the SPA
+      // and never the bootstrap wizard.
+      if (tryHandleMarketing(req, res, pathname, config)) {
+        const dur = Date.now() - started;
+        const status = res.statusCode || 200;
+        metrics.record(req.method, 'marketing', status, dur);
+        logRequest(ctx, status, dur, 'marketing');
+        return;
+      }
+
+      if (tryServeAppRobots(req, res, pathname, config)) {
+        const dur = Date.now() - started;
+        metrics.record(req.method, '/robots.txt', 200, dur);
+        logRequest(ctx, 200, dur, 'app_robots');
+        return;
+      }
+
       // Fresh Docker install: land on the Portainer wizard, not the SPA.
       if (pathname === '/' && req.method === 'GET' && config.BOOTSTRAP_MODE) {
         res.writeHead(302, { Location: '/setup.html' });

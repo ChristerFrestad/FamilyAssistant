@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Hverdagsplanleggeren">
+  <rect width="64" height="64" rx="14" fill="#1F3F26"/>
+  <rect x="14" y="16" width="36" height="34" rx="6" fill="#F7F3E8"/>
+  <rect x="24" y="12" width="4" height="8" rx="2" fill="#5F8B5C"/>
+  <rect x="36" y="12" width="4" height="8" rx="2" fill="#5F8B5C"/>
+  <path d="M20 33h8M20 38h10M34 28h10v8H34z" stroke="#1F3F26" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="46" r="8" fill="#7BA05B"/>
+  <path d="M46.5 46.2l2.4 2.4 4.6-5" stroke="#F7F3E8" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>

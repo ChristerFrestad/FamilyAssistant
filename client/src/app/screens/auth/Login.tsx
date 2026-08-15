@@ -9,7 +9,7 @@
 
 import type { JSX } from 'react';
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../../components/layout/PageShell';
 import { Field } from '../../components/form/Field';
@@ -31,8 +31,11 @@ export function Login(): JSX.Element {
   const { requestMagicLink, loginWithPassword, registerWithPassword, startEmailVerification } =
     useAuthContext();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [mode, setMode] = useState<Mode>('login');
+  const [mode, setMode] = useState<Mode>(
+    searchParams.get('mode') === 'register' ? 'register' : 'login'
+  );
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');

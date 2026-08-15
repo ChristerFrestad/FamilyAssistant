@@ -14,6 +14,11 @@ FamilyAssistant keeps dinner planning, the shopping list, what is already in the
 
 Typical deploy: **Docker → Portainer → Raspberry Pi (or any host) → optional Cloudflare Tunnel**.
 
+The public product name is **Hverdagsplanleggeren**. `hverdagsplanleggeren.com`
+serves a static landing page (dinner, chores, kitchen, shopping list).
+The app stays on `app.hverdagsplanleggeren.com`. Self-hosters leave
+`MARKETING_HOSTS` unset so `/` is still the app.
+
 ## Features
 
 - **Weekly menu** with per-member portion scaling

@@ -195,6 +195,14 @@ const envSchema = z.object({
   // itself is speaking plain HTTP (typical behind Cloudflare Tunnel /
   // Caddy / nginx TLS termination). Read via config, not raw process.env.
   HTTPS_TERMINATED: envBoolean.default(false),
+
+  // Public marketing site (Hverdagsplanleggeren apex). Empty default:
+  // every host keeps serving the SPA. Set to a comma-separated list
+  // (e.g. hverdagsplanleggeren.com,www.hverdagsplanleggeren.com) in
+  // the public Portainer stack only — self-hosters must not see it.
+  MARKETING_HOSTS: z.string().optional().default(''),
+  MARKETING_CANONICAL: z.string().optional(),
+  APP_PUBLIC_URL: z.string().optional(),
 });
 
 // Auto-detect node --test and set NODE_ENV=test if not explicitly set.
@@ -338,6 +346,17 @@ function loadConfig() {
       : cfg.ALLOWED_ORIGINS.split(',')
           .map((s) => s.trim())
           .filter(Boolean);
+
+  // Marketing host set — lowercase, port stripped. Empty = off.
+  cfg.MARKETING_HOST_SET = new Set(
+    String(cfg.MARKETING_HOSTS || '')
+      .split(',')
+      .map((s) => s.split(':')[0].trim().toLowerCase())
+      .filter(Boolean)
+  );
+  cfg.APP_PUBLIC_ORIGIN = String(cfg.APP_PUBLIC_URL || cfg.APP_URL || '')
+    .trim()
+    .replace(/\/$/, '');
 
   // Full app starts immediately — no interactive deploy wizard gate.
   cfg.BOOTSTRAP_MODE = false;

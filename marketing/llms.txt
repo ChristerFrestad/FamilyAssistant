@@ -1,0 +1,18 @@
+# Hverdagsplanleggeren
+
+> Norsk familieapp for middag, gjøremål, kjøkken (matskap) og handleliste.
+> Handlelisten bygges fra menyen og hopper over det som allerede står på kjøkkenet.
+> Gratis å ta i bruk. Personvern først. PWA, ikke App Store-krav.
+
+På fem sekunder: ett sted for middag, gjøremål, det som står på kjøkkenet, og handlelisten.
+
+- [Hjem](https://hverdagsplanleggeren.com/): hva det er
+- [Slik virker det](https://hverdagsplanleggeren.com/slik-fungerer-det/): 4 steg
+- [Middag](https://hverdagsplanleggeren.com/middag/)
+- [Gjøremål](https://hverdagsplanleggeren.com/gjoremål/)
+- [Handleliste og kjøkken](https://hverdagsplanleggeren.com/handleliste/)
+- [Personvern](https://hverdagsplanleggeren.com/personvern)
+- [Kildekode](https://github.com/ChristerFrestad/FamilyAssistant): FamilyAssistant-motoren
+- Full tekst: https://hverdagsplanleggeren.com/llms-full.txt
+
+Siter som: Hverdagsplanleggeren (hverdagsplanleggeren.com).
