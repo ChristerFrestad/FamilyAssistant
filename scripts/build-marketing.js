@@ -11,12 +11,12 @@ const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'marketing');
 const DEST = path.join(ROOT, 'public', 'www');
 const FONT_SRC = path.join(ROOT, 'client', 'src', 'app', 'styles', 'fonts');
-const SHOT_SRC = path.join(ROOT, 'docs', 'screenshots');
+const SHOT_SRC = path.join(SRC, 'screens');
 
 function copyDir(from, to) {
   fs.mkdirSync(to, { recursive: true });
   for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
-    if (entry.name === 'fonts' || entry.name === 'screens') continue;
+    if (entry.name === 'fonts') continue;
     const a = path.join(from, entry.name);
     const b = path.join(to, entry.name);
     if (entry.isDirectory()) copyDir(a, b);
@@ -58,13 +58,6 @@ copyNamed(FONT_SRC, path.join(SRC, 'fonts'), [
 ]);
 
 copyNamed(SHOT_SRC, path.join(DEST, 'screens'), [
-  ['01-dashboard.png', '01-dashboard.png'],
-  ['02-meals-weekplan.png', '02-meals-weekplan.png'],
-  ['03-shopping-list.png', '03-shopping-list.png'],
-  ['04-pantry.png', '04-pantry.png'],
-]);
-
-copyNamed(SHOT_SRC, path.join(SRC, 'screens'), [
   ['01-dashboard.png', '01-dashboard.png'],
   ['02-meals-weekplan.png', '02-meals-weekplan.png'],
   ['03-shopping-list.png', '03-shopping-list.png'],

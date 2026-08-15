@@ -67,7 +67,6 @@ RUN npm ci --no-audit --no-fund --ignore-scripts
 COPY client ./client
 COPY public ./public
 COPY marketing ./marketing
-COPY docs/screenshots ./docs/screenshots
 COPY scripts/build-marketing.js ./scripts/build-marketing.js
 
 # Bygg v2-bundle. Output havner i /build/public/v2/ (jf. vite.config.ts:
