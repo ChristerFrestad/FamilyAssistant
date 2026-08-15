@@ -2,7 +2,7 @@
   "name": "FamilyAssistant",
   "short_name": "FamilyAssistant",
   "description": "Din personlige familieassistent - måltider, handleliste og pantry",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F7F3E8",

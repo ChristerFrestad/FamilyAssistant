@@ -18,6 +18,8 @@ export default [
       'public/index.html',
       'public/dist/**',
       'public/v2/**',
+      'public/www/**',
+      'marketing/**',
       '.claude/**',
       'db-*.js',
     ],

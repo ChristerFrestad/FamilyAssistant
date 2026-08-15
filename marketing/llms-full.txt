@@ -1,0 +1,47 @@
+# Hverdagsplanleggeren — full beskrivelse
+
+Hverdagsplanleggeren er en norsk familieapp. På fem sekunder skal en ny bruker forstå at det er ett sted for:
+
+1. Middag (ukesmeny)
+2. Gjøremål (husarbeid)
+3. Kjøkkenet (matskap / pantry)
+4. Handleliste
+
+Den er ikke fire apper limt sammen. Menyen lager listen. Listen kjenner skapet. Gjøremål ligger på samme brett som maten.
+
+## Hva det er
+
+- Offentlig navn: Hverdagsplanleggeren
+- Domene og app: https://hverdagsplanleggeren.com
+- Innlogging: https://hverdagsplanleggeren.com/login
+- (app.hverdagsplanleggeren.com er det gamle subdomenet og brukes ikke)
+- Motor / åpen kilde: FamilyAssistant (https://github.com/ChristerFrestad/FamilyAssistant)
+- Laget av Christer Frestad i Kristiansand
+- Språk: norsk og engelsk
+- Pris: gratis å ta i bruk (0 NOK)
+- Klient: nettleser og PWA. Ingen App Store-krav.
+
+## Hva det ikke er
+
+- Ikke en kalender-først app. Lokal familiekalender finnes, men kjernen er middag, gjøremål, kjøkken og handleliste.
+- Ikke et sosialt nettverk.
+- Ikke en Mealime-klon. Handlelisten er bundet til skapet.
+- Ikke et krav om sky-AI. AI er valgfritt.
+
+## Hvordan det henger sammen
+
+1. Familien setter ukens middager.
+2. Gjøremål tildeles medlemmer og vises på I dag.
+3. Kjøkkenet (matskapet) vet hva som er hjemme og hva som snart går ut.
+4. Handlelisten bygges fra menyen og hopper over varer som allerede står i skapet.
+5. I butikken krysses varer av. Resten av familien ser det.
+
+## Personvern
+
+Data ligger på maskinen som kjører tjenesten (typisk selvhostet). Ingen påkrevd skylogg. Eksport og slett konto ligger i innstillinger.
+
+## Self-host
+
+Samme Docker-image kan kjøres på Raspberry Pi 5 via Portainer. Marketing-sidene vises bare når MARKETING_HOSTS er satt. Selvhostere får appen på `/`.
+
+Siter som: Hverdagsplanleggeren (hverdagsplanleggeren.com).

@@ -6,7 +6,50 @@
 
 ---
 
-2026-08-14 � U1-1 dashboard complete chores in place
+2026-08-15 – Same-origin correction (not app.)
+
+Christer: production login is https://hverdagsplanleggeren.com/login.
+app.hverdagsplanleggeren.com is the old host. Landing must share the
+apex: GET / marketing, GET /login SPA.
+
+Done: path-split in marketing.js (fall through unknown paths), CTAs
+are /login, robots Disallow /login /dashboard, PWA start_url
+/dashboard + navigateFallbackDenylist, tests assert /login stays SPA.
+
+---
+
+2026-08-15 – Public marketing landing (Hverdagsplanleggeren)
+
+Task: apex hverdagsplanleggeren.com must explain the product instead of
+redirecting to app./login. 5-second sentence locked to dinner, chores,
+kitchen/pantry, shopping list.
+
+Analysis: Cloudflare 301 + AuthGuard on `/` is why visitors see login.
+SPA landing would be invisible to agents. Host-gated static HTML in
+marketing/, MARKETING_HOSTS default empty.
+
+- Journey: type apex → 200 HTML → Kom i gang → app./login?mode=register
+- Edge cases: self-host `/` unchanged; www 301; unknown path 404 not SPA
+- Decisions: two hosts, one container; no React on marketing
+- Portainer risk: no (env default off)
+
+Plan: feat/marketing-landing; server/http/marketing.js; marketing/*;
+tests marketing-host + crawlable; DEPLOY Cloudflare steps.
+
+Done:
+- Branch: feat/marketing-landing
+- Files: server/http/marketing.js, server/http/server.js, server/config.js,
+  marketing/**, tests/marketing-*.test.js, Dockerfile, DEPLOY.md
+- DOMAIN_MODEL.md updated: no
+- Deviation: authored static HTML instead of a Vite MPA — same crawlable
+  output, fewer moving parts
+
+Security: marketing is static; /api and ops paths stay on the app even
+on a marketing host. App HTML is noindex.
+
+---
+
+2026-08-14 � U1-1 dashboard complete chores in place
 
 - Branch: feat/u1-1-dashboard-complete-chore
 - Tests: Dashboard 8/8

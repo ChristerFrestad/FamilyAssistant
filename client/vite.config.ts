@@ -43,7 +43,7 @@ export default defineConfig({
         background_color: '#F7F3E8',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/dashboard',
         scope: '/',
         icons: [
           {
@@ -63,6 +63,24 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
+        // Same origin as the landing page: do not let the PWA navigation
+        // fallback swallow / or /middag/ with the SPA shell.
+        navigateFallbackDenylist: [
+          /^\/$/,
+          /^\/en(\/|$)/,
+          /^\/middag(\/|$)/,
+          /^\/handleliste(\/|$)/,
+          /^\/gjorem/,
+          /^\/slik-fungerer-det(\/|$)/,
+          /^\/personvern(\/|$)/,
+          /^\/vilkar(\/|$)/,
+          /^\/site\//,
+          /^\/screens\//,
+          /^\/fonts\//,
+          /^\/llms/,
+          /^\/robots\.txt$/,
+          /^\/sitemap\.xml$/,
+        ],
         // Static assets from the Vite build (incl. icons under /icons/)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         runtimeCaching: [

@@ -66,10 +66,13 @@ RUN npm ci --no-audit --no-fund --ignore-scripts
 # template og statiske assets som peker fra index.html).
 COPY client ./client
 COPY public ./public
+COPY marketing ./marketing
+COPY scripts/build-marketing.js ./scripts/build-marketing.js
 
 # Bygg v2-bundle. Output havner i /build/public/v2/ (jf. vite.config.ts:
 # `outDir: path.resolve(__dirname, '..', 'public', 'v2')`).
 RUN npm run build:client
+RUN node scripts/build-marketing.js
 
 # ============================================================================
 # Stage 1b: Backend builder
@@ -98,12 +101,14 @@ RUN npm ci --omit=dev --no-audit --no-fund
 # Kopier kildekode (public/, server/, scripts/load-baseline.js, migrations/)
 COPY server ./server
 COPY public ./public
+COPY marketing ./marketing
 COPY scripts/load-baseline.js ./scripts/load-baseline.js
 
 # Plukk opp v2-bundle bygget i stage 1a. Skriver over public/v2/ (som ikke
 # eksisterer i git-checkout fordi den er .gitignored). Etter dette steget
 # har /build/public/ alle statiske filer — både legacy v1 og bygget v2.
 COPY --from=frontend-builder /build/public/v2 ./public/v2
+COPY --from=frontend-builder /build/public/www ./public/www
 
 # Valider at appen kan starte med NODE_ENV=test + dry-initialize
 # (fanger evt. require-order-feil tidlig)
@@ -136,6 +141,7 @@ WORKDIR /app
 COPY --from=builder --chown=node:node /build/node_modules ./node_modules
 COPY --from=builder --chown=node:node /build/server ./server
 COPY --from=builder --chown=node:node /build/public ./public
+COPY --from=builder --chown=node:node /build/marketing ./marketing
 COPY --from=builder --chown=node:node /build/scripts ./scripts
 COPY --from=builder --chown=node:node /build/package.json ./package.json
 

@@ -16,6 +16,37 @@
 > 4. **API keys in .env** (not in systemd!) — file permissions `chmod 600 .env`,
 >    owner `pi:pi`. Keys are set via the Settings UI which writes through env-store.service.
 
+## 0. Public marketing (hverdagsplanleggeren.com)
+
+The app already lives on **https://hverdagsplanleggeren.com** (login is
+`/login` on that host). `app.hverdagsplanleggeren.com` is the old
+hostname. Marketing is therefore a **path** on the same origin:
+
+- `GET /` → landing
+- `GET /login` → the existing SPA
+- `GET /dashboard` → the existing SPA
+
+The landing is **off** unless `MARKETING_HOSTS` is set. Self-hosters
+leave it unset so LAN `/` stays the app.
+
+Portainer env on the public stack:
+
+```
+MARKETING_HOSTS=hverdagsplanleggeren.com,www.hverdagsplanleggeren.com
+MARKETING_CANONICAL=https://hverdagsplanleggeren.com
+APP_URL=https://hverdagsplanleggeren.com
+ALLOWED_ORIGINS=https://hverdagsplanleggeren.com,https://www.hverdagsplanleggeren.com
+PASSWORD_AUTH_OPEN_REGISTER=true
+```
+
+Do **not** send visitors to `app.`. Check after pull:
+
+```
+curl -sI https://hverdagsplanleggeren.com
+# 200, landing HTML — not a 301 to /login
+curl -sI https://hverdagsplanleggeren.com/login
+# 200, SPA shell
+```
 
 ## 1. Copy the files
 

@@ -9,7 +9,7 @@
 
 import type { JSX } from 'react';
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../../components/layout/PageShell';
 import { Field } from '../../components/form/Field';
@@ -28,11 +28,19 @@ function extrasFrom(err: unknown): PasswordLoginErrorBody | null {
 
 export function Login(): JSX.Element {
   const { t } = useTranslation(['auth', 'common']);
-  const { requestMagicLink, loginWithPassword, registerWithPassword, startEmailVerification } =
-    useAuthContext();
+  const {
+    isAuthenticated,
+    requestMagicLink,
+    loginWithPassword,
+    registerWithPassword,
+    startEmailVerification,
+  } = useAuthContext();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [mode, setMode] = useState<Mode>('login');
+  const [mode, setMode] = useState<Mode>(
+    searchParams.get('mode') === 'register' ? 'register' : 'login'
+  );
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -42,6 +50,10 @@ export function Login(): JSX.Element {
   const [submitting, setSubmitting] = useState(false);
   const [verifyUsername, setVerifyUsername] = useState('');
   const [verifyPassword, setVerifyPassword] = useState('');
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   function classifyPasswordError(err: unknown): string {
     if (err instanceof AuthApiError) {

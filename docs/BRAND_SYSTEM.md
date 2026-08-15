@@ -135,6 +135,14 @@ Set in Portainer per instance:
 
 Boot warning if `RESEND_FROM` does not match `APP_NAME` in the from-name field.
 
+## Public marketing
+
+The Hverdagsplanleggeren apex site (`marketing/`) may use the calendar
+emblem as *illustration* and the same self-hosted Instrument Serif +
+Geist files the app already ships. The wordmark split (primary / accent)
+and the no-glow / no-shadow rule still apply. Marketing copy uses the
+public product name, not `APP_NAME`.
+
 ## Prohibited use
 
 - Hardcoding the app name in React components, HTML, or email templates

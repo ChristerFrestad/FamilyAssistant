@@ -40,6 +40,7 @@
     "prepare": "husky || true",
     "dev:client": "vite --config client/vite.config.ts",
     "build:client": "vite build --config client/vite.config.ts",
+    "build:marketing": "node scripts/build-marketing.js",
     "preview:client": "vite preview --config client/vite.config.ts",
     "typecheck:client": "tsc --noEmit --project client/tsconfig.json"
   },
