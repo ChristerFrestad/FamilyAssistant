@@ -79,10 +79,20 @@ function isMarketingHost(hostHeader, hostSet) {
   return hostSet.has(normalizeHost(hostHeader));
 }
 
-function marketingRoot() {
-  const srcIndex = path.join(SRC_DIR, 'index.html');
-  if (fs.existsSync(srcIndex)) return SRC_DIR;
+function wwwDir() {
   return path.join(PUBLIC_DIR, 'www');
+}
+
+function marketingRoots() {
+  const roots = [];
+  if (fs.existsSync(path.join(SRC_DIR, 'index.html'))) roots.push(SRC_DIR);
+  const www = wwwDir();
+  if (fs.existsSync(path.join(www, 'index.html'))) roots.push(www);
+  return roots;
+}
+
+function marketingRoot() {
+  return marketingRoots()[0] || wwwDir();
 }
 
 function resolveSafe(root, rel) {
@@ -203,12 +213,14 @@ function tryHandleMarketing(req, res, pathname, config) {
   if (redirectWww(req, res, config.MARKETING_CANONICAL)) return true;
   if (!isMarketingPath(pathname)) return false;
 
-  const root = marketingRoot();
-  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-    return false;
-  }
+  const roots = marketingRoots();
+  if (roots.length === 0) return false;
 
-  const filePath = mapPathnameToFile(root, pathname);
+  let filePath = null;
+  for (const root of roots) {
+    filePath = mapPathnameToFile(root, pathname);
+    if (filePath) break;
+  }
   if (!filePath) return false;
 
   const origin =

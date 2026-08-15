@@ -109,6 +109,7 @@ COPY scripts/load-baseline.js ./scripts/load-baseline.js
 # har /build/public/ alle statiske filer — både legacy v1 og bygget v2.
 COPY --from=frontend-builder /build/public/v2 ./public/v2
 COPY --from=frontend-builder /build/public/www ./public/www
+COPY --from=frontend-builder /build/marketing/fonts ./marketing/fonts
 
 # Valider at appen kan starte med NODE_ENV=test + dry-initialize
 # (fanger evt. require-order-feil tidlig)

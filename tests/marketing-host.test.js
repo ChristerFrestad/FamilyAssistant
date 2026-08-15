@@ -124,4 +124,19 @@ describe('marketing host routing', () => {
     assert.match(r.raw, /middag, gjøremål/);
     assert.match(r.raw, /llms-full.txt/);
   });
+
+  test('apex /fonts falls back to public/www when missing from marketing/', async () => {
+    const wwwFonts = path.join(REPO, 'public', 'www', 'fonts');
+    const dest = path.join(wwwFonts, 'qa-fallback.woff2');
+    fs.mkdirSync(wwwFonts, { recursive: true });
+    fs.writeFileSync(dest, 'woff2-fixture');
+    try {
+      const r = await get('/fonts/qa-fallback.woff2', APEX);
+      assert.equal(r.status, 200);
+      assert.match(r.headers['content-type'] || '', /font\/woff2/);
+      assert.equal(String(r.raw), 'woff2-fixture');
+    } finally {
+      fs.rmSync(dest, { force: true });
+    }
+  });
 });
