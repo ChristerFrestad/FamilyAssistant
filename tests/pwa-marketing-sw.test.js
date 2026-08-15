@@ -15,9 +15,22 @@ const VITE_CONFIG = path.join(__dirname, '..', 'client', 'vite.config.ts');
 test('Vite PWA config disables directoryIndex so / is not SPA index.html', () => {
   const src = fs.readFileSync(VITE_CONFIG, 'utf8');
   assert.match(src, /directoryIndex:\s*null/);
-  assert.match(src, /cleanURLs:\s*false/);
+  assert.doesNotMatch(src, /cleanURLs\s*:/);
   assert.match(src, /navigateFallbackDenylist/);
   assert.match(src, /\/\^\\\/\$\//);
+});
+
+test('directoryIndex: null is valid GenerateSW config', () => {
+  const { validateGenerateSWOptions } = require('workbox-build/build/lib/validate-options');
+  assert.doesNotThrow(() => {
+    validateGenerateSWOptions({
+      swDest: 'sw.js',
+      globDirectory: '.',
+      skipWaiting: true,
+      clientsClaim: true,
+      directoryIndex: null,
+    });
+  });
 });
 
 test('Workbox default would map / to /index.html; our options do not', async () => {

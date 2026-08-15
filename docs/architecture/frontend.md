@@ -72,6 +72,6 @@ all old clients have visited once.
 
 Workbox precaches the SPA `index.html`. Default `directoryIndex`
 would treat `GET /` as that file and ignore `navigateFallbackDenylist`.
-`vite.config.ts` sets `directoryIndex: null` and `cleanURLs: false`
-so apex `/` hits the network (marketing HTML) after a visitor has
-opened `/login` and the worker is controlling the origin.
+`vite.config.ts` sets `directoryIndex: null` so apex `/` hits the
+network (marketing HTML) after a visitor has opened `/login` and
+the worker is controlling the origin.

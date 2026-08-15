@@ -16,8 +16,8 @@ Workbox precacheAndRoute default directoryIndex=index.html maps
 `/` to the SPA shell *before* navigateFallbackDenylist. AuthGuard
 then Navigate → /login.
 
-Fix: directoryIndex null + cleanURLs false. Tests lock the Vite
-config and Workbox URL variations.
+Fix: directoryIndex null (GenerateSW rejects cleanURLs). Tests
+lock the Vite config, schema, and Workbox URL variations.
 
 APP_PUBLIC_URL is unused for CTAs (same-origin /login). app.
 already serves the SPA; not part of this bug.

@@ -67,7 +67,6 @@ export default defineConfig({
         // ran *before* navigateFallbackDenylist, so apex `/` served
         // the SPA shell and AuthGuard bounced visitors to /login.
         directoryIndex: null,
-        cleanURLs: false,
         // Same origin as the landing page: do not let the PWA navigation
         // fallback swallow / or /middag/ with the SPA shell.
         navigateFallbackDenylist: [

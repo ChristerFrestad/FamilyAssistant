@@ -13,7 +13,7 @@ Workbox default `directoryIndex` mapped `GET /` to the precached SPA
 `/login` the worker controlled the origin, so apex `/` became the
 React shell and AuthGuard sent anonymous users to `/login`.
 
-- `directoryIndex: null` and `cleanURLs: false` in the Vite PWA config
+- `directoryIndex: null` in the Vite PWA GenerateSW config
 - Apex `/` goes to the network again (marketing HTML)
 
 ### Changed — Marketing homepage: one story, no cropped screenshots
