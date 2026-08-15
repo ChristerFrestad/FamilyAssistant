@@ -7,13 +7,14 @@ Last updated: 2026-08-15 (public marketing on listed hosts)
 FamilyAssistant has **one** product frontend: Vite + React + TypeScript in
 `client/`. The production bundle is written to `public/v2/` (that
 folder name is leftover from the coexistence era; it is **not** a
-URL). `server/http/server.js` maps that folder onto `/` **except**
-when the `Host` header is listed in `MARKETING_HOSTS`.
+URL). `server/http/server.js` maps that folder onto `/login`,
+`/dashboard`, and the other app routes.
 
 There is a second, **optional** public surface: the Hverdagsplanleggeren
-marketing site in `marketing/`. It is static HTML (no React). Empty
-`MARKETING_HOSTS` (the default) means every host keeps serving the SPA.
-Self-hosters are unchanged.
+marketing site in `marketing/`. It is static HTML on the **same origin**
+as the app (`https://hverdagsplanleggeren.com/`). Empty `MARKETING_HOSTS`
+(the default) means every host keeps serving the SPA at `/`. Self-hosters
+are unchanged. `app.hverdagsplanleggeren.com` is the retired hostname.
 
 The old vanilla-JS UI (`public/index.html`, `public/js/*`) was deleted
 in Sprint 8 (2026-05-05).
@@ -22,8 +23,9 @@ in Sprint 8 (2026-05-05).
 
 | URL | Served as | Notes |
 |---|---|---|
-| `/` on a marketing host | `marketing/index.html` (or `public/www/`) | Crawlable landing. Never the SPA. |
-| `/` on app / LAN | `public/v2/index.html` | React shell. In `BOOTSTRAP_MODE` only, 302 → `/setup.html` |
+| `/` on a marketing host | `marketing/index.html` (or `public/www/`) | Crawlable landing |
+| `/login`, `/dashboard`, … on that same host | `public/v2/index.html` | The app. Same origin as the landing. |
+| `/` on LAN / unset `MARKETING_HOSTS` | `public/v2/index.html` | React shell. In `BOOTSTRAP_MODE` only, 302 → `/setup.html` |
 | `/login`, `/dashboard`, `/invite/:token`, … | same `index.html` | SPA fallback for paths without a file extension |
 | `/assets/main-XXX.js` | `public/v2/assets/…` | Vite chunks, CSS, fonts |
 | `/v2`, `/v2/…` | **301** to the same path without `/v2` | Bookmarks and old emails |

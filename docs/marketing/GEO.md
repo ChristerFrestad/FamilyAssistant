@@ -18,7 +18,8 @@ surfaces. Do not drop pantry/kjøkken for a shorter slogan.
 | `/robots.txt` | Allow major AI crawlers |
 | `/sitemap.xml` | Apex URLs only |
 
-`app.hverdagsplanleggeren.com` is `noindex`. Never compete with the apex.
+`/login`, `/dashboard` and the rest of the SPA on the same host are
+`noindex`. Only `/` and the entity pages are indexed.
 
 ## After a copy change
 

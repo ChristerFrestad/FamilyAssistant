@@ -6,6 +6,18 @@
 
 ---
 
+2026-08-15 – Same-origin correction (not app.)
+
+Christer: production login is https://hverdagsplanleggeren.com/login.
+app.hverdagsplanleggeren.com is the old host. Landing must share the
+apex: GET / marketing, GET /login SPA.
+
+Done: path-split in marketing.js (fall through unknown paths), CTAs
+are /login, robots Disallow /login /dashboard, PWA start_url
+/dashboard + navigateFallbackDenylist, tests assert /login stays SPA.
+
+---
+
 2026-08-15 – Public marketing landing (Hverdagsplanleggeren)
 
 Task: apex hverdagsplanleggeren.com must explain the product instead of

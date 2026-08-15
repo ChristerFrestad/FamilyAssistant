@@ -18,34 +18,34 @@
 
 ## 0. Public marketing (hverdagsplanleggeren.com)
 
-The landing page lives in the same image. It is **off** unless
-`MARKETING_HOSTS` is set. Self-hosters leave it unset.
+The app already lives on **https://hverdagsplanleggeren.com** (login is
+`/login` on that host). `app.hverdagsplanleggeren.com` is the old
+hostname. Marketing is therefore a **path** on the same origin:
 
-For the public product:
+- `GET /` → landing
+- `GET /login` → the existing SPA
+- `GET /dashboard` → the existing SPA
 
-1. Delete the Cloudflare Redirect Rule / Page Rule that 301s
-   `hverdagsplanleggeren.com` → `app.hverdagsplanleggeren.com`.
-   Without this, nobody ever sees the landing page.
-2. Add a Cloudflare Tunnel public hostname with an **empty** subdomain
-   (`hverdagsplanleggeren.com`) → `http://192.168.50.123:7777`.
-3. Add `www` DNS and a 301 to the apex.
-4. Portainer env on the `familieassistenten` stack:
+The landing is **off** unless `MARKETING_HOSTS` is set. Self-hosters
+leave it unset so LAN `/` stays the app.
+
+Portainer env on the public stack:
 
 ```
 MARKETING_HOSTS=hverdagsplanleggeren.com,www.hverdagsplanleggeren.com
 MARKETING_CANONICAL=https://hverdagsplanleggeren.com
-APP_PUBLIC_URL=https://app.hverdagsplanleggeren.com
-ALLOWED_ORIGINS=https://hverdagsplanleggeren.com,https://www.hverdagsplanleggeren.com,https://app.hverdagsplanleggeren.com
-APP_URL=https://app.hverdagsplanleggeren.com
+APP_URL=https://hverdagsplanleggeren.com
+ALLOWED_ORIGINS=https://hverdagsplanleggeren.com,https://www.hverdagsplanleggeren.com
 PASSWORD_AUTH_OPEN_REGISTER=true
 ```
 
-Check after pull:
+Do **not** send visitors to `app.`. Check after pull:
 
 ```
 curl -sI https://hverdagsplanleggeren.com
-# must be 200, not 301 to /login
-curl -sL https://hverdagsplanleggeren.com | findstr /C:"Ett sted for middag"
+# 200, landing HTML — not a 301 to /login
+curl -sI https://hverdagsplanleggeren.com/login
+# 200, SPA shell
 ```
 
 ## 1. Copy the files

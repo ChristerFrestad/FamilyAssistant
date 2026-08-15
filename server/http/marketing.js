@@ -1,13 +1,13 @@
-// Host-gated public marketing site (Hverdagsplanleggeren apex).
+// Public marketing pages on the same origin as the app.
 //
-// Default off: MARKETING_HOSTS empty → every request falls through to
-// the SPA. When the Host header is in MARKETING_HOSTS the server
-// serves crawlable HTML from public/www/ (or marketing/ if the
-// build output is missing) and never the React shell.
+// Production today: https://hverdagsplanleggeren.com is the app
+// (including /login). app.hverdagsplanleggeren.com is the old host.
+// So marketing is path-split, not host-split:
+//   GET /  /middag/  /llms.txt  /site/*  → static HTML
+//   GET /login  /dashboard  /api/*       → SPA / API
 //
-// www.* aliases 301 to MARKETING_CANONICAL (or https://<apex>).
-// /health /ready /metrics /api/* stay on the app even on a marketing
-// host so the same container remains operable.
+// MARKETING_HOSTS still gates this so a LAN/self-host `/` stays the
+// SPA. Empty default = off. www.* 301s to MARKETING_CANONICAL.
 
 'use strict';
 
@@ -38,6 +38,37 @@ const MIME_TYPES = {
 
 const OPS_PATHS = new Set(['/health', '/ready', '/metrics']);
 
+const MARKETING_PAGE_ROOTS = new Set([
+  '',
+  'en',
+  'middag',
+  'handleliste',
+  'gjoremål',
+  'slik-fungerer-det',
+  'personvern',
+  'vilkar',
+]);
+
+const MARKETING_FILES = new Set(['robots.txt', 'sitemap.xml', 'llms.txt', 'llms-full.txt']);
+
+function isReservedAppPath(pathname) {
+  if (OPS_PATHS.has(pathname) || pathname.startsWith('/api/')) return true;
+  if (pathname.startsWith('/assets/')) return true;
+  return false;
+}
+
+function isMarketingPath(pathname) {
+  const decoded = decodePathname(pathname);
+  const raw = decoded === '/' ? '' : decoded.replace(/^\/+|\/+$/g, '');
+  if (raw === '') return true;
+  if (MARKETING_FILES.has(raw)) return true;
+  if (raw.startsWith('site/') || raw === 'site') return true;
+  if (raw.startsWith('screens/') || raw === 'screens') return true;
+  if (raw.startsWith('fonts/') || raw === 'fonts') return true;
+  const first = raw.split('/')[0];
+  return MARKETING_PAGE_ROOTS.has(first);
+}
+
 function normalizeHost(hostHeader) {
   if (!hostHeader) return '';
   return String(hostHeader).split(':')[0].trim().toLowerCase();
@@ -49,8 +80,6 @@ function isMarketingHost(hostHeader, hostSet) {
 }
 
 function marketingRoot() {
-  const builtIndex = path.join(PUBLIC_DIR, 'www', 'index.html');
-  if (fs.existsSync(builtIndex)) return path.join(PUBLIC_DIR, 'www');
   const srcIndex = path.join(SRC_DIR, 'index.html');
   if (fs.existsSync(srcIndex)) return SRC_DIR;
   return path.join(PUBLIC_DIR, 'www');
@@ -71,24 +100,34 @@ function decodePathname(pathname) {
   }
 }
 
+function existingFile(root, rel) {
+  const asFile = resolveSafe(root, rel);
+  if (asFile && fs.existsSync(asFile) && fs.statSync(asFile).isFile()) return asFile;
+  return null;
+}
+
 function mapPathnameToFile(root, pathname) {
   const decoded = decodePathname(pathname);
   const raw = decoded === '/' ? '' : decoded.replace(/^\/+|\/+$/g, '');
   if (!raw) {
-    return resolveSafe(root, 'index.html');
+    return existingFile(root, 'index.html');
   }
 
-  const asFile = resolveSafe(root, raw);
-  if (asFile && fs.existsSync(asFile) && fs.statSync(asFile).isFile()) {
-    return asFile;
+  // /site/* is the marketing static prefix so we never collide with
+  // the SPA's hashed /assets/main-*.js files.
+  if (raw === 'site' || raw.startsWith('site/')) {
+    const rest = raw === 'site' ? '' : raw.slice('site/'.length);
+    return (
+      existingFile(root, path.join('site', rest)) ||
+      existingFile(root, path.join('assets', rest)) ||
+      existingFile(root, path.join('site', rest, 'index.html'))
+    );
   }
 
-  const asIndex = resolveSafe(root, path.join(raw, 'index.html'));
-  if (asIndex && fs.existsSync(asIndex) && fs.statSync(asIndex).isFile()) {
-    return asIndex;
-  }
+  const direct = existingFile(root, raw);
+  if (direct) return direct;
 
-  return null;
+  return existingFile(root, path.join(raw, 'index.html'));
 }
 
 function cacheControlFor(filePath) {
@@ -133,45 +172,33 @@ function redirectWww(req, res, canonical) {
   return true;
 }
 
-function sendMarketingNotFound(res) {
-  res.writeHead(404, {
-    'Content-Type': 'text/plain; charset=utf-8',
-    'X-Robots-Tag': 'noindex',
-    'Cache-Control': 'no-store',
-  });
-  res.end('Not found');
-}
-
 /**
- * Handle a request when (and only when) Host is a marketing host.
- * Returns true if the response was ended.
+ * Handle a marketing page. Unknown paths return false so /login and
+ * /dashboard stay the SPA on the same host.
  */
 function tryHandleMarketing(req, res, pathname, config) {
   const hosts = config.MARKETING_HOST_SET;
   if (!isMarketingHost(req.headers.host, hosts)) return false;
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
-  if (OPS_PATHS.has(pathname) || pathname.startsWith('/api/')) return false;
+  if (isReservedAppPath(pathname)) return false;
 
   if (redirectWww(req, res, config.MARKETING_CANONICAL)) return true;
+  if (!isMarketingPath(pathname)) return false;
 
   const root = marketingRoot();
   if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-    sendMarketingNotFound(res);
-    return true;
+    return false;
   }
 
   const filePath = mapPathnameToFile(root, pathname);
-  if (!filePath) {
-    sendMarketingNotFound(res);
-    return true;
-  }
+  if (!filePath) return false;
 
   try {
     sendFile(res, filePath, req.method);
+    return true;
   } catch {
-    sendMarketingNotFound(res);
+    return false;
   }
-  return true;
 }
 
 function appRobotsBody() {
@@ -201,6 +228,7 @@ function tryServeAppRobots(req, res, pathname, config) {
 module.exports = {
   normalizeHost,
   isMarketingHost,
+  isMarketingPath,
   tryHandleMarketing,
   tryServeAppRobots,
   marketingRoot,

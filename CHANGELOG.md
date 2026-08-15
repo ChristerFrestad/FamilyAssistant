@@ -13,13 +13,14 @@ instead of bouncing visitors to `/login`. The 5-second sentence is
 one place for dinner, chores, the kitchen (pantry), and the shopping
 list.
 
+- Same origin as the app: `/` is the landing, `/login` stays the SPA
 - `MARKETING_HOSTS` (default empty — self-host `/` is still the SPA)
-- Static HTML in `marketing/`, host-gated in `server/http/marketing.js`
+- Static HTML in `marketing/`, path-gated in `server/http/marketing.js`
 - `robots.txt`, `sitemap.xml`, `llms.txt`, JSON-LD for agentic search
-- App hosts send `X-Robots-Tag: noindex, nofollow`
-- Login accepts `?mode=register`
+- `/login` and `/dashboard` send `X-Robots-Tag: noindex, nofollow`
+- Login accepts `?mode=register`; signed-in users bounce to `/dashboard`
 
-Cloudflare must drop the apex→`app.` 301 or the page stays invisible.
+`app.hverdagsplanleggeren.com` is the old host and is not used.
 
 ### Added — Username/password auth with progressive email verification (2026-08-10)
 

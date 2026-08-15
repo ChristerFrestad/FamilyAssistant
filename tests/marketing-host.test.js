@@ -5,17 +5,32 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { startTestServer, request } = require('./helpers');
 
 const APEX = 'hverdagsplanleggeren.com';
 const WWW = 'www.hverdagsplanleggeren.com';
 const APP = 'app.hverdagsplanleggeren.com';
+const REPO = path.join(__dirname, '..');
+const V2_DIR = path.join(REPO, 'public', 'v2');
+const V2_BACKUP = V2_DIR + '.marketing-test-backup';
 
 let server;
+let restoreBackup = false;
 
 before(async () => {
   process.env.MARKETING_HOSTS = `${APEX},${WWW}`;
   process.env.MARKETING_CANONICAL = 'https://hverdagsplanleggeren.com';
+  if (fs.existsSync(V2_DIR)) {
+    fs.renameSync(V2_DIR, V2_BACKUP);
+    restoreBackup = true;
+  }
+  fs.mkdirSync(path.join(V2_DIR, 'assets'), { recursive: true });
+  fs.writeFileSync(
+    path.join(V2_DIR, 'index.html'),
+    '<!doctype html><html><body><div id="root">spa fixture</div></body></html>'
+  );
   server = await startTestServer();
 });
 
@@ -23,6 +38,10 @@ after(async () => {
   if (server) await server.close();
   delete process.env.MARKETING_HOSTS;
   delete process.env.MARKETING_CANONICAL;
+  fs.rmSync(V2_DIR, { recursive: true, force: true });
+  if (restoreBackup && fs.existsSync(V2_BACKUP)) {
+    fs.renameSync(V2_BACKUP, V2_DIR);
+  }
 });
 
 function get(path, host) {
@@ -61,10 +80,14 @@ describe('marketing host routing', () => {
     assert.equal(r.headers.location, 'https://hverdagsplanleggeren.com/');
   });
 
-  test('unknown marketing path is 404, not the SPA shell', async () => {
-    const r = await get('/does-not-exist', APEX);
-    assert.equal(r.status, 404);
-    assert.ok(!String(r.raw).includes('id="root"'));
+  test('apex /login and /dashboard stay the SPA on the same host', async () => {
+    for (const p of ['/login', '/dashboard', '/login?mode=register']) {
+      const r = await get(p, APEX);
+      assert.equal(r.status, 200, p);
+      assert.match(String(r.raw), /id="root"/, p);
+      assert.ok(!String(r.raw).includes('Ett sted for middag'), p);
+      assert.equal(r.headers['x-robots-tag'], 'noindex, nofollow', p);
+    }
   });
 
   test('entity pages serve on apex', async () => {
@@ -75,10 +98,12 @@ describe('marketing host routing', () => {
     }
   });
 
-  test('apex robots.txt allows crawlers and points at sitemap', async () => {
+  test('apex robots.txt allows crawlers and disallows app paths', async () => {
     const r = await get('/robots.txt', APEX);
     assert.equal(r.status, 200);
     assert.match(r.raw, /Allow: \//);
+    assert.match(r.raw, /Disallow: \/login/);
+    assert.match(r.raw, /Disallow: \/dashboard/);
     assert.match(r.raw, /Sitemap: https:\/\/hverdagsplanleggeren.com\/sitemap.xml/);
     assert.match(r.raw, /GPTBot/);
   });

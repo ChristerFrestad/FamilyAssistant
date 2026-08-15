@@ -32,4 +32,14 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
+# App surfaces on the same host — do not index login or the SPA.
+Disallow: /login
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /settings
+Disallow: /admin
+Disallow: /invite
+Disallow: /api/
+Disallow: /setup.html
+
 Sitemap: https://hverdagsplanleggeren.com/sitemap.xml

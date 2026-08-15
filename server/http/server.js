@@ -18,7 +18,7 @@ const { rateLimit, applySecurityHeaders } = require('./security');
 const { runWithFamily } = require('../auth/family-context');
 const metrics = require('./metrics');
 const sentry = require('../observability/sentry');
-const { isMarketingHost, tryHandleMarketing, tryServeAppRobots } = require('./marketing');
+const { tryHandleMarketing, tryServeAppRobots } = require('./marketing');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
@@ -174,8 +174,9 @@ function createServer(router, { authenticate } = {}) {
     const ctx = createContext(req, res, pathname, query);
     let routeTemplate = pathname; // overridet etter dispatch
 
-    const marketing = isMarketingHost(req.headers.host, config.MARKETING_HOST_SET);
-    res.setHeader('X-Robots-Tag', marketing ? 'index, follow' : 'noindex, nofollow');
+    // Default noindex: /login, /dashboard and the SPA must not compete
+    // with the landing page. Marketing sendFile() overwrites this.
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
 
     try {
       // Apex / listed marketing hosts serve crawlable HTML, never the SPA
