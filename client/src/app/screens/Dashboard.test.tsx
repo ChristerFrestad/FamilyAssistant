@@ -44,21 +44,21 @@ afterEach(() => {
   fetchSpy.mockRestore();
 });
 
-function mountDashboard(): void {
+function mountDashboard(user: AuthUser = TEST_USER): void {
   render(
     <MemoryRouter initialEntries={['/dashboard']}>
-      <AuthProvider initialState={{ user: TEST_USER, isLoading: false }}>
+      <AuthProvider initialState={{ user, isLoading: false }}>
         <Dashboard />
       </AuthProvider>
     </MemoryRouter>
   );
 }
 
-function mockFetchByPath(handlers: Record<string, () => Response>): void {
-  fetchSpy.mockImplementation((input: RequestInfo | URL) => {
+function mockFetchByPath(handlers: Record<string, (init?: RequestInit) => Response>): void {
+  fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     for (const [pattern, handler] of Object.entries(handlers)) {
-      if (url.startsWith(pattern)) return Promise.resolve(handler());
+      if (url === pattern || url.startsWith(pattern)) return Promise.resolve(handler(init));
     }
     return Promise.reject(new Error(`Unmocked fetch: ${url}`));
   });
@@ -77,20 +77,22 @@ const TODAY_DATA = {
   },
   chores: [
     {
-      choreId: 'vask',
+      choreId: 1,
       task: 'Vaske gulv',
       icon: '🧹',
       status: 'pending',
       scheduledDay: 0,
       postponedTo: null,
+      assigneeMemberId: null,
     },
     {
-      choreId: 'lufte',
+      choreId: 2,
       task: 'Lufte rom',
       icon: '🪟',
       status: 'pending',
       scheduledDay: 0,
       postponedTo: null,
+      assigneeMemberId: null,
     },
   ],
   events: [],
@@ -214,5 +216,172 @@ describe('Dashboard screen', () => {
       expect(screen.getByText('Pasta carbonara')).toBeInTheDocument();
     });
     expect(todayCalls).toBe(2);
+  });
+
+  test('click complete fires PUT /api/chores/complete with choreId', async () => {
+    const bodies: unknown[] = [];
+    mockFetchByPath({
+      '/api/today': () => jsonResponse(200, TODAY_DATA),
+      '/api/shopping/list/current': () => jsonResponse(200, SHOPPING_DATA),
+      '/api/calendar/events': () => jsonResponse(200, UPCOMING_DATA),
+      '/api/chores/complete': (init) => {
+        bodies.push(init?.body ? JSON.parse(String(init.body)) : null);
+        return jsonResponse(200, { ok: true });
+      },
+    });
+
+    mountDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chore-complete-1')).toBeInTheDocument();
+    });
+    const btn = screen.getByTestId('chore-complete-1');
+    expect(btn).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(btn);
+    await waitFor(() => {
+      expect(btn).toHaveAttribute('aria-pressed', 'true');
+    });
+    expect(bodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
+    expect(screen.getByText(/Vaske gulv/)).toBeInTheDocument();
+  });
+
+  test('click undo after complete fires PUT /api/chores/undone with choreId', async () => {
+    const completeBodies: unknown[] = [];
+    const undoBodies: unknown[] = [];
+    mockFetchByPath({
+      '/api/today': () => jsonResponse(200, TODAY_DATA),
+      '/api/shopping/list/current': () => jsonResponse(200, SHOPPING_DATA),
+      '/api/calendar/events': () => jsonResponse(200, UPCOMING_DATA),
+      '/api/chores/complete': (init) => {
+        completeBodies.push(init?.body ? JSON.parse(String(init.body)) : null);
+        return jsonResponse(200, { ok: true });
+      },
+      '/api/chores/undone': (init) => {
+        undoBodies.push(init?.body ? JSON.parse(String(init.body)) : null);
+        return jsonResponse(200, { ok: true });
+      },
+    });
+
+    mountDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chore-complete-1')).toBeInTheDocument();
+    });
+    const btn = screen.getByTestId('chore-complete-1');
+    fireEvent.click(btn);
+    await waitFor(() => {
+      expect(btn).toHaveAttribute('aria-pressed', 'true');
+    });
+    fireEvent.click(btn);
+    await waitFor(() => {
+      expect(btn).toHaveAttribute('aria-pressed', 'false');
+    });
+    expect(completeBodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
+    expect(undoBodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
+  });
+
+  test('child cannot complete a chore assigned to another member', async () => {
+    const child: AuthUser = {
+      ...TEST_USER,
+      id: 8,
+      role: 'child',
+      profileMemberId: 11,
+      name: 'Storebror',
+    };
+    mockFetchByPath({
+      '/api/today': () =>
+        jsonResponse(200, {
+          ...TODAY_DATA,
+          chores: [
+            {
+              choreId: 8,
+              task: 'Pappa-oppgave',
+              icon: '🧹',
+              status: 'pending',
+              scheduledDay: 0,
+              postponedTo: null,
+              assigneeMemberId: 99,
+            },
+            {
+              choreId: 9,
+              task: 'Eget rom',
+              icon: '🛏️',
+              status: 'pending',
+              scheduledDay: 0,
+              postponedTo: null,
+              assigneeMemberId: 11,
+            },
+          ],
+        }),
+      '/api/shopping/list/current': () => jsonResponse(200, SHOPPING_DATA),
+      '/api/calendar/events': () => jsonResponse(200, UPCOMING_DATA),
+    });
+
+    mountDashboard(child);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pappa-oppgave/)).toBeInTheDocument();
+      expect(screen.getByText(/Eget rom/)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('chore-complete-8')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chore-complete-9')).toBeInTheDocument();
+  });
+
+  test('keeps the three-item chores limit', async () => {
+    mockFetchByPath({
+      '/api/today': () =>
+        jsonResponse(200, {
+          ...TODAY_DATA,
+          chores: [
+            {
+              choreId: 1,
+              task: 'En',
+              icon: '1',
+              status: 'pending',
+              scheduledDay: 0,
+              postponedTo: null,
+            },
+            {
+              choreId: 2,
+              task: 'To',
+              icon: '2',
+              status: 'pending',
+              scheduledDay: 0,
+              postponedTo: null,
+            },
+            {
+              choreId: 3,
+              task: 'Tre',
+              icon: '3',
+              status: 'pending',
+              scheduledDay: 0,
+              postponedTo: null,
+            },
+            {
+              choreId: 4,
+              task: 'Fire',
+              icon: '4',
+              status: 'pending',
+              scheduledDay: 0,
+              postponedTo: null,
+            },
+          ],
+        }),
+      '/api/shopping/list/current': () => jsonResponse(200, SHOPPING_DATA),
+      '/api/calendar/events': () => jsonResponse(200, UPCOMING_DATA),
+    });
+
+    mountDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText('En')).toBeInTheDocument();
+    });
+    expect(screen.getByText('To')).toBeInTheDocument();
+    expect(screen.getByText('Tre')).toBeInTheDocument();
+    expect(screen.queryByText('Fire')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chore-complete-1')).toBeInTheDocument();
+    expect(screen.getByTestId('chore-complete-2')).toBeInTheDocument();
+    expect(screen.getByTestId('chore-complete-3')).toBeInTheDocument();
+    expect(screen.queryByTestId('chore-complete-4')).not.toBeInTheDocument();
   });
 });

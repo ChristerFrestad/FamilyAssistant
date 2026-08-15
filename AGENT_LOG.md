@@ -6,14 +6,55 @@
 
 ---
 
-2026-08-14 � U0-2 shared ScreenHeader
+2026-08-15 – U1-1 complete today's chores on Dashboard
+
+Task: Dashboard-chore-rader skal kalle PUT /api/chores/complete og undo
+på stedet (samme API som Chores), uten å navigere til /chores. Child
+skjuler complete når assigneeMemberId er satt og brukeren ikke er det
+medlemmet. Behold 3-item limit. Ikke bygg om dashboard (U1-2).
+
+Analysis: ingen (implementer-ticket med fast scope)
+- Journey: Hjem -> kryss av dagens oppgave -> aria-pressed / undo
+- Edge cases: child vs annen assignees, 3-item limit, optimistic revert
+- Decisions: 1 (TodayChoreRow i stedet for full ChoreRow i kortet)
+- Portainer risk: no
+
+Plan: branch fra main; TodayChoreRow + completeChore/undoChore;
+Dashboard.test; AGENT_LOG; commit.
+
+Done:
+- Branch: feat/u1-1-dashboard-complete-chore
+- Commits: 1
+- Files: client/src/app/components/dashboard/TodayChoreRow.tsx,
+  client/src/app/screens/Dashboard.tsx,
+  client/src/app/screens/Dashboard.test.tsx,
+  client/src/app/screens/a11y.test.tsx,
+  client/src/app/dashboard/dashboardApi.ts, AGENT_LOG.md
+- Tests: Dashboard.test.tsx 8/8
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: TodayChore.choreId typed as number (backend
+  + completeChore), fixtures oppdatert fra gamle string-slugger.
+
+Security: ingen nye endepunkter. Gjenbruker existing complete/undone
+med credentials: include. Child-hide matcher server 403-regelen
+(assigneeMemberId vs profileMemberId).
+
+ISO 25010: Usability (+ in-place complete). Security unchanged.
+
+Status: waiting-for-operator
+
+Next: U1-2 dashboard agenda/hero.
+
+---
+
+2026-08-14 � U0-2 shared ScreenHeader
 
 - Branch: feat/u0-2-screen-header
 - Tests: 102/102
 - Status: merged
 
 ---
-2026-08-14 � U0-3 shared WeekStrip for meals and chores
+2026-08-14 � U0-3 shared WeekStrip for meals and chores
 
 - Branch: feat/u0-3-week-strip
 - Tests: 38/38

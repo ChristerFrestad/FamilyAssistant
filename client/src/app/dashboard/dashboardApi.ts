@@ -47,12 +47,13 @@ export interface TodayMeal {
 }
 
 export interface TodayChore {
-  choreId: string;
+  choreId: number;
   task: string;
   icon?: string;
   status: string;
   scheduledDay: number;
   postponedTo: number | null;
+  assigneeMemberId?: number | null;
 }
 
 export interface TodayResponse {
