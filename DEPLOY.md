@@ -16,11 +16,9 @@
 > 4. **API keys in .env** (not in systemd!) — file permissions `chmod 600 .env`,
 >    owner `pi:pi`. Keys are set via the Settings UI which writes through env-store.service.
 
-## 0. Public marketing (hverdagsplanleggeren.com)
+## 0. Public marketing (same origin as the app)
 
-The app already lives on **https://hverdagsplanleggeren.com** (login is
-`/login` on that host). `app.hverdagsplanleggeren.com` is the old
-hostname. Marketing is therefore a **path** on the same origin:
+Marketing is a **path** on the same origin as the app:
 
 - `GET /` → landing
 - `GET /login` → the existing SPA
@@ -33,26 +31,22 @@ Portainer **Environment variables** are only compose substitutions.
 `docker-compose.yml` must list `${MARKETING_HOSTS:-}` (and the other
 vars) under `services.app.environment`, or Node never sees them.
 
-Public stack env:
+Do **not** commit operator hostnames. Set them only in Portainer:
 
 ```
-MARKETING_HOSTS=hverdagsplanleggeren.com,www.hverdagsplanleggeren.com
-MARKETING_CANONICAL=https://hverdagsplanleggeren.com
-APP_URL=https://hverdagsplanleggeren.com
-APP_NAME=Hverdagsplanleggeren
-APP_NAME_PRIMARY=Hverdags
-APP_NAME_ACCENT=planleggeren
-APP_FAVICON_LETTER=H
-APP_TAGLINE=Planlegg middager, handleliste og gjøremål
+MARKETING_HOSTS=example.com,www.example.com
+MARKETING_CANONICAL=https://example.com
+APP_URL=https://example.com
+APP_NAME=FamilyAssistant
 ```
 
-Do **not** set `APP_PUBLIC_URL` to `https://app.hverdagsplanleggeren.com`.
-That host is retired. Check after pull:
+`{{CANONICAL}}` in `marketing/` is rewritten at serve time from
+`MARKETING_CANONICAL`. Check after pull:
 
 ```
-curl -sI https://hverdagsplanleggeren.com
+curl -sI https://example.com
 # 200, landing HTML — not a 301 to /login
-curl -sI https://hverdagsplanleggeren.com/login
+curl -sI https://example.com/login
 # 200, SPA shell
 ```
 

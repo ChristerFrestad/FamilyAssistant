@@ -8,10 +8,9 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added — Public marketing site for Hverdagsplanleggeren (2026-08-15)
 
-Apex `hverdagsplanleggeren.com` can serve a crawlable landing page
-instead of bouncing visitors to `/login`. The 5-second sentence is
-one place for dinner, chores, the kitchen (pantry), and the shopping
-list.
+When `MARKETING_HOSTS` is set, `GET /` can serve a crawlable landing
+page instead of the SPA. The 5-second sentence is one place for
+dinner, chores, the kitchen (pantry), and the shopping list.
 
 - Same origin as the app: `/` is the landing, `/login` stays the SPA
 - `MARKETING_HOSTS` (default empty — self-host `/` is still the SPA)
@@ -20,7 +19,7 @@ list.
 - `/login` and `/dashboard` send `X-Robots-Tag: noindex, nofollow`
 - Login accepts `?mode=register`; signed-in users bounce to `/dashboard`
 
-`app.hverdagsplanleggeren.com` is the old host and is not used.
+Operator production hostnames stay in Portainer env, not in git.
 
 ### Added — Username/password auth with progressive email verification (2026-08-10)
 

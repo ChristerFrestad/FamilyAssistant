@@ -9,9 +9,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { startTestServer, request } = require('./helpers');
 
-const APEX = 'hverdagsplanleggeren.com';
-const WWW = 'www.hverdagsplanleggeren.com';
-const APP = 'app.hverdagsplanleggeren.com';
+const APEX = 'marketing.example';
+const WWW = 'www.marketing.example';
+const OTHER = 'other.example';
 const REPO = path.join(__dirname, '..');
 const V2_DIR = path.join(REPO, 'public', 'v2');
 const V2_BACKUP = V2_DIR + '.marketing-test-backup';
@@ -21,7 +21,7 @@ let restoreBackup = false;
 
 before(async () => {
   process.env.MARKETING_HOSTS = `${APEX},${WWW}`;
-  process.env.MARKETING_CANONICAL = 'https://hverdagsplanleggeren.com';
+  process.env.MARKETING_CANONICAL = 'https://marketing.example';
   if (fs.existsSync(V2_DIR)) {
     fs.renameSync(V2_DIR, V2_BACKUP);
     restoreBackup = true;
@@ -56,6 +56,8 @@ describe('marketing host routing', () => {
     assert.match(r.raw, /Ett sted for middag, gjøremål, kjøkkenet og handlelisten/);
     assert.match(r.raw, /<h1/);
     assert.match(r.raw, /Hverdagsplanleggeren er en norsk familieapp/);
+    assert.match(r.raw, /https:\/\/marketing.example\//);
+    assert.doesNotMatch(r.raw, /\{\{CANONICAL\}\}/);
     assert.equal(r.headers['x-robots-tag'], 'index, follow');
   });
 
@@ -69,15 +71,15 @@ describe('marketing host routing', () => {
     assert.equal(r.headers['x-robots-tag'], 'noindex, nofollow');
   });
 
-  test('app host GET / is not marketing', async () => {
-    const r = await get('/', APP);
+  test('unlisted host GET / is not marketing', async () => {
+    const r = await get('/', OTHER);
     assert.ok(!String(r.raw).includes('Ett sted for middag, gjøremål, kjøkkenet og handlelisten'));
   });
 
   test('www GET / 301s to canonical apex', async () => {
     const r = await get('/', WWW);
     assert.equal(r.status, 301);
-    assert.equal(r.headers.location, 'https://hverdagsplanleggeren.com/');
+    assert.equal(r.headers.location, 'https://marketing.example/');
   });
 
   test('apex /login and /dashboard stay the SPA on the same host', async () => {
@@ -104,12 +106,12 @@ describe('marketing host routing', () => {
     assert.match(r.raw, /Allow: \//);
     assert.match(r.raw, /Disallow: \/login/);
     assert.match(r.raw, /Disallow: \/dashboard/);
-    assert.match(r.raw, /Sitemap: https:\/\/hverdagsplanleggeren.com\/sitemap.xml/);
+    assert.match(r.raw, /Sitemap: https:\/\/marketing.example\/sitemap.xml/);
     assert.match(r.raw, /GPTBot/);
   });
 
-  test('app host robots.txt disallows everything', async () => {
-    const r = await get('/robots.txt', APP);
+  test('unlisted host robots.txt disallows everything', async () => {
+    const r = await get('/robots.txt', OTHER);
     assert.equal(r.status, 200);
     assert.match(r.raw, /Disallow: \//);
     assert.equal(r.headers['x-robots-tag'], 'noindex, nofollow');

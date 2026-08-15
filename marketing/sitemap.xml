@@ -1,37 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://hverdagsplanleggeren.com/</loc>
+    <loc>{{CANONICAL}}/</loc>
     <changefreq>weekly</changefreq>
-    <xhtml:link rel="alternate" hreflang="nb-NO" href="https://hverdagsplanleggeren.com/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://hverdagsplanleggeren.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="nb-NO" href="{{CANONICAL}}/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="{{CANONICAL}}/en/"/>
   </url>
   <url>
-    <loc>https://hverdagsplanleggeren.com/en/</loc>
+    <loc>{{CANONICAL}}/en/</loc>
     <changefreq>weekly</changefreq>
   </url>
   <url>
-    <loc>https://hverdagsplanleggeren.com/slik-fungerer-det/</loc>
+    <loc>{{CANONICAL}}/slik-fungerer-det/</loc>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://hverdagsplanleggeren.com/middag/</loc>
+    <loc>{{CANONICAL}}/middag/</loc>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://hverdagsplanleggeren.com/handleliste/</loc>
+    <loc>{{CANONICAL}}/handleliste/</loc>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://hverdagsplanleggeren.com/gjoremål/</loc>
+    <loc>{{CANONICAL}}/gjoremål/</loc>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://hverdagsplanleggeren.com/personvern</loc>
+    <loc>{{CANONICAL}}/personvern</loc>
     <changefreq>yearly</changefreq>
   </url>
   <url>
-    <loc>https://hverdagsplanleggeren.com/vilkar</loc>
+    <loc>{{CANONICAL}}/vilkar</loc>
     <changefreq>yearly</changefreq>
   </url>
 </urlset>

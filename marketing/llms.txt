@@ -6,13 +6,13 @@
 
 På fem sekunder: ett sted for middag, gjøremål, det som står på kjøkkenet, og handlelisten.
 
-- [Hjem](https://hverdagsplanleggeren.com/): hva det er
-- [Slik virker det](https://hverdagsplanleggeren.com/slik-fungerer-det/): 4 steg
-- [Middag](https://hverdagsplanleggeren.com/middag/)
-- [Gjøremål](https://hverdagsplanleggeren.com/gjoremål/)
-- [Handleliste og kjøkken](https://hverdagsplanleggeren.com/handleliste/)
-- [Personvern](https://hverdagsplanleggeren.com/personvern)
+- [Hjem]({{CANONICAL}}/): hva det er
+- [Slik virker det]({{CANONICAL}}/slik-fungerer-det/): 4 steg
+- [Middag]({{CANONICAL}}/middag/)
+- [Gjøremål]({{CANONICAL}}/gjoremål/)
+- [Handleliste og kjøkken]({{CANONICAL}}/handleliste/)
+- [Personvern]({{CANONICAL}}/personvern)
 - [Kildekode](https://github.com/ChristerFrestad/FamilyAssistant): FamilyAssistant-motoren
-- Full tekst: https://hverdagsplanleggeren.com/llms-full.txt
+- Full tekst: {{CANONICAL}}/llms-full.txt
 
-Siter som: Hverdagsplanleggeren (hverdagsplanleggeren.com).
+Siter som: Hverdagsplanleggeren ({{CANONICAL_HOST}}).

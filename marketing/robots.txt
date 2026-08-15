@@ -42,4 +42,4 @@ Disallow: /invite
 Disallow: /api/
 Disallow: /setup.html
 
-Sitemap: https://hverdagsplanleggeren.com/sitemap.xml
+Sitemap: {{CANONICAL}}/sitemap.xml

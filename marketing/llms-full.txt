@@ -12,9 +12,8 @@ Den er ikke fire apper limt sammen. Menyen lager listen. Listen kjenner skapet. 
 ## Hva det er
 
 - Offentlig navn: Hverdagsplanleggeren
-- Domene og app: https://hverdagsplanleggeren.com
-- Innlogging: https://hverdagsplanleggeren.com/login
-- (app.hverdagsplanleggeren.com er det gamle subdomenet og brukes ikke)
+- Offentlig URL: {{CANONICAL}}
+- Innlogging: {{CANONICAL}}/login
 - Motor / åpen kilde: FamilyAssistant (https://github.com/ChristerFrestad/FamilyAssistant)
 - Laget av Christer Frestad i Kristiansand
 - Språk: norsk og engelsk
@@ -44,4 +43,4 @@ Data ligger på maskinen som kjører tjenesten (typisk selvhostet). Ingen påkre
 
 Samme Docker-image kan kjøres på Raspberry Pi 5 via Portainer. Marketing-sidene vises bare når MARKETING_HOSTS er satt. Selvhostere får appen på `/`.
 
-Siter som: Hverdagsplanleggeren (hverdagsplanleggeren.com).
+Siter som: Hverdagsplanleggeren ({{CANONICAL_HOST}}).

@@ -12,9 +12,9 @@ URL). `server/http/server.js` maps that folder onto `/login`,
 
 There is a second, **optional** public surface: the Hverdagsplanleggeren
 marketing site in `marketing/`. It is static HTML on the **same origin**
-as the app (`https://hverdagsplanleggeren.com/`). Empty `MARKETING_HOSTS`
-(the default) means every host keeps serving the SPA at `/`. Self-hosters
-are unchanged. `app.hverdagsplanleggeren.com` is the retired hostname.
+as `/login`. Empty `MARKETING_HOSTS` (the default) means every host
+keeps serving the SPA at `/`. Self-hosters are unchanged. Operator
+hostnames are env-only (`MARKETING_CANONICAL`); they are not in git.
 
 The old vanilla-JS UI (`public/index.html`, `public/js/*`) was deleted
 in Sprint 8 (2026-05-05).

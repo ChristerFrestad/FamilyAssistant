@@ -1,13 +1,13 @@
 // Public marketing pages on the same origin as the app.
 //
-// Production today: https://hverdagsplanleggeren.com is the app
-// (including /login). app.hverdagsplanleggeren.com is the old host.
-// So marketing is path-split, not host-split:
+// Path-split, not host-split:
 //   GET /  /middag/  /llms.txt  /site/*  → static HTML
 //   GET /login  /dashboard  /api/*       → SPA / API
 //
-// MARKETING_HOSTS still gates this so a LAN/self-host `/` stays the
-// SPA. Empty default = off. www.* 301s to MARKETING_CANONICAL.
+// MARKETING_HOSTS gates this so a LAN/self-host `/` stays the SPA.
+// Empty default = off. www.* 301s to MARKETING_CANONICAL.
+// Operator production hostnames must not appear in this repo;
+// {{CANONICAL}} in marketing files is rewritten at serve time.
 
 'use strict';
 
@@ -143,7 +143,24 @@ function cacheControlFor(filePath) {
   return 'public, max-age=3600';
 }
 
-function sendFile(res, filePath, method) {
+const REWRITE_EXTS = new Set(['.html', '.txt', '.xml']);
+
+function rewriteCanonical(buf, origin) {
+  if (!origin) return buf;
+  let text = buf.toString('utf8');
+  if (!text.includes('{{CANONICAL}}') && !text.includes('{{CANONICAL_HOST}}')) return buf;
+  let host;
+  try {
+    host = new URL(origin).host;
+  } catch {
+    host = origin.replace(/^https?:\/\//, '');
+  }
+  text = text.split('{{CANONICAL}}').join(origin);
+  text = text.split('{{CANONICAL_HOST}}').join(host);
+  return Buffer.from(text, 'utf8');
+}
+
+function sendFile(res, filePath, method, origin) {
   const ext = path.extname(filePath);
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
   const headers = {
@@ -156,7 +173,8 @@ function sendFile(res, filePath, method) {
     res.end();
     return;
   }
-  const content = fs.readFileSync(filePath);
+  let content = fs.readFileSync(filePath);
+  if (REWRITE_EXTS.has(ext)) content = rewriteCanonical(content, origin);
   res.writeHead(200, headers);
   res.end(content);
 }
@@ -193,8 +211,12 @@ function tryHandleMarketing(req, res, pathname, config) {
   const filePath = mapPathnameToFile(root, pathname);
   if (!filePath) return false;
 
+  const origin =
+    (config.MARKETING_CANONICAL && String(config.MARKETING_CANONICAL).replace(/\/$/, '')) ||
+    `https://${normalizeHost(req.headers.host)}`;
+
   try {
-    sendFile(res, filePath, req.method);
+    sendFile(res, filePath, req.method, origin);
     return true;
   } catch {
     return false;

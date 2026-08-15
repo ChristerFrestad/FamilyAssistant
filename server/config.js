@@ -198,8 +198,8 @@ const envSchema = z.object({
 
   // Public marketing site (Hverdagsplanleggeren apex). Empty default:
   // every host keeps serving the SPA. Set to a comma-separated list
-  // (e.g. hverdagsplanleggeren.com,www.hverdagsplanleggeren.com) in
-  // the public Portainer stack only — self-hosters must not see it.
+  // (e.g. example.com,www.example.com) in the public Portainer stack
+  // only — self-hosters must not see it. Never commit operator hostnames.
   MARKETING_HOSTS: z.string().optional().default(''),
   MARKETING_CANONICAL: z.string().optional(),
   APP_PUBLIC_URL: z.string().optional(),

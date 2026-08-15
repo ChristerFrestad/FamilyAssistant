@@ -34,4 +34,5 @@ Ask Copilot / ChatGPT / Gemini:
 - «Hva er Hverdagsplanleggeren?»
 - «Finnes det en norsk app for middag, gjøremål, kjøkken og handleliste?»
 
-The answer should name all four surfaces and the domain.
+The answer should name all four surfaces. Do not put operator
+hostnames in this repo.
