@@ -29,17 +29,25 @@ hostname. Marketing is therefore a **path** on the same origin:
 The landing is **off** unless `MARKETING_HOSTS` is set. Self-hosters
 leave it unset so LAN `/` stays the app.
 
-Portainer env on the public stack:
+Portainer **Environment variables** are only compose substitutions.
+`docker-compose.yml` must list `${MARKETING_HOSTS:-}` (and the other
+vars) under `services.app.environment`, or Node never sees them.
+
+Public stack env:
 
 ```
 MARKETING_HOSTS=hverdagsplanleggeren.com,www.hverdagsplanleggeren.com
 MARKETING_CANONICAL=https://hverdagsplanleggeren.com
 APP_URL=https://hverdagsplanleggeren.com
-ALLOWED_ORIGINS=https://hverdagsplanleggeren.com,https://www.hverdagsplanleggeren.com
-PASSWORD_AUTH_OPEN_REGISTER=true
+APP_NAME=Hverdagsplanleggeren
+APP_NAME_PRIMARY=Hverdags
+APP_NAME_ACCENT=planleggeren
+APP_FAVICON_LETTER=H
+APP_TAGLINE=Planlegg middager, handleliste og gjøremål
 ```
 
-Do **not** send visitors to `app.`. Check after pull:
+Do **not** set `APP_PUBLIC_URL` to `https://app.hverdagsplanleggeren.com`.
+That host is retired. Check after pull:
 
 ```
 curl -sI https://hverdagsplanleggeren.com

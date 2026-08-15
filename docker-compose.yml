@@ -20,14 +20,28 @@ services:
       - '7777:7777'
     volumes:
       - familyassistant_data:/app/data
-    # Minimal overrides only — do not set PILOT_BYPASS / MAGIC_LINK_CONSOLE
-    # / AUTH_TOKEN / SESSION_SECRET here (image defaults + auto-create).
+    # Portainer "Environment variables" are compose substitutions only.
+    # They do not reach Node unless listed here as ${VAR:-}.
+    # Do not set PILOT_BYPASS / MAGIC_LINK_CONSOLE / AUTH_TOKEN /
+    # SESSION_SECRET here (image defaults + auto-create).
     environment:
       NODE_ENV: production
       PORT: '7777'
       # Override image default so LAN http://<ip>:7777 can keep the
       # session cookie. TLS proxies still set Secure via X-Forwarded-Proto.
-      HTTPS_TERMINATED: 'false'
+      HTTPS_TERMINATED: ${HTTPS_TERMINATED:-false}
+      APP_URL: ${APP_URL:-}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-}
+      MARKETING_HOSTS: ${MARKETING_HOSTS:-}
+      MARKETING_CANONICAL: ${MARKETING_CANONICAL:-}
+      APP_NAME: ${APP_NAME:-FamilyAssistant}
+      APP_NAME_PRIMARY: ${APP_NAME_PRIMARY:-Family}
+      APP_NAME_ACCENT: ${APP_NAME_ACCENT:-Assistant}
+      APP_FAVICON_LETTER: ${APP_FAVICON_LETTER:-F}
+      APP_TAGLINE: ${APP_TAGLINE:-Plan meals, chores and family}
+      APP_PRIMARY_COLOR: ${APP_PRIMARY_COLOR:-#1F3F26}
+      APP_ACCENT_COLOR: ${APP_ACCENT_COLOR:-#5F8B5C}
+      APP_DOT_COLOR: ${APP_DOT_COLOR:-#7BA05B}
     mem_limit: 768m
     healthcheck:
       test:
