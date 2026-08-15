@@ -8,7 +8,7 @@
 
 2026-08-16 – PWA stole marketing GET /
 
-Visitors on hverdagsplanleggeren.com landed on /login. curl GET /
+Visitors on the public apex landed on /login. curl GET /
 was the marketing HTML (200, index follow). Browser-only.
 
 Cause: after /login the Vite PWA worker controls the origin.
