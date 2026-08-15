@@ -65,6 +65,12 @@ function choreIds(body) {
   return (body.chores || []).map((c) => c.choreId ?? c.id).filter((id) => id != null);
 }
 
+// Monday=0 … Sunday=6. Seed chores only schedule Mon–Fri (0–4), so
+// weekend CI would otherwise see an empty /api/today chore list.
+function todayDow() {
+  return (new Date().getDay() + 6) % 7;
+}
+
 let server;
 let A;
 let B;
@@ -93,6 +99,7 @@ describe(
         calTitle: `A-only-PTA-${suffix}`,
         calTodayTitle: `A-today-${suffix}`,
         shopItem: `A-only-Kaffe-${suffix}`,
+        todayChoreTask: `A-today-chore-${suffix}`,
         eventDate: '2026-11-15',
       };
       B = {
@@ -105,6 +112,7 @@ describe(
         calTitle: `B-only-Tannlege-${suffix}`,
         calTodayTitle: `B-today-${suffix}`,
         shopItem: `B-only-Te-${suffix}`,
+        todayChoreTask: `B-today-chore-${suffix}`,
         eventDate: '2026-11-15',
       };
 
@@ -222,6 +230,21 @@ describe(
       }
       await seedShopping(A);
       await seedShopping(B);
+
+      async function seedTodayChore(who) {
+        const r = await request(server.baseUrl, 'POST', '/api/chores', {
+          headers: authHeaders(who.cookie),
+          body: {
+            task: who.todayChoreTask,
+            frequency: 'ukentlig',
+            defaultDay: todayDow(),
+            icon: '✨',
+          },
+        });
+        assert.equal(r.status, 201, `today chore ${who.todayChoreTask}: ${JSON.stringify(r.body)}`);
+      }
+      await seedTodayChore(A);
+      await seedTodayChore(B);
     });
 
     after(async () => {
@@ -301,16 +324,24 @@ describe(
       assert.ok(eventsB.includes(B.calTodayTitle), 'B today missing own event');
       assert.ok(!eventsB.includes(A.calTodayTitle), 'B today leaked A event');
 
-      // Chore labels after onboarding are copies of the same seed catalog
-      // (same task strings is OK). Isolation is the row identity:
-      // family-scoped chore / schedule IDs must not overlap.
-      // Labels come from repos.chores (family rows), not seed ids.
+      // Seed catalog only schedules Mon–Fri. Each family also has a
+      // unique today-chore created in before(), so this stays green
+      // on weekends and checks label isolation (not just IDs).
       const todayTasksA = (todayA.body.chores || []).map((c) => c.task).filter(Boolean);
       const todayTasksB = (todayB.body.chores || []).map((c) => c.task).filter(Boolean);
-      const allTodayTasks = [...todayTasksA, ...todayTasksB];
       assert.ok(
-        allTodayTasks.some((t) => t !== '?'),
-        "onboarded today chores should include a real task string, not only '?'"
+        todayTasksA.includes(A.todayChoreTask),
+        `A today missing own chore, got ${todayTasksA.join('|')}`
+      );
+      assert.ok(!todayTasksA.includes(B.todayChoreTask), 'A today leaked B chore task');
+      assert.ok(
+        todayTasksB.includes(B.todayChoreTask),
+        `B today missing own chore, got ${todayTasksB.join('|')}`
+      );
+      assert.ok(!todayTasksB.includes(A.todayChoreTask), 'B today leaked A chore task');
+      assert.ok(
+        [...todayTasksA, ...todayTasksB].every((t) => t !== '?'),
+        "today chore labels must be real task strings, not '?'"
       );
       const idsA = choreIds(todayA.body);
       const idsB = choreIds(todayB.body);
