@@ -2,20 +2,21 @@
   "name": "FamilyAssistant",
   "short_name": "FamilyAssistant",
   "description": "Din personlige familieassistent - måltider, handleliste og pantry",
-  "start_url": "/v2/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "background_color": "#F7F3E8",
+  "theme_color": "#1F3F26",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/v2/icons/icon.svg",
+      "src": "/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/v2/icons/icon-maskable.svg",
+      "src": "/icons/icon-maskable.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"
