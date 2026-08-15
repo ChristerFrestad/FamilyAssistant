@@ -6,7 +6,49 @@
 
 ---
 
-2026-08-14 � G4 XP, backup import, child-scoped export
+2026-08-15 – U0-3 felles WeekStrip for Meals og Chores
+
+Task: Trekke ut den dupliserte uke-pill-raden fra Meals DayStrip
+og ChoresDayStrip til en delt layout-komponent, uten Calendar
+ukevisning (U5).
+
+Analysis: ingen separat ANALYSIS — tynn UI-ekstrakt med samme
+pille-kontrakt som før.
+
+- Journey: Meals/Chores mapper domenestatus → dots → WeekStrip
+  (valgt dag, i dag, klikk).
+- Edge cases: removed/skipped måltid = empty; chores overdue
+  slår pending; testIdPrefix bevarer day-* / chores-day-*.
+- Decisions: 1 (tynne wrappere beholdt for eksisterende tester
+  og mapping-hjelpere; Calendar ikke wired).
+- Portainer risk: no
+
+Plan: WeekStrip + test; migrer skjermene; wrappere eller slett;
+behold Meals/Chores-tester grønne; commit.
+
+Done:
+- Branch: feat/u0-3-week-strip
+- Commits: 1
+- Files changed: WeekStrip.tsx/.test.tsx, DayStrip + test,
+  ChoresDayStrip, Meals.tsx, Chores.tsx, AGENT_LOG.md
+- Tests added: WeekStrip 7; totalt 38/38 (WeekStrip, DayStrip,
+  Meals, Chores)
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: none
+
+Security: ingen nye endepunkter eller dataflyt.
+
+ISO 25010: Maintainability up (én pille-rad, to kallere).
+Usability uendret (samme klasser og testids).
+
+Status: waiting-for-operator (fix/ branch — DEL 5.3, no push)
+
+Next: Review og merge. U5 Calendar week view er bevisst ikke
+implementert.
+
+---
+
+2026-08-14 – G4 XP, backup import, child-scoped export
 
 - Branch: feat/g4-xp-backup
 - xp_awarded=10, stats, family backup v2, child export tightened
@@ -14,7 +56,7 @@
 - Status: merged into feat/g1-integrate
 
 ---
-2026-08-14 � G3 calendar integrations (Google + iCloud)
+2026-08-14 � G3 calendar integrations (Google + iCloud)
 
 - Branch: feat/g3-calendar-sync
 - Migration 034, PATCH/DELETE 404, CalDAV+Google mocks, Settings/Calendar footer

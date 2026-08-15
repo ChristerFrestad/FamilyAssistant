@@ -6,7 +6,7 @@
 //
 // Layout:
 //   1. Header  — "Ukens meny" + "Uke {weekYear}" subtitle
-//   2. DayStrip— horizontal pill row, scrolls on mobile
+//   2. WeekStrip — horizontal pill row, scrolls on mobile
 //   3. MealHero— feature card for the selected day
 //   4. RecipeIngredients — under the hero when a recipe is set
 //   5. WeekList— compact 7-row summary
@@ -17,7 +17,7 @@
 //   - useRecipePicker() owns the picker dialog state and the swap
 //     mutation.
 //   - usePantryDeduction() owns the mark-cooked dialog flow.
-//   - Loading → skeleton (DayStrip + hero placeholders).
+//   - Loading → skeleton (WeekStrip + hero placeholders).
 //   - Meal-plan fetch error → full error-card with retry.
 
 import type { JSX } from 'react';
@@ -26,7 +26,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
-import { DayStrip } from '../components/meals/DayStrip';
+import { WeekStrip } from '../components/layout/WeekStrip';
+import { mealSlotDots } from '../components/meals/DayStrip';
 import { MealHero } from '../components/meals/MealHero';
 import { MarkCookedDialog } from '../components/meals/MarkCookedDialog';
 import { RecipePickerDialog } from '../components/meals/RecipePickerDialog';
@@ -270,14 +271,15 @@ function MealsContent({
 
   return (
     <div className="flex flex-col gap-4" data-testid="meals-content">
-      <DayStrip
-        slots={slots}
+      <WeekStrip
         selectedIndex={selectedDayIndex}
         todayIndex={todayIndex}
         shortDayLabels={shortDayLabels}
         todayLabel={todayLabel}
         ariaLabel={dayStripAria}
         onSelect={onSelectDay}
+        dots={mealSlotDots(slots)}
+        testIdPrefix="day"
       />
 
       <MealHero
