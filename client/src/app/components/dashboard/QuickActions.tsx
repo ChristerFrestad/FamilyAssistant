@@ -1,8 +1,6 @@
 // QuickActions — three CTA buttons under the dashboard cards that
 // take the user straight to the screens that mutate the data the
-// dashboard reads. For Sprint 4 the destination screens are still
-// placeholders, but the navigation contract is in place so future
-// sprints just have to fill in the destinations.
+// dashboard reads.
 //
 // Buttons:
 //   - "Add meal"               -> /meals

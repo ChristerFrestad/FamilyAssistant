@@ -6,7 +6,47 @@
 
 ---
 
-2026-08-14 � G4 XP, backup import, child-scoped export
+2026-08-14 – U0-1 merkevare PWA-chrome og fjern leftover /v2-lenker
+
+Task: Sett PWA theme/background til merkevarefarger, fjern brukerrettede
+/v2-ruter (Shopping WEEK_NOT_COMPLETE skal peke på /meals), fjern
+Sprint 4-placeholder-kommentar i QuickActions. Ikke rør ScreenHeader
+(U0-2). /health skal allerede ha version + spa.
+
+Analysis: ingen (implementer-ticket med fast scope)
+- Journey: PWA install chrome + handleliste WEEK_NOT_COMPLETE -> /meals
+- Edge cases: 0 (ingen testdrevne /v2-assert)
+- Decisions: 1 (ikke migrere alle skjermer til ScreenHeader)
+- Portainer risk: no
+
+Plan: branch fra main; farger i vite.config; grep/erstatt /v2;
+bekreft /health; AGENT_LOG; commit.
+
+Done:
+- Branch: feat/u0-1-visual-system
+- Commits: 1
+- Files: client/vite.config.ts, client/src/app/components/dashboard/QuickActions.tsx,
+  client/src/app/screens/Shopping.tsx, AGENT_LOG.md
+- Tests: QuickActions + Shopping + i18n bundles 43/43
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: i18n JSON og navigate('/v2 var allerede uten prefiks;
+  WEEK_NOT_COMPLETE navigerer allerede til /meals. Kun stale kommentar
+  i Shopping.tsx oppdatert. /health allerede version + spa (5722e02).
+
+Security: ingen nye endepunkter eller auth-endringer.
+
+ISO 25010: Compatibility/Usability (PWA-chrome matcher merkevare).
+Security unchanged.
+
+Status: waiting-for-operator
+
+Next: leftover #2563eb i client/index.html theme-color og
+client/public/manifest.webmanifest (start_url /v2/). Kommentarer og
+redirect-strip /^\/v2/ ligger igjen i auth. U0-2 eier ScreenHeader.
+
+---
+
+2026-08-14 – G4 XP, backup import, child-scoped export
 
 - Branch: feat/g4-xp-backup
 - xp_awarded=10, stats, family backup v2, child export tightened
@@ -14,7 +54,7 @@
 - Status: merged into feat/g1-integrate
 
 ---
-2026-08-14 � G3 calendar integrations (Google + iCloud)
+2026-08-14 � G3 calendar integrations (Google + iCloud)
 
 - Branch: feat/g3-calendar-sync
 - Migration 034, PATCH/DELETE 404, CalDAV+Google mocks, Settings/Calendar footer

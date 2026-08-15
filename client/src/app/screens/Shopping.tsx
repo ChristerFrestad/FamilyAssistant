@@ -19,7 +19,7 @@
 //     feedback. Auto-clears on next successful op.
 //   - WEEK_NOT_COMPLETE inline error: when /generate rejects with
 //     this code, swap the empty-state copy for a hint pointing at
-//     /v2/meals.
+//     /meals.
 //
 // The pantry-view is the PantryView container — see its file for the
 // full surface (loading/empty/error/grouped items, marker-brukt
