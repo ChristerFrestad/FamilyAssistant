@@ -40,8 +40,12 @@ test('JSON-LD graph parses and includes required types', () => {
 });
 
 test('canonical, hreflang and CTA are present', () => {
-  assert.match(HOME, /rel="canonical" href="https:\/\/hverdagsplanleggeren.com\/"/);
+  assert.match(HOME, /rel="canonical" href="\{\{CANONICAL\}\}\/"/);
   assert.match(HOME, /hreflang="nb-NO"/);
   assert.match(HOME, /hreflang="en"/);
   assert.match(HOME, /login\?mode=register/);
+});
+
+test('source HTML does not embed operator production hostnames', () => {
+  assert.doesNotMatch(HOME, /hverdagsplanleggeren\.com/i);
 });

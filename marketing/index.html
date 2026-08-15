@@ -8,13 +8,13 @@
       name="description"
       content="Ett sted for middag, gjøremål, det som står på kjøkkenet og handlelisten. Norsk familieapp. Gratis å ta i bruk. Dataene blir hos dere."
     />
-    <link rel="canonical" href="https://hverdagsplanleggeren.com/" />
-    <link rel="alternate" hreflang="nb-NO" href="https://hverdagsplanleggeren.com/" />
-    <link rel="alternate" hreflang="en" href="https://hverdagsplanleggeren.com/en/" />
-    <link rel="alternate" hreflang="x-default" href="https://hverdagsplanleggeren.com/" />
+    <link rel="canonical" href="{{CANONICAL}}/" />
+    <link rel="alternate" hreflang="nb-NO" href="{{CANONICAL}}/" />
+    <link rel="alternate" hreflang="en" href="{{CANONICAL}}/en/" />
+    <link rel="alternate" hreflang="x-default" href="{{CANONICAL}}/" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="nb_NO" />
-    <meta property="og:url" content="https://hverdagsplanleggeren.com/" />
+    <meta property="og:url" content="{{CANONICAL}}/" />
     <meta
       property="og:title"
       content="Hverdagsplanleggeren — middag, gjøremål, kjøkken og handleliste"
@@ -23,7 +23,7 @@
       property="og:description"
       content="Ett sted for middag, gjøremål, kjøkkenet og handlelisten. Gratis. Privat. Norsk."
     />
-    <meta property="og:image" content="https://hverdagsplanleggeren.com/screens/01-dashboard.png" />
+    <meta property="og:image" content="{{CANONICAL}}/screens/01-dashboard.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#F7F3E8" />
     <link rel="icon" type="image/svg+xml" href="/site/emblem.svg" />
@@ -36,10 +36,10 @@
         "@graph": [
           {
             "@type": "Organization",
-            "@id": "https://hverdagsplanleggeren.com/#org",
+            "@id": "{{CANONICAL}}/#org",
             "name": "Hverdagsplanleggeren",
-            "url": "https://hverdagsplanleggeren.com/",
-            "logo": "https://hverdagsplanleggeren.com/site/emblem.svg",
+            "url": "{{CANONICAL}}/",
+            "logo": "{{CANONICAL}}/site/emblem.svg",
             "sameAs": [
               "https://github.com/ChristerFrestad/FamilyAssistant",
               "https://christerfrestad.com"
@@ -47,15 +47,15 @@
           },
           {
             "@type": "WebSite",
-            "@id": "https://hverdagsplanleggeren.com/#site",
-            "url": "https://hverdagsplanleggeren.com/",
+            "@id": "{{CANONICAL}}/#site",
+            "url": "{{CANONICAL}}/",
             "name": "Hverdagsplanleggeren",
             "inLanguage": "nb-NO",
-            "publisher": { "@id": "https://hverdagsplanleggeren.com/#org" }
+            "publisher": { "@id": "{{CANONICAL}}/#org" }
           },
           {
             "@type": "SoftwareApplication",
-            "@id": "https://hverdagsplanleggeren.com/#app",
+            "@id": "{{CANONICAL}}/#app",
             "name": "Hverdagsplanleggeren",
             "alternateName": "FamilyAssistant",
             "applicationCategory": "LifestyleApplication",
@@ -68,8 +68,8 @@
               "Kjøkken og matskap med holdbarhet",
               "Handleliste som kjenner skapet"
             ],
-            "url": "https://hverdagsplanleggeren.com/",
-            "screenshot": "https://hverdagsplanleggeren.com/screens/01-dashboard.png",
+            "url": "{{CANONICAL}}/",
+            "screenshot": "{{CANONICAL}}/screens/01-dashboard.png",
             "author": {
               "@type": "Person",
               "name": "Christer Frestad",

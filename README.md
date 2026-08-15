@@ -14,11 +14,11 @@ FamilyAssistant keeps dinner planning, the shopping list, what is already in the
 
 Typical deploy: **Docker → Portainer → Raspberry Pi (or any host) → optional Cloudflare Tunnel**.
 
-The public product name is **Hverdagsplanleggeren**. The app lives at
-`https://hverdagsplanleggeren.com` (`/login`, `/dashboard`). When
-`MARKETING_HOSTS` lists that host, `GET /` is the landing page
-(dinner, chores, kitchen, shopping list) on the **same** origin.
-Self-hosters leave `MARKETING_HOSTS` unset so `/` stays the app.
+When `MARKETING_HOSTS` lists the public hostname, `GET /` is a
+crawlable landing page (dinner, chores, kitchen, shopping list) on
+the **same** origin as `/login` and `/dashboard`. Hostnames belong in
+Portainer env, not in this repo. Self-hosters leave `MARKETING_HOSTS`
+unset so `/` stays the app.
 
 ## Features
 

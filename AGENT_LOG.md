@@ -6,11 +6,18 @@
 
 ---
 
+2026-08-15 – Strip operator hostnames from public repo
+
+Public git must not contain the operator production hostname.
+Marketing files use {{CANONICAL}} rewritten at serve time from
+MARKETING_CANONICAL. Docs/tests use example.com.
+
+---
+
 2026-08-15 – Same-origin correction (not app.)
 
-Christer: production login is https://hverdagsplanleggeren.com/login.
-app.hverdagsplanleggeren.com is the old host. Landing must share the
-apex: GET / marketing, GET /login SPA.
+Landing must share the public apex: GET / marketing, GET /login SPA.
+Operator hostnames stay in Portainer env, not in this repo.
 
 Done: path-split in marketing.js (fall through unknown paths), CTAs
 are /login, robots Disallow /login /dashboard, PWA start_url
@@ -20,15 +27,15 @@ are /login, robots Disallow /login /dashboard, PWA start_url
 
 2026-08-15 – Public marketing landing (Hverdagsplanleggeren)
 
-Task: apex hverdagsplanleggeren.com must explain the product instead of
-redirecting to app./login. 5-second sentence locked to dinner, chores,
+Task: public hostname must explain the product instead of sending
+visitors straight to /login. 5-second sentence locked to dinner, chores,
 kitchen/pantry, shopping list.
 
 Analysis: Cloudflare 301 + AuthGuard on `/` is why visitors see login.
 SPA landing would be invisible to agents. Host-gated static HTML in
 marketing/, MARKETING_HOSTS default empty.
 
-- Journey: type apex → 200 HTML → Kom i gang → app./login?mode=register
+- Journey: type public host → 200 HTML → Kom i gang → /login?mode=register
 - Edge cases: self-host `/` unchanged; www 301; unknown path 404 not SPA
 - Decisions: two hosts, one container; no React on marketing
 - Portainer risk: no (env default off)

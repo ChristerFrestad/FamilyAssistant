@@ -37,6 +37,11 @@ WCAG contrast.
 
 ## Example: Husby stack
 
+Portainer's Environment variables pane is **compose substitution**.
+The values only reach the container if `docker-compose.yml` maps them
+(`APP_NAME: ${APP_NAME:-FamilyAssistant}`, etc.). The repo compose
+file does this for brand + marketing hosts.
+
 ```yaml
 # Portainer stack env-vars (paste into the "Environment variables" pane)
 APP_NAME=Husby
