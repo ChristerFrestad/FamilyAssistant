@@ -263,6 +263,30 @@ function createChoreRepos(db) {
       `
       ).run(familyId, choreId, weekYear, scheduledDay);
     },
+    /**
+     * Set scheduled_day for an existing (family, week, chore) row.
+     * Inserts a pending row if seedDefault/add never created one
+     * (next week exists because of other chores, but this id is new).
+     */
+    setScheduledDay(weekYear, choreId, scheduledDay) {
+      const familyId = getFamilyId();
+      const result = db
+        .prepare(
+          `
+        UPDATE chore_schedules SET scheduled_day = ?
+        WHERE family_id = ? AND week_year = ? AND chore_id = ?
+      `
+        )
+        .run(scheduledDay, familyId, weekYear, choreId);
+      if (result.changes === 0) {
+        db.prepare(
+          `
+          INSERT INTO chore_schedules (family_id, chore_id, week_year, scheduled_day, status)
+          VALUES (?, ?, ?, ?, 'pending')
+        `
+        ).run(familyId, choreId, weekYear, scheduledDay);
+      }
+    },
   };
 
   return { chores, choreSchedules };

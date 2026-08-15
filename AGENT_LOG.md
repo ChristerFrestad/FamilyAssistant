@@ -6,14 +6,48 @@
 
 ---
 
-2026-08-14 – U0-2 shared ScreenHeader
+2026-08-15 â€“ U4-1 Friday postpone lands on next Monday
+
+Task: PUT /api/chores/postpone on Friday (day 4) left the chore on
+this week's today list and failed to move next week to Monday.
+
+Analysis: ingen (implementer-ticket med fast scope)
+- Journey: postpone Friday -> next-week Monday + drop from today
+- Edge cases: 2 (next week already seeded; postponed_to=-1 vs scheduledDay)
+- Decisions: 1 (UPDATE scheduled_day instead of INSERT OR IGNORE add)
+- Portainer risk: no
+
+Plan: branch; setScheduledDay; skip postponedTo<0 in today/current;
+test Friday seed both weeks; AGENT_LOG; commit.
+
+Done:
+- Branch: feat/u4-1-postpone-monday
+- Commits: 1
+- Files: server/routes.js, server/repositories/chore.repo.js,
+  tests/chore-postpone-friday.test.js, AGENT_LOG.md
+- Tests: chore-postpone-friday + chore-undo + chore-assignee-enforcement 5/5
+- DOMAIN_MODEL.md updated: no
+- Deviation from plan: none
+
+Security: no new endpoints; existing adult-only postpone unchanged.
+
+ISO 25010: Functional suitability (postpone destination + today filter).
+Reliability: UNIQUE ignore no longer swallows Friday->Monday move.
+
+Status: waiting-for-operator
+
+Next: review and merge feat/u4-1-postpone-monday.
+
+---
+
+2026-08-14 â€“ U0-2 shared ScreenHeader
 
 - Branch: feat/u0-2-screen-header
 - Tests: 102/102
 - Status: merged
 
 ---
-2026-08-14 – U0-3 shared WeekStrip for meals and chores
+2026-08-14 ï¿½ U0-3 shared WeekStrip for meals and chores
 
 - Branch: feat/u0-3-week-strip
 - Tests: 38/38

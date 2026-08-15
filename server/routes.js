@@ -66,6 +66,17 @@ const DAY_NAMES = [
 ];
 
 /**
+ * Weekday this schedule row belongs to this week.
+ * postponed_to < 0 means Friday → next Monday (off this week).
+ * @returns {number|null}
+ */
+function choreEffectiveDay(s) {
+  if (s.postponedTo !== null && s.postponedTo < 0) return null;
+  if (s.postponedTo !== null) return s.postponedTo;
+  return s.scheduledDay;
+}
+
+/**
  * Auto-merge the shopping list when the week is complete. Called from
  * the meal routes after mutations.
  *
@@ -1667,7 +1678,8 @@ function registerRoutes(router, { repos, serverState }) {
       const result = schedule
         .map((s) => {
           const chore = choresMap.get(s.choreId);
-          const effectiveDay = s.postponedTo !== null ? s.postponedTo : s.scheduledDay;
+          const onThisWeek = choreEffectiveDay(s);
+          const effectiveDay = onThisWeek !== null ? onThisWeek : -1;
           return {
             ...s,
             task: chore?.task || '?',
@@ -1675,7 +1687,7 @@ function registerRoutes(router, { repos, serverState }) {
             frequency: chore?.frequency || '',
             details: chore?.details || null,
             effectiveDay,
-            dayName: DAY_NAMES[effectiveDay] || '',
+            dayName: onThisWeek !== null ? DAY_NAMES[onThisWeek] || '' : '',
           };
         })
         .sort((a, b) => a.effectiveDay - b.effectiveDay);
@@ -1698,7 +1710,9 @@ function registerRoutes(router, { repos, serverState }) {
       if (currentDay === 4) {
         const nextWk = getWeekYear(new Date(Date.now() + 7 * 86400000));
         if (!repos.choreSchedules.exists(nextWk)) repos.choreSchedules.seedDefault(nextWk);
-        repos.choreSchedules.add(nextWk, choreId, 0);
+        // seedDefault already inserted this chore on default_day; UPDATE
+        // Monday instead of INSERT OR IGNORE (UNIQUE chore_id+week_year).
+        repos.choreSchedules.setScheduledDay(nextWk, choreId, 0);
         repos.choreSchedules.postpone(wk, choreId, -1);
       } else if (currentDay < 4) {
         repos.choreSchedules.postpone(wk, choreId, currentDay + 1);
@@ -2301,9 +2315,9 @@ function registerRoutes(router, { repos, serverState }) {
       const todayChores = repos.choreSchedules
         .getWeek(wk)
         .filter((s) => {
-          const effectiveDay =
-            s.postponedTo !== null && s.postponedTo >= 0 ? s.postponedTo : s.scheduledDay;
-          return effectiveDay === dayOfWeek && s.status !== 'done';
+          if (s.postponedTo !== null && s.postponedTo < 0) return false;
+          const effectiveDay = choreEffectiveDay(s);
+          return effectiveDay !== null && effectiveDay === dayOfWeek && s.status !== 'done';
         })
         .map((s) => {
           const chore = choresMap.get(s.choreId);
@@ -2544,8 +2558,9 @@ function registerRoutes(router, { repos, serverState }) {
       const todayChoresList = repos.choreSchedules
         .getWeek(wk)
         .filter((s) => {
-          const eff = s.postponedTo !== null && s.postponedTo >= 0 ? s.postponedTo : s.scheduledDay;
-          return eff === dayOfWeek && s.status !== 'done';
+          if (s.postponedTo !== null && s.postponedTo < 0) return false;
+          const eff = choreEffectiveDay(s);
+          return eff !== null && eff === dayOfWeek && s.status !== 'done';
         })
         .map((s) => choresMap.get(s.choreId)?.task)
         .filter(Boolean);
