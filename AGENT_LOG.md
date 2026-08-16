@@ -6,6 +6,16 @@
 
 ---
 
+2026-08-16 – Messenger IAB stuck on loading spinner
+
+Shared apex in Messenger showed a spinner, never the landing.
+Two separate causes: the short hostname without the product suffix
+is NXDOMAIN; on the real apex, three `rel=preload as=font
+crossorigin` tags keep some Facebook WebViews in the loading
+state. Fonts still load via CSS @font-face + font-display:swap.
+
+---
+
 2026-08-16 – Landing must stay readable in Messenger IAB
 
 Apex `/` was stolen by the PWA worker after `/login`. Shared apex

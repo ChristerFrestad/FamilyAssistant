@@ -46,6 +46,11 @@ test('canonical, hreflang and CTA are present', () => {
   assert.match(HOME, /login\?mode=register/);
 });
 
+test('homepage does not preload fonts (Messenger IAB hangs on crossorigin preload)', () => {
+  assert.doesNotMatch(HOME, /rel=["']preload["'][^>]+as=["']font["']/i);
+  assert.doesNotMatch(HOME, /as=["']font["'][^>]+crossorigin/i);
+});
+
 test('share card uses PNG og:image via CANONICAL, not SVG', () => {
   assert.match(HOME, /property="og:image" content="\{\{CANONICAL\}\}\/og-image\.png"/);
   assert.match(HOME, /property="og:image:type" content="image\/png"/);
