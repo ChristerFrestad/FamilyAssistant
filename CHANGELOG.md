@@ -25,6 +25,8 @@ React shell and AuthGuard sent anonymous users to `/login`.
   preloads finish (or never do)
 - `HEAD /` and `HEAD /login` return 200 with `Content-Length` and no
   body. A keep-alive HEAD without length looks hung to Messenger.
+- Bare-host request-targets (`example.com` without `/`) normalize to
+  `/` so Messenger shares without a trailing slash still hit landing.
 
 ### Changed — Marketing homepage: one story, no cropped screenshots
 

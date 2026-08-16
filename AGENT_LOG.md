@@ -6,6 +6,15 @@
 
 ---
 
+2026-08-16 – Messenger: slash works, no slash does not
+
+GET with and without a trailing slash are the same HTTP path (`/`).
+Messenger often HEADs a no-slash share first, or sends the bare
+host as the request-target. Live HEAD still times out until #202
+is deployed. Added normalizeIncomingUrl so a bare host becomes `/`.
+
+---
+
 2026-08-16 – HEAD must close for Messenger
 
 Live HEAD / was 200 but had no Content-Length (keep-alive).

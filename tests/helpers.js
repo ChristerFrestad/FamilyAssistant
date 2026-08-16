@@ -93,9 +93,9 @@ async function startTestServer({ dbPath, authToken } = {}) {
  * Minimal HTTP-klient for tester. Auto-gunzip og auto-JSON-parse.
  * Returnerer { status, headers, body (parsed JSON eller string) }.
  */
-function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
+function request(baseUrl, method, path, { headers = {}, body, token, rawPath } = {}) {
   return new Promise((resolve, reject) => {
-    const url = new URL(baseUrl + path);
+    const url = new URL(baseUrl + (path.startsWith('/') || path === '' ? path || '/' : `/${path}`));
     const h = { ...headers };
     if (body && !h['Content-Type']) h['Content-Type'] = 'application/json';
     if (token) h['Authorization'] = `Bearer ${token}`;
@@ -115,7 +115,7 @@ function request(baseUrl, method, path, { headers = {}, body, token } = {}) {
       {
         host: url.hostname,
         port: url.port,
-        path: url.pathname + url.search,
+        path: rawPath != null ? rawPath : url.pathname + url.search,
         method,
         headers: h,
       },
