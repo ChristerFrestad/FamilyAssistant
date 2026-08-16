@@ -66,12 +66,32 @@ describe('Onboarding seeds per-family defaults', () => {
     runWithFamily(newFamilyId, () => {
       const recipeCount = server.repos.recipes.count();
       const choreCount = server.repos.chores.getAll().length;
-      const consumableCount = server.repos.consumables.getAll().length;
+      const liveConsumables = server.repos.consumables.getAll();
+      const consumableCount = liveConsumables.length;
       assert.ok(recipeCount > 0, `expected new family to have recipes; got ${recipeCount}`);
       assert.ok(choreCount > 0, `expected new family to have chores; got ${choreCount}`);
       assert.ok(
         consumableCount > 0,
-        `expected new family to have consumables; got ${consumableCount}`
+        `expected new family to have the small staple set; got ${consumableCount}`
+      );
+      assert.equal(
+        liveConsumables.some((c) => c.autoAdd),
+        false,
+        'live defaults must not auto-add branded or staple packs onto the first shopping list'
+      );
+      const liveLabels = liveConsumables
+        .map((c) => `${c.name} ${c.packName || ''}`)
+        .join(' | ')
+        .toLowerCase();
+      assert.equal(
+        /ajax/.test(liveLabels) && /baderom|allrengj/.test(liveLabels),
+        false,
+        'onboarding must not insert Ajax baderom / Ajax allrengjøring as live inventory'
+      );
+      assert.equal(
+        liveConsumables.some((c) => c.category === 'Barn' || c.category === 'Personlig pleie'),
+        false,
+        'onboarding must not insert baby or personal-care packs'
       );
     });
   });
@@ -173,6 +193,14 @@ describe('Onboarding seeds per-family defaults', () => {
     assert.ok(meta.seedSummary, 'audit metadata should contain seedSummary');
     assert.ok(meta.seedSummary.recipesInserted >= 1);
     assert.ok(meta.seedSummary.choresInserted >= 1);
-    assert.ok(meta.seedSummary.consumablesInserted >= 1);
+    // Small generic staple set (not the old branded household dump).
+    assert.ok(
+      meta.seedSummary.consumablesInserted >= 1,
+      `expected small staple seed; got ${meta.seedSummary.consumablesInserted}`
+    );
+    assert.ok(
+      meta.seedSummary.consumablesInserted <= 8,
+      `live seed must stay a small staple set, not the branded catalog; got ${meta.seedSummary.consumablesInserted}`
+    );
   });
 });

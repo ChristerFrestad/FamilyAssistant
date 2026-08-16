@@ -6,6 +6,16 @@
 
 ---
 
+2026-08-16 – New-family consumable seed is grocery-first
+
+Live seed no longer inserts the branded/baby/personal-care demo
+catalog (Ajax baderomsspray, Ajax allrengjøring 1.5L, Libero, …)
+at qty 0 with autoAdd. New families get a small generic staple set
+with autoAdd off. Catalog kept as templates. Generate-for-week
+unchanged. Tests: first-week-shopping-seed + onboarding seed.
+
+---
+
 2026-08-16 – Instance keys vs family models
 
 Kassal is stack-only (env). LLM already had family_llm_config.

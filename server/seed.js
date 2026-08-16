@@ -1598,7 +1598,10 @@ const chores = [
   },
 ];
 
-const consumables = [
+// Optional household catalog — branded, baby, personal-care, and
+// niche packs kept as templates. NOT inserted as live inventory.
+// A new family must opt in before any of these auto-add to shopping.
+const consumableCatalog = [
   // === DRIKKEVARER ===
   {
     id: 1,
@@ -2282,6 +2285,78 @@ const consumables = [
   },
 ];
 
+// Live default inventory for a new family. Small generic staple set
+// only — no branded cleaners, no baby, no personal-care. autoAdd is
+// false so first-week shopping is the meal-plan grocery list, not a
+// restock of unused household inventory at qty 0. Families toggle
+// auto-add (or add catalog items) when they want restocking.
+const consumables = [
+  {
+    name: 'Toalettpapir',
+    category: 'Husholdning',
+    depletionModel: 'daily_rate',
+    depletionRate: 0.5,
+    depletionUnit: 'ruller/dag',
+    currentQty: 0,
+    unit: 'ruller',
+    reorderThreshold: 4,
+    autoAdd: false,
+    packName: 'Toalettpapir 12-pk',
+    packSize: 12,
+    packUnit: 'ruller',
+    estPrice: 69,
+    store: 'Kiwi',
+  },
+  {
+    name: 'Oppvaskmiddel',
+    category: 'Kjøkken',
+    depletionModel: 'fixed_interval',
+    depletionRate: 14,
+    depletionUnit: 'dager/flaske',
+    currentQty: 0,
+    unit: 'flasker',
+    reorderThreshold: 1,
+    autoAdd: false,
+    packName: 'Oppvaskmiddel 500ml',
+    packSize: 1,
+    packUnit: 'flaske',
+    estPrice: 29,
+    store: 'Kiwi',
+  },
+  {
+    name: 'Kjøkkenrull',
+    category: 'Kjøkken',
+    depletionModel: 'fixed_interval',
+    depletionRate: 7,
+    depletionUnit: 'dager/rull',
+    currentQty: 0,
+    unit: 'ruller',
+    reorderThreshold: 2,
+    autoAdd: false,
+    packName: 'Kjøkkenrull 4-pk',
+    packSize: 4,
+    packUnit: 'ruller',
+    estPrice: 39,
+    store: 'Kiwi',
+  },
+  {
+    name: 'Søppelposer',
+    category: 'Kjøkken',
+    depletionModel: 'fixed_interval',
+    depletionRate: 3,
+    depletionUnit: 'dager/pose',
+    currentQty: 0,
+    unit: 'poser',
+    reorderThreshold: 5,
+    autoAdd: false,
+    packName: 'Søppelposer 30L 20stk',
+    packSize: 20,
+    packUnit: 'poser',
+    estPrice: 29,
+    store: 'Kiwi',
+  },
+];
+
 // Hvilke alternative oppskrifter passer til hvilken dag (basert på kategori og ingrediensoverlapp)
 const altSuggestionMap = {
   0: [8, 9, 19, 31, 35], // Mandag: raske kylling/curry-alt
@@ -2308,6 +2383,7 @@ module.exports = {
   defaultMealPlan,
   chores,
   consumables,
+  consumableCatalog,
   altSuggestionMap,
   getWeekYear,
 };

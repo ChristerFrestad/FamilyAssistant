@@ -6,6 +6,19 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed — New-family seed no longer auto-shops branded household packs
+
+A freshly onboarded family used to get the full demo consumable catalog
+(Ajax baderomsspray, Ajax allrengjøring 1.5L, Libero, Dr. Greve, …) at
+`currentQty: 0` with `autoAdd: true`. Generating the first weekly
+shopping list then asked every family to buy that inventory.
+
+Live seed is now a small generic staple set (toalettpapir, oppvaskmiddel,
+kjøkkenrull, søppelposer) with `autoAdd` off. The branded/baby/personal-care
+list stays in `seed.consumableCatalog` as templates and is not inserted.
+Existing families with consumable rows are unchanged. Shopping generate
+is unchanged (still auto-adds tracked packs that are below threshold).
+
 ### Changed — Instance env vs family models in Settings
 
 Kassal and stack LLM keys live in process env (every family). Family

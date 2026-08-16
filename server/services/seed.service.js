@@ -67,6 +67,8 @@ function seedIfEmpty(repos) {
   }
 
   // === CONSUMABLES === (per-family — startup seed lands on legacy family 1)
+  // Live seed is seed.consumables (small generic staple set, autoAdd
+  // off). The branded/baby/personal-care catalog is NOT inserted here.
   if (consumables.getAll().length === 0) {
     consumables.upsertMany(seed.consumables);
     console.log(`[SEED] Seeded ${seed.consumables.length} consumables`);
@@ -140,7 +142,10 @@ function seedFamilyDefaults(repos, familyId) {
       summary.choresInserted = seed.chores.length;
     }
 
-    // 3. Consumables
+    // 3. Consumables — empty-table only. Live defaults are the small
+    //    generic staple set in seed.consumables (no branded household
+    //    must-buys, no baby/personal-care, autoAdd off). Families that
+    //    already have rows are left unchanged.
     if (consumables.getAll().length === 0) {
       consumables.upsertMany(seed.consumables);
       summary.consumablesInserted = seed.consumables.length;

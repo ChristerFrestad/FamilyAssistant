@@ -31,6 +31,40 @@ authoritative source. When Claude works on a new task:
 > Each entity describes: fields, relationships, rules, lifecycle.
 > Short and concrete. The code is the truth; this is the explanation.
 
+### Consumable
+
+**Source file:** `server/seed.js` (`consumables` live defaults + `consumableCatalog` templates)
+**Service:** `server/services/seed.service.js` (`seedFamilyDefaults` / `seedIfEmpty`)
+**Shopping:** `server/services/shopping-list.service.js` (`computeShoppingListForWeek` step 3)
+**Repository:** `repos.consumables` in `server/repositories/pricing.repo.js`
+**Table:** `consumables` (migration `001_initial_schema.sql`)
+
+**What it is:** A family-scoped tracked household pack (paper, detergent,
+baby, personal-care, …). Distinct from the food `products` catalog.
+Generate-for-week auto-adds a row only when `autoAdd` is on and
+`currentQty <= reorderThreshold`.
+
+**Live default vs catalog:**
+- `seed.consumables` is the live set inserted for an empty family: a
+  small generic staple set (toalettpapir, oppvaskmiddel, kjøkkenrull,
+  søppelposer), unbranded names, `autoAdd: false`. First-week shopping
+  is therefore the meal-plan grocery list, not a restock of unused
+  household inventory at qty 0.
+- `seed.consumableCatalog` is an optional template list (branded
+  cleaners, baby, personal-care). It is **not** inserted on seed.
+  Families add those packs themselves (or toggle auto-add on a staple)
+  when they want restocking.
+- Empty-table guard: if the family already has consumable rows, seed
+  does not insert, replace, or wipe them.
+
+**Rules:**
+- Do not special-case brand names in shopping generate (no Ajax denylist).
+- Policy lives in what is seeded as live inventory, not in generate.
+
+**Covered by tests:**
+- `tests/first-week-shopping-seed.test.js`
+- `tests/onboarding-seed-per-family.test.js`
+
 ### Recipe
 
 **Source file:** `server/routes.js` (POST/PATCH/GET/deactivate)
