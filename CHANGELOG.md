@@ -6,6 +6,12 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed — Portainer API keys reach the container
+
+`KASSAL_API_KEY` (and Resend / OpenAI / Anthropic / xAI) set in the
+Portainer stack env never arrived in Node. Compose now maps them as
+`${VAR:-}` the same way marketing hosts already do.
+
 ### Fixed — PWA no longer replaces the landing page with /login
 
 Workbox default `directoryIndex` mapped `GET /` to the precached SPA

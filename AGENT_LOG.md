@@ -6,6 +6,15 @@
 
 ---
 
+2026-08-16 – Kassal key set in Portainer but unused
+
+Operator set KASSAL_API_KEY in stack env and redeployed. Compose did
+not map it into services.app.environment, so process.env stayed empty
+and enrich stayed a no-op for every family. Same class of bug as
+MARKETING_HOSTS. Mapping added; no secret in git.
+
+---
+
 2026-08-16 – Messenger: slash works, no slash does not
 
 GET with and without a trailing slash are the same HTTP path (`/`).

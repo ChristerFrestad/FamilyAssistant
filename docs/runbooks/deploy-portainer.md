@@ -68,7 +68,7 @@ resolve against Portainer's working directory, not your project folder.)
 
 | Variable | Value | Rationale |
 |---|---|---|
-| `KASSAL_API_KEY` | (empty for pilot) | Enabled post-pilot |
+| `KASSAL_API_KEY` | token from kassal.app/api | One key for the whole instance. Must be listed in compose `environment` as `${KASSAL_API_KEY:-}` or Node never sees the Portainer value |
 | `SENTRY_DSN` | (empty for pilot) | Optional observability |
 | `MAGIC_LINK_CONSOLE` | `false` | Only fallback if Resend goes down |
 
