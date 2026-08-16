@@ -19,6 +19,7 @@ const { runWithFamily } = require('../auth/family-context');
 const metrics = require('./metrics');
 const sentry = require('../observability/sentry');
 const { tryHandleMarketing, tryServeAppRobots, rewriteCanonical } = require('./marketing');
+const { normalizeIncomingUrl } = require('./request-url');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
@@ -184,8 +185,8 @@ function createServer(router, { authenticate } = {}) {
     applySecurityHeaders(res);
 
     const started = Date.now();
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const pathname = url.pathname;
+    const url = normalizeIncomingUrl(req.url, req.headers.host);
+    const pathname = url.pathname || '/';
     const query = parseQuery(url);
     const ctx = createContext(req, res, pathname, query);
     let routeTemplate = pathname; // overridet etter dispatch

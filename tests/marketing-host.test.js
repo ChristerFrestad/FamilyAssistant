@@ -125,6 +125,21 @@ describe('marketing host routing', () => {
     assert.match(r.raw, /llms-full.txt/);
   });
 
+  test('absolute-form URL without a path still serves the marketing homepage', async () => {
+    const r = await request(server.baseUrl, 'GET', '/', {
+      headers: { Host: APEX },
+      rawPath: `https://${APEX}`,
+    });
+    assert.equal(r.status, 200);
+    assert.match(r.raw, /Ett sted for middag, gjøremål, kjøkkenet og handlelisten/);
+  });
+
+  test('GET /<host> is treated as GET / on the marketing host', async () => {
+    const r = await get(`/${APEX}`, APEX);
+    assert.equal(r.status, 200);
+    assert.match(r.raw, /Ett sted for middag, gjøremål, kjøkkenet og handlelisten/);
+  });
+
   test('apex HEAD / is 200 with Content-Length and no body', async () => {
     const r = await request(server.baseUrl, 'HEAD', '/', { headers: { Host: APEX } });
     assert.equal(r.status, 200);
