@@ -75,3 +75,13 @@ would treat `GET /` as that file and ignore `navigateFallbackDenylist`.
 `vite.config.ts` sets `directoryIndex: null` so apex `/` hits the
 network (marketing HTML) after a visitor has opened `/login` and
 the worker is controlling the origin.
+
+The worker is registered from `client/src/app/pwa/registerPwa.ts`,
+not injected by Vite. Facebook/Messenger/Instagram user-agents skip
+registration so an in-app browser that only came to read the landing
+never takes over `/`. `/sw.js` is served with `Cache-Control: no-store`.
+
+Marketing HTML (`tryHandleMarketing`) uses a looser CSP (no
+`frame-ancestors 'none'`), no `X-Frame-Options`, and
+`Cross-Origin-Resource-Policy: cross-origin`. The SPA and API keep
+the strict headers. Share cards use `{{CANONICAL}}/og-image.png`.

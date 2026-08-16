@@ -34,6 +34,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Manual register so Facebook/Messenger/Instagram in-app browsers
+      // never install a worker that can swallow GET / .
+      injectRegister: false,
       includeAssets: ['favicon.ico', 'robots.txt', 'icons/icon.svg', 'icons/icon-maskable.svg'],
       manifest: {
         name: 'FamilyAssistant',

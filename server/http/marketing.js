@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { applyMarketingDocumentHeaders } = require('./security');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const SRC_DIR = path.join(__dirname, '..', '..', 'marketing');
@@ -173,12 +174,15 @@ function rewriteCanonical(buf, origin) {
 }
 
 function sendFile(res, filePath, method, origin) {
+  applyMarketingDocumentHeaders(res);
   const ext = path.extname(filePath);
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
   const headers = {
     'Content-Type': mime,
     'Cache-Control': cacheControlFor(filePath),
     'X-Robots-Tag': 'index, follow',
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+    'Content-Security-Policy': res.getHeader('Content-Security-Policy'),
   };
   if (method === 'HEAD') {
     res.writeHead(200, headers);
@@ -269,4 +273,5 @@ module.exports = {
   tryServeAppRobots,
   marketingRoot,
   mapPathnameToFile,
+  rewriteCanonical,
 };

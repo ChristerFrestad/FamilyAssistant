@@ -120,10 +120,14 @@ async function handlePng({ ctx, config, template, width, height, endpoint }) {
       height,
     });
 
+    const shareHeaders =
+      endpoint === 'og-image' ? { 'Cross-Origin-Resource-Policy': 'cross-origin' } : {};
+
     if (ifNoneMatch && ifNoneMatch === etag) {
       ctx.res.writeHead(304, {
         ETag: etag,
         'Cache-Control': PNG_CACHE,
+        ...shareHeaders,
       });
       ctx.res.end();
       return;
@@ -134,6 +138,7 @@ async function handlePng({ ctx, config, template, width, height, endpoint }) {
       'Cache-Control': PNG_CACHE,
       ETag: etag,
       'Content-Length': buffer.length,
+      ...shareHeaders,
     });
     ctx.res.end(buffer);
   } catch (err) {

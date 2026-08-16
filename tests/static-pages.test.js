@@ -121,6 +121,8 @@ describe('Phase 16 · Live server serves static pages anonymously', () => {
     assert.match(String(r.raw), /Tombstone service worker/);
     assert.match(String(r.raw), /registration\.unregister/);
     assert.match(String(r.raw), /caches\.delete/);
+    assert.match(r.headers['cache-control'] || '', /no-store/);
+    assert.equal(r.headers['service-worker-allowed'], '/');
   });
 
   test('GET /setup.html → 200 (Portainer first-boot wizard)', async () => {

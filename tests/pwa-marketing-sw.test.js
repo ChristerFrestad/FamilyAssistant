@@ -18,6 +18,7 @@ test('Vite PWA config disables directoryIndex so / is not SPA index.html', () =>
   assert.doesNotMatch(src, /cleanURLs\s*:/);
   assert.match(src, /navigateFallbackDenylist/);
   assert.match(src, /\/\^\\\/\$\//);
+  assert.match(src, /injectRegister:\s*false/);
 });
 
 test('directoryIndex: null is valid GenerateSW config', () => {

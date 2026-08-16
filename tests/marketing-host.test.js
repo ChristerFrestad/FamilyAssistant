@@ -29,7 +29,7 @@ before(async () => {
   fs.mkdirSync(path.join(V2_DIR, 'assets'), { recursive: true });
   fs.writeFileSync(
     path.join(V2_DIR, 'index.html'),
-    '<!doctype html><html><body><div id="root">spa fixture</div></body></html>'
+    '<!doctype html><html><head><meta property="og:image" content="{{CANONICAL}}/og-image.png" /></head><body><div id="root">spa fixture</div></body></html>'
   );
   server = await startTestServer();
 });
@@ -123,6 +123,39 @@ describe('marketing host routing', () => {
     assert.match(r.raw, /Hverdagsplanleggeren/);
     assert.match(r.raw, /middag, gjøremål/);
     assert.match(r.raw, /llms-full.txt/);
+  });
+
+  test('Messenger UA GET / is marketing HTML, not SPA or /login', async () => {
+    const r = await request(server.baseUrl, 'GET', '/', {
+      headers: {
+        Host: APEX,
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/10.0;]',
+      },
+    });
+    assert.equal(r.status, 200);
+    assert.match(r.raw, /Ett sted for middag, gjøremål, kjøkkenet og handlelisten/);
+    assert.doesNotMatch(r.raw, /id="root"/);
+    assert.ok(!r.headers.location);
+  });
+
+  test('marketing GET / drops X-Frame-Options DENY so IAB can show the page', async () => {
+    const r = await get('/', APEX);
+    assert.equal(r.status, 200);
+    assert.notEqual(r.headers['x-frame-options'], 'DENY');
+    assert.equal(r.headers['cross-origin-resource-policy'], 'cross-origin');
+    const csp = r.headers['content-security-policy'] || '';
+    assert.doesNotMatch(csp, /frame-ancestors\s+'none'/);
+  });
+
+  test('SPA /login on the marketing host keeps clickjacking headers', async () => {
+    const r = await get('/login', APEX);
+    assert.equal(r.status, 200);
+    assert.equal(r.headers['x-frame-options'], 'DENY');
+    assert.equal(r.headers['cross-origin-resource-policy'], 'same-origin');
+    assert.match(r.headers['content-security-policy'] || '', /frame-ancestors\s+'none'/);
+    assert.match(String(r.raw), /https:\/\/marketing\.example\/og-image\.png/);
+    assert.doesNotMatch(String(r.raw), /\{\{CANONICAL\}\}/);
   });
 
   test('apex /fonts falls back to public/www when missing from marketing/', async () => {

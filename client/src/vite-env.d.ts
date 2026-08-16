@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 // Project-specific extension of Vite's ambient ImportMetaEnv.
 //

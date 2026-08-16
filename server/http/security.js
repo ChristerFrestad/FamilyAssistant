@@ -243,6 +243,23 @@ const CSP_POLICY = [
   "form-action 'self'",
 ].join('; ');
 
+// Marketing HTML is meant to be opened inside Messenger/Facebook
+// in-app browsers, some of which embed the document. frame-ancestors
+// none + X-Frame-Options DENY produce a blank surface there. The
+// landing has no session forms — SPA/API keep the strict policy.
+const MARKETING_CSP_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "media-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+].join('; ');
+
 function applySecurityHeaders(res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -255,6 +272,16 @@ function applySecurityHeaders(res) {
   if (config.NODE_ENV === 'production' && process.env.HTTPS_TERMINATED === 'true') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
+}
+
+function applyMarketingDocumentHeaders(res) {
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Content-Security-Policy', MARKETING_CSP_POLICY);
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+}
+
+function applyShareAssetHeaders(res) {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 }
 
 // ============================================================
@@ -303,6 +330,8 @@ module.exports = {
   rateLimit,
   startRateLimitCleanup,
   applySecurityHeaders,
+  applyMarketingDocumentHeaders,
+  applyShareAssetHeaders,
   sanitizeForPrompt,
   getClientIp,
   // Test-only — exported for the security suite to reset between cases.
