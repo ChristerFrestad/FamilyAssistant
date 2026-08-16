@@ -42,6 +42,14 @@ services:
       APP_PRIMARY_COLOR: ${APP_PRIMARY_COLOR:-#1F3F26}
       APP_ACCENT_COLOR: ${APP_ACCENT_COLOR:-#5F8B5C}
       APP_DOT_COLOR: ${APP_DOT_COLOR:-#7BA05B}
+      # Integration keys: set in Portainer stack env. Empty default so
+      # a stack without them still boots. Do not put secrets in git.
+      KASSAL_API_KEY: ${KASSAL_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
     mem_limit: 768m
     healthcheck:
       test:
