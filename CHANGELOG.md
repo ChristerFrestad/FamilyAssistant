@@ -6,6 +6,14 @@ og versjonering følger [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed — Instance env vs family models in Settings
+
+Kassal and stack LLM keys live in process env (every family). Family
+owners can no longer write `/api/settings/env`. Families that want
+their own AI engine still use `family_llm_config` / `/api/family/llm`.
+If a family has no row, the dispatcher falls back to the instance key.
+Settings shows Kassal as instance-scoped and AI as family-or-instance.
+
 ### Fixed — Portainer API keys reach the container
 
 `KASSAL_API_KEY` (and Resend / OpenAI / Anthropic / xAI) set in the

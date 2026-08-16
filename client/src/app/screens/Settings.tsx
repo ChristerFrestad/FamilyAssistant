@@ -39,6 +39,8 @@ import { EmailVerificationBanner } from '../components/settings/EmailVerificatio
 import { useSettingsData } from '../settings/useSettingsData';
 import { useAuthContext } from '../auth/AuthContext';
 import { fetchHealth } from '../settings/settingsApi';
+import { useBrandConfig } from '../hooks/useBrandConfig';
+import { FamilyLlmSettings } from '../components/settings/FamilyLlmSettings';
 
 const TOAST_DISMISS_MS = 4000;
 
@@ -46,6 +48,7 @@ export function Settings(): JSX.Element {
   const { t } = useTranslation(['settings', 'common']);
   const navigate = useNavigate();
   const { user, logout } = useAuthContext();
+  const { config: brand } = useBrandConfig();
   const {
     family,
     isLoading,
@@ -148,6 +151,15 @@ export function Settings(): JSX.Element {
               description={t('settings:system.theme.description')}
               control={<ThemeToggle />}
             />
+            <SettingsRow
+              label={t('settings:system.kassal.label')}
+              description={
+                brand?.integrations?.kassal.enabled
+                  ? t('settings:system.kassal.on')
+                  : t('settings:system.kassal.off')
+              }
+              badge={t('settings:system.kassal.badge')}
+            />
           </SettingsSection>
 
           <SettingsSection title={t('settings:sections.family')} id="family">
@@ -178,6 +190,7 @@ export function Settings(): JSX.Element {
               disabled
               badge={t('settings:badge.postPilot')}
             />
+            <FamilyLlmSettings isOwner={isOwner} />
             <SettingsRow
               label={t('settings:family.gamification.label')}
               description={t('settings:family.gamification.description')}

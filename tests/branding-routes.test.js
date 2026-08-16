@@ -64,6 +64,8 @@ describe('Branding routes · /api/config', () => {
       // within minutes, long enough to avoid hitting the server on
       // every page-load.
       assert.match(r.headers['cache-control'], /max-age=300/);
+      assert.equal(r.body.integrations.kassal.scope, 'instance');
+      assert.equal(typeof r.body.integrations.kassal.enabled, 'boolean');
     } finally {
       await restore();
     }

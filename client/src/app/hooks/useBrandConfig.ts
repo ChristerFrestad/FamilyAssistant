@@ -18,6 +18,13 @@
 
 import { useEffect, useState } from 'react';
 
+export interface InstanceIntegration {
+  enabled: boolean;
+  scope: 'instance';
+  backend?: string;
+  hasKey?: boolean;
+}
+
 export interface BrandConfig {
   appName: string;
   namePrimary: string;
@@ -27,6 +34,11 @@ export interface BrandConfig {
   primaryColor: string;
   accentColor: string;
   dotColor: string;
+  integrations?: {
+    kassal: InstanceIntegration;
+    llm: InstanceIntegration;
+    resend: InstanceIntegration;
+  };
 }
 
 export interface UseBrandConfigResult {

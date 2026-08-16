@@ -14,6 +14,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { Settings } from './Settings';
+import { __resetBrandConfigCache } from '../hooks/useBrandConfig';
 import { AuthProvider } from '../auth/AuthContext';
 import { ThemeProvider } from '../theme/ThemeContext';
 import type { AuthUser } from '../auth/authApi';
@@ -28,6 +29,7 @@ function jsonResponse(status: number, body: unknown): Response {
 let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
+  __resetBrandConfigCache();
   fetchSpy = vi.spyOn(globalThis, 'fetch');
 });
 
@@ -106,6 +108,27 @@ function mockFetchByPath(handlers: Record<string, (init?: RequestInit) => Respon
     const defaults: Record<string, (init?: RequestInit) => Response> = {
       '/health': () =>
         jsonResponse(200, { status: 'ok', version: '1.4.0', spa: 'chores-calendar-g1' }),
+      '/api/config': () =>
+        jsonResponse(200, {
+          appName: 'FamilyAssistant',
+          namePrimary: 'Family',
+          nameAccent: 'Assistant',
+          faviconLetter: 'F',
+          tagline: 't',
+          primaryColor: '#1F3F26',
+          accentColor: '#5F8B5C',
+          dotColor: '#7BA05B',
+          integrations: {
+            kassal: { enabled: true, scope: 'instance' },
+            llm: { enabled: false, scope: 'instance' },
+            resend: { enabled: false, scope: 'instance' },
+          },
+        }),
+      '/api/family/llm': () =>
+        jsonResponse(200, {
+          config: null,
+          instanceFallback: { enabled: false, scope: 'instance' },
+        }),
     };
     const all = { ...defaults, ...handlers };
     for (const [pattern, handler] of Object.entries(all)) {

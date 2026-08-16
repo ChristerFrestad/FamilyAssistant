@@ -6,6 +6,16 @@
 
 ---
 
+2026-08-16 – Instance keys vs family models
+
+Kassal is stack-only (env). LLM already had family_llm_config.
+Cleanup: family owners cannot write instance .env; Settings shows
+Kassal as instance-wide; family AI row shows own model or server
+fallback. getClientForFamily uses instance OPENAI/ANTHROPIC/XAI
+when the family has no usable row.
+
+---
+
 2026-08-16 – Kassal key set in Portainer but unused
 
 Operator set KASSAL_API_KEY in stack env and redeployed. Compose did
