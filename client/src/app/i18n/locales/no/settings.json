@@ -28,6 +28,12 @@
     "theme": {
       "label": "Tema",
       "description": "Lyst eller mørkt utseende"
+    },
+    "kassal": {
+      "label": "Kassal (priser)",
+      "on": "Satt i miljøet for hele serveren. Alle familier får prisoppslag.",
+      "off": "Ikke satt. Handleliste viser ikke Kassal-priser.",
+      "badge": "Hele instansen"
     }
   },
   "family": {
@@ -53,6 +59,14 @@
       "label": "Ukentlig gjøremålsmål",
       "description": "Mål for antall fullførte gjøremål per uke",
       "inputAriaLabel": "Ukentlig mål for fullførte gjøremål"
+    },
+    "llm": {
+      "label": "AI-motor",
+      "none": "Ingen modell for denne familien, og serveren har ingen felles nøkkel.",
+      "own": "Denne familien bruker {{backend}}.",
+      "instance": "Ingen egen modell. Bruker serverens {{backend}} (alle familier uten egen nøkkel).",
+      "badgeFamily": "Denne familien",
+      "badgeInstance": "Hele instansen"
     },
     "backup": {
       "label": "Familie-backup",

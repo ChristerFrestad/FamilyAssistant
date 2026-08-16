@@ -24,11 +24,12 @@ const {
   NotConfiguredError,
 } = require('../llm/per-family');
 const { SUPPORTED_BACKENDS } = require('../repositories/llm-config.repo');
+const { getInstanceLlmPublic } = require('../llm/instance-fallback');
 
 function handleGetLlmConfig(ctx, repos) {
   if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
   const row = repos.llmConfig.getForFamilyPublic(ctx.familyId);
-  return { config: row };
+  return { config: row, instanceFallback: getInstanceLlmPublic() };
 }
 
 function handlePutLlmConfig(ctx, repos) {

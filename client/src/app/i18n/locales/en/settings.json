@@ -28,6 +28,12 @@
     "theme": {
       "label": "Theme",
       "description": "Light or dark appearance"
+    },
+    "kassal": {
+      "label": "Kassal (prices)",
+      "on": "Set in the server environment. Every family gets price lookup.",
+      "off": "Not set. Shopping lists will not use Kassal prices.",
+      "badge": "Whole instance"
     }
   },
   "family": {
@@ -53,6 +59,14 @@
       "label": "Weekly chore goal",
       "description": "Target number of completions per week",
       "inputAriaLabel": "Weekly completion goal"
+    },
+    "llm": {
+      "label": "AI engine",
+      "none": "No model for this family, and the server has no shared key.",
+      "own": "This family uses {{backend}}.",
+      "instance": "No family model. Using the server {{backend}} (every family without its own key).",
+      "badgeFamily": "This family",
+      "badgeInstance": "Whole instance"
     },
     "backup": {
       "label": "Family backup",

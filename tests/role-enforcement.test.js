@@ -163,22 +163,32 @@ test('adult cannot POST /api/integrations/kassal/test (owner only) — 403', asy
 // Owner can do everything
 // ============================================================
 
-test('owner can POST /api/settings/env (not 403)', async () => {
+test('owner cannot POST /api/settings/env (instance admin only) — 403', async () => {
   const owner = createUser('owner-env@role.test', 'owner');
   const r = await request(server.baseUrl, 'POST', '/api/settings/env', {
     headers: { Cookie: owner.cookie },
-    body: { key: 'FOO', value: 'bar' },
+    body: { key: 'KASSAL_API_KEY', value: 'kassaltoken12345678' },
+  });
+  assert.strictEqual(r.status, 403);
+});
+
+test('admin can POST /api/settings/env (not 403)', async () => {
+  const owner = createUser('admin-env@role.test', 'owner');
+  server.repos._db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(owner.userId);
+  const r = await request(server.baseUrl, 'POST', '/api/settings/env', {
+    headers: { Cookie: owner.cookie },
+    body: { key: 'KASSAL_API_KEY', value: 'kassaltoken12345678' },
   });
   assert.notStrictEqual(r.status, 403);
 });
 
-test('owner can POST /api/integrations/kassal/test (not 403)', async () => {
+test('owner cannot POST /api/integrations/kassal/test (admin only) — 403', async () => {
   const owner = createUser('owner-int@role.test', 'owner');
   const r = await request(server.baseUrl, 'POST', '/api/integrations/kassal/test', {
     headers: { Cookie: owner.cookie },
     body: {},
   });
-  assert.notStrictEqual(r.status, 403);
+  assert.strictEqual(r.status, 403);
 });
 
 // ============================================================
@@ -186,9 +196,9 @@ test('owner can POST /api/integrations/kassal/test (not 403)', async () => {
 // ============================================================
 
 test('bearer-token RPi fallback can hit owner endpoints', async () => {
-  const r = await request(server.baseUrl, 'POST', '/api/settings/env', {
+  const r = await request(server.baseUrl, 'PUT', '/api/family', {
     token: 'role-test-token-abcdef0123456789',
-    body: { key: 'FOO', value: 'bar' },
+    body: { name: 'Local family' },
   });
   assert.notStrictEqual(r.status, 401);
   assert.notStrictEqual(r.status, 403);

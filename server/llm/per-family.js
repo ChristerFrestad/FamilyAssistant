@@ -15,6 +15,7 @@ const { createAnthropicClient } = require('./anthropic');
 const { createOpenAIClient } = require('./openai');
 const { createXaiClient } = require('./xai');
 const { createOllamaClient } = require('./ollama');
+const { getInstanceLlmFallback } = require('./instance-fallback');
 
 class NotConfiguredError extends Error {
   constructor(message, { backend = null } = {}) {
@@ -66,11 +67,20 @@ function buildClientFromRow(row) {
   }
 }
 
+function familyRowIsUsable(row) {
+  if (!row) return false;
+  if (row.backend === 'ollama' || row.backend === 'llamacpp') return true;
+  return Boolean(row.api_key_encrypted);
+}
+
 function getClientForFamily(repos, familyId) {
   if (!repos?.llmConfig) {
     throw new NotConfiguredError('LLM config repo not available.');
   }
   const row = repos.llmConfig.getForFamily(familyId);
+  if (familyRowIsUsable(row)) return buildClientFromRow(row);
+  const fallback = getInstanceLlmFallback();
+  if (fallback) return getClientFromCandidate(fallback);
   return buildClientFromRow(row);
 }
 

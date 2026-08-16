@@ -36,6 +36,7 @@ const fs = require('fs');
 const path = require('path');
 
 const pngRenderer = require('../branding/png-renderer');
+const { getInstanceIntegrationsPublic } = require('../llm/instance-fallback');
 
 const TEMPLATES_DIR = path.join(__dirname, '..', 'branding', 'templates');
 const FAVICON_TEMPLATE = fs.readFileSync(path.join(TEMPLATES_DIR, 'favicon.template.svg'), 'utf8');
@@ -177,6 +178,7 @@ function handleApiConfig(ctx, config) {
     primaryColor: config.APP_PRIMARY_COLOR,
     accentColor: config.APP_ACCENT_COLOR,
     dotColor: config.APP_DOT_COLOR,
+    integrations: getInstanceIntegrationsPublic(),
   });
   ctx.res.writeHead(200, {
     'Content-Type': 'application/json; charset=utf-8',

@@ -19,7 +19,7 @@ const { registerBrandingRoutes } = require('./http/branding');
 const { registerCalendarIntegrationRoutes } = require('./http/calendar-routes');
 const { expandRecurring } = require('./services/calendar/rrule-expand');
 const { config } = require('./config');
-const { requireRole, hasRole } = require('./auth/middleware');
+const { requireRole, requireAdmin, hasRole } = require('./auth/middleware');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
 const schemas = require('./schemas');
@@ -260,10 +260,10 @@ function registerRoutes(router, { repos, serverState }) {
   //                          pantry, menu, shopping, calendar, recipes,
   //                          profile, receipts, AI chat, consumables,
   //                          chore postponement, sunday-push.
-  //   requireRole('owner') — owner-only: environment/integration
-  //                          settings, LLM config mutations, family
+  //   requireRole('owner') — owner-only: family LLM override, family
   //                          lifecycle (invite/remove members, delete
   //                          family, transfer ownership).
+  //   requireAdmin()       — instance env / Kassal test (stack-wide).
   //
   // Endpoints with no role middleware but behind authenticate() require
   // only a logged-in user:
@@ -1997,12 +1997,12 @@ function registerRoutes(router, { repos, serverState }) {
   // ============================================================
   // FASE F6 — .env-skriving + integrasjons-test
   // ============================================================
-  router.get('/api/settings/env', (ctx) => {
+  router.get('/api/settings/env', requireAdmin(), (ctx) => {
     const envStore = require('./services/env-store.service');
     ctx.json({ values: envStore.readMasked() });
   });
 
-  router.post('/api/settings/env', requireRole('owner'), async (ctx) => {
+  router.post('/api/settings/env', requireAdmin(), async (ctx) => {
     const envStore = require('./services/env-store.service');
     const { key, value } = ctx.body || {};
     if (!key || typeof key !== 'string') {
@@ -2019,7 +2019,7 @@ function registerRoutes(router, { repos, serverState }) {
     }
   });
 
-  router.post('/api/integrations/:name/test', requireRole('owner'), async (ctx) => {
+  router.post('/api/integrations/:name/test', requireAdmin(), async (ctx) => {
     const envStore = require('./services/env-store.service');
     const name = ctx.params.name;
     const result = await envStore.testIntegration(name);

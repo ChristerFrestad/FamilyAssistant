@@ -295,6 +295,15 @@ function requireRole(minRole) {
   };
 }
 
+function requireAdmin() {
+  return function requireAdminMiddleware(ctx) {
+    if (!ctx.user) throw errors.unauthorized('Authentication required.');
+    if (!ctx.user.is_admin) {
+      throw errors.forbidden('Admin role required.');
+    }
+  };
+}
+
 function requireFamily(ctx) {
   if (!ctx.user) throw errors.unauthorized('Authentication required.');
   if (!ctx.familyId) {
@@ -305,6 +314,7 @@ function requireFamily(ctx) {
 module.exports = {
   createAuthenticate,
   requireRole,
+  requireAdmin,
   requireFamily,
   hasRole,
   isPublicPath,

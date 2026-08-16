@@ -76,6 +76,8 @@ test('GET /api/family/llm returns null config when unset', async () => {
   });
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.config, null);
+  assert.ok(r.body.instanceFallback);
+  assert.equal(r.body.instanceFallback.scope, 'instance');
 });
 
 test('GET /api/family/llm returns hasKey flag, never the key', async () => {
@@ -242,12 +244,36 @@ test('getClientForFamily returns an Ollama client without key', () => {
 });
 
 test('getClientForFamily throws NotConfiguredError when row is missing', () => {
-  const { getClientForFamily, NotConfiguredError } = require('../server/llm/per-family');
-  const owner = createUser('disp-missing@llm.test', 'owner', 'Disp Missing');
-  assert.throws(
-    () => getClientForFamily(server.repos, owner.familyId),
-    (err) => err instanceof NotConfiguredError
-  );
+  const prev = process.env.OPENAI_API_KEY;
+  const prevA = process.env.ANTHROPIC_API_KEY;
+  const prevX = process.env.XAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.XAI_API_KEY;
+  try {
+    const { getClientForFamily, NotConfiguredError } = require('../server/llm/per-family');
+    const owner = createUser('disp-missing@llm.test', 'owner', 'Disp Missing');
+    assert.throws(
+      () => getClientForFamily(server.repos, owner.familyId),
+      (err) => err instanceof NotConfiguredError
+    );
+  } finally {
+    if (prev !== undefined) process.env.OPENAI_API_KEY = prev;
+    if (prevA !== undefined) process.env.ANTHROPIC_API_KEY = prevA;
+    if (prevX !== undefined) process.env.XAI_API_KEY = prevX;
+  }
+});
+
+test('getClientForFamily uses instance OPENAI_API_KEY when family has no row', () => {
+  process.env.OPENAI_API_KEY = 'sk-instance-fallback-key';
+  try {
+    const { getClientForFamily } = require('../server/llm/per-family');
+    const owner = createUser('disp-fallback@llm.test', 'owner', 'Disp Fallback');
+    const client = getClientForFamily(server.repos, owner.familyId);
+    assert.strictEqual(client.backend, 'openai');
+  } finally {
+    delete process.env.OPENAI_API_KEY;
+  }
 });
 
 test('getClientForFamily throws NotConfiguredError when cloud backend has no key', () => {
