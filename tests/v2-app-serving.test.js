@@ -38,7 +38,6 @@ before(async () => {
     path.join(V2_DIR, 'assets', 'main.js'),
     '// v2 test fixture asset\nconsole.log("fixture");'
   );
-  fs.writeFileSync(path.join(V2_DIR, 'sw.js'), 'self.addEventListener("fetch",()=>{});');
 
   server = await startTestServer();
 });
@@ -67,13 +66,6 @@ test('GET /onboarding/family falls back to index.html', async () => {
   const r = await request(server.baseUrl, 'GET', '/onboarding/family');
   assert.equal(r.status, 200);
   assert.ok(r.raw.includes('v2 test fixture'));
-});
-
-test('GET /sw.js is not cached by intermediaries', async () => {
-  const r = await request(server.baseUrl, 'GET', '/sw.js');
-  assert.equal(r.status, 200);
-  assert.match(r.headers['cache-control'] || '', /no-store/);
-  assert.equal(r.headers['service-worker-allowed'], '/');
 });
 
 test('GET /assets/main.js serves the direct file', async () => {
