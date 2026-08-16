@@ -18,7 +18,7 @@ const { rateLimit, applySecurityHeaders } = require('./security');
 const { runWithFamily } = require('../auth/family-context');
 const metrics = require('./metrics');
 const sentry = require('../observability/sentry');
-const { tryHandleMarketing, tryServeAppRobots } = require('./marketing');
+const { tryHandleMarketing, tryServeAppRobots, rewriteCanonical } = require('./marketing');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
@@ -41,18 +41,22 @@ const MIME_TYPES = {
   '.webmanifest': 'application/manifest+json',
 };
 
-function serveStatic(res, filePath) {
+function serveStatic(res, filePath, { origin } = {}) {
   const ext = path.extname(filePath);
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
   try {
-    const content = fs.readFileSync(filePath);
+    let content = fs.readFileSync(filePath);
     const headers = { 'Content-Type': mime };
     const basename = path.basename(filePath);
     // M5.2: Service worker MUST be served without long-term cache and must be able to control
     // roten av originen. Service-Worker-Allowed tillater dette eksplisitt.
-    if (basename === 'sw.js' || basename === 'index.html') {
-      if (basename === 'sw.js') headers['Service-Worker-Allowed'] = '/';
+    // no-store so a CDN cannot keep a stale worker that still maps GET / to the SPA.
+    if (basename === 'sw.js') {
+      headers['Service-Worker-Allowed'] = '/';
+      headers['Cache-Control'] = 'no-store';
+    } else if (basename === 'index.html') {
       headers['Cache-Control'] = 'no-cache, must-revalidate';
+      if (origin) content = rewriteCanonical(content, origin);
     }
     res.writeHead(200, headers);
     res.end(content);
@@ -121,7 +125,16 @@ function tryRedirectLegacyV2(req, res, pathname) {
   return true;
 }
 
-function tryServeSpaApp(pathname, res) {
+function spaOrigin(req, appConfig) {
+  if (appConfig.MARKETING_CANONICAL) {
+    return String(appConfig.MARKETING_CANONICAL).replace(/\/$/, '');
+  }
+  const host = req.headers.host || 'localhost';
+  const proto = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+  return `${proto}://${host}`;
+}
+
+function tryServeSpaApp(pathname, res, req, appConfig) {
   if (isReservedFromSpa(pathname)) return false;
   if (!fs.existsSync(SPA_DIR) || !fs.statSync(SPA_DIR).isDirectory()) {
     return false;
@@ -142,7 +155,7 @@ function tryServeSpaApp(pathname, res) {
 
   const indexPath = path.join(SPA_DIR, 'index.html');
   if (fs.existsSync(indexPath)) {
-    return serveStatic(res, indexPath);
+    return serveStatic(res, indexPath, { origin: spaOrigin(req, appConfig || config) });
   }
   return false;
 }
@@ -237,7 +250,7 @@ function createServer(router, { authenticate } = {}) {
             if (
               tryServeSw(pathname, res) ||
               tryServePublicFile(pathname, res) ||
-              tryServeSpaApp(pathname, res)
+              tryServeSpaApp(pathname, res, req, config)
             ) {
               const dur = Date.now() - started;
               metrics.record(req.method, 'static', 200, dur);

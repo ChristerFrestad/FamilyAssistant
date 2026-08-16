@@ -8,6 +8,7 @@ import { applyBrandTokens } from './app/styles/brand-tokens';
 // language detector with i18next. Imported here (and not lazily)
 // so the very first render already has translations available.
 import i18n from './app/i18n/config';
+import { registerPwa } from './app/pwa/registerPwa';
 // Order matters: globals.css ships the Tailwind reset; tokens.css
 // then defines the design system + body baseline that sits on top
 // of that reset. tokens.css also pulls in the @font-face faces, so
@@ -101,6 +102,8 @@ void fetch('/api/config', { credentials: 'same-origin' })
     // Wordmark stays blank, document.title stays at the &nbsp;
     // placeholder. App still renders.
   });
+
+registerPwa();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

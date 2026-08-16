@@ -6,6 +6,19 @@
 
 ---
 
+2026-08-16 – Landing must stay readable in Messenger IAB
+
+Apex `/` was stolen by the PWA worker after `/login`. Shared apex
+links in Messenger could bounce to login or look blank (SVG og:image,
+X-Frame-Options DENY, worker in the WebView).
+
+Fix on this branch: directoryIndex null, no-store /sw.js, skip SW
+register in FB/IG UA, marketing headers allow embed + CORP
+cross-origin, PNG share card via {{CANONICAL}}. Operator host stays
+out of git. Session cookie Path=/ unchanged.
+
+---
+
 2026-08-16 – PWA stole marketing GET /
 
 Visitors on the public apex landed on /login. curl GET /

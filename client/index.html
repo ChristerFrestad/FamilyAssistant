@@ -7,8 +7,8 @@
          overwritten at app-mount with the resolved brand-config from
          /api/config (see client/src/main.tsx). The non-breaking space
          keeps the tab from briefly showing the file path. -->
-    <title>&nbsp;</title>
-    <meta name="description" content="" />
+    <title>Hverdagsplanleggeren</title>
+    <meta name="description" content="Ett sted for middag, gjøremål, kjøkkenet og handlelisten." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- Sprint-11 / issue #123 — PNG raster derivatives. Browsers that
          do not honour SVG favicons (older Firefox, Safari ≤ 14) and
@@ -19,12 +19,18 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#1F3F26" />
-    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:title" content="Hverdagsplanleggeren" />
+    <meta
+      property="og:description"
+      content="Ett sted for middag, gjøremål, kjøkkenet og handlelisten."
+    />
+    <meta property="og:image" content="{{CANONICAL}}/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
   </head>
   <body>
+    <noscript>Denne siden trenger JavaScript. Åpne den i en vanlig nettleser.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

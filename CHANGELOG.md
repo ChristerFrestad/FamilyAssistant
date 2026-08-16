@@ -15,6 +15,11 @@ React shell and AuthGuard sent anonymous users to `/login`.
 
 - `directoryIndex: null` in the Vite PWA GenerateSW config
 - Apex `/` goes to the network again (marketing HTML)
+- `/sw.js` is `Cache-Control: no-store` so a CDN cannot keep the old worker
+- Facebook/Messenger/Instagram in-app browsers never register the PWA worker
+- Marketing documents drop `X-Frame-Options: DENY` and use CORP `cross-origin`
+  so a shared apex link can be read inside Messenger
+- Share card is `{{CANONICAL}}/og-image.png`, not an SVG emblem
 
 ### Changed — Marketing homepage: one story, no cropped screenshots
 

@@ -46,6 +46,12 @@ test('canonical, hreflang and CTA are present', () => {
   assert.match(HOME, /login\?mode=register/);
 });
 
+test('share card uses PNG og:image via CANONICAL, not SVG', () => {
+  assert.match(HOME, /property="og:image" content="\{\{CANONICAL\}\}\/og-image\.png"/);
+  assert.match(HOME, /property="og:image:type" content="image\/png"/);
+  assert.doesNotMatch(HOME, /og:image[^>]+emblem\.svg/);
+});
+
 test('source HTML does not embed operator production hostnames', () => {
   assert.doesNotMatch(HOME, /hverdagsplanleggeren\.com/i);
 });

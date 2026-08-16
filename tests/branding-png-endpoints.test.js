@@ -104,6 +104,9 @@ describe('Branding PNG endpoints', () => {
         assert.equal(r.status, 200, `${label}: expected 200, got ${r.status}`);
         assert.equal(r.headers['content-type'], 'image/png');
         assert.match(r.headers['cache-control'], /max-age=86400/);
+        if (url === '/og-image.png') {
+          assert.equal(r.headers['cross-origin-resource-policy'], 'cross-origin');
+        }
         assert.ok(r.headers.etag, `${label}: missing ETag header`);
         assert.match(r.headers.etag, /^"[a-f0-9]{16}"$/);
         assert.ok(
