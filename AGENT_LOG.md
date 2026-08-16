@@ -6,6 +6,17 @@
 
 ---
 
+2026-08-16 – HEAD must close for Messenger
+
+Live HEAD / was 200 but had no Content-Length (keep-alive).
+HEAD /login fell through to 404 because static serve was GET-only.
+Facebook OG crawler uses GET; Messenger/iOS often HEAD first.
+Fix: advertise Content-Length on HEAD, serve HEAD like GET
+without a body. Cloudflare is not issuing a JS challenge on
+facebookexternalhit GET.
+
+---
+
 2026-08-16 – Messenger IAB stuck on loading spinner
 
 Shared apex in Messenger showed a spinner, never the landing.

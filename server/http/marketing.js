@@ -177,22 +177,20 @@ function sendFile(res, filePath, method, origin) {
   applyMarketingDocumentHeaders(res);
   const ext = path.extname(filePath);
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
+  let content = fs.readFileSync(filePath);
+  if (REWRITE_EXTS.has(ext)) content = rewriteCanonical(content, origin);
   const headers = {
     'Content-Type': mime,
     'Cache-Control': cacheControlFor(filePath),
     'X-Robots-Tag': 'index, follow',
     'Cross-Origin-Resource-Policy': 'cross-origin',
     'Content-Security-Policy': res.getHeader('Content-Security-Policy'),
+    // HEAD must advertise the GET body size. No Content-Length +
+    // keep-alive makes Messenger/Facebook wait until the socket dies.
+    'Content-Length': content.length,
   };
-  if (method === 'HEAD') {
-    res.writeHead(200, headers);
-    res.end();
-    return;
-  }
-  let content = fs.readFileSync(filePath);
-  if (REWRITE_EXTS.has(ext)) content = rewriteCanonical(content, origin);
   res.writeHead(200, headers);
-  res.end(content);
+  res.end(method === 'HEAD' ? undefined : content);
 }
 
 function redirectWww(req, res, canonical) {
@@ -255,13 +253,9 @@ function tryServeAppRobots(req, res, pathname, config) {
     'Cache-Control': 'public, max-age=300',
     'X-Robots-Tag': 'noindex, nofollow',
   };
-  if (req.method === 'HEAD') {
-    res.writeHead(200, headers);
-    res.end();
-    return true;
-  }
+  headers['Content-Length'] = Buffer.byteLength(body, 'utf8');
   res.writeHead(200, headers);
-  res.end(body);
+  res.end(req.method === 'HEAD' ? undefined : body);
   return true;
 }
 
