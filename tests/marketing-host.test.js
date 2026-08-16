@@ -125,6 +125,35 @@ describe('marketing host routing', () => {
     assert.match(r.raw, /llms-full.txt/);
   });
 
+  test('apex HEAD / is 200 with Content-Length and no body', async () => {
+    const r = await request(server.baseUrl, 'HEAD', '/', { headers: { Host: APEX } });
+    assert.equal(r.status, 200);
+    assert.match(r.headers['content-type'] || '', /text\/html/);
+    assert.ok(Number(r.headers['content-length']) > 100, r.headers['content-length']);
+    assert.equal(r.raw, '');
+    assert.notEqual(r.status, 501);
+  });
+
+  test('apex HEAD /login is 200 with Content-Length and no body', async () => {
+    const r = await request(server.baseUrl, 'HEAD', '/login', { headers: { Host: APEX } });
+    assert.equal(r.status, 200);
+    assert.match(r.headers['content-type'] || '', /text\/html/);
+    assert.ok(Number(r.headers['content-length']) > 0, r.headers['content-length']);
+    assert.equal(r.raw, '');
+  });
+
+  test('Facebook crawler GET / is marketing HTML, not a challenge', async () => {
+    const r = await request(server.baseUrl, 'GET', '/', {
+      headers: {
+        Host: APEX,
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+      },
+    });
+    assert.equal(r.status, 200);
+    assert.match(r.raw, /Ett sted for middag, gjøremål, kjøkkenet og handlelisten/);
+    assert.doesNotMatch(r.raw, /Just a moment|Attention Required|cf-browser-verification/i);
+  });
+
   test('Messenger UA GET / is marketing HTML, not SPA or /login', async () => {
     const r = await request(server.baseUrl, 'GET', '/', {
       headers: {

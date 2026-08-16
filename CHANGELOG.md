@@ -20,6 +20,11 @@ React shell and AuthGuard sent anonymous users to `/login`.
 - Marketing documents drop `X-Frame-Options: DENY` and use CORP `cross-origin`
   so a shared apex link can be read inside Messenger
 - Share card is `{{CANONICAL}}/og-image.png`, not an SVG emblem
+- Marketing homepage no longer `<link rel="preload">`s fonts; Facebook
+  in-app browsers can stay on the loading spinner until those CORS
+  preloads finish (or never do)
+- `HEAD /` and `HEAD /login` return 200 with `Content-Length` and no
+  body. A keep-alive HEAD without length looks hung to Messenger.
 
 ### Changed — Marketing homepage: one story, no cropped screenshots
 

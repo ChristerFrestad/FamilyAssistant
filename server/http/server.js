@@ -58,8 +58,11 @@ function serveStatic(res, filePath, { origin } = {}) {
       headers['Cache-Control'] = 'no-cache, must-revalidate';
       if (origin) content = rewriteCanonical(content, origin);
     }
+    headers['Content-Length'] = content.length;
     res.writeHead(200, headers);
-    res.end(content);
+    // HEAD is used by Messenger / iOS link preview before GET.
+    const head = res.req && res.req.method === 'HEAD';
+    res.end(head ? undefined : content);
     return true;
   } catch {
     return false;
@@ -246,7 +249,7 @@ function createServer(router, { authenticate } = {}) {
         if (!dispatched) {
           // /api/* and /metrics are never served as static — return 404.
           const isApi = pathname.startsWith('/api/') || pathname === '/metrics';
-          if (!isApi && req.method === 'GET') {
+          if (!isApi && (req.method === 'GET' || req.method === 'HEAD')) {
             if (
               tryServeSw(pathname, res) ||
               tryServePublicFile(pathname, res) ||
