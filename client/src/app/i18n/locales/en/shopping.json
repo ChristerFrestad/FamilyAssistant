@@ -110,8 +110,5 @@
   },
   "badge": {
     "fromPantry": "Suggested from pantry"
-  },
-  "weekHeader": {
-    "week": "Week {{weekYear}}"
   }
 }

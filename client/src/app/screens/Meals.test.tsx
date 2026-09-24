@@ -46,16 +46,8 @@ function mountMeals(): void {
 function mockFetchByPath(handlers: Record<string, () => Response>): void {
   fetchSpy.mockImplementation((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
-    // Week navigation hits /api/meals/week/:weekYear — reuse the
-    // /api/meals/current handler so existing fixtures stay valid.
-    const normalized = url.startsWith('/api/meals/week/') ? '/api/meals/current' : url;
     for (const [pattern, handler] of Object.entries(handlers)) {
-      if (
-        normalized === pattern ||
-        normalized.startsWith(pattern + '?') ||
-        url === pattern ||
-        url.startsWith(pattern + '?')
-      ) {
+      if (url === pattern || url.startsWith(pattern + '?')) {
         return Promise.resolve(handler());
       }
     }
@@ -134,6 +126,8 @@ describe('Meals — initial render', () => {
       expect(screen.getByTestId('meals-content')).toBeInTheDocument();
     });
     expect(screen.getByTestId('meals-week-year')).toHaveTextContent('Uke 2026-W18');
+    // 7 day-pills (id ends at digit so we exclude planned/empty/today
+    // sub-test-ids on the same pill).
     expect(screen.getAllByTestId(/^day-pill-\d$/)).toHaveLength(7);
   });
 
@@ -146,6 +140,7 @@ describe('Meals — initial render', () => {
     await waitFor(() => {
       expect(screen.getByTestId('meals-error')).toBeInTheDocument();
     });
+    // Retry triggers a new fetch path
     mockFetchByPath({
       '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
@@ -164,7 +159,11 @@ describe('Meals — DayStrip selection drives MealHero', () => {
         jsonResponse(
           200,
           makeMealsPayload([
-            {}, {}, {},
+            // index 0 = Recipe 1 (default)
+            // index 3 = recipe with a different name to assert against
+            {},
+            {},
+            {},
             {
               recipeId: 99,
               recipe: {
@@ -203,25 +202,50 @@ describe('Meals — recipe ingredients and scaling', () => {
       '/api/family': () => jsonResponse(200, { ...FAMILY_DATA, portionSum: 3 }),
     });
     mountMeals();
-    await waitFor(() => expect(screen.getByTestId('meals-content')).toBeInTheDocument());
+    // Force selection to day 0 to make assertions deterministic
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('day-pill-0'));
-    await waitFor(() => expect(screen.getByTestId('recipe-scaled-servings')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-scaled-servings')).toBeInTheDocument();
+    });
+    // 400 g * (3/2) = 600 g — assert that the math made it through.
     expect(screen.getByText(/600 g/)).toBeInTheDocument();
   });
 
   test('falls back to un-scaled with badge when recipe.servings is null', async () => {
     mockFetchByPath({
-      '/api/meals/current': () => jsonResponse(200, makeMealsPayload([{ recipe: {
-        id: 1, name: 'No-servings recipe', category: 'rask', prepTime: '15 min', servings: null,
-        source: null, url: null, notes: null,
-        ingredients: [{ id: 1, productKey: 'tomat', name: 'Tomat', qty: 200, unit: 'g' }],
-      }}])),
+      '/api/meals/current': () =>
+        jsonResponse(
+          200,
+          makeMealsPayload([
+            {
+              recipe: {
+                id: 1,
+                name: 'No-servings recipe',
+                category: 'rask',
+                prepTime: '15 min',
+                servings: null,
+                source: null,
+                url: null,
+                notes: null,
+                ingredients: [{ id: 1, productKey: 'tomat', name: 'Tomat', qty: 200, unit: 'g' }],
+              },
+            },
+          ])
+        ),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
     });
     mountMeals();
-    await waitFor(() => expect(screen.getByTestId('meals-content')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('day-pill-0'));
-    await waitFor(() => expect(screen.getByTestId('recipe-scaling-unavailable-badge')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-scaling-unavailable-badge')).toBeInTheDocument();
+    });
+    // Original quantity preserved
     expect(screen.getByText(/200 g/)).toBeInTheDocument();
   });
 
@@ -231,9 +255,13 @@ describe('Meals — recipe ingredients and scaling', () => {
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
     });
     mountMeals();
-    await waitFor(() => expect(screen.getByTestId('meals-content')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('day-pill-0'));
-    await waitFor(() => expect(screen.getByTestId('meal-hero-away')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meal-hero-away')).toBeInTheDocument();
+    });
     expect(screen.queryByTestId('meals-recipe-card')).toBeNull();
   });
 });
@@ -243,48 +271,69 @@ describe('Meals — picker integration', () => {
     mockFetchByPath({
       '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
-      '/api/recipes': () => jsonResponse(200, {
-        recipes: [{ id: 99, name: 'Pizza', category: 'rask', prepTime: '15 min', servings: 2 }],
-        filter: { ignoreDietTags: false, activeDietTags: [] },
-      }),
+      '/api/recipes': () =>
+        jsonResponse(200, {
+          recipes: [{ id: 99, name: 'Pizza', category: 'rask', prepTime: '15 min', servings: 2 }],
+          filter: { ignoreDietTags: false, activeDietTags: [] },
+        }),
     });
     mountMeals();
-    await waitFor(() => expect(screen.getByTestId('meals-content')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('day-pill-0'));
-    await waitFor(() => expect(screen.getByTestId('meal-hero-swap-button')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meal-hero-swap-button')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('meal-hero-swap-button'));
-    await waitFor(() => expect(screen.getByTestId('recipe-picker')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-picker')).toBeInTheDocument();
+    });
     expect(screen.getByTestId('recipe-picker-row-99')).toBeInTheDocument();
   });
 
   test('plan button on empty hero opens the recipe picker dialog', async () => {
     mockFetchByPath({
-      '/api/meals/current': () => jsonResponse(200, makeMealsPayload([{ recipeId: null, recipe: null }])),
+      '/api/meals/current': () =>
+        jsonResponse(200, makeMealsPayload([{ recipeId: null, recipe: null }])),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
-      '/api/recipes': () => jsonResponse(200, {
-        recipes: [{ id: 7, name: 'Tacos', category: 'rask', prepTime: '20 min', servings: 2 }],
-        filter: { ignoreDietTags: false, activeDietTags: [] },
-      }),
+      '/api/recipes': () =>
+        jsonResponse(200, {
+          recipes: [{ id: 7, name: 'Tacos', category: 'rask', prepTime: '20 min', servings: 2 }],
+          filter: { ignoreDietTags: false, activeDietTags: [] },
+        }),
     });
     mountMeals();
-    await waitFor(() => expect(screen.getByTestId('meals-content')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('day-pill-0'));
-    await waitFor(() => expect(screen.getByTestId('meal-hero-plan-button')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meal-hero-plan-button')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('meal-hero-plan-button'));
-    await waitFor(() => expect(screen.getByTestId('recipe-picker')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-picker')).toBeInTheDocument();
+    });
     expect(screen.getByTestId('recipe-picker-row-7')).toBeInTheDocument();
   });
 });
 
 describe('Meals — empty week', () => {
   test('renders week-empty card when all 7 slots are null', async () => {
-    const allEmpty = makeMealsPayload(Array.from({ length: 7 }, () => ({ recipeId: null, recipe: null })));
+    const allEmpty = makeMealsPayload(
+      Array.from({ length: 7 }, () => ({ recipeId: null, recipe: null }))
+    );
     mockFetchByPath({
       '/api/meals/current': () => jsonResponse(200, allEmpty),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
     });
     mountMeals();
-    await waitFor(() => expect(screen.getByTestId('meals-week-empty')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-week-empty')).toBeInTheDocument();
+    });
+    // The week-list (7 rows) should NOT render in empty mode — the
+    // empty card stands in for it.
     expect(screen.queryByTestId('week-list')).toBeNull();
   });
 });
@@ -296,27 +345,14 @@ describe('Meals — family fetch failure does not block the screen', () => {
       '/api/family': () => jsonResponse(500, { detail: 'family-down' }),
     });
     mountMeals();
-    await waitFor(() => expect(screen.getByTestId('meals-content')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('day-pill-0'));
-    await waitFor(() => expect(screen.getByTestId('recipe-ingredient-list')).toBeInTheDocument());
-    expect(screen.getByText(/400 g/)).toBeInTheDocument();
-  });
-});
-
-describe('Meals — week navigation', () => {
-  test('renders prev/next week controls and advances the URL week', async () => {
-    mockFetchByPath({
-      '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),
-      '/api/family': () => jsonResponse(200, FAMILY_DATA),
-    });
-    render(<MemoryRouter initialEntries={['/meals']}><Meals /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByTestId('meals-week-nav')).toBeInTheDocument());
-    expect(screen.getByTestId('meals-week-prev')).toHaveAttribute('aria-label', expect.stringMatching(/forrige|previous/i));
-    expect(screen.getByTestId('meals-week-next')).toHaveAttribute('aria-label', expect.stringMatching(/neste|next/i));
-    fireEvent.click(screen.getByTestId('meals-week-next'));
     await waitFor(() => {
-      const weekCalls = fetchSpy.mock.calls.filter((c: unknown[]) => String(c[0]).includes('/api/meals/week/'));
-      expect(weekCalls.length).toBeGreaterThan(0);
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
     });
+    fireEvent.click(screen.getByTestId('day-pill-0'));
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-ingredient-list')).toBeInTheDocument();
+    });
+    // 400 g without scaling (family failed, so scale defaults to 1)
+    expect(screen.getByText(/400 g/)).toBeInTheDocument();
   });
 });

@@ -60,8 +60,6 @@ export interface UseShoppingDataOverrides {
   deleteItem?: typeof apiDeleteItem;
   addItem?: typeof apiAddItem;
   generateFromMeals?: typeof apiGenerateFromMeals;
-  /** ISO week (YYYY-WNN) shared with Meals via ?week=. */
-  weekYear?: string;
 }
 
 function flatten(list: ShoppingListCurrentResponse | null): ShoppingItem[] {
@@ -151,7 +149,6 @@ export function useShoppingData(overrides: UseShoppingDataOverrides = {}): UseSh
   const deleteItemFn = overrides.deleteItem ?? apiDeleteItem;
   const addItemFn = overrides.addItem ?? apiAddItem;
   const generateFn = overrides.generateFromMeals ?? apiGenerateFromMeals;
-  const weekYear = overrides.weekYear;
 
   const [list, setList] = useState<ShoppingListCurrentResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -167,7 +164,7 @@ export function useShoppingData(overrides: UseShoppingDataOverrides = {}): UseSh
     ctrlRef.current = ctrl;
     setIsLoading(true);
     setError(null);
-    fetchListFn(ctrl.signal, weekYear).then(
+    fetchListFn(ctrl.signal).then(
       (res) => {
         if (ctrl.signal.aborted) return;
         setList(res);
@@ -180,7 +177,7 @@ export function useShoppingData(overrides: UseShoppingDataOverrides = {}): UseSh
         setError(err instanceof Error ? err : new Error('Failed to load shopping list'));
       }
     );
-  }, [fetchListFn, weekYear]);
+  }, [fetchListFn]);
 
   useEffect(() => {
     load();
@@ -188,11 +185,8 @@ export function useShoppingData(overrides: UseShoppingDataOverrides = {}): UseSh
     return () => {
       ctrl?.abort();
     };
-    // Re-fetch when selected week changes. Intentionally omit `load` —
-    // production fetch fns are module-stable; tests pass fresh vi.fn()
-    // each render (same pattern as the original mount-only effect).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekYear]);
+  }, []);
 
   const toggleBought = useCallback(
     async (item: ShoppingItem): Promise<void> => {
@@ -253,7 +247,7 @@ export function useShoppingData(overrides: UseShoppingDataOverrides = {}): UseSh
   const addItem = useCallback(
     async (body: ShoppingItemAddBody): Promise<ShoppingItem | null> => {
       try {
-        const res = await addItemFn(body, weekYear);
+        const res = await addItemFn(body);
         setList((prev) => (prev ? appendItemToList(prev, res.item) : prev));
         setUserFacingError(null);
         return res.item;
@@ -264,12 +258,12 @@ export function useShoppingData(overrides: UseShoppingDataOverrides = {}): UseSh
         return null;
       }
     },
-    [addItemFn, weekYear]
+    [addItemFn]
   );
 
   const generateFromMeals = useCallback(async (): Promise<void> => {
     try {
-      await generateFn(weekYear);
+      await generateFn();
       // Re-fetch the full list after generation.
       load();
       setUserFacingError(null);
@@ -278,7 +272,7 @@ export function useShoppingData(overrides: UseShoppingDataOverrides = {}): UseSh
       const message = err instanceof Error ? err.message : 'Kunne ikke generere handleliste';
       setUserFacingError({ message, code });
     }
-  }, [generateFn, load, weekYear]);
+  }, [generateFn, load]);
 
   const clearUserFacingError = useCallback(() => setUserFacingError(null), []);
 

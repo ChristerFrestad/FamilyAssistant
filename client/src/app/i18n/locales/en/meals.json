@@ -43,8 +43,7 @@
     "retry": "Try again",
     "markCooked": "Mark cooked",
     "alreadyCooked": "Cooked",
-    "openLibrary": "Open library",
-    "openShopping": "Open shopping list"
+    "openLibrary": "Open library"
   },
   "empty": {
     "heroTitle": "No meal planned",
@@ -125,9 +124,5 @@
     "successSkipped": "Marked cooked without deducting.",
     "lowStock": "{{count}} item added to shopping list because pantry ran low.",
     "lowStock_other": "{{count}} items added to shopping list because pantry ran low."
-  },
-  "weekNav": {
-    "prevAria": "Previous week",
-    "nextAria": "Next week"
   }
 }
