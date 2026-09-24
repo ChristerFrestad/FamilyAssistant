@@ -46,8 +46,16 @@ function mountMeals(): void {
 function mockFetchByPath(handlers: Record<string, () => Response>): void {
   fetchSpy.mockImplementation((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
+    // Week navigation hits /api/meals/week/:weekYear — reuse the
+    // /api/meals/current handler so existing fixtures stay valid.
+    const normalized = url.startsWith('/api/meals/week/') ? '/api/meals/current' : url;
     for (const [pattern, handler] of Object.entries(handlers)) {
-      if (url === pattern || url.startsWith(pattern + '?')) {
+      if (
+        normalized === pattern ||
+        normalized.startsWith(pattern + '?') ||
+        url === pattern ||
+        url.startsWith(pattern + '?')
+      ) {
         return Promise.resolve(handler());
       }
     }
@@ -354,5 +362,38 @@ describe('Meals — family fetch failure does not block the screen', () => {
     });
     // 400 g without scaling (family failed, so scale defaults to 1)
     expect(screen.getByText(/400 g/)).toBeInTheDocument();
+  });
+});
+
+describe('Meals — week navigation', () => {
+  test('renders prev/next week controls and advances the URL week', async () => {
+    mockFetchByPath({
+      '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    render(
+      <MemoryRouter initialEntries={['/meals']}>
+        <Meals />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-week-nav')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('meals-week-prev')).toHaveAttribute(
+      'aria-label',
+      expect.stringMatching(/forrige|previous/i)
+    );
+    expect(screen.getByTestId('meals-week-next')).toHaveAttribute(
+      'aria-label',
+      expect.stringMatching(/neste|next/i)
+    );
+    fireEvent.click(screen.getByTestId('meals-week-next'));
+    await waitFor(() => {
+      // After next, fetch should hit a /api/meals/week/… path at least once.
+      const weekCalls = fetchSpy.mock.calls.filter((c: unknown[]) =>
+        String(c[0]).includes('/api/meals/week/')
+      );
+      expect(weekCalls.length).toBeGreaterThan(0);
+    });
   });
 });

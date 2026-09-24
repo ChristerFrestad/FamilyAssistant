@@ -258,7 +258,7 @@ describe('useShoppingData — addItem', () => {
     await act(async () => {
       await result.current.addItem({ name: 'Bananer' });
     });
-    expect(addItemFn).toHaveBeenCalledWith({ name: 'Bananer' });
+    expect(addItemFn).toHaveBeenCalledWith({ name: 'Bananer' }, undefined);
     expect(result.current.flatItems.find((i) => i.id === 99)).toBeDefined();
   });
 

@@ -261,6 +261,8 @@ describe('a11y — Screens', () => {
   it('Meals data state passes axe', async () => {
     mockFetchByPath({
       '/api/meals/current': () => jsonResponse(200, MEALS_DATA),
+      // Meals always loads the selected ISO week (week navigation).
+      '/api/meals/week/': () => jsonResponse(200, MEALS_DATA),
       '/api/family': () => jsonResponse(200, FAMILY_DATA),
     });
     const { container, findByTestId } = render(

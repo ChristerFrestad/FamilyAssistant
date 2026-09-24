@@ -302,6 +302,11 @@ paths:
   /api/meals/week/{weekYear}:
     get:
       summary: Get meal plan for a specific ISO week
+      description: >
+        Returns the 7 dinner slots for the requested ISO week (YYYY-WNN).
+        If the week has no meal_plans rows yet, the server seeds THAT week
+        (default recipes when the family has seed recipes, otherwise empty
+        planned slots). Does not seed a different week.
       parameters:
         - in: path
           name: weekYear
@@ -313,6 +318,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MealsResponse" }
+        '400':
+          description: Invalid weekYear format
 
   /api/meals/swap:
     put:
