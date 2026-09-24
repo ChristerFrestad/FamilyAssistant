@@ -135,6 +135,8 @@ const shoppingItemAddBody = z
     unit: z.string().min(1).max(20).optional(),
     category: category.optional(),
     notes: z.string().max(500).optional(),
+    // Optional: target a non-current ISO week (Shopping follows Meals ?week=).
+    weekYear: weekYear.optional(),
   })
   .strict();
 
