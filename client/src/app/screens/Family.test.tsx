@@ -7,7 +7,7 @@
 // and assert that:
 //   * skeleton, error, and data states render correctly
 //   * the current user's MemberCard gets the (Du)-badge
-//   * placeholder buttons (rename + invite) show inline status
+//   * placeholder Edit button shows inline status; Add/Invite open modals
 //   * the slider triggers a PUT and surfaces save status
 //   * single-member rosters render the hint line
 //   * a child viewer sees the slider in disabled state
@@ -38,6 +38,15 @@ const CHILD_USER: AuthUser = {
   name: 'Storebror',
   role: 'child',
   profileMemberId: 11,
+};
+
+const ADULT_USER: AuthUser = {
+  ...TEST_USER,
+  id: 3,
+  email: 'voksen@example.com',
+  name: 'Partner',
+  role: 'adult',
+  profileMemberId: 10,
 };
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -216,6 +225,102 @@ describe('Family — placeholder actions', () => {
     });
     fireEvent.click(screen.getByTestId('invite-member-button'));
     expect(screen.getByTestId('invite-email-input')).toBeInTheDocument();
+  });
+
+  test('Add member button opens the AddMemberModal for owner', async () => {
+    mockFetchByPath({
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    mountFamily();
+    await waitFor(() => {
+      expect(screen.getByTestId('add-member-button')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('add-member-button'));
+    expect(screen.getByTestId('add-member-name-input')).toBeInTheDocument();
+  });
+});
+
+describe('Family — add member without invite', () => {
+  test('adult (non-owner) sees Add member but not Invite', async () => {
+    mockFetchByPath({
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    mountFamily(ADULT_USER);
+    await waitFor(() => {
+      expect(screen.getByTestId('add-member-button')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('invite-member-button')).not.toBeInTheDocument();
+  });
+
+  test('child does not see Add member or Invite', async () => {
+    mockFetchByPath({
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    mountFamily(CHILD_USER);
+    await waitFor(() => {
+      expect(screen.getByTestId('member-card-11')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('add-member-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('invite-member-button')).not.toBeInTheDocument();
+  });
+
+  test('successful add closes modal and refreshes roster', async () => {
+    const newMember = {
+      id: 12,
+      name: 'Lillebror',
+      category: 'child',
+      portionFactor: 0.4,
+      sortOrder: 2,
+      allergies: null,
+      dislikes: null,
+      dietTags: [],
+      customDietNote: null,
+      createdAt: '2026-09-24 12:00:00',
+      updatedAt: '2026-09-24 12:00:00',
+    };
+    let familyCallCount = 0;
+    fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url === '/api/family/invitations') {
+        return Promise.resolve(jsonResponse(200, { invitations: [] }));
+      }
+      if (url === '/api/family' && (!init || init.method === 'GET' || init.method === undefined)) {
+        familyCallCount += 1;
+        if (familyCallCount === 1) {
+          return Promise.resolve(jsonResponse(200, FAMILY_DATA));
+        }
+        return Promise.resolve(
+          jsonResponse(200, {
+            ...FAMILY_DATA,
+            profileMembers: [...FAMILY_DATA.profileMembers, newMember],
+            portionSum: 1.9,
+          })
+        );
+      }
+      if (url === '/api/family/members' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse(200, { ok: true, member: newMember }));
+      }
+      return Promise.reject(new Error(`Unmocked fetch: ${url} ${init?.method ?? 'GET'}`));
+    });
+
+    mountFamily();
+    await waitFor(() => {
+      expect(screen.getByTestId('add-member-button')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('add-member-button'));
+    fireEvent.change(screen.getByTestId('add-member-name-input'), {
+      target: { value: 'Lillebror' },
+    });
+    fireEvent.click(screen.getByTestId('add-member-category-child'));
+    fireEvent.click(screen.getByTestId('add-member-submit'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('add-member-name-input')).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('member-card-12')).toBeInTheDocument();
+    });
+    expect(familyCallCount).toBeGreaterThanOrEqual(2);
   });
 });
 
