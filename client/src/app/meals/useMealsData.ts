@@ -1,26 +1,28 @@
 // Hook that orchestrates the Meals screen's data fetching.
 //
-// Two parallel fetches on mount:
-//   - GET /api/meals/current  — week plan with recipes attached
+// Two parallel fetches on mount / when weekYear changes:
+//   - GET /api/meals/week/:weekYear (or /current when unset) — week plan
 //   - GET /api/family         — only portionSum is consumed; we fall
 //                                back to 1.0 if the family fetch fails
 //                                so the meals screen stays usable
 //                                even when the family endpoint is
 //                                degraded.
 //
-// We use one combined loading flag and one combined error: the screen
-// is unusable without the meal plan, and the family fetch is a soft
-// dependency. If meals 4xx, the screen shows an error-card. If meals
-// succeed but family fails, we surface meals + an info hint about
-// "scaling unavailable" rather than an error.
-//
 // Selected-day state lives here so DayStrip and MealHero can stay
 // trivially testable as pure components. Default selection is "today"
 // (computed from Date.now()), clamped to 0..6 with mandag=0 mapping.
+// When viewing a non-current week, todayIndex is -1 so no day is marked
+// as "today".
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchMealsCurrent, type MealsCurrentResponse, type MealSlot } from './mealsApi';
+import {
+  fetchMealsCurrent,
+  fetchMealsWeek,
+  type MealsCurrentResponse,
+  type MealSlot,
+} from './mealsApi';
 import { fetchFamily, type FamilyResponse } from '../family/familyApi';
+import { getIsoWeekYear } from '../hooks/isoWeek';
 
 export type FamilyFetchState =
   | { status: 'loading' }
@@ -36,7 +38,7 @@ export interface UseMealsDataResult {
   family: FamilyFetchState;
   /** Currently selected day (0..6). Defaults to today, clamped to range. */
   selectedDayIndex: number;
-  /** Index of "today" in the meals[] array (0..6). Re-computed on mount. */
+  /** Index of "today" in the meals[] array (0..6), or -1 when viewing another week. */
   todayIndex: number;
   /** Manually pick a day. */
   selectDay: (index: number) => void;
@@ -46,9 +48,12 @@ export interface UseMealsDataResult {
 
 export interface UseMealsDataOverrides {
   fetchMealsCurrent?: typeof fetchMealsCurrent;
+  fetchMealsWeek?: typeof fetchMealsWeek;
   fetchFamily?: typeof fetchFamily;
   /** Test override for "today" — defaults to new Date() at call time. */
   now?: Date;
+  /** ISO week to load (YYYY-WNN). Defaults to current week via /api/meals/current. */
+  weekYear?: string;
 }
 
 /**
@@ -60,9 +65,11 @@ export function isoWeekday(d: Date): number {
 }
 
 export function useMealsData(overrides: UseMealsDataOverrides = {}): UseMealsDataResult {
-  const fetchMealsFn = overrides.fetchMealsCurrent ?? fetchMealsCurrent;
+  const fetchMealsCurrentFn = overrides.fetchMealsCurrent ?? fetchMealsCurrent;
+  const fetchMealsWeekFn = overrides.fetchMealsWeek ?? fetchMealsWeek;
   const fetchFamilyFn = overrides.fetchFamily ?? fetchFamily;
   const fixedNow = overrides.now;
+  const weekYear = overrides.weekYear;
 
   const [meals, setMeals] = useState<MealsCurrentResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -70,8 +77,12 @@ export function useMealsData(overrides: UseMealsDataOverrides = {}): UseMealsDat
   const [family, setFamily] = useState<FamilyFetchState>({ status: 'loading' });
 
   const today = fixedNow ?? new Date();
-  const todayIndex = isoWeekday(today);
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(todayIndex);
+  const currentWeekYear = getIsoWeekYear(today);
+  const viewingCurrentWeek = !weekYear || weekYear === currentWeekYear;
+  const todayIndex = viewingCurrentWeek ? isoWeekday(today) : -1;
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(
+    viewingCurrentWeek ? isoWeekday(today) : 0
+  );
 
   const mealsCtrlRef = useRef<AbortController | null>(null);
   const familyCtrlRef = useRef<AbortController | null>(null);
@@ -88,7 +99,11 @@ export function useMealsData(overrides: UseMealsDataOverrides = {}): UseMealsDat
     setError(null);
     setFamily({ status: 'loading' });
 
-    fetchMealsFn(mealsCtrl.signal).then(
+    const mealsPromise = weekYear
+      ? fetchMealsWeekFn(weekYear, mealsCtrl.signal)
+      : fetchMealsCurrentFn(mealsCtrl.signal);
+
+    mealsPromise.then(
       (res) => {
         if (mealsCtrl.signal.aborted) return;
         setMeals(res);
@@ -115,12 +130,10 @@ export function useMealsData(overrides: UseMealsDataOverrides = {}): UseMealsDat
       (err: unknown) => {
         if (familyCtrl.signal.aborted) return;
         setFamily({ status: 'failed' });
-        // Surface the cause for strict-mode unused-locals; we don't
-        // want to fail the screen on this branch.
         void err;
       }
     );
-  }, [fetchMealsFn, fetchFamilyFn]);
+  }, [fetchMealsCurrentFn, fetchMealsWeekFn, fetchFamilyFn, weekYear]);
 
   useEffect(() => {
     load();
@@ -130,8 +143,17 @@ export function useMealsData(overrides: UseMealsDataOverrides = {}): UseMealsDat
       mealsCtrl?.abort();
       familyCtrl?.abort();
     };
+    // Re-fetch when selected week changes. Omit `load` — tests pass
+    // fresh vi.fn() overrides each render (same as original mount-only).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [weekYear]);
+
+  // When switching weeks, reset day selection: today if current week, else Monday.
+  useEffect(() => {
+    setSelectedDayIndex(viewingCurrentWeek ? isoWeekday(today) : 0);
+    // intentionally only when weekYear identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekYear, viewingCurrentWeek]);
 
   const selectDay = useCallback((index: number): void => {
     if (!Number.isInteger(index) || index < 0 || index > 6) return;

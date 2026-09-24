@@ -43,7 +43,8 @@
     "retry": "Prøv igjen",
     "markCooked": "Marker tilberedt",
     "alreadyCooked": "Tilberedt",
-    "openLibrary": "Åpne bibliotek"
+    "openLibrary": "Åpne bibliotek",
+    "openShopping": "Åpne handleliste"
   },
   "empty": {
     "heroTitle": "Ingen middag planlagt",
@@ -124,5 +125,9 @@
     "successSkipped": "Markert tilberedt uten trekk.",
     "lowStock": "{{count}} vare lagt til handleliste fordi pantry ble lav.",
     "lowStock_other": "{{count}} varer lagt til handleliste fordi pantry ble lav."
+  },
+  "weekNav": {
+    "prevAria": "Forrige uke",
+    "nextAria": "Neste uke"
   }
 }
