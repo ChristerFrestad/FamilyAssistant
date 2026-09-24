@@ -1,0 +1,73 @@
+# OpenAPI fragment — family roster members (merge into openapi.yaml)
+# From 2026-09-24 audit of #221 / c0de35c
+
+components:
+  schemas:
+    ProfileMember:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        category: { type: string, enum: [adult, teen, child] }
+        portionFactor: { type: number, minimum: 0.1, maximum: 2.0 }
+        sortOrder: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    CreateMemberRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        category: { type: string, enum: [adult, teen, child], default: adult }
+        portionFactor: { type: number, minimum: 0.1, maximum: 2.0, default: 1.0 }
+
+    MemberResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        member: { $ref: '#/components/schemas/ProfileMember' }
+
+paths:
+  /api/family/members:
+    post:
+      summary: Add a name-only roster member (no invite/email)
+      description: |
+        Requires role adult or higher. Works for any existing family;
+        no migration. Does not create a user account.
+      tags: [family]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMemberRequest' }
+      responses:
+        '200':
+          description: Member created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MemberResponse' }
+        '400': { description: Validation error }
+        '403': { description: Child role or no family }
+
+  /api/family/members/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    put:
+      summary: Update a roster member (adult+)
+      tags: [family]
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MemberResponse' }
+    delete:
+      summary: Delete a roster member (owner only)
+      tags: [family]
+      responses:
+        '200': { description: Deleted }
+        '403': { description: Not owner }
