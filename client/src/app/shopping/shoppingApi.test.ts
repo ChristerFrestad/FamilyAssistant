@@ -39,201 +39,85 @@ afterEach(() => {
 
 describe('fetchShoppingList', () => {
   test('GETs /api/shopping/list/current with credentials and parses categories', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse(200, {
-        id: 42,
-        weekYear: '2026-W18',
-        status: 'active',
-        enrichmentStatus: 'done',
-        totalEstPrice: 320,
-        categories: [
-          {
-            category: 'Meieri',
-            items: [{ id: 1, ingredientName: 'Melk', name: 'Melk', checkedOff: false }],
-          },
-        ],
-        items: [],
-      })
-    );
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { id: 42, weekYear: '2026-W18', status: 'active', enrichmentStatus: 'done', totalEstPrice: 320, categories: [{ category: 'Meieri', items: [{ id: 1, ingredientName: 'Melk', name: 'Melk', checkedOff: false }] }], items: [] }));
     const r = await fetchShoppingList();
-    expect(fetchSpy).toHaveBeenCalledWith(
-      '/api/shopping/list/current',
-      expect.objectContaining({ method: 'GET', credentials: 'include' })
-    );
+    expect(fetchSpy).toHaveBeenCalledWith('/api/shopping/list/current', expect.objectContaining({ method: 'GET', credentials: 'include' }));
     expect(r.id).toBe(42);
     expect(r.categories).toHaveLength(1);
     expect(r.categories[0]?.items[0]?.name).toBe('Melk');
   });
-
   test('returns the empty-shell payload when no active list exists', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse(200, {
-        id: null,
-        weekYear: '2026-W18',
-        status: null,
-        enrichmentStatus: 'done',
-        totalEstPrice: 0,
-        categories: [],
-        items: [],
-      })
-    );
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { id: null, weekYear: '2026-W18', status: null, enrichmentStatus: 'done', totalEstPrice: 0, categories: [], items: [] }));
     const r = await fetchShoppingList();
     expect(r.id).toBeNull();
     expect(r.categories).toEqual([]);
   });
-
   test('throws ShoppingApiError on 4xx with detail string', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse(401, { detail: 'Authentication required' }));
     await expect(fetchShoppingList()).rejects.toBeInstanceOf(ShoppingApiError);
     fetchSpy.mockResolvedValueOnce(jsonResponse(401, { detail: 'Authentication required' }));
-    try {
-      await fetchShoppingList();
-    } catch (e) {
-      expect(e).toBeInstanceOf(ShoppingApiError);
-      expect((e as ShoppingApiError).status).toBe(401);
-      expect((e as ShoppingApiError).message).toBe('Authentication required');
+    try { await fetchShoppingList(); } catch (e) {
+      expect(e).toBeInstanceOf(ShoppingApiError); expect((e as ShoppingApiError).status).toBe(401); expect((e as ShoppingApiError).message).toBe('Authentication required');
     }
   });
-
   test('forwards an AbortSignal to fetch', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse(200, {
-        id: null,
-        weekYear: '2026-W18',
-        status: null,
-        enrichmentStatus: 'done',
-        totalEstPrice: 0,
-        categories: [],
-      })
-    );
-    const ctrl = new AbortController();
-    await fetchShoppingList(ctrl.signal);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      '/api/shopping/list/current',
-      expect.objectContaining({ signal: ctrl.signal })
-    );
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { id: null, weekYear: '2026-W18', status: null, enrichmentStatus: 'done', totalEstPrice: 0, categories: [] }));
+    const ctrl = new AbortController(); await fetchShoppingList(ctrl.signal);
+    expect(fetchSpy).toHaveBeenCalledWith('/api/shopping/list/current', expect.objectContaining({ signal: ctrl.signal }));
   });
 });
 
 describe('markItemBought', () => {
   test('PUTs with qty body when qty is provided', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
-    await markItemBought(7, 2);
-    const call = fetchSpy.mock.calls[0];
-    expect(call?.[0]).toBe('/api/shopping/items/7/bought');
-    expect(call?.[1]).toMatchObject({ method: 'PUT' });
-    const init = call?.[1] as RequestInit;
-    expect(JSON.parse(String(init.body))).toEqual({ qty: 2 });
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true })); await markItemBought(7, 2);
+    const call = fetchSpy.mock.calls[0]; expect(call?.[0]).toBe('/api/shopping/items/7/bought'); expect(call?.[1]).toMatchObject({ method: 'PUT' });
+    expect(JSON.parse(String((call?.[1] as RequestInit).body))).toEqual({ qty: 2 });
   });
-
   test('PUTs with empty body when qty is omitted', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
-    await markItemBought(7);
-    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(init.body))).toEqual({});
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true })); await markItemBought(7);
+    expect(JSON.parse(String((fetchSpy.mock.calls[0]?.[1] as RequestInit).body))).toEqual({});
   });
-
   test('returns alreadyBought when backend signals idempotent toggle', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true, alreadyBought: true }));
-    const r = await markItemBought(7);
-    expect(r.alreadyBought).toBe(true);
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true, alreadyBought: true })); const r = await markItemBought(7); expect(r.alreadyBought).toBe(true);
   });
 });
 
 describe('markItemUnbought', () => {
   test('PUTs without body', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
-    await markItemUnbought(7);
-    const call = fetchSpy.mock.calls[0];
-    expect(call?.[0]).toBe('/api/shopping/items/7/unbought');
-    expect((call?.[1] as RequestInit).method).toBe('PUT');
-    expect((call?.[1] as RequestInit).body).toBeUndefined();
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true })); await markItemUnbought(7); const call = fetchSpy.mock.calls[0];
+    expect(call?.[0]).toBe('/api/shopping/items/7/unbought'); expect((call?.[1] as RequestInit).method).toBe('PUT'); expect((call?.[1] as RequestInit).body).toBeUndefined();
   });
 });
 
-describe('deleteItem', () => {
-  test('sends DELETE', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
-    await deleteItem(11);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      '/api/shopping/items/11',
-      expect.objectContaining({ method: 'DELETE', credentials: 'include' })
-    );
-  });
-});
+describe('deleteItem', () => { test('sends DELETE', async () => { fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true })); await deleteItem(11); expect(fetchSpy).toHaveBeenCalledWith('/api/shopping/items/11', expect.objectContaining({ method: 'DELETE', credentials: 'include' })); }); });
 
 describe('addItem', () => {
   test('POSTs body and returns parsed item from 201', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse(201, {
-        ok: true,
-        item: {
-          id: 99,
-          ingredientName: 'Melk',
-          name: 'Melk',
-          qty: 2,
-          unit: 'l',
-          category: 'Meieri',
-          checkedOff: false,
-        },
-      })
-    );
-    const r = await addItem({ name: 'Melk', qty: 2, unit: 'l', category: 'Meieri' });
-    expect(r.item.id).toBe(99);
-    expect(r.item.name).toBe('Melk');
-    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(init.body))).toEqual({
-      name: 'Melk',
-      qty: 2,
-      unit: 'l',
-      category: 'Meieri',
-    });
+    fetchSpy.mockResolvedValueOnce(jsonResponse(201, { ok: true, item: { id: 99, ingredientName: 'Melk', name: 'Melk', qty: 2, unit: 'l', category: 'Meieri', checkedOff: false } }));
+    const r = await addItem({ name: 'Melk', qty: 2, unit: 'l', category: 'Meieri' }); expect(r.item.id).toBe(99); expect(r.item.name).toBe('Melk');
+    expect(JSON.parse(String((fetchSpy.mock.calls[0]?.[1] as RequestInit).body))).toEqual({ name: 'Melk', qty: 2, unit: 'l', category: 'Meieri' });
   });
-
   test('forwards backend code on 400 NO_ACTIVE_LIST', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse(400, {
-        detail: 'Ingen aktiv handleliste',
-        code: 'NO_ACTIVE_LIST',
-      })
-    );
-    try {
-      await addItem({ name: 'Melk' });
-      throw new Error('expected throw');
-    } catch (e) {
-      expect(e).toBeInstanceOf(ShoppingApiError);
-      expect((e as ShoppingApiError).status).toBe(400);
-      expect((e as ShoppingApiError).code).toBe('NO_ACTIVE_LIST');
-    }
+    fetchSpy.mockResolvedValueOnce(jsonResponse(400, { detail: 'Ingen aktiv handleliste', code: 'NO_ACTIVE_LIST' }));
+    try { await addItem({ name: 'Melk' }); throw new Error('expected throw'); } catch (e) { expect(e).toBeInstanceOf(ShoppingApiError); expect((e as ShoppingApiError).status).toBe(400); expect((e as ShoppingApiError).code).toBe('NO_ACTIVE_LIST'); }
   });
 });
 
 describe('generateFromMeals', () => {
   test('POSTs to /api/shopping/generate with empty body', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse(200, { ok: true, listId: 5, itemCount: 12, needsBuyCount: 9 })
-    );
-    const r = await generateFromMeals();
-    expect(r.listId).toBe(5);
-    expect(r.itemCount).toBe(12);
-    const call = fetchSpy.mock.calls[0];
-    expect(call?.[0]).toBe('/api/shopping/generate');
-    expect((call?.[1] as RequestInit).method).toBe('POST');
-    expect(JSON.parse(String((call?.[1] as RequestInit).body))).toEqual({});
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { ok: true, listId: 5, itemCount: 12, needsBuyCount: 9 })); const r = await generateFromMeals(); expect(r.listId).toBe(5); expect(r.itemCount).toBe(12);
+    const call = fetchSpy.mock.calls[0]; expect(call?.[0]).toBe('/api/shopping/generate'); expect((call?.[1] as RequestInit).method).toBe('POST'); expect(JSON.parse(String((call?.[1] as RequestInit).body))).toEqual({});
   });
-
   test('forwards WEEK_NOT_COMPLETE code from backend', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse(400, {
-        detail: 'Uken er ikke ferdigplanlagt',
-        code: 'WEEK_NOT_COMPLETE',
-      })
-    );
-    try {
-      await generateFromMeals();
-      throw new Error('expected throw');
-    } catch (e) {
-      expect((e as ShoppingApiError).code).toBe('WEEK_NOT_COMPLETE');
-    }
+    fetchSpy.mockResolvedValueOnce(jsonResponse(400, { detail: 'Uken er ikke ferdigplanlagt', code: 'WEEK_NOT_COMPLETE' }));
+    try { await generateFromMeals(); throw new Error('expected throw'); } catch (e) { expect((e as ShoppingApiError).code).toBe('WEEK_NOT_COMPLETE'); }
+  });
+});
+
+describe('fetchShoppingList weekYear', () => {
+  test('appends ?week= when a weekYear is provided', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { id: null, weekYear: '2026-W20', status: null, enrichmentStatus: 'done', categories: [], totalEstPrice: 0 }));
+    const r = await fetchShoppingList(undefined, '2026-W20');
+    expect(fetchSpy).toHaveBeenCalledWith('/api/shopping/list/current?week=2026-W20', expect.objectContaining({ method: 'GET', credentials: 'include' })); expect(r.weekYear).toBe('2026-W20');
   });
 });
