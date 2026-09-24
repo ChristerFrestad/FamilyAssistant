@@ -40,7 +40,7 @@
   "members": {
     "heading": "Family members",
     "empty": "No family members yet",
-    "singleMemberHint": "You are the only person in the family right now. Invite others once the feature is ready."
+    "singleMemberHint": "You are the only person in the family right now. Add a member to the roster, or invite someone by email."
   },
   "actions": {
     "invite": "Invite member",
@@ -139,5 +139,18 @@
   },
   "placeholder": {
     "description": "Coming in Phase 2B — member CRUD, per-member diet, and gamification progress."
+  },
+  "addMemberModal": {
+    "title": "Add member",
+    "namePlaceholder": "First name or nickname",
+    "portionHint": "Optional — defaults to 1.0 for an adult. Adjust based on appetite.",
+    "submit": "Add",
+    "cancel": "Cancel",
+    "saving": "Saving …",
+    "validation": {
+      "nameRequired": "Name is required",
+      "generic": "Could not add member — try again"
+    },
+    "success": "Added {{name}} to the family"
   }
 }

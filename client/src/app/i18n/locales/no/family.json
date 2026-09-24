@@ -40,7 +40,7 @@
   "members": {
     "heading": "Familiemedlemmer",
     "empty": "Ingen familiemedlemmer ennå",
-    "singleMemberHint": "Du er den eneste i familien akkurat nå. Inviter andre når funksjonen er klar."
+    "singleMemberHint": "Du er den eneste i familien akkurat nå. Legg til et medlem i listen, eller inviter noen med e-post."
   },
   "actions": {
     "invite": "Inviter medlem",
@@ -139,5 +139,18 @@
   },
   "placeholder": {
     "description": "Kommer i Fase 2B — medlems-CRUD, per-medlem-diett og gamification-progresjon."
+  },
+  "addMemberModal": {
+    "title": "Legg til medlem",
+    "namePlaceholder": "Fornavn eller kallenavn",
+    "portionHint": "Valgfritt — standard er 1.0 for voksen. Juster etter appetitt.",
+    "submit": "Legg til",
+    "cancel": "Avbryt",
+    "saving": "Lagrer …",
+    "validation": {
+      "nameRequired": "Navn er påkrevd",
+      "generic": "Kunne ikke legge til medlem — prøv igjen"
+    },
+    "success": "La til {{name}} i familien"
   }
 }
