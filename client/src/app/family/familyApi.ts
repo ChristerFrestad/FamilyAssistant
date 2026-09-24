@@ -1,7 +1,8 @@
 // Backend client for the Family screen.
 //
-// Two endpoints used:
+// Endpoints used:
 //   GET  /api/family               — full snapshot (family + profile_members + users + portionSum)
+//   POST /api/family/members       — create a name-only roster member (no invite/email)
 //   PUT  /api/family/members/:id   — partial update of one roster row
 //
 // Same fetch-conventions as authApi/dashboardApi: credentials:'include'
@@ -66,6 +67,18 @@ export interface FamilyResponse {
 }
 
 export interface UpdateMemberResponse {
+  ok: true;
+  member: ProfileMember;
+}
+
+export interface CreateMemberInput {
+  name: string;
+  category: MemberCategory;
+  /** Defaults to 1.0 on the server when omitted. Range 0.1–2.0. */
+  portionFactor?: number;
+}
+
+export interface CreateMemberResponse {
   ok: true;
   member: ProfileMember;
 }
@@ -140,4 +153,32 @@ export async function updateMemberPortion(
     },
     init
   )) as UpdateMemberResponse;
+}
+
+/**
+ * Create a name-only roster member (no email, no invitation).
+ * Backend: POST /api/family/members — requireRole('adult') (owner + adult).
+ */
+export async function createMember(
+  input: CreateMemberInput,
+  signal?: AbortSignal
+): Promise<CreateMemberResponse> {
+  const init: FetchOptions = {};
+  if (signal) init.signal = signal;
+  const body: { name: string; category: MemberCategory; portionFactor?: number } = {
+    name: input.name,
+    category: input.category,
+  };
+  if (input.portionFactor !== undefined) {
+    body.portionFactor = input.portionFactor;
+  }
+  return (await callApi(
+    '/api/family/members',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    init
+  )) as CreateMemberResponse;
 }
