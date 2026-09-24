@@ -37,6 +37,7 @@ function makeItem(over: Partial<ShoppingItem>): ShoppingItem {
     pantryHas: false,
     pantryQty: null,
     needsBuy: true,
+    pantryQty: null,
     boughtAt: null,
     boughtQty: null,
     checkedOff: false,
@@ -258,7 +259,7 @@ describe('useShoppingData — addItem', () => {
     await act(async () => {
       await result.current.addItem({ name: 'Bananer' });
     });
-    expect(addItemFn).toHaveBeenCalledWith({ name: 'Bananer' });
+    expect(addItemFn).toHaveBeenCalledWith({ name: 'Bananer' }, undefined);
     expect(result.current.flatItems.find((i) => i.id === 99)).toBeDefined();
   });
 
