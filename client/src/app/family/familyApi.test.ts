@@ -1,12 +1,13 @@
 // Tests for familyApi.ts.
 //
-// Three contracts:
+// Contracts:
 //   1. Each helper hits the right URL with credentials: 'include'.
 //   2. Non-2xx responses throw FamilyApiError carrying the status.
 //   3. updateMemberPortion sends portionFactor in the JSON body.
+//   4. createMember POSTs name/category/(optional portionFactor).
 
 import { test, expect, vi, beforeEach, afterEach, describe } from 'vitest';
-import { fetchFamily, updateMemberPortion, FamilyApiError } from './familyApi';
+import { fetchFamily, updateMemberPortion, createMember, FamilyApiError } from './familyApi';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -130,6 +131,105 @@ describe('updateMemberPortion', () => {
     );
     const ctrl = new AbortController();
     await updateMemberPortion(5, 1.0, ctrl.signal);
+    const callArgs = fetchSpy.mock.calls[0]?.[1];
+    expect((callArgs as RequestInit | undefined)?.signal).toBe(ctrl.signal);
+  });
+});
+
+describe('createMember', () => {
+  test('POSTs /api/family/members with name, category, and portionFactor', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ok: true,
+        member: {
+          id: 12,
+          name: 'Lillebror',
+          category: 'child',
+          portionFactor: 0.5,
+          sortOrder: 2,
+          allergies: null,
+          dislikes: null,
+          dietTags: [],
+          customDietNote: null,
+          createdAt: '2026-09-24 12:00:00',
+          updatedAt: '2026-09-24 12:00:00',
+        },
+      })
+    );
+    const r = await createMember({ name: 'Lillebror', category: 'child', portionFactor: 0.5 });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/family/members',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ name: 'Lillebror', category: 'child', portionFactor: 0.5 }),
+      })
+    );
+    expect(r.member.name).toBe('Lillebror');
+    expect(r.member.category).toBe('child');
+  });
+
+  test('omits portionFactor from body when not provided', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ok: true,
+        member: {
+          id: 12,
+          name: 'Lillebror',
+          category: 'child',
+          portionFactor: 0.5,
+          sortOrder: 2,
+          allergies: null,
+          dislikes: null,
+          dietTags: [],
+          customDietNote: null,
+          createdAt: '2026-09-24 12:00:00',
+          updatedAt: '2026-09-24 12:00:00',
+        },
+      })
+    );
+    await createMember({ name: 'Lillebror', category: 'child' });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/family/members',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ name: 'Lillebror', category: 'child' }),
+      })
+    );
+  });
+
+  test('throws FamilyApiError on 403', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(403, { detail: 'role-required' }));
+    try {
+      await createMember({ name: 'X', category: 'adult' });
+      throw new Error('expected throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(FamilyApiError);
+      expect((err as FamilyApiError).status).toBe(403);
+    }
+  });
+
+  test('forwards AbortSignal to fetch', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ok: true,
+        member: {
+          id: 12,
+          name: 'Lillebror',
+          category: 'child',
+          portionFactor: 0.5,
+          sortOrder: 2,
+          allergies: null,
+          dislikes: null,
+          dietTags: [],
+          customDietNote: null,
+          createdAt: '2026-09-24 12:00:00',
+          updatedAt: '2026-09-24 12:00:00',
+        },
+      })
+    );
+    const ctrl = new AbortController();
+    await createMember({ name: 'Lillebror', category: 'child' }, ctrl.signal);
     const callArgs = fetchSpy.mock.calls[0]?.[1];
     expect((callArgs as RequestInit | undefined)?.signal).toBe(ctrl.signal);
   });
