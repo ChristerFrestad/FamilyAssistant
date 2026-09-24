@@ -1,1 +1,1 @@
-@/tmp/routes_content_utf8.js
+file:///tmp/routes_content_utf8.js
