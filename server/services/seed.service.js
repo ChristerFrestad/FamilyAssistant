@@ -206,10 +206,10 @@ function seedFamilyDefaults(repos, familyId) {
 
 /**
  * Build a seed-id → family-recipe-id map by name-lookup. Used by
- * ensureWeek so the default-week meal-plan points at recipes
+ * ensureCurrentWeek so the default-week meal-plan points at recipes
  * that actually belong to the current family. Returns an empty map
- * if no seed-recipes match — the caller then seeds empty planned
- * slots instead of orphan cross-family recipe ids.
+ * if no seed-recipes match — the caller then skips meal-plan seeding
+ * to avoid orphan rows.
  */
 function buildSeedRecipeIdMapFromRepo(repos) {
   /** @type {Record<number, number>} */
@@ -224,30 +224,9 @@ function buildSeedRecipeIdMapFromRepo(repos) {
   return mp;
 }
 
-/**
- * Ensure a meal plan (and chore schedule) exist for the given ISO
- * weekYear (YYYY-WNN). Seeds THAT week — not "current" — so callers
- * like GET /api/meals/week/:weekYear can open next/prev weeks.
- *
- * Seeding rules match the historical ensureCurrentWeek behaviour:
- *   - Prefer remapped seed.defaultMealPlan when the family has the
- *     matching seed recipes (avoids cross-family orphan recipe ids).
- *   - Otherwise insert 7 empty planned slots (recipe_id NULL) so the
- *     week exists and the SPA can plan/swap day-by-day.
- *   - Chore schedule is seeded when missing (same as before).
- *
- * Idempotent: no-op when meal_plans already has any row for the week.
- *
- * @param {object} repos
- * @param {string} weekYear
- * @returns {string} the weekYear that was ensured
- */
-function ensureWeek(repos, weekYear) {
-  const wk = String(weekYear || '');
-  if (!/^\d{4}-W\d{2}$/.test(wk)) {
-    throw new Error(`Invalid weekYear: ${wk}`);
-  }
-  if (!repos.mealPlans.exists(wk)) {
+function ensureCurrentWeek(repos) {
+  const weekYear = seed.getWeekYear();
+  if (!repos.mealPlans.exists(weekYear)) {
     // Only seed a default meal-plan when the family already has seed
     // recipes — otherwise the hardcoded `seed.defaultMealPlan` rows
     // would create orphan meal_plans pointing at recipes that belong
@@ -261,25 +240,13 @@ function ensureWeek(repos, weekYear) {
       })
       .filter((slot) => slot !== null);
     if (remapped.length > 0) {
-      repos.mealPlans.seedDefault(wk, remapped);
-    } else {
-      // Empty week so the week "exists" for navigation / swap.
-      const emptyPlan = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-        dayOfWeek,
-        recipeId: null,
-        status: 'planned',
-      }));
-      repos.mealPlans.seedDefault(wk, emptyPlan);
+      repos.mealPlans.seedDefault(weekYear, remapped);
     }
   }
-  if (!repos.choreSchedules.exists(wk)) {
-    repos.choreSchedules.seedDefault(wk);
+  if (!repos.choreSchedules.exists(weekYear)) {
+    repos.choreSchedules.seedDefault(weekYear);
   }
-  return wk;
+  return weekYear;
 }
 
-function ensureCurrentWeek(repos) {
-  return ensureWeek(repos, seed.getWeekYear());
-}
-
-module.exports = { seedIfEmpty, seedFamilyDefaults, ensureCurrentWeek, ensureWeek };
+module.exports = { seedIfEmpty, seedFamilyDefaults, ensureCurrentWeek };

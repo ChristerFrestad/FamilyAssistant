@@ -1,2 +1,3042 @@
-const crypto=require("crypto"),fs=require("fs"),path=require("path"),{getWeekYear:getWeekYear}=require("./seed"),{errors:errors}=require("./http/errors"),{validateBody:validateBody,validateQuery:validateQuery}=require("./http/validate"),{registerAuthRoutes:registerAuthRoutes}=require("./auth/routes"),{registerFamilyRoutes:registerFamilyRoutes}=require("./auth/family-routes"),{registerLlmConfigRoutes:registerLlmConfigRoutes}=require("./auth/llm-routes"),{registerGdprRoutes:registerGdprRoutes}=require("./auth/gdpr-routes"),{registerFeedbackRoutes:registerFeedbackRoutes}=require("./http/feedback-routes"),{registerBootstrapRoutes:registerBootstrapRoutes}=require("./http/bootstrap"),{registerBrandingRoutes:registerBrandingRoutes}=require("./http/branding"),{registerCalendarIntegrationRoutes:registerCalendarIntegrationRoutes}=require("./http/calendar-routes"),{expandRecurring:expandRecurring}=require("./services/calendar/rrule-expand"),{config:config}=require("./config"),{requireRole:requireRole,requireAdmin:requireAdmin,hasRole:hasRole}=require("./auth/middleware"),{withCache:withCache,invalidate:invalidate,responseCache:responseCache}=require("./http/cache"),metrics=require("./http/metrics"),schemas=require("./schemas"),{buildShoppingList:buildShoppingList,generateForWeek:generateForWeek}=require("./services/shopping-list.service"),{enrichInBackground:enrichInBackground}=require("./services/shopping-list-enricher.service"),{enrichItemForFrontend:enrichItemForFrontend}=require("./repositories/shopping.repo"),{getSwapSuggestions:getSwapSuggestions,checkShelfLife:checkShelfLife,generateSundayDraft:generateSundayDraft,generatePantryRestOfWeek:generatePantryRestOfWeek,computeMissingForRestOfWeek:computeMissingForRestOfWeek}=require("./services/meal-planning.service"),{ensureCurrentWeek:ensureCurrentWeek,ensureWeek:ensureWeek}=require("./services/seed.service"),pantryService=require("./services/pantry.service"),pantryResolver=require("./services/pantry-resolver.service"),pantryDeduction=require("./services/pantry-deduction.service"),{createShelfLifeLearner:createShelfLifeLearner}=require("./services/shelf-life-learner.service"),priceReferenceService=require("./services/price-reference.service"),receiptService=require("./services/receipt.service"),recipeImportService=require("./services/recipe-import.service"),{slugifyProductKey:slugifyProductKey}=require("./services/slugify"),{extractChain:extractChain}=require("./services/product-resolver.service"),{isLLMAvailable:isLLMAvailable,chat:chat,suggestRecipeFromText:suggestRecipeFromText,extractIntent:extractIntent,OLLAMA_MODEL:OLLAMA_MODEL,LLM_BACKEND:LLM_BACKEND}=require("./llm"),{transcribe:transcribe,isSTTAvailable:isSTTAvailable}=require("./stt"),DAY_NAMES=["Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag","Søndag"];function choreEffectiveDay(e){return null!==e.postponedTo&&e.postponedTo<0?null:null!==e.postponedTo?e.postponedTo:e.scheduledDay}function previousIsoWeek(e){const t=/^(\d{4})-W(\d{2})$/.exec(String(e||""));if(!t)return null;const r=Number(t[1]),s=Number(t[2]);return s>1?`${r}-W${String(s-1).padStart(2,"0")}`:getWeekYear(new Date(Date.UTC(r-1,11,28)))}function isValidWeekYear(e){return/^\d{4}-W\d{2}$/.test(String(e||""))}function resolveWeekYear(e,t){return t&&isValidWeekYear(t)?ensureWeek(e,t):ensureCurrentWeek(e)}function consecutiveWeekStreak(e,t,r){const s=new Set(e.choreCompletions.weeksWithCompletions(t));let o=0,i=r;for(;i&&s.has(i)&&(o+=1,i=previousIsoWeek(i),!(o>520)););return o}function toChoreDto(e){return e?{id:e.id,task:e.task,details:e.details??null,frequency:e.frequency,defaultDay:e.default_day??null,icon:e.icon??null,assigneeMemberId:e.assignee_member_id??null,intervalDays:e.interval_days??null,active:!!e.active}:null}function choreCatalogMap(e){return new Map(e.chores.getAll({includeInactive:!0}).map(e=>[e.id,e]))}function maybeAutogenerateShoppingList(e,t){try{if(!e.mealPlans.isWeekComplete(t))return null;const r=generateForWeek(e,t,{force:!1,mode:"merge"});return invalidate("shopping"),r&&r.listId&&enrichInBackground(e,r.listId),r}catch{return null}}function withAudit(e,t,r){return s=>{let o=null;try{"function"==typeof t.getBefore&&(o=t.getBefore(s,e))}catch{}r(s);try{const r="function"==typeof t.getEntityId?t.getEntityId(s):null;let i=null;"function"==typeof t.getAfter&&(i=t.getAfter(s,e)),e.auditLog.record({requestId:s.requestId||s.req?.headers?.["x-request-id"]||"unknown",actor:"local",action:(s.req?.method||"UNKNOWN").toUpperCase(),entityType:t.entityType,entityId:r,route:s.req?.url||"unknown",before:o,after:i,metadata:"function"==typeof t.metadata?t.metadata(s):t.metadata})}catch{}}}function registerRoutes(e,{repos:t,serverState:r}){const s=createShelfLifeLearner(t,t._db);function o(e,t="id"){const r=parseInt(e,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest(`${t} must be a positive integer`);return r}function i(){const e=require("./services/recipe-filter.service"),r=t.familyProfile.get(),{getFamilyId:s}=require("./auth/family-context"),o=s(),i=o?t.family.listMembers(o):[];return e.buildFamilyContext({familyProfile:r,members:i})}function a(e){const t=e?.ignoreDietTags;return!0===t||"true"===t||"1"===t}function n(e,t,r){const s=require("./services/recipe-filter.service").filterRecipeForFamily(e,t,r),o=s.allergy.blockedIngredients.map(({blockedFor:e,...t})=>t);return Object.assign({},e||{},{safeForProfile:s.allergy.safeForFamily,blockedIngredients:o,checkedAgainst:s.allergy.effectiveAllergies,perMember:{allergy:s.allergy,dislike:s.dislike,diet:s.diet},hiddenByAllergy:s.hiddenByAllergy,hiddenByDiet:s.hiddenByDiet,shownWithDislikeWarning:s.shownWithDislikeWarning})}registerBootstrapRoutes(e,{config:config}),registerBrandingRoutes(e,{config:config}),config.BOOTSTRAP_MODE&&e.all("/api/*",e=>{e.pathname.startsWith("/api/bootstrap/")||e.json({type:"about:blank",title:"Setup required",status:503,detail:"Instance not configured. Complete setup at /setup.html.",setupUrl:"/setup.html"},503)}),registerAuthRoutes(e,{repos:t}),registerFamilyRoutes(e,{repos:t}),registerLlmConfigRoutes(e,{repos:t}),registerGdprRoutes(e,{repos:t}),registerCalendarIntegrationRoutes(e,{repos:t}),registerFeedbackRoutes(e,{repos:t}),e.get("/health",e=>{e.json({status:"ok",version:require("../package.json").version,spa:"chores-calendar-g1",uptimeSec:Math.round((Date.now()-r.startedAt)/1e3),pid:process.pid,memMB:Math.round(process.memoryUsage().rss/1024/1024)})}),e.get("/health/detailed",e=>{if(!e.user||!e.user.is_admin)throw errors.forbidden("Admin role required.");let s=0,o=0,i=!1;try{s=t._db.prepare("SELECT COUNT(*) AS cnt FROM schema_migrations").get().cnt}catch{}try{o=t._db.prepare("SELECT COUNT(DISTINCT user_id) AS cnt FROM sessions
-             WHERE last_seen_at >= datetime('now', '-24 hours')").get().cnt}catch{}try{i=!!process.env.KASSAL_API_KEY}catch{}e.json({status:"ok",version:require("../package.json").version,nodeEnv:process.env.NODE_ENV||"production",uptimeSec:Math.round((Date.now()-r.startedAt)/1e3),memMB:Math.round(process.memoryUsage().rss/1024/1024),pid:process.pid,migrationCount:s,activeUsers24h:o,kassalApiKeyConfigured:i,pilotMode:!!process.env.PILOT_MODE,magicLinkConsole:!!process.env.MAGIC_LINK_CONSOLE})}),e.get("/ready",e=>{const s={server:r.ready,repos:null!==t},o=[];let i=null,a=null;try{const e=require("fs"),{DB_PATH:t}=require("./db");t&&e.existsSync(t)&&(i=e.statSync(t).size,i>524288e3&&o.push("db_size_over_500mb"))}catch{}try{const e=require("fs");if(e.statfsSync){const t=e.statfsSync(require("path").dirname(require("./db").DB_PATH||process.cwd()));a=t.bfree*t.bsize,a<104857600&&o.push("disk_under_100mb")}}catch{}let n=null;try{const e=require("fs"),t=require("path"),{BACKUP_DIR:r}=require("./backup");if(e.existsSync(r)){const s=e.readdirSync(r).filter(e=>/^familieassistenten-\d{4}-\d{2}-\d{2}\.db$/.test(e)).map(s=>({f:s,mtime:e.statSync(t.join(r,s)).mtimeMs})).sort((e,t)=>t.mtime-e.mtime);s.length>0&&(n=Math.round((Date.now()-s[0].mtime)/36e5),n>30&&o.push("backup_stale_over_30h"))}}catch{}let c=0;try{const e=require("./services/circuit-breaker").snapshotAll();for(const t of Object.values(e))"OPEN"===t.state&&c++;c>0&&o.push(`breakers_open_${c}`)}catch{}let d=null,l=null;try{const{config:e}=require("./config");d=Math.round(process.memoryUsage().rss/1024/1024),l=e.MEMORY_BUDGET_MB,d>l?o.push(`rss_over_budget_${d}mb`):d>.9*l&&o.push(`rss_near_budget_${d}mb`)}catch{}let u=null;try{const{config:e}=require("./config");if(e.AUTH_TOKEN&&e.AUTH_TOKEN_CREATED_AT){const t=Date.parse(e.AUTH_TOKEN_CREATED_AT);Number.isNaN(t)||(u=Math.floor((Date.now()-t)/864e5),u>e.AUTH_TOKEN_MAX_AGE_DAYS&&o.push(`auth_token_stale_${u}d`))}else e.AUTH_TOKEN&&!e.AUTH_TOKEN_CREATED_AT&&"production"===e.NODE_ENV&&o.push("auth_token_age_unknown")}catch{}const p=s.server&&s.repos&&!o.some(e=>"disk_under_100mb"===e||"db_size_over_500mb"===e);e.json({ready:p,driver:r.driver,repos:t?1:0,checks:s,dbSizeBytes:i,dbSizeMB:null!=i?Math.round(i/1024/1024):null,diskFreeBytes:a,diskFreeMB:null!=a?Math.round(a/1024/1024):null,lastBackupAgeHours:n,breakersOpen:c,tokenAgeDays:u,rssMB:d,memoryBudgetMB:l,warnings:o})}),e.get("/api/meals/week/:weekYear",withCache(["meals"],e=>{const r=e.params.weekYear;if(!isValidWeekYear(r))throw errors.badRequest("Ugyldig weekYear (f.eks. 2026-W15)",{code:"INVALID_WEEK"});ensureWeek(t,r);const s=t.mealPlans.getWeek(r);e.json({weekYear:r,meals:s.map(e=>({...e,dayName:DAY_NAMES[e.dayOfWeek],recipe:e.recipeId?t.recipes.getById(e.recipeId):null}))})})),e.get("/api/meals/current",withCache(["meals"],e=>{const r=ensureCurrentWeek(t),s=t.mealPlans.getWeek(r);e.json({weekYear:r,meals:s.map(e=>({...e,dayName:DAY_NAMES[e.dayOfWeek],recipe:e.recipeId?t.recipes.getById(e.recipeId):null}))})})),e.put("/api/meals/swap",requireRole("adult"),validateBody(schemas.mealsSwapBody),e=>{const{weekYear:r,dayOfWeek:s,recipeId:o}=e.body,i=resolveWeekYear(t,r);t.mealPlans.setRecipe(i,s,o,"planned"),invalidate("meals","today","shopping");const a=maybeAutogenerateShoppingList(t,i);e.json({ok:!0,mealPlan:t.mealPlans.getWeek(i),autogeneratedShoppingList:a})}),e.put("/api/meals/status",requireRole("adult"),validateBody(schemas.mealsStatusBody),e=>{const{weekYear:r,dayOfWeek:s,status:o}=e.body,i=resolveWeekYear(t,r);t.mealPlans.setStatus(i,s,o),invalidate("meals","today");const a=maybeAutogenerateShoppingList(t,i);e.json({ok:!0,autogeneratedShoppingList:a})}),e.put("/api/meals/reorder",requireRole("adult"),validateBody(schemas.mealsReorderBody),e=>{const{weekYear:r,fromDay:s,toDay:o}=e.body,i=resolveWeekYear(t,r),a=t.mealPlans.getWeek(i),n=checkShelfLife(t,a,s,o);t.mealPlans.swapDays(i,s,o),invalidate("meals","today"),e.json({ok:!0,shelfWarnings:n.warnings,mealPlan:t.mealPlans.getWeek(i)})}),e.get("/api/meals/suggestions/:dayOfWeek",e=>{const r=parseInt(e.params.dayOfWeek,10);if(!Number.isInteger(r)||r<0||r>6)throw errors.badRequest("dayOfWeek må være 0–6");const s=ensureCurrentWeek(t);e.json({suggestions:getSwapSuggestions(t,r,s)})}),e.post("/api/meals/pantry-suggestions",requireRole("adult"),validateBody(schemas.pantrySuggestionBody),e=>{ensureCurrentWeek(t);const r=generatePantryRestOfWeek(t,{category:e.body.category});e.json(r)}),e.post("/api/meals/pantry-suggestions/accept",requireRole("adult"),validateBody(schemas.pantrySuggestionAcceptBody),e=>{const r=ensureCurrentWeek(t);for(const s of e.body.meals)t.mealPlans.setRecipe(r,s.dayOfWeek,s.recipeId,"planned");invalidate("meals","today","shopping");const s=computeMissingForRestOfWeek(t,r);s.length>0&&t.notifications.insert("missing_ingredients",`${s.length} ingredienser mangler for resten av uka`,{weekYear:r,items:s}),e.json({ok:!0,missing:s,weekYear:r})}),e.post("/api/meals/:id/mark-eaten",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid meal id");const s=t.mealPlans.getById(r);if(!s)throw errors.notFound(`Meal ${r} not found`);if(!s.recipeId)throw errors.badRequest("Cannot mark cooked: no recipe on this slot",{code:"NO_RECIPE"});if("away"===s.status||"skipped"===s.status||"removed"===s.status)throw errors.badRequest("Cannot mark cooked: slot is in a non-cookable state",{code:"WRONG_STATUS"});const o="cooked"===s.status;o||(t.mealPlans.setStatusById(r,"cooked"),invalidate("meals","today"));const i=pantryDeduction.buildSuggestions(t,s);e.json({mealId:r,recipeId:s.recipeId,alreadyCooked:o,suggestions:i})}),e.post("/api/meals/:id/apply-deduction",requireRole("adult"),validateBody(schemas.mealApplyDeductionBody),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid meal id");const s=t.mealPlans.getById(r);if(!s)throw errors.notFound(`Meal ${r} not found`);if("cooked"!==s.status)throw errors.badRequest("Apply-deduction requires status=cooked",{code:"NOT_COOKED"});const o=Array.isArray(e.body?.items)?e.body.items:[],i=pantryDeduction.applyDeduction(t,r,o);invalidate("inventory","shopping","today"),e.json({ok:!0,mealId:r,...i})}),e.post("/api/meals/:id/unmark-eaten",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid meal id");const s=t.mealPlans.getById(r);if(!s)throw errors.notFound(`Meal ${r} not found`);"cooked"===s.status?(t.mealPlans.setStatusById(r,"planned"),invalidate("meals","today"),e.json({ok:!0})):e.json({ok:!0,alreadyPlanned:!0})}),e.get("/api/recipes",e=>{const r=e.query.source,s="1"===e.query.includeInactive&&hasRole(e.user,"adult"),o=t.recipes.getAll({includeInactive:s});let c=o;"mine"===r?c=o.filter(e=>"manual"===(e.source_type||e.sourceType||"manual")):"ai"===r?c=o.filter(e=>"ai"===(e.source_type||e.sourceType)):"imported"===r&&(c=o.filter(e=>"imported"===(e.source_type||e.sourceType)));const d=i(),l=a(e.query),u=c.map(e=>n(e,d,{ignoreDietTags:l}));e.json({recipes:u,filter:{ignoreDietTags:l,activeDietTags:Array.from(new Set(u.flatMap(e=>e.perMember.diet.activeDietTags)))}})}),e.get("/api/recipes/:id",e=>{const r=o(e.params.id),s=t.recipes.getById(r);if(!s)throw errors.notFound(`Oppskrift ${r} ikke funnet`);const c=n(s,i(),{ignoreDietTags:a(e.query)});e.json({recipe:c})}),e.post("/api/recipes",requireRole("adult"),validateBody(schemas.recipeCreateBody),e=>{const r=t.recipes.insert(e.body),s=t.recipes.getById(r);invalidate("recipes","meals","today"),e.json({ok:!0,recipeId:r,recipe:s},201)}),e.patch("/api/recipes/:id",requireRole("adult"),validateBody(schemas.recipeUpdateBody),e=>{const r=o(e.params.id),s=t.recipes.update(r,e.body);if(!s)throw errors.notFound(`Oppskrift ${r} ikke funnet`);invalidate("recipes","meals","today"),e.json({ok:!0,recipe:s})}),e.post("/api/recipes/:id/deactivate",requireRole("adult"),e=>{const r=o(e.params.id),s=t.recipes.setActive(r,0);if(!s)throw errors.notFound(`Oppskrift ${r} ikke funnet`);invalidate("recipes","meals","today"),e.json({ok:!0,recipe:s})}),e.delete("/api/recipes/:id",requireRole("adult"),e=>{throw errors.methodNotAllowed("Recipes cannot be deleted. Use POST /api/recipes/:id/deactivate.")}),e.post("/api/profile/check-recipe",requireRole("adult"),e=>{const t=e.body||{},r=t.recipe||{ingredients:t.ingredients||[]};if(!Array.isArray(r.ingredients))throw errors.badRequest("recipe.ingredients must be an array");const s=require("./services/recipe-filter.service"),o=i(),n=s.buildFamilyContext({familyProfile:t.profile||{allergies:o.familyAllergies,dislikes:o.familyDislikes},members:Array.isArray(t.members)?t.members:o.members}),c=a(e.query)||!0===t.ignoreDietTags,d=s.filterRecipeForFamily(r,n,{ignoreDietTags:c}),l=d.allergy.blockedIngredients.map(({blockedFor:e,...t})=>t);e.json({safeForProfile:d.allergy.safeForFamily,blockedIngredients:l,checkedAgainst:d.allergy.effectiveAllergies,perMember:{allergy:d.allergy,dislike:d.dislike,diet:d.diet},hiddenByAllergy:d.hiddenByAllergy,hiddenByDiet:d.hiddenByDiet,shownWithDislikeWarning:d.shownWithDislikeWarning})}),e.get("/api/recipes/:id/similar",e=>{const r=require("./services/recipe-similarity.service"),s=parseInt(e.params.id,10);if(!Number.isFinite(s))throw errors.badRequest("Invalid recipe id");const o=Math.min(parseInt(e.query.limit,10)||5,20),i=r.findSimilar(t,s,o);e.json({similar:i,count:i.length})}),e.post("/api/recipes/import",requireRole("adult"),validateBody(schemas.recipeImportTextBody),async e=>{const r=await recipeImportService.importFromText(t,e.body);if(r.error)throw errors.badRequest(r.error);if(invalidate("recipes"),r.recipe){const e=require("./services/recipe-filter.service"),t=i(),s=e.filterRecipeForFamily(r.recipe,t),o=s.allergy.blockedIngredients.map(({blockedFor:e,...t})=>t);r.safeForProfile=s.allergy.safeForFamily,r.blockedIngredients=o,r.checkedAgainst=s.allergy.effectiveAllergies,r.perMember={allergy:s.allergy,dislike:s.dislike,diet:s.diet},r.hiddenByAllergy=s.hiddenByAllergy,r.hiddenByDiet=s.hiddenByDiet,r.shownWithDislikeWarning=s.shownWithDislikeWarning}e.json({ok:!0,...r},201)}),e.post("/api/recipes/import/image",requireRole("adult"),async e=>{const r=e.body||{};if("string"!=typeof r.imageBase64||r.imageBase64.length<20)throw errors.badRequest("imageBase64 is required and must be a base64-encoded string");const s="string"==typeof r.mime?r.mime.toLowerCase():"",o=["image/jpeg","image/jpg","image/png","image/webp"];if(!o.includes(s))throw errors.badRequest(`Invalid mime: ${s}. Allowed: ${o.join(", ")}`);let i;try{i=Buffer.from(r.imageBase64,"base64")}catch(e){throw errors.badRequest(`Kunne ikke dekode base64: ${e.message}`)}if(0===i.length)throw errors.badRequest("Tom bildebuffer etter dekoding");const a=await recipeImportService.importFromImage(t,{buffer:i,mime:s,title:r.title||null});if(a.error)throw errors.badRequest(a.error);invalidate("recipes"),e.json({ok:!0,...a},201)}),e.get("/api/shopping/current",withCache(["shopping"],e=>{const r=ensureCurrentWeek(t);e.json({weekYear:r,...buildShoppingList(t,r)})})),e.put("/api/shopping/check",requireRole("adult"),validateBody(schemas.shoppingCheckBody),e=>{const{productKey:r,packSize:o}=e.body,i=t.products.getByKey(r),a=o||(i?i.pack_size:0),n=t.inventory.addPurchase(r,{packSize:a,unit:i?i.unit:"",shelfDays:s.effectiveShelfDays(i)});t.purchaseLog.insert({productKey:r,qty:a,unit:i?.unit||"",pricePaid:null,store:i?.store||null,source:"manual"}),invalidate("shopping","inventory","today"),e.json({ok:!0,inventory:n})}),e.post("/api/shopping/add",requireRole("adult"),validateBody(schemas.shoppingAddBody),e=>{const r=ensureCurrentWeek(t);t.shoppingExtras.add(r,e.body),invalidate("shopping"),e.json({ok:!0})}),e.post("/api/shopping/generate",requireRole("adult"),validateBody(schemas.shoppingGenerateBody),e=>{const r=resolveWeekYear(t,e.body.weekYear);try{const s=generateForWeek(t,r,{force:!!e.body.force,mode:e.body.mode||"merge"});invalidate("shopping"),s&&s.listId&&enrichInBackground(t,s.listId),e.json({ok:!0,...s})}catch(e){if("WEEK_NOT_COMPLETE"===e.code)throw errors.badRequest(e.message,{code:e.code});throw e}}),e.get("/api/shopping/list/current",e=>{const r=e.query&&e.query.week,s=r&&isValidWeekYear(r)?String(r):ensureCurrentWeek(t),o=t.shoppingLists.getActive(s);if(!o)return void e.json({id:null,weekYear:s,status:null,enrichmentStatus:"done",items:[],categories:[],totalEstPrice:0});const i=new Map;let a=0;for(const e of o.items){const t=e.category||"other";i.has(t)||i.set(t,[]),i.get(t).push(enrichItemForFrontend(e)),a+=e.estPrice||0}const n=t.familyProfile?t.familyProfile.get():{},c=(n.preferredChain||"").toLowerCase(),d=(n.secondaryChain||"").toLowerCase();if(c||d)for(const[,e]of i){for(const t of e){const e=(extractChain(t.lastSeenStore)||"").toLowerCase();t._chainRank=e===c?0:e===d?1:2}e.sort((e,t)=>e._chainRank!==t._chainRank?e._chainRank-t._chainRank:(e.name||"").localeCompare(t.name||"","nb"))}e.json({id:o.id,weekYear:o.weekYear,status:o.status,enrichmentStatus:o.enrichmentStatus,generatedAt:o.generatedAt,confirmedAt:o.confirmedAt,totalEstPrice:o.totalEstPrice||Math.round(a),categories:Array.from(i.entries()).map(([e,t])=>({category:e,items:t})),items:o.items})}),e.get("/api/shopping/list/:id",e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");const s=t.shoppingLists.getById(r);if(!s)throw errors.notFound(`Shopping list ${r} not found`);e.json({list:s})}),e.put("/api/shopping/items/:id/bought",requireRole("adult"),validateBody(schemas.shoppingItemBoughtBody),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");const o=t.shoppingLists.getItemWithList(r);if(!o)throw errors.notFound(`Item ${r} not found`);const{item:i}=o;if(i.boughtAt)return void e.json({ok:!0,alreadyBought:!0});let a=i.productKey;if(!a&&i.ingredientName)try{const e=pantryResolver.resolveOrCreate(t,i.ingredientName);e&&e.productKey&&(a=e.productKey,"function"==typeof t.shoppingLists.setProductKey&&t.shoppingLists.setProductKey(r,a))}catch{}const n=e.body.qty??i.packSize??i.qty??1;t.transaction(()=>{if(t.shoppingLists.markItemBought(r,n),a&&n>0){const e=t.inventory.getByKey(a),o=e?.qtyRemaining||0,c=t.products.getByKey(a);t.inventory.addPurchase(a,{packSize:n,unit:i.unit||c?.unit||"",shelfDays:s.effectiveShelfDays(c)});const d=t.inventory.getByKey(a);t.inventoryLog.insert({productKey:a,qtyDelta:(d?.qtyRemaining||0)-o,newQty:d?.qtyRemaining||0,unit:i.unit||c?.unit||null,reason:"shopping_bought",sourceId:r,sourceTable:"shopping_list_items"})}i.resolutionId&&t.productResolutions.incrementConfirmed(i.resolutionId)})(),invalidate("shopping","inventory","today"),e.json({ok:!0})}),e.put("/api/shopping/items/:id/unbought",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");if(!t.shoppingLists.getItemWithList(r))throw errors.notFound(`Item ${r} not found`);t.shoppingLists.markItemUnbought(r),invalidate("shopping","today"),e.json({ok:!0})}),e.delete("/api/shopping/items/:id",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");if(!t.shoppingLists.getItemWithList(r))throw errors.notFound(`Item ${r} not found`);t.shoppingLists.removeItem(r),invalidate("shopping","today"),e.json({ok:!0})}),e.post("/api/shopping/items",requireRole("adult"),validateBody(schemas.shoppingItemAddBody),e=>{const r=resolveWeekYear(t,e.body.weekYear),s=t.shoppingLists.getActive(r);if(!s)throw errors.badRequest("No active shopping list — generate from this week's meals first",{code:"NO_ACTIVE_LIST"});let o=null;try{const r=pantryResolver.resolveOrCreate(t,e.body.name);o=r?.productKey||null}catch{}const i=t.shoppingLists.addItem(s.id,{name:e.body.name,qty:e.body.qty??null,unit:e.body.unit??null,category:e.body.category??null,notes:e.body.notes??null,productKey:o});invalidate("shopping"),e.json({ok:!0,item:i},201)}),e.put("/api/shopping/items/:id/has-home",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");const s=t.shoppingLists.getItemWithList(r);if(!s)throw errors.notFound(`Item ${r} not found`);const o=s.item,i=o.productKey;if(!i)throw errors.badRequest("Varen har ingen pantry-kobling");const a=Number(e.body?.qty);if(!Number.isFinite(a)||a<=0)throw errors.badRequest("Ugyldig qty");const n="string"==typeof e.body?.purchasedAt&&/^\d{4}-\d{2}-\d{2}$/.test(e.body.purchasedAt)?e.body.purchasedAt:null,c=o.unit||"";if("function"!=typeof t.inventory.upsertManual)throw errors.serviceUnavailable("Inventory-repo mangler upsertManual");const{next:d}=t.inventory.upsertManual(i,{qtyAdded:a,unit:c,incrementPurchaseCount:!1});if(n)try{t._db?.prepare("UPDATE inventory SET last_purchased = ? WHERE product_key = ?").run(n,i)}catch{}try{"function"==typeof t.inventoryLog?.insert&&t.inventoryLog.insert({productKey:i,qtyDelta:a,newQty:d?.qtyRemaining??null,unit:c,reason:"home_already_have",sourceId:r,sourceTable:"shopping_list_items"})}catch{}invalidate("shopping","inventory","today"),e.json({ok:!0})}),e.post("/api/shopping/items/:id/expiry",requireRole("adult"),validateBody(schemas.shoppingItemExpiryBody),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");const o=t.shoppingLists.getItemWithList(r);if(!o)throw errors.notFound(`Item ${r} not found`);const i=o.item,a=i.productKey;if(!a)throw errors.badRequest("Varen har ingen pantry-kobling");if(!i.boughtAt)throw errors.badRequest("Item must be marked as bought before setting expiry date");const n=e.body.expiresAt,c=String(i.boughtAt).slice(0,10);if(n<c)throw errors.badRequest("Expiry date cannot be before purchase date");try{t._db.prepare("UPDATE inventory SET expires_est = ? WHERE product_key = ?").run(n,a)}catch{}const d=s.recordObservation({productKey:a,purchasedAt:c,expiresAt:n,source:"shopping_bought"});invalidate("inventory","shopping","today"),e.json({ok:!0,...d})}),e.put("/api/pantry/expiry",requireRole("adult"),validateBody(schemas.pantryExpiryBody),e=>{const{productKey:r,expiresAt:o}=e.body,i=t.inventory.getByKey(r);if(!i)throw errors.notFound(`Pantry-vare ${r} ikke funnet`);const a=e.body.purchasedAt||i.lastPurchased;if(!a)throw errors.badRequest("Missing purchase date — send purchasedAt or set last_purchased");if(o<a)throw errors.badRequest("Expiry date cannot be before purchase date");try{t._db.prepare("UPDATE inventory SET expires_est = ? WHERE product_key = ?").run(o,r)}catch{}const n=s.recordObservation({productKey:r,purchasedAt:a,expiresAt:o,source:"pantry_edit"});invalidate("inventory","shopping","today"),e.json({ok:!0,...n})}),e.get("/api/products/:productKey/shelf-life",e=>{const r=String(e.params.productKey||"").trim();if(!r)throw errors.badRequest("productKey is required");const o=t.products.getByKey(r);if(!o)throw errors.notFound(`Produkt ${r} ikke funnet`);e.json(s.summarizeProduct(r,o))}),e.put("/api/shopping/items/:id/unpantry",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");if(!t.shoppingLists.getItemWithList(r))throw errors.notFound(`Item ${r} not found`);t.shoppingLists.markItemUnpantry(r),invalidate("shopping"),e.json({ok:!0})}),e.post("/api/shopping/list/:id/enrich",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");const s=t.shoppingLists.getById(r);if(!s)throw errors.notFound(`Shopping list ${r} not found`);"failed"===s.enrichmentStatus&&t.shoppingLists.setEnrichmentStatus(r,"pending",{}),enrichInBackground(t,r),e.json({ok:!0,listId:r,enrichmentStatus:"pending"},202)}),e.post("/api/shopping/list/:id/done",requireRole("adult"),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");if(!t.shoppingLists.getById(r))throw errors.notFound(`Shopping list ${r} not found`);t.shoppingLists.markDone(r),invalidate("shopping"),e.json({ok:!0})}),e.get("/api/chores",e=>{const r="1"===e.query.includeInactive&&hasRole(e.user,"adult"),s=t.chores.getAll({includeInactive:r}).map(toChoreDto);e.json({chores:s})}),e.post("/api/chores",requireRole("adult"),validateBody(schemas.choreCreateBody),e=>{let r;try{r=t.chores.insert(e.body)}catch(e){throw errors.badRequest(e.message)}const s=e.body.defaultDay;if(null!=s){const e=getWeekYear();t.choreSchedules.exists(e)&&t.choreSchedules.add(e,r.id,s)}invalidate("chores","today"),e.json({ok:!0,chore:toChoreDto(r)},201)}),e.patch("/api/chores/:id",requireRole("adult"),validateBody(schemas.choreUpdateBody),e=>{const r=parseInt(e.params.id,10);if(!Number.isInteger(r)||r<=0)throw errors.badRequest("Invalid id");let s;try{s=t.chores.update(r,e.body)}catch(e){throw errors.badRequest(e.message)}if(!s)throw errors.notFound("Oppgave ikke funnet");invalidate("chores","today"),e.json({ok:!0,chore:toChoreDto(s)})}),e.get("/api/chores/stats",validateQuery(schemas.choreStatsQuery),e=>{if(!e.familyId)throw errors.forbidden("User is not currently in a family.");const r=e.query.week||getWeekYear(),s=t.family.findFamilyById(e.familyId),o=!s||0!==s.gamification_enabled,i=s&&null!=s.week_goal?Number(s.week_goal):5,a=t.choreCompletions.xpByUserForWeek(r),n=t.auth.listByFamily(e.familyId),c=new Map(n.map(e=>[e.id,e])),d=a.map(e=>{const t=null!=e.userId?c.get(e.userId):null;return{userId:e.userId,name:t?t.name||t.email:null,xp:Number(e.xp)||0,completions:Number(e.completions)||0}}),l=[],u=new Set;for(const e of a)null==e.userId||u.has(e.userId)||(u.add(e.userId),l.push({userId:e.userId,streak:consecutiveWeekStreak(t,e.userId,r)}));e.json({enabled:o,goal:i,byUser:d,streakByUser:l})}),e.get("/api/chores/current",withCache(["chores"],e=>{const r=ensureCurrentWeek(t),s=t.choreSchedules.getWeek(r),o=choreCatalogMap(t),i=s.map(e=>{const t=o.get(e.choreId),r=choreEffectiveDay(e),s=null!==r?r:-1;return{...e,task:t?.task||"?",icon:t?.icon||"",frequency:t?.frequency||"",details:t?.details||null,effectiveDay:s,dayName:null!==r&&DAY_NAMES[r]||""}}).sort((e,t)=>e.effectiveDay-t.effectiveDay);e.json({weekYear:r,chores:i})})),e.put("/api/chores/postpone",requireRole("adult"),validateBody(schemas.chorePostponeBody),e=>{const{weekYear:r,choreId:s}=e.body,o=r||ensureCurrentWeek(t),i=t.choreSchedules.getWeek(o).find(e=>e.choreId===s);if(!i)throw errors.notFound("Oppgave ikke funnet");const a=null!==i.postponedTo?i.postponedTo:i.scheduledDay;if(4===a){const e=getWeekYear(new Date(Date.now()+6048e5));t.choreSchedules.exists(e)||t.choreSchedules.seedDefault(e),t.choreSchedules.setScheduledDay(e,s,0),t.choreSchedules.postpone(o,s,-1)}else a<4&&t.choreSchedules.postpone(o,s,a+1);invalidate("chores","today"),e.json({ok:!0})}),e.put("/api/chores/complete",validateBody(schemas.choreCompleteBody),e=>{const{weekYear:r,choreId:s}=e.body,o=r||ensureCurrentWeek(t),i=t.chores.getById(s);if(!i)throw errors.notFound("Oppgave ikke funnet");const a=i.assignee_member_id;if(e.user&&"child"===e.user.role&&null!=a&&Number(e.user.profile_member_id)!==Number(a))throw errors.forbidden();const n=e.user&&!e.user._synthetic?e.user.id:null;t.choreSchedules.markDone(o,s,{userId:n}),invalidate("chores","today"),e.json({ok:!0})}),e.put("/api/chores/undone",validateBody(schemas.choreCompleteBody),e=>{const{weekYear:r,choreId:s}=e.body,o=r||ensureCurrentWeek(t),i=t.chores.getById(s);if(!i)throw errors.notFound("Oppgave ikke funnet");t.choreSchedules.markUndone(o,s),invalidate("chores","today"),e.json({ok:!0})}),e.get("/api/inventory",withCache(["inventory"],e=>{e.json({inventory:t.inventory.getAll()})})),e.get("/api/products",withCache(["products"],e=>{const r=e.query.q||"";if(r.length>500)throw errors.badRequest("q max 500 tegn");r?e.json({products:t.products.search(r)}):e.json({products:t.products.getAllAsMap()})})),e.get("/api/consumables",withCache(["consumables"],e=>{e.json({consumables:t.consumables.getAll()})})),e.put("/api/consumables/:id",requireRole("adult"),validateBody(schemas.consumableUpdateBody),e=>{const r=o(e.params.id);t.consumables.update(r,e.body);const s=t.consumables.getById(r);if(!s)throw errors.notFound(`Consumable ${r} ikke funnet`);invalidate("consumables","shopping"),e.json({ok:!0,consumable:s})}),e.post("/api/consumables/:id/bought",requireRole("adult"),validateBody(schemas.consumableBoughtBody),e=>{const r=parseInt(e.params.id,10),s=t.consumables.markBought(r,e.body.qty);if(!s)throw errors.notFound(`Consumable ${r} ikke funnet`);invalidate("consumables","shopping"),e.json({ok:!0,consumable:s})}),e.post("/api/consumables/toggle-auto/:id",requireRole("adult"),e=>{const r=o(e.params.id),s=t.consumables.toggleAuto(r);if(!s)throw errors.notFound(`Consumable ${r} ikke funnet`);invalidate("consumables","shopping"),e.json({ok:!0,consumable:s})}),e.get("/api/pantry/suggest",e=>{const r=(e.query.q||"").trim();if(r.length<1)return void e.json({suggestions:[]});const s=pantryResolver.resolvePantryInput(t,r);e.json({suggestions:s})}),e.get("/api/pantry",e=>{const r=t.inventory.getAll(),s=t.products.getAllAsMap(),o=require("./services/units"),i=[];for(const[e,t]of Object.entries(r)){if(!t.qtyRemaining||t.qtyRemaining<=0)continue;const r=s[e],a=t.totalSize??null,n=a?o.calculateRatio(t.qtyRemaining,a):null;i.push({productKey:e,ingredientName:e,ingredientNameNo:r?.productName||e,name:r?.productName||e,quantity:t.qtyRemaining,total:a,ratio:n,isLow:null!==n&&n<o.LOW_THRESHOLD,unit:t.unit||r?.unit||"",category:r?.category||null,expiresEst:t.expiresEst||null,lastPurchased:t.lastPurchased||null,shelfDaysLearned:r?.shelfDaysLearned??null,shelfDaysSampleCount:r?.shelfDaysSampleCount??0,shelfDaysSeed:r?.shelfDays??null})}i.sort((e,t)=>(e.name||"").localeCompare(t.name||"","nb")),e.json({items:i})}),e.delete("/api/pantry/:productKey",requireRole("adult"),withAudit(t,{entityType:"pantry_item",getEntityId:e=>e.params.productKey,getBefore:e=>t.inventory.getByKey(e.params.productKey),metadata:()=>({reason:"UI: har ikke likevel"})},e=>{const r=e.params.productKey;if(!r)throw errors.badRequest("productKey is required");if(!t.inventory.getByKey(r))throw errors.notFound(`Pantry-vare '${r}' ikke funnet`);try{pantryService.correctQty(t,{productKey:r,newQty:0,notes:"UI: har ikke likevel"})}catch(e){throw errors.badRequest(e.message)}invalidate("inventory","shopping","today"),e.json({ok:!0,productKey:r})})),e.post("/api/pantry/add",requireRole("adult"),validateBody(schemas.pantryAddBody),e=>{try{const r={...e.body};let s=null;if(!r.productKey&&r.query&&(s=pantryResolver.resolveOrCreate(t,r.query),r.productKey=s.productKey,!r.unit&&s.unit&&(r.unit=s.unit),!r.category&&s.category&&(r.category=s.category)),r.productKey){const e=slugifyProductKey(r.productKey)||r.productKey;r.productKey=e}const o=pantryService.addToPantry(t,r);if(r.purchasedAt&&r.productKey)try{t._db?.prepare("UPDATE inventory SET last_purchased = ? WHERE product_key = ?").run(r.purchasedAt,r.productKey)}catch{}invalidate("inventory","shopping","today"),e.json({ok:!0,item:o,resolved:s||void 0})}catch(e){throw errors.badRequest(e.message)}}),e.put("/api/pantry/correct",requireRole("adult"),validateBody(schemas.pantryCorrectBody),e=>{try{const r=pantryService.correctQty(t,e.body);if(e.body.purchasedAt&&e.body.productKey)try{t._db?.prepare("UPDATE inventory SET last_purchased = ? WHERE product_key = ?").run(e.body.purchasedAt,e.body.productKey)}catch{}invalidate("inventory","shopping","today"),e.json({ok:!0,...r})}catch(e){throw errors.badRequest(e.message)}}),e.get("/api/pantry/log",e=>{const r=Math.min(parseInt(e.query.limit,10)||100,500),s=e.query.productKey,o=e.query.reason;let i;i=s?t.inventoryLog.getByKey(s,r):o?t.inventoryLog.getByReason(o,r):t.inventoryLog.getRecent(r),e.json({log:i,counts:t.inventoryLog.countByReason()})}),e.get("/api/pantry/value",e=>{e.json(priceReferenceService.estimatePantryValue(t))}),e.get("/api/settings/env",requireAdmin(),e=>{const t=require("./services/env-store.service");e.json({values:t.readMasked()})}),e.post("/api/settings/env",requireAdmin(),async e=>{const t=require("./services/env-store.service"),{key:r,value:s}=e.body||{};if(!r||"string"!=typeof r)throw errors.badRequest("key is required");if(null==s)throw errors.badRequest("value is required");try{const o=await t.write(r,String(s));e.json(o)}catch(e){throw errors.badRequest(e.message)}}),e.post("/api/integrations/:name/test",requireAdmin(),async e=>{const t=require("./services/env-store.service"),r=e.params.name,s=await t.testIntegration(r);e.json(s)}),e.get("/api/sources",e=>{const r=t.recipeSources?t.recipeSources.getAll():[];e.json({sources:r})}),e.post("/api/sources",requireRole("adult"),e=>{if(!t.recipeSources)throw errors.badRequest("recipe_sources-tabell ikke tilgjengelig (migrasjon?)");const{url:r,type:s,label:o}=e.body||{};if(!r||"string"!=typeof r)throw errors.badRequest("url is required");if(!/^https?:\/\//i.test(r))throw errors.badRequest("url must start with http:// or https://");const i=require("./services/recipe-sources.service"),a=s||i.detectType(r);try{const s=t.recipeSources.insert({url:r,type:a,label:o});e.json({ok:!0,id:s,type:a})}catch(e){if(e.message&&e.message.includes("UNIQUE"))throw errors.badRequest("Denne URL-en finnes allerede");throw errors.badRequest(e.message)}}),e.delete("/api/sources/:id",requireRole("adult"),withAudit(t,{entityType:"recipe_source",getEntityId:e=>parseInt(e.params.id,10),getBefore:e=>{const r=parseInt(e.params.id,10);return Number.isFinite(r)&&t.recipeSources?t.recipeSources.getById(r):null}},e=>{if(!t.recipeSources)throw errors.notFound("not supported");const r=o(e.params.id);t.recipeSources.delete(r),e.json({ok:!0})})),e.post("/api/sources/:id/sync",requireRole("adult"),async e=>{if(!t.recipeSources)throw errors.notFound("not supported");const r=o(e.params.id),s=require("./services/recipe-sources.service"),i=await s.syncSource(t,r);e.json(i)}),e.get("/api/profile",e=>{e.json(t.familyProfile.get())}),e.put("/api/profile",requireRole("adult"),validateBody(schemas.profileUpdateBody),withAudit(t,{entityType:"family_profile",getEntityId:()=>"default",getBefore:()=>t.familyProfile.get(),getAfter:()=>t.familyProfile.get()},e=>{const r=e.body||{},s=t.familyProfile.update(r);e.json({ok:!0,profile:s})})),e.get("/api/profile/defaults",e=>{const r=t.familyProfile.get(),s=[];for(const e of r.allergies||[]){const t=String(e).toLowerCase();t.includes("laktose")&&s.push("laktosefri"),t.includes("gluten")&&s.push("glutenfri"),(t.includes("nøtt")||t.includes("nott"))&&s.push("nottefri")}r.preferences?.vegetarian&&s.push("vegetar"),r.preferences?.quickMeals&&s.push("rask"),r.preferences?.familyFriendly&&s.push("barnevennlig"),e.json({recommended:[...new Set(s)],profile:{hasData:(r.members?.length||0)>0}})}),e.get("/api/profile/filter-usage",e=>{const r=Math.min(parseInt(e.query.limit,10)||3,10),s=t.filterUsage.getTopN(r);e.json({top:s})}),e.post("/api/profile/filter-usage",e=>{const{filterId:r,action:s}=e.body||{};if(!r||"string"!=typeof r)throw errors.badRequest("filterId is required");if(!["enabled","disabled"].includes(s))throw errors.badRequest('action must be "enabled" or "disabled"');t.filterUsage.recordUsage(r,s),e.json({ok:!0})}),e.get("/api/prices/lookup",e=>{const r=e.query.productKey,s=e.query.ean;if(!r&&!s)throw errors.badRequest("productKey or ean must be provided");const o=priceReferenceService.lookupPrice(t,r,{ean:s});o?e.json({found:!0,...o}):e.json({found:!1,productKey:r||null,ean:s||null})}),e.get("/api/prices/search",e=>{const r=e.query.q||"";if(!r||r.length<1)throw errors.badRequest("q is required");if(r.length>500)throw errors.badRequest("q max 500 tegn");const s=t.priceReferences.search(r,20);e.json({query:r,results:s})}),e.get("/api/prices/stats",e=>{e.json(t.priceReferences.stats())}),e.post("/api/receipts/upload",requireRole("adult"),async e=>{const r=(e.req.headers["content-type"]||"application/octet-stream").split(";")[0].trim(),s=["image/jpeg","image/jpg","image/png","image/webp","application/pdf"];if(!s.includes(r))throw errors.badRequest(`Invalid MIME type: ${r}. Allowed: ${s.join(", ")}`);const o=10485760,i=parseInt(e.req.headers["content-length"],10);if(i>o)throw errors.payloadTooLarge(`Content-Length ${i} overstiger maks ${o} bytes`);const a=[];let n=0;for await(const t of e.req){if(n+=t.length,n>o)throw errors.payloadTooLarge(`Fil > ${o} bytes`);a.push(t)}const c=Buffer.concat(a);if(0===c.length)throw errors.badRequest("Tom fil");try{const s=await receiptService.processUpload(t,{buffer:c,mimeType:r}),o=t.receiptItems.getByReceipt(s.receiptId),i=t.receipts.getById(s.receiptId);invalidate("receipts"),e.json({ok:!0,...s,receipt:i,items:o})}catch(e){throw errors.internal(e.message)}}),e.get("/api/receipts",e=>{const r=e.query.status||null,s=Math.min(parseInt(e.query.limit,10)||50,200);e.json({receipts:t.receipts.list({status:r,limit:s}),stats:t.receipts.stats()})}),e.get("/api/receipts/:id",e=>{const r=parseInt(e.params.id,10),s=t.receipts.getById(r);if(!s)throw errors.notFound(`Receipt ${r} ikke funnet`);const o=t.receiptItems.getByReceipt(r);e.json({receipt:s,items:o})}),e.put("/api/receipts/confirm",requireRole("adult"),validateBody(schemas.receiptConfirmBody),e=>{const{receiptId:r,items:s}=e.body;if(!t.receipts.getById(r))throw errors.notFound(`Receipt ${r} not found`);if(Array.isArray(s))for(const e of s){const{id:r,...s}=e;t.receiptItems.updateItem(r,s)}try{const s=receiptService.confirmReceipt(t,r);invalidate("receipts","inventory","shopping","today"),e.json({ok:!0,...s})}catch(e){throw errors.badRequest(e.message)}}),e.delete("/api/receipts/:id",requireRole("adult"),withAudit(t,{entityType:"receipt",getEntityId:e=>parseInt(e.params.id,10),getBefore:e=>{const r=parseInt(e.params.id,10);return Number.isFinite(r)?t.receipts.getById(r):null},metadata:()=>({reason:"rejected via API"})},e=>{const r=parseInt(e.params.id,10);if(!t.receipts.getById(r))throw errors.notFound(`Receipt ${r} ikke funnet`);t.receipts.markStatus(r,"rejected"),invalidate("receipts"),e.json({ok:!0,status:"rejected"})})),e.get("/api/today",withCache(["today"],e=>{const r=ensureCurrentWeek(t),s=((new Date).getDay()+6)%7,o=t.mealPlans.getWeek(r).find(e=>e.dayOfWeek===s),i=o?.recipeId?t.recipes.getById(o.recipeId):null,a=choreCatalogMap(t),n=t.choreSchedules.getWeek(r).filter(e=>{if(null!==e.postponedTo&&e.postponedTo<0)return!1;const t=choreEffectiveDay(e);return null!==t&&t===s&&"done"!==e.status}).map(e=>{const t=a.get(e.choreId);return{...e,task:t?.task,icon:t?.icon,assigneeMemberId:t?.assignee_member_id??null}}),c=(new Date).toISOString().slice(0,10),d=expandRecurring(t.calendar.getEvents(c,c),c,c);e.json({dayName:DAY_NAMES[s],dayOfWeek:s,weekYear:r,meal:o?{...o,recipe:i}:null,chores:n,events:d})})),e.get("/api/sunday-push",e=>{const r=generateSundayDraft(t);t.sundayDrafts.save(r.weekYear,r.meals);t.mealPlans.exists(r.weekYear)||t.mealPlans.seedDefault(r.weekYear,r.meals);const s=buildShoppingList(t,r.weekYear),o=r.meals.map(e=>({...e,dayName:DAY_NAMES[e.dayOfWeek],recipe:t.recipes.getById(e.recipeId)})),i=t.products.getAllAsMap(),a=s.categories.flatMap(e=>e.items).filter(e=>"recipe"===e.source).map(e=>i[e.key]?.shelfDays||365).filter(e=>e<365),n=(a.length>0?Math.min(...a):14)<=2?"Onsdag eller torsdag (ferskvarer!)":"Mandag eller tirsdag";e.json({weekYear:r.weekYear,meals:o,shoppingList:s,handledag:n,message:`Forslag til uke ${r.weekYear.split("-W")[1]} — tilpass som du vil!`})}),e.post("/api/sunday-push/accept",requireRole("adult"),validateBody(schemas.sundayAcceptBody),e=>{const{weekYear:r,meals:s}=e.body;t.transaction(()=>{for(const e of s)t.mealPlans.setRecipe(r,e.dayOfWeek,e.recipeId||e.recipe?.id,e.status||"planned");t.sundayDrafts.markAccepted(r)})(),invalidate("meals","today","shopping"),e.json({ok:!0,weekYear:r})}),e.get("/api/status",e=>{let r="unknown",s=0;try{r=t._db&&"string"==typeof t._db.name?"better-sqlite3":"sql.js"}catch{}try{s=t._db.prepare("SELECT COUNT(*) AS c FROM schema_migrations").get().c}catch{}let o=null;try{o=require("./services/circuit-breaker").snapshotAll()}catch{}const i=require("../package.json");let a=null;try{if(t.llmConfigs&&"function"==typeof t.llmConfigs.getActive){const e=t.llmConfigs.getActive();e&&(a={backend:e.backend||null,model:e.model||null})}}catch{}let n=null;try{const e=require("./backup");"function"==typeof e.getLastBackupInfo&&(n=e.getLastBackupInfo())}catch{}const c={};try{c.recipes=t.recipes?.count?.()??null}catch{c.recipes=null}try{c.pantryItems=t.inventory?.count?.()??null}catch{c.pantryItems=null}try{c.familyMembers=t.members?.count?.()??null}catch{c.familyMembers=null}e.json({version:i.version,db:r,migrations:`${s} applikert`,uptime:Math.round(process.uptime()),breakers:o,llm:a,lastBackupAt:n?.ts||null,lastBackupBytes:n?.bytes||null,recipeCount:c.recipes,pantryItemCount:c.pantryItems,familyMemberCount:c.familyMembers})}),e.get("/api/llm/status",async e=>{const r=await isLLMAvailable(),s=await isSTTAvailable();e.json({...r,model:OLLAMA_MODEL,backend:LLM_BACKEND,stt:s,kb:{totalInteractions:t.kb.count()}})}),e.post("/api/llm/warm",e=>{const r=t.llmCache.count();let s;try{s=t.llmCache.cleanup()}catch(e){throw errors.internal("LLM cache cleanup failed: "+e.message)}const o=t.llmCache.stats();e.json({ok:!0,entriesBefore:r,pruned:s,entriesAfter:o.entries,totalHits:o.totalHits,note:"Cleanup only removes expired entries. Active warming requires real LLM access."})}),e.get("/api/llm/cache/stats",e=>{e.json(t.llmCache.stats())}),e.post("/api/stt/transcribe",requireRole("adult"),async e=>{const t=[];for await(const r of e.req)t.push(r);const r=Buffer.concat(t);try{const t=await transcribe(r,{format:"wav"});e.json(t)}catch(e){throw errors.internal(e.message)}}),e.get("/api/stt/status",async e=>{e.json(await isSTTAvailable())}),e.post("/api/llm/chat",requireRole("adult"),validateBody(schemas.llmChatBody),async e=>{const{message:r,history:s,saveToKB:o}=e.body,i=ensureCurrentWeek(t),a=((new Date).getDay()+6)%7,n=t.mealPlans.getWeek(i).find(e=>e.dayOfWeek===a),c=n?.recipeId?t.recipes.getById(n.recipeId):null,d=choreCatalogMap(t),l=t.choreSchedules.getWeek(i).filter(e=>{if(null!==e.postponedTo&&e.postponedTo<0)return!1;const t=choreEffectiveDay(e);return null!==t&&t===a&&"done"!==e.status}).map(e=>d.get(e.choreId)?.task).filter(Boolean),u={kbSearch:(e,r)=>t.kb.search(e,r)},p=await chat(r,s||[],{todayMeal:c?.name,todayChores:l.join(", ")||"Ingen"},u),y=[];if("tool_calls"===p.type&&p.toolCalls)for(const e of p.toolCalls)try{const s=executeToolCall(t,e.name,e.arguments,i);y.push({tool:e.name,args:e.arguments,result:s}),t.llmAudit.log({toolName:e.name,arguments:e.arguments,result:s,success:!1!==s.ok,userMessage:r})}catch(s){y.push({tool:e.name,args:e.arguments,error:s.message}),t.llmAudit.log({toolName:e.name,arguments:e.arguments,result:{error:s.message},success:!1,userMessage:r})}const g="tool_calls"===p.type?p.textResponse||y.map(e=>e.result?.message||`✓ ${e.tool}`).join("\n"):p.content;if(o){const e=await extractIntent(r).catch(()=>({intent:"chat"}));t.kb.insert({timestamp:(new Date).toISOString(),userMessage:r,aiResponse:g,context:{meal:c?.name,dayOfWeek:a},intent:e.intent,entities:e.entities})}e.json({response:g,toolCalls:y.length>0?y:void 0})}),e.post("/api/llm/recipe",requireRole("adult"),validateBody(schemas.llmRecipeBody),async e=>{const r=e.body.query;try{const s=t.recipes.findByName(r);if(s)return e.res.setHeader("X-LLM-Cache","LIBRARY"),e.json({name:s.name,category:s.category,prepTime:s.prepTime,servings:s.servings,url:s.url||null,source:"library",recipeId:s.id,ingredients:(s.ingredients||[]).map(e=>({name:e.name,qty:e.qty,unit:e.unit,optional:!!e.optional}))})}catch{}const s=crypto.createHash("sha256").update(`recipe-v2:${OLLAMA_MODEL}:${r.toLowerCase().trim()}`).digest("hex"),o=t.llmCache.get(s);if(o){e.res.setHeader("X-LLM-Cache","HIT");try{return e.json({...JSON.parse(o.response),source:"llm"})}catch{}}const i=await suggestRecipeFromText(r);i&&!i.error&&t.llmCache.set(s,{model:OLLAMA_MODEL,prompt:r,response:JSON.stringify(i),ttlSeconds:604800}),e.res.setHeader("X-LLM-Cache","MISS"),e.json({...i,source:i&&!i.error?"llm":void 0})}),e.post("/api/recipes/from-llm",requireRole("adult"),async e=>{const r=String(e.body?.query||"").trim();if(!r)throw errors.badRequest("Missing query");const s=t.recipes.findByName(r);if(s)return e.json({ok:!0,recipeId:s.id,source:"library",recipe:s});const o=await suggestRecipeFromText(r);if(!o||o.error||!o.name)throw errors.badRequest(o?.error||"AI kunne ikke generere oppskrift");const i=new Set(["rask","comfort","helg"]).has(o.category)?o.category:"comfort",a={name:String(o.name).slice(0,200),category:i,prepTime:o.prepTime||null,servings:Number(o.servings)>0?Number(o.servings):2,source:"llm",url:null,notes:Array.isArray(o.instructions)?o.instructions.join("\n"):null,equipment:Array.isArray(o.equipment)?o.equipment:null,ingredients:Array.isArray(o.ingredients)?o.ingredients.filter(e=>e&&e.name&&Number.isFinite(Number(e.qty))&&e.unit).map(e=>({name:String(e.name),qty:Number(e.qty),unit:String(e.unit),optional:!!e.optional})):[],sourceType:"ai"},n=t.recipes.insert(a);invalidate("recipes"),e.json({ok:!0,recipeId:n,source:"llm",recipe:{id:n,...a}})}),e.post("/api/recipes/import-url",requireRole("adult"),async e=>{const r=String(e.body?.url||"").trim();if(!r)throw errors.badRequest("Missing url");let s;try{const e=require("./services/recipe-url-import.service");s=await e.importRecipeFromUrl(r)}catch(e){throw errors.badRequest(e.message||"Kunne ikke importere oppskrift fra lenke")}const o=t.recipes.insert({...s,sourceType:"imported"});invalidate("recipes"),e.json({ok:!0,recipeId:o,source:s.source||"imported",recipe:{id:o,...s}})}),e.get("/api/notifications",e=>{e.json({notifications:t.notifications.getUnread()})}),e.put("/api/notifications/read",e=>{t.notifications.markAllRead(),e.json({ok:!0})}),e.get("/api/calendar/events",withCache(["calendar"],e=>{const r=e.query.from||(new Date).toISOString().slice(0,10),s=e.query.to||r,o=expandRecurring(t.calendar.getEvents(r,s),r,s);e.json({events:o})})),e.post("/api/calendar/events",requireRole("adult"),validateBody(schemas.calendarEventBody),e=>{const r=e.user&&Number(e.user.id)>0?e.user.id:null,s=t.calendar.insert({...e.body,createdByUserId:r});invalidate("calendar","today"),e.json({ok:!0,event:s})}),e.patch("/api/calendar/events/:id",requireRole("adult"),validateBody(schemas.calendarEventPatchBody),e=>{const r=o(e.params.id),s=t.calendar.update(r,e.body);if(!s)throw errors.notFound("Calendar event not found");invalidate("calendar","today"),e.json({ok:!0,event:s})}),e.delete("/api/calendar/events/:id",requireRole("adult"),withAudit(t,{entityType:"calendar_event",getEntityId:e=>parseInt(e.params.id,10)},e=>{const r=o(e.params.id);if(!t.calendar.delete(r))throw errors.notFound("Calendar event not found");invalidate("calendar","today"),e.json({ok:!0})})),e.get("/api/audit",e=>{const r=Math.max(1,Math.min(500,parseInt(e.query.limit,10)||100)),s=e.query.entityType||null,o=e.query.entityId||null;let i;i=s?t.auditLog.getByEntity(s,o,r):t.auditLog.getRecent(r),e.json({entries:i,count:i.length,note:"Append-only log. Hashes are sha256 of JSON-serialised before/after."})}),e.get("/api/audit/stats",e=>{e.json(t.auditLog.stats())}),e.get("/api/kb/stats",e=>{e.json({totalInteractions:t.kb.count(),recentTopics:t.kb.getRecent(5).map(e=>(e.user_message||"").slice(0,50))})}),e.get("/api/kb/search",e=>{const r=e.query.q||"";if(r.length>500)throw errors.badRequest("q max 500 tegn");e.json({results:t.kb.search(r,10)})}),e.get("/api/cache/stats",e=>{e.json({responseCache:responseCache.stats(),llmCache:t.llmCache.stats()})}),e.get("/metrics",e=>{if("json"===(e.query.format||"prom"))return void e.json(metrics.snapshot());if(e.res.writableEnded)return;const t=metrics.toPrometheus(),r=Buffer.from(t,"utf8");e.res.writeHead(200,{"Content-Type":"text/plain; version=0.0.4; charset=utf-8","Content-Length":String(r.length)}),e.res.end(r)});const c=path.join(__dirname,"..","openapi.yaml");e.get("/openapi.yaml",e=>{try{const t=fs.readFileSync(c,"utf8"),r=Buffer.from(t,"utf8");e.res.writeHead(200,{"Content-Type":"application/yaml; charset=utf-8","Content-Length":String(r.length)}),e.res.end(r)}catch{throw errors.notFound("openapi.yaml not found on disk")}}),e.get("/api/admin/kassal/status",e=>{if(!e.user||!e.user.is_admin)throw errors.forbidden("Admin role required.");const r=require("./services/kassal-client.service"),s=!!process.env.KASSAL_API_KEY,o=r.getStatus();let i=0,a=0;try{i=t._db.prepare("SELECT COUNT(*) AS cnt FROM kassal_products").get().cnt,a=t._db.prepare("SELECT COUNT(*) AS cnt FROM product_resolutions").get().cnt}catch{}e.json({enabled:s,apiKeyConfigured:o.apiKeyConfigured,productCount:i,resolutionCount:a,tokensAvailable:o.tokensAvailable,bucketCapacity:o.bucketCapacity,circuitOpen:o.circuitOpen,circuitOpenUntil:o.circuitOpenUntil})})}function executeToolCall(e,t,r,s){switch(t){case"add_to_shopping_list":return e.shoppingExtras.add(s,{name:r.name,category:r.category||"Tørrvarer & annet",quantity:r.quantity||1}),invalidate("shopping"),{ok:!0,message:`✓ Lagt til "${r.name}" i handlelisten (${r.category})`};case"add_calendar_event":{const t=e.calendar.insert({title:r.title,date:r.date,startTime:r.startTime||null,endTime:r.endTime||null,location:r.location||null});return invalidate("calendar","today"),{ok:!0,message:`✓ Lagt til "${r.title}" ${r.date}`,event:t}}case"update_routine":return e.kb.insert({timestamp:(new Date).toISOString(),userMessage:`[RUTINE] ${r.category}: ${r.description}`,aiResponse:`Registrert rutine-endring: ${r.description}`,intent:"routine",entities:{category:r.category,action:r.action||"add"}}),{ok:!0,message:`✓ Rutine oppdatert: ${r.description}`};case"suggest_meal":{const t=e.recipes.getAll(),s=(r.criteria||"").toLowerCase(),o=t.filter(e=>e.name.toLowerCase().includes(s)||e.category.toLowerCase().includes(s)||(e.ingredients||[]).some(e=>e.name.toLowerCase().includes(s))).slice(0,3);return o.length>0?{ok:!0,message:`Forslag: ${o.map(e=>`${e.name} (${e.category})`).join(", ")}`,suggestions:o}:{ok:!0,message:"Fant ingen oppskrifter som matcher."}}case"search_knowledge_base":{const t=e.kb.search(r.query,5);return 0===t.length?{ok:!0,message:"Ingen relevante funn."}:{ok:!0,message:`Fant ${t.length} relevante samtaler`,results:t}}default:return{ok:!1,message:`Ukjent verktøy: ${t}`}}}module.exports={registerRoutes:registerRoutes};
+// Alle API-ruter samlet i \u00e9n fil. Registrerer seg p\u00e5 en router-instans.
+// Hver rute-handler er en async (ctx) => ... funksjon.
+// Validering skjer via Zod-middleware f\u00f8r handleren.
+
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const { getWeekYear } = require('./seed');
+const { errors } = require('./http/errors');
+const { validateBody, validateQuery } = require('./http/validate');
+const { registerAuthRoutes } = require('./auth/routes');
+const { registerFamilyRoutes } = require('./auth/family-routes');
+const { registerLlmConfigRoutes } = require('./auth/llm-routes');
+const { registerGdprRoutes } = require('./auth/gdpr-routes');
+const { registerFeedbackRoutes } = require('./http/feedback-routes');
+const { registerBootstrapRoutes } = require('./http/bootstrap');
+const { registerBrandingRoutes } = require('./http/branding');
+const { registerCalendarIntegrationRoutes } = require('./http/calendar-routes');
+const { expandRecurring } = require('./services/calendar/rrule-expand');
+const { config } = require('./config');
+const { requireRole, requireAdmin, hasRole } = require('./auth/middleware');
+const { withCache, invalidate, responseCache } = require('./http/cache');
+const metrics = require('./http/metrics');
+const schemas = require('./schemas');
+
+const { buildShoppingList, generateForWeek } = require('./services/shopping-list.service');
+const { enrichInBackground } = require('./services/shopping-list-enricher.service');
+const { enrichItemForFrontend } = require('./repositories/shopping.repo');
+const {
+  getSwapSuggestions,
+  checkShelfLife,
+  generateSundayDraft,
+  generatePantryRestOfWeek,
+  computeMissingForRestOfWeek,
+} = require('./services/meal-planning.service');
+const { ensureCurrentWeek } = require('./services/seed.service');
+const pantryService = require('./services/pantry.service');
+const pantryResolver = require('./services/pantry-resolver.service');
+const pantryDeduction = require('./services/pantry-deduction.service');
+const { createShelfLifeLearner } = require('./services/shelf-life-learner.service');
+const priceReferenceService = require('./services/price-reference.service');
+const receiptService = require('./services/receipt.service');
+const recipeImportService = require('./services/recipe-import.service');
+const { slugifyProductKey } = require('./services/slugify');
+const { extractChain } = require('./services/product-resolver.service');
+
+const {
+  isLLMAvailable,
+  chat,
+  suggestRecipeFromText,
+  extractIntent,
+  OLLAMA_MODEL,
+  LLM_BACKEND,
+} = require('./llm');
+const { transcribe, isSTTAvailable } = require('./stt');
+
+const DAY_NAMES = [
+  'Mandag',
+  'Tirsdag',
+  'Onsdag',
+  'Torsdag',
+  'Fredag',
+  'L\u00f8rdag',
+  'S\u00f8ndag',
+];
+
+/**
+ * Weekday this schedule row belongs to this week.
+ * postponed_to < 0 means Friday → next Monday (off this week).
+ * @returns {number|null}
+ */
+function choreEffectiveDay(s) {
+  if (s.postponedTo !== null && s.postponedTo < 0) return null;
+  if (s.postponedTo !== null) return s.postponedTo;
+  return s.scheduledDay;
+}
+
+/**
+ * Auto-merge the shopping list when the week is complete. Called from
+ * the meal routes after mutations.
+ *
+ * Smart-merge preserves any items the user has interacted with (bought
+ * rows + manual/extra rows) and adds fresh meal-ingredient rows from
+ * the current meal plan. This is safe to run on every meal swap: an
+ * existing active list is no longer a blocker the way it was pre-
+ * 2026-05-03 (PR shopping-smart-merge). Errors are swallowed so the
+ * meal update itself does not fail because of shopping-list issues.
+ */
+function previousIsoWeek(weekYear) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(weekYear || ''));
+  if (!m) return null;
+  const year = Number(m[1]);
+  const week = Number(m[2]);
+  if (week > 1) return `${year}-W${String(week - 1).padStart(2, '0')}`;
+  // Dec 28 is always in the last ISO week of that year.
+  return getWeekYear(new Date(Date.UTC(year - 1, 11, 28)));
+}
+
+function consecutiveWeekStreak(repos, userId, endWeek) {
+  const weeks = new Set(repos.choreCompletions.weeksWithCompletions(userId));
+  let streak = 0;
+  let cursor = endWeek;
+  while (cursor && weeks.has(cursor)) {
+    streak += 1;
+    cursor = previousIsoWeek(cursor);
+    if (streak > 520) break;
+  }
+  return streak;
+}
+
+function toChoreDto(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    task: row.task,
+    details: row.details ?? null,
+    frequency: row.frequency,
+    defaultDay: row.default_day ?? null,
+    icon: row.icon ?? null,
+    assigneeMemberId: row.assignee_member_id ?? null,
+    intervalDays: row.interval_days ?? null,
+    active: !!row.active,
+  };
+}
+
+function choreCatalogMap(repos) {
+  return new Map(repos.chores.getAll({ includeInactive: true }).map((c) => [c.id, c]));
+}
+
+function maybeAutogenerateShoppingList(repos, weekYear) {
+  try {
+    if (!repos.mealPlans.isWeekComplete(weekYear)) return null;
+    const result = generateForWeek(repos, weekYear, { force: false, mode: 'merge' });
+    invalidate('shopping');
+    // Phase B: kick off background enrichment — no await, no throw.
+    // If KASSAL_API_KEY is missing, enrichList marks the list as done noop.
+    if (result && result.listId) {
+      enrichInBackground(repos, result.listId);
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * SBOM-6: audit-log helper. Wraps a handler and logs to audit_log after
+ * a successful response. Should only be used on destructive operations
+ * (DELETE, overwriting PUT/PATCH on sensitive resources).
+ *
+ * @param {object} repos
+ * @param {object} spec  { entityType, getEntityId?, getBefore?, getAfter?, metadata? }
+ * @param {function} handler  (ctx) => void
+ */
+function withAudit(repos, spec, handler) {
+  return (ctx) => {
+    // Snapshot "before" before the handler runs (if spec provides getBefore)
+    let before = null;
+    try {
+      if (typeof spec.getBefore === 'function') before = spec.getBefore(ctx, repos);
+    } catch {
+      /* silent: audit must not block */
+    }
+
+    // Run handler — rethrow so http/server.js can catch
+    handler(ctx);
+
+    // Record audit event after the handler returned without throw.
+    // This ensures failed operations do not generate audit noise.
+    try {
+      const entityId = typeof spec.getEntityId === 'function' ? spec.getEntityId(ctx) : null;
+      let after = null;
+      if (typeof spec.getAfter === 'function') after = spec.getAfter(ctx, repos);
+
+      repos.auditLog.record({
+        requestId: ctx.requestId || ctx.req?.headers?.['x-request-id'] || 'unknown',
+        actor: 'local',
+        action: (ctx.req?.method || 'UNKNOWN').toUpperCase(),
+        entityType: spec.entityType,
+        entityId,
+        route: ctx.req?.url || 'unknown',
+        before,
+        after,
+        metadata: typeof spec.metadata === 'function' ? spec.metadata(ctx) : spec.metadata,
+      });
+    } catch {
+      /* silent: audit errors must never affect the response */
+    }
+  };
+}
+
+function registerRoutes(router, { repos, serverState }) {
+  // Single shelf-life learner per server instance — it needs both repos and
+  // the raw db handle to update products.shelf_days_learned.
+  const shelfLifeLearner = createShelfLifeLearner(repos, repos._db);
+
+  function requirePositiveInt(value, name = 'id') {
+    const n = parseInt(value, 10);
+    if (!Number.isInteger(n) || n <= 0)
+      throw errors.badRequest(`${name} must be a positive integer`);
+    return n;
+  }
+
+  // ============================================================
+  // BOOTSTRAP (phase 22 — zero-config first-run wizard)
+  // ============================================================
+  // Always register the bootstrap status endpoint so the frontend
+  // (and test suite) can introspect mode. Complete/generate-token are
+  // gated by config.BOOTSTRAP_MODE inside the handlers, so even outside
+  // bootstrap-mode a malicious caller gets 403, not a write.
+  registerBootstrapRoutes(router, { config });
+
+  // Sprint 10 brand-config + favicon + logo-mark + manifest. Public
+  // (no-auth) routes that the frontend consumes via useBrandConfig()
+  // and the browser pulls for tab-icon / PWA-manifest. Registered
+  // before the bootstrap-mode short-circuit below so the favicon
+  // request from the setup wizard still succeeds.
+  registerBrandingRoutes(router, { config });
+
+  // When in bootstrap-mode, block everything else under /api/* so a
+  // half-configured server can't be used accidentally. /health and
+  // /ready still respond below. Static /setup.html + manifest + icons
+  // are served via the tryServeSpaFallback path in server.js.
+  if (config.BOOTSTRAP_MODE) {
+    router.all('/api/*', (ctx) => {
+      // Carve-out: bootstrap endpoints already matched above and returned
+      // before the catch-all would run, so this only fires for other /api/*
+      // paths.
+      if (ctx.pathname.startsWith('/api/bootstrap/')) return;
+      ctx.json(
+        {
+          type: 'about:blank',
+          title: 'Setup required',
+          status: 503,
+          detail: 'Instance not configured. Complete setup at /setup.html.',
+          setupUrl: '/setup.html',
+        },
+        503
+      );
+    });
+  }
+
+  // ============================================================
+  // ROLE MATRIX (phase 6 — role enforcement)
+  // ============================================================
+  //
+  // Authenticated requests carry ctx.user with one of three roles:
+  //   owner > adult > child
+  //
+  // The bearer-token RPi fallback and the no-auth legacy dev mode both
+  // synthesise a local user with role=owner so existing single-tenant
+  // installations keep working unchanged.
+  //
+  // GET endpoints are open to every authenticated role — all family
+  // members can read pantry, menu, shopping list, calendar and chores.
+  //
+  // Mutation endpoints apply one of:
+  //   requireRole('adult') — blocks child (read-only) from editing
+  //                          pantry, menu, shopping, calendar, recipes,
+  //                          profile, receipts, AI chat, consumables,
+  //                          chore postponement, sunday-push.
+  //   requireRole('owner') — owner-only: family LLM override, family
+  //                          lifecycle (invite/remove members, delete
+  //                          family, transfer ownership).
+  //   requireAdmin()       — instance env / Kassal test (stack-wide).
+  //
+  // Endpoints with no role middleware but behind authenticate() require
+  // only a logged-in user:
+  //   GET  /api/chores                  — any family member can list catalog.
+  //   PUT  /api/chores/complete         — any family member can check off
+  //                                       chores (plan matrix allows this).
+  //   POST /api/profile/filter-usage    — low-risk usage tracker, child OK.
+  //   POST /api/llm/warm                — cache priming, child OK.
+  //   PUT  /api/notifications/read      — mark notifications read.
+  //
+  // The tenant-isolation layer (AsyncLocalStorage + repo WHERE clauses)
+  // is orthogonal: role enforcement limits WHAT a user can do, tenant
+  // scoping limits WHICH family's data they touch.
+
+  // ============================================================
+  // AUTH (Google OAuth, magic-link, sessions)
+  // ============================================================
+  registerAuthRoutes(router, { repos });
+
+  // ============================================================
+  // FAMILY + INVITATIONS (phase 7)
+  // ============================================================
+  registerFamilyRoutes(router, { repos });
+
+  // ============================================================
+  // PER-FAMILY LLM CONFIG (phase 8)
+  // ============================================================
+  registerLlmConfigRoutes(router, { repos });
+
+  // ============================================================
+  // GDPR ENDPOINTS (phase 10 — export + soft-delete)
+  // ============================================================
+  registerGdprRoutes(router, { repos });
+  registerCalendarIntegrationRoutes(router, { repos });
+
+  // ============================================================
+  // FEEDBACK (phase 15 — in-app feedback + recipe thumbs)
+  // ============================================================
+  registerFeedbackRoutes(router, { repos });
+
+  // ============================================================
+  // HEALTH / READY
+  // ============================================================
+  router.get('/health', (ctx) => {
+    ctx.json({
+      status: 'ok',
+      version: require('../package.json').version,
+      spa: 'chores-calendar-g1',
+      uptimeSec: Math.round((Date.now() - serverState.startedAt) / 1000),
+      pid: process.pid,
+      memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+    });
+  });
+
+  // Admin-only detailed health snapshot. Combines /health, /ready and
+  // a few extras useful for the post-pilot admin UI without exposing
+  // them to the public probe. Returns 403 for non-admin users.
+  router.get('/health/detailed', (ctx) => {
+    if (!ctx.user || !ctx.user.is_admin) {
+      throw errors.forbidden('Admin role required.');
+    }
+    let migrationCount = 0;
+    let activeUsers24h = 0;
+    let kassalApiKeyConfigured = false;
+    try {
+      migrationCount = repos._db.prepare('SELECT COUNT(*) AS cnt FROM schema_migrations').get().cnt;
+    } catch {
+      /* table may not exist on first boot */
+    }
+    try {
+      activeUsers24h = repos._db
+        .prepare(
+          `SELECT COUNT(DISTINCT user_id) AS cnt FROM sessions
+             WHERE last_seen_at >= datetime('now', '-24 hours')`
+        )
+        .get().cnt;
+    } catch {
+      /* sessions table may have schema variance */
+    }
+    try {
+      kassalApiKeyConfigured = !!process.env.KASSAL_API_KEY;
+    } catch {
+      /* ignore */
+    }
+    ctx.json({
+      status: 'ok',
+      version: require('../package.json').version,
+      nodeEnv: process.env.NODE_ENV || 'production',
+      uptimeSec: Math.round((Date.now() - serverState.startedAt) / 1000),
+      memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      pid: process.pid,
+      migrationCount,
+      activeUsers24h,
+      kassalApiKeyConfigured,
+      pilotMode: !!process.env.PILOT_MODE,
+      magicLinkConsole: !!process.env.MAGIC_LINK_CONSOLE,
+    });
+  });
+
+  router.get('/ready', (ctx) => {
+    // M4.2: utvidet ready-sjekk med dependency + kapasitet-signaler
+    const checks = { server: serverState.ready, repos: repos !== null };
+    const warnings = [];
+    let dbSizeBytes = null;
+    let diskFreeBytes = null;
+
+    // DB-size (fra filen hvis vi har DB_PATH)
+    try {
+      const fs = require('fs');
+      const { DB_PATH } = require('./db');
+      if (DB_PATH && fs.existsSync(DB_PATH)) {
+        dbSizeBytes = fs.statSync(DB_PATH).size;
+        // Advarsel hvis DB > 500 MB
+        if (dbSizeBytes > 500 * 1024 * 1024) warnings.push('db_size_over_500mb');
+      }
+    } catch {
+      /* silent */
+    }
+
+    // Disk-space (statfs is Linux-only on Node ≥18.15, so wrap in try)
+    try {
+      const fs = require('fs');
+      if (fs.statfsSync) {
+        const s = fs.statfsSync(require('path').dirname(require('./db').DB_PATH || process.cwd()));
+        diskFreeBytes = s.bfree * s.bsize;
+        if (diskFreeBytes < 100 * 1024 * 1024) warnings.push('disk_under_100mb');
+      }
+    } catch {
+      /* stille */
+    }
+
+    // Backup-freshness — siste backup <30t gammel?
+    let lastBackupAgeHours = null;
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { BACKUP_DIR } = require('./backup');
+      if (fs.existsSync(BACKUP_DIR)) {
+        const files = fs
+          .readdirSync(BACKUP_DIR)
+          .filter((f) => /^familieassistenten-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+          .map((f) => ({ f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        if (files.length > 0) {
+          lastBackupAgeHours = Math.round((Date.now() - files[0].mtime) / 3600000);
+          if (lastBackupAgeHours > 30) warnings.push('backup_stale_over_30h');
+        }
+      }
+    } catch {
+      /* stille */
+    }
+
+    // Circuit breaker state — ikke blocker 503, bare rapporteres
+    let breakersOpen = 0;
+    try {
+      const snap = require('./services/circuit-breaker').snapshotAll();
+      for (const b of Object.values(snap)) {
+        if (b.state === 'OPEN') breakersOpen++;
+      }
+      if (breakersOpen > 0) warnings.push(`breakers_open_${breakersOpen}`);
+    } catch {
+      /* stille */
+    }
+
+    // Uke 5 PERF-4: Memory budget-sjekk. Flagger warning hvis RSS over
+    // MEMORY_BUDGET_MB (default 512). Blokker ikke /ready — dette er en
+    // signal-warning for alerting/dashboards.
+    let rssMB = null;
+    let memoryBudgetMB = null;
+    try {
+      const { config: cfg } = require('./config');
+      rssMB = Math.round(process.memoryUsage().rss / 1024 / 1024);
+      memoryBudgetMB = cfg.MEMORY_BUDGET_MB;
+      if (rssMB > memoryBudgetMB) {
+        warnings.push(`rss_over_budget_${rssMB}mb`);
+      } else if (rssMB > memoryBudgetMB * 0.9) {
+        warnings.push(`rss_near_budget_${rssMB}mb`);
+      }
+    } catch {
+      /* stille */
+    }
+
+    // SBOM-5: token-age-sjekk. Flagger warning hvis AUTH_TOKEN_CREATED_AT er
+    // eldre enn AUTH_TOKEN_MAX_AGE_DAYS. Blokker ikke /ready — dette er
+    // en hygiene-warning, ikke en driftsstopp.
+    let tokenAgeDays = null;
+    try {
+      const { config: cfg } = require('./config');
+      if (cfg.AUTH_TOKEN && cfg.AUTH_TOKEN_CREATED_AT) {
+        const created = Date.parse(cfg.AUTH_TOKEN_CREATED_AT);
+        if (!Number.isNaN(created)) {
+          tokenAgeDays = Math.floor((Date.now() - created) / 86_400_000);
+          if (tokenAgeDays > cfg.AUTH_TOKEN_MAX_AGE_DAYS) {
+            warnings.push(`auth_token_stale_${tokenAgeDays}d`);
+          }
+        }
+      } else if (cfg.AUTH_TOKEN && !cfg.AUTH_TOKEN_CREATED_AT && cfg.NODE_ENV === 'production') {
+        // Token er satt men alder er ukjent — noter men ikke blokker
+        warnings.push('auth_token_age_unknown');
+      }
+    } catch {
+      /* stille */
+    }
+
+    const ready =
+      checks.server &&
+      checks.repos &&
+      !warnings.some((w) => w === 'disk_under_100mb' || w === 'db_size_over_500mb');
+
+    ctx.json(
+      {
+        ready,
+        driver: serverState.driver,
+        kbEntries: repos ? repos.kb.count() : 0,
+        fts5: repos?.hasFTS || false,
+        checks,
+        dbSizeBytes,
+        dbSizeMB: dbSizeBytes != null ? Math.round(dbSizeBytes / 1024 / 1024) : null,
+        diskFreeBytes,
+        diskFreeMB: diskFreeBytes != null ? Math.round(diskFreeBytes / 1024 / 1024) : null,
+        lastBackupAgeHours,
+        breakersOpen,
+        tokenAgeDays,
+        rssMB,
+        memoryBudgetMB,
+        warnings,
+      },
+      ready ? 200 : 503
+    );
+  });
+
+  // ============================================================
+  // MEALS
+  // ============================================================
+  router.get(
+    '/api/meals/week/:weekYear',
+    withCache(['meals'], (ctx) => {
+      const wk = ctx.params.weekYear;
+      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      const plan = repos.mealPlans.getWeek(wk);
+      ctx.json({
+        weekYear: wk,
+        meals: plan.map((slot) => ({
+          ...slot,
+          dayName: DAY_NAMES[slot.dayOfWeek],
+          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+        })),
+      });
+    })
+  );
+
+  router.get(
+    '/api/meals/current',
+    withCache(['meals'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const plan = repos.mealPlans.getWeek(wk);
+      ctx.json({
+        weekYear: wk,
+        meals: plan.map((slot) => ({
+          ...slot,
+          dayName: DAY_NAMES[slot.dayOfWeek],
+          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+        })),
+      });
+    })
+  );
+
+  router.put(
+    '/api/meals/swap',
+    requireRole('adult'),
+    validateBody(schemas.mealsSwapBody),
+    (ctx) => {
+      const { weekYear, dayOfWeek, recipeId } = ctx.body;
+      const wk = weekYear || ensureCurrentWeek(repos);
+      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      repos.mealPlans.setRecipe(wk, dayOfWeek, recipeId, 'planned');
+      invalidate('meals', 'today', 'shopping');
+      const autogen = maybeAutogenerateShoppingList(repos, wk);
+      ctx.json({
+        ok: true,
+        mealPlan: repos.mealPlans.getWeek(wk),
+        autogeneratedShoppingList: autogen,
+      });
+    }
+  );
+
+  router.put(
+    '/api/meals/status',
+    requireRole('adult'),
+    validateBody(schemas.mealsStatusBody),
+    (ctx) => {
+      const { weekYear, dayOfWeek, status } = ctx.body;
+      const wk = weekYear || ensureCurrentWeek(repos);
+      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      repos.mealPlans.setStatus(wk, dayOfWeek, status);
+      invalidate('meals', 'today');
+      const autogen = maybeAutogenerateShoppingList(repos, wk);
+      ctx.json({ ok: true, autogeneratedShoppingList: autogen });
+    }
+  );
+
+  router.put(
+    '/api/meals/reorder',
+    requireRole('adult'),
+    validateBody(schemas.mealsReorderBody),
+    (ctx) => {
+      const { weekYear, fromDay, toDay } = ctx.body;
+      const wk = weekYear || ensureCurrentWeek(repos);
+      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      const plan = repos.mealPlans.getWeek(wk);
+      const shelfCheck = checkShelfLife(repos, plan, fromDay, toDay);
+      repos.mealPlans.swapDays(wk, fromDay, toDay);
+      invalidate('meals', 'today');
+      ctx.json({
+        ok: true,
+        shelfWarnings: shelfCheck.warnings,
+        mealPlan: repos.mealPlans.getWeek(wk),
+      });
+    }
+  );
+
+  router.get('/api/meals/suggestions/:dayOfWeek', (ctx) => {
+    const dow = parseInt(ctx.params.dayOfWeek, 10);
+    if (!Number.isInteger(dow) || dow < 0 || dow > 6) {
+      throw errors.badRequest('dayOfWeek m\u00e5 v\u00e6re 0\u20136');
+    }
+    const wk = ensureCurrentWeek(repos);
+    ctx.json({ suggestions: getSwapSuggestions(repos, dow, wk) });
+  });
+
+  // "Hva kan jeg lage n\u00e5?" \u2014 returnerer 5 oppskrifter i valgt kategori,
+  // rangert etter pantry-dekning. Brukeren velger hvilken dag den legges p\u00e5.
+  router.post(
+    '/api/meals/pantry-suggestions',
+    requireRole('adult'),
+    validateBody(schemas.pantrySuggestionBody),
+    (ctx) => {
+      ensureCurrentWeek(repos);
+      const result = generatePantryRestOfWeek(repos, { category: ctx.body.category });
+      ctx.json(result);
+    }
+  );
+
+  // Bruker aksepterer ett eller flere valg \u2014 lagrer dem i ukeplanen og
+  // poster et 'missing_ingredients'-varsel for resten av uka.
+  router.post(
+    '/api/meals/pantry-suggestions/accept',
+    requireRole('adult'),
+    validateBody(schemas.pantrySuggestionAcceptBody),
+    (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      for (const m of ctx.body.meals) {
+        repos.mealPlans.setRecipe(wk, m.dayOfWeek, m.recipeId, 'planned');
+      }
+      invalidate('meals', 'today', 'shopping');
+
+      const missing = computeMissingForRestOfWeek(repos, wk);
+      if (missing.length > 0) {
+        repos.notifications.insert(
+          'missing_ingredients',
+          `${missing.length} ingredienser mangler for resten av uka`,
+          { weekYear: wk, items: missing }
+        );
+      }
+      ctx.json({ ok: true, missing, weekYear: wk });
+    }
+  );
+
+  // ----------------------------------------------------------------
+  // Sprint 6 — Meal-cooked smart-coupling
+  //
+  // POST /api/meals/:id/mark-eaten
+  //   Set meal_plans.status='cooked' and return ingredient deduction
+  //   suggestions for the cook-dialog to render. Cook is committed
+  //   even if the user later picks "Skip trekk" — the two states are
+  //   independent.
+  //
+  // POST /api/meals/:id/apply-deduction
+  //   Apply user-confirmed deductions. Each item lands as a
+  //   pantry.service.correctQty call which writes inventory_log
+  //   (reason='correction', notes='meal_deduction:<mealId>') and
+  //   re-runs the low-stock trigger naturally.
+  //
+  // POST /api/meals/:id/unmark-eaten
+  //   Roll status back to 'planned'. Used by the dialog Cancel
+  //   action so an accidental tap can be undone before any pantry
+  //   mutation lands.
+  // ----------------------------------------------------------------
+
+  router.post('/api/meals/:id/mark-eaten', requireRole('adult'), (ctx) => {
+    const mealId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
+    const slot = repos.mealPlans.getById(mealId);
+    if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
+    if (!slot.recipeId) {
+      throw errors.badRequest('Cannot mark cooked: no recipe on this slot', {
+        code: 'NO_RECIPE',
+      });
+    }
+    if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed') {
+      throw errors.badRequest('Cannot mark cooked: slot is in a non-cookable state', {
+        code: 'WRONG_STATUS',
+      });
+    }
+
+    const alreadyCooked = slot.status === 'cooked';
+    if (!alreadyCooked) {
+      repos.mealPlans.setStatusById(mealId, 'cooked');
+      invalidate('meals', 'today');
+    }
+    const suggestions = pantryDeduction.buildSuggestions(repos, slot);
+    ctx.json({
+      mealId,
+      recipeId: slot.recipeId,
+      alreadyCooked,
+      suggestions,
+    });
+  });
+
+  router.post(
+    '/api/meals/:id/apply-deduction',
+    requireRole('adult'),
+    validateBody(schemas.mealApplyDeductionBody),
+    (ctx) => {
+      const mealId = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
+      const slot = repos.mealPlans.getById(mealId);
+      if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
+      if (slot.status !== 'cooked') {
+        throw errors.badRequest('Apply-deduction requires status=cooked', {
+          code: 'NOT_COOKED',
+        });
+      }
+
+      const items = Array.isArray(ctx.body?.items) ? ctx.body.items : [];
+      const result = pantryDeduction.applyDeduction(repos, mealId, items);
+      invalidate('inventory', 'shopping', 'today');
+      ctx.json({ ok: true, mealId, ...result });
+    }
+  );
+
+  router.post('/api/meals/:id/unmark-eaten', requireRole('adult'), (ctx) => {
+    const mealId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
+    const slot = repos.mealPlans.getById(mealId);
+    if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
+    if (slot.status !== 'cooked') {
+      ctx.json({ ok: true, alreadyPlanned: true });
+      return;
+    }
+    repos.mealPlans.setStatusById(mealId, 'planned');
+    invalidate('meals', 'today');
+    ctx.json({ ok: true });
+  });
+
+  // ============================================================
+  // RECIPES
+  // ============================================================
+
+  // B7 / D7 — Build FamilyContext from repos. Reads family_profile (for
+  // fallback-arv) + family_profile_members (for per-member diet data).
+  // Returns a FamilyContext compatible with recipe-filter.service.
+  // Defined as a route-local helper so tests that mock repos don't need
+  // to import it.
+  function buildFilterContext() {
+    const recipeFilter = require('./services/recipe-filter.service');
+    const familyProfile = repos.familyProfile.get();
+    // ctx.familyId lives on each request, but this helper is called
+    // inside handlers so we rely on AsyncLocalStorage via getFamilyId().
+    // Callers must ensure the family-context is set.
+    const { getFamilyId } = require('./auth/family-context');
+    const fid = getFamilyId();
+    const members = fid ? repos.family.listMembers(fid) : [];
+    return recipeFilter.buildFamilyContext({ familyProfile, members });
+  }
+
+  // B7 — parse ?ignoreDietTags=true (D7 override toggle). The toggle is
+  // UI-driven per D7 — the server does NOT persist it.
+  function parseIgnoreDietTags(query) {
+    const raw = query?.ignoreDietTags;
+    if (raw === true || raw === 'true' || raw === '1') return true;
+    return false;
+  }
+
+  // B7 — annotate a recipe with BOTH legacy fields (safeForProfile,
+  // blockedIngredients, checkedAgainst) AND new per-member fields
+  // (perMember.allergy/dislike/diet + hiddenByAllergy/hiddenByDiet/
+  // shownWithDislikeWarning). Legacy callers read the top-level keys;
+  // new callers read perMember.*. Both APIs coexist during transition.
+  function annotateRecipePerMember(recipe, familyContext, options) {
+    const recipeFilter = require('./services/recipe-filter.service');
+    const res = recipeFilter.filterRecipeForFamily(recipe, familyContext, options);
+    // Legacy fields derived from the new per-member result.
+    // safeForProfile is true iff no allergy was triggered (same as legacy).
+    const legacyBlocked = res.allergy.blockedIngredients.map(
+      ({ blockedFor: _blockedFor, ...rest }) => rest
+    );
+    return Object.assign({}, recipe || {}, {
+      // Legacy (uke 9 SAF-2 shape) — UI code that pre-dates B7 keeps working.
+      safeForProfile: res.allergy.safeForFamily,
+      blockedIngredients: legacyBlocked,
+      checkedAgainst: res.allergy.effectiveAllergies,
+      // B7 / D7 — per-member attribution + three-layer result
+      perMember: {
+        allergy: res.allergy,
+        dislike: res.dislike,
+        diet: res.diet,
+      },
+      hiddenByAllergy: res.hiddenByAllergy,
+      hiddenByDiet: res.hiddenByDiet,
+      shownWithDislikeWarning: res.shownWithDislikeWarning,
+    });
+  }
+
+  router.get('/api/recipes', (ctx) => {
+    // Phase F7: supports ?source=mine|ai|all|imported
+    // Filters on recipes.source_type (enum), not recipes.source (free text)
+    // G1 library: adults may pass ?includeInactive=1 to see deactivated rows.
+    const source = ctx.query.source;
+    const includeInactive = ctx.query.includeInactive === '1' && hasRole(ctx.user, 'adult');
+    const all = repos.recipes.getAll({ includeInactive });
+    let filtered = all;
+    if (source === 'mine') {
+      filtered = all.filter((r) => (r.source_type || r.sourceType || 'manual') === 'manual');
+    } else if (source === 'ai') {
+      filtered = all.filter((r) => (r.source_type || r.sourceType) === 'ai');
+    } else if (source === 'imported') {
+      filtered = all.filter((r) => (r.source_type || r.sourceType) === 'imported');
+    }
+    // B7 / D7: Three-layer per-member filter with backward-compat legacy fields.
+    const familyContext = buildFilterContext();
+    const ignoreDietTags = parseIgnoreDietTags(ctx.query);
+    const annotated = filtered.map((r) =>
+      annotateRecipePerMember(r, familyContext, { ignoreDietTags })
+    );
+    ctx.json({
+      recipes: annotated,
+      filter: {
+        ignoreDietTags,
+        activeDietTags: Array.from(
+          new Set(annotated.flatMap((r) => r.perMember.diet.activeDietTags))
+        ),
+      },
+    });
+  });
+
+  router.get('/api/recipes/:id', (ctx) => {
+    const id = requirePositiveInt(ctx.params.id);
+    const recipe = repos.recipes.getById(id);
+    if (!recipe) throw errors.notFound(`Oppskrift ${id} ikke funnet`);
+    const familyContext = buildFilterContext();
+    const ignoreDietTags = parseIgnoreDietTags(ctx.query);
+    const annotated = annotateRecipePerMember(recipe, familyContext, { ignoreDietTags });
+    ctx.json({ recipe: annotated });
+  });
+
+  router.post(
+    '/api/recipes',
+    requireRole('adult'),
+    validateBody(schemas.recipeCreateBody),
+    (ctx) => {
+      const recipeId = repos.recipes.insert(ctx.body);
+      const recipe = repos.recipes.getById(recipeId);
+      invalidate('recipes', 'meals', 'today');
+      ctx.json({ ok: true, recipeId, recipe }, 201);
+    }
+  );
+
+  router.patch(
+    '/api/recipes/:id',
+    requireRole('adult'),
+    validateBody(schemas.recipeUpdateBody),
+    (ctx) => {
+      const id = requirePositiveInt(ctx.params.id);
+      const recipe = repos.recipes.update(id, ctx.body);
+      if (!recipe) throw errors.notFound(`Oppskrift ${id} ikke funnet`);
+      invalidate('recipes', 'meals', 'today');
+      ctx.json({ ok: true, recipe });
+    }
+  );
+
+  router.post('/api/recipes/:id/deactivate', requireRole('adult'), (ctx) => {
+    const id = requirePositiveInt(ctx.params.id);
+    const recipe = repos.recipes.setActive(id, 0);
+    if (!recipe) throw errors.notFound(`Oppskrift ${id} ikke funnet`);
+    invalidate('recipes', 'meals', 'today');
+    ctx.json({ ok: true, recipe });
+  });
+
+  router.delete('/api/recipes/:id', requireRole('adult'), (_ctx) => {
+    throw errors.methodNotAllowed(
+      'Recipes cannot be deleted. Use POST /api/recipes/:id/deactivate.'
+    );
+  });
+
+  /**
+   * POST /api/profile/check-recipe — deterministisk allergi-sjekk.
+   *
+   * Uke 9 SAF-1/SAF-2 kept backward-compatible: the legacy shape
+   * (safeForProfile + blockedIngredients + checkedAgainst) is preserved,
+   * and B7/D7 adds perMember + hiddenByAllergy/hiddenByDiet/
+   * shownWithDislikeWarning on the side.
+   *
+   * Body can override both profile (family-level) and members (per-member
+   * diet data) for "what-if" scenarios — useful for recipe-import flow
+   * that wants to validate against the current family without writing
+   * any data. If profile/members are omitted, the current family's
+   * data is used.
+   */
+  router.post('/api/profile/check-recipe', requireRole('adult'), (ctx) => {
+    const body = ctx.body || {};
+    const recipe = body.recipe || { ingredients: body.ingredients || [] };
+    if (!Array.isArray(recipe.ingredients)) {
+      throw errors.badRequest('recipe.ingredients must be an array');
+    }
+    const recipeFilter = require('./services/recipe-filter.service');
+    const baseCtx = buildFilterContext();
+    // Allow caller to override profile and/or members; unset keys fall
+    // back to current-family data.
+    const familyContext = recipeFilter.buildFamilyContext({
+      familyProfile: body.profile || {
+        allergies: baseCtx.familyAllergies,
+        dislikes: baseCtx.familyDislikes,
+      },
+      members: Array.isArray(body.members) ? body.members : baseCtx.members,
+    });
+    const ignoreDietTags = parseIgnoreDietTags(ctx.query) || body.ignoreDietTags === true;
+    const res = recipeFilter.filterRecipeForFamily(recipe, familyContext, { ignoreDietTags });
+    // Legacy shape + per-member bundle.
+    const legacyBlocked = res.allergy.blockedIngredients.map(
+      ({ blockedFor: _blockedFor, ...rest }) => rest
+    );
+    ctx.json({
+      // Legacy
+      safeForProfile: res.allergy.safeForFamily,
+      blockedIngredients: legacyBlocked,
+      checkedAgainst: res.allergy.effectiveAllergies,
+      // B7 / D7
+      perMember: { allergy: res.allergy, dislike: res.dislike, diet: res.diet },
+      hiddenByAllergy: res.hiddenByAllergy,
+      hiddenByDiet: res.hiddenByDiet,
+      shownWithDislikeWarning: res.shownWithDislikeWarning,
+    });
+  });
+
+  /**
+   * GET /api/recipes/:id/similar — Phase F4.
+   * Returns top-N similar recipes based on:
+   *   - Ingredient Jaccard similarity (weight 0.6)
+   *   - Category match (0.3)
+   *   - Servings proximity (0.1)
+   */
+  router.get('/api/recipes/:id/similar', (ctx) => {
+    const recipeSimilarity = require('./services/recipe-similarity.service');
+    const id = parseInt(ctx.params.id, 10);
+    if (!Number.isFinite(id)) throw errors.badRequest('Invalid recipe id');
+    const limit = Math.min(parseInt(ctx.query.limit, 10) || 5, 20);
+    const similar = recipeSimilarity.findSimilar(repos, id, limit);
+    ctx.json({ similar, count: similar.length });
+  });
+
+  // Recipe import — text (Phase D).
+  //
+  // Image import goes through /api/recipes/import/image (separate endpoint)
+  // because the global body parser auto-parses JSON and does not support
+  // binary. For images the frontend first calls a base64-JSON endpoint, or
+  // importFromImage is invoked directly from a future multipart route.
+  router.post(
+    '/api/recipes/import',
+    requireRole('adult'),
+    validateBody(schemas.recipeImportTextBody),
+    async (ctx) => {
+      const result = await recipeImportService.importFromText(repos, ctx.body);
+      if (result.error) throw errors.badRequest(result.error);
+      invalidate('recipes');
+      // Week 9 SAF-2: run deterministic allergy check on the imported recipe
+      // BEFORE the response is returned. Frontend shows a warning when
+      // safeForProfile=false.
+      // The recipe is still saved (the user may choose to keep it), but
+      // the flag prevents an "unsafe accept".
+      if (result.recipe) {
+        // B7 / D7 — per-member filter with legacy fields preserved.
+        const recipeFilter = require('./services/recipe-filter.service');
+        const familyContext = buildFilterContext();
+        const filterRes = recipeFilter.filterRecipeForFamily(result.recipe, familyContext);
+        // Legacy shape (uke 9 SAF-2) preserved for callers that pre-date B7
+        const legacyBlocked = filterRes.allergy.blockedIngredients.map(
+          ({ blockedFor: _blockedFor, ...rest }) => rest
+        );
+        result.safeForProfile = filterRes.allergy.safeForFamily;
+        result.blockedIngredients = legacyBlocked;
+        result.checkedAgainst = filterRes.allergy.effectiveAllergies;
+        // B7 / D7 additions — callers can opt in
+        result.perMember = {
+          allergy: filterRes.allergy,
+          dislike: filterRes.dislike,
+          diet: filterRes.diet,
+        };
+        result.hiddenByAllergy = filterRes.hiddenByAllergy;
+        result.hiddenByDiet = filterRes.hiddenByDiet;
+        result.shownWithDislikeWarning = filterRes.shownWithDislikeWarning;
+      }
+      ctx.json({ ok: true, ...result }, 201);
+    }
+  );
+
+  // Recipe image import. The image is sent as a base64 string inside the
+  // JSON body: { imageBase64: "<base64>", mime: "image/png", title?: "..." }
+  // This avoids the binary-parser problem and keeps the route compatible
+  // with the global JSON body parser.
+  router.post('/api/recipes/import/image', requireRole('adult'), async (ctx) => {
+    const body = ctx.body || {};
+    if (typeof body.imageBase64 !== 'string' || body.imageBase64.length < 20) {
+      throw errors.badRequest('imageBase64 is required and must be a base64-encoded string');
+    }
+    const mime = typeof body.mime === 'string' ? body.mime.toLowerCase() : '';
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowed.includes(mime)) {
+      throw errors.badRequest(`Invalid mime: ${mime}. Allowed: ${allowed.join(', ')}`);
+    }
+    let buffer;
+    try {
+      buffer = Buffer.from(body.imageBase64, 'base64');
+    } catch (err) {
+      throw errors.badRequest(`Kunne ikke dekode base64: ${err.message}`);
+    }
+    if (buffer.length === 0) throw errors.badRequest('Tom bildebuffer etter dekoding');
+
+    const result = await recipeImportService.importFromImage(repos, {
+      buffer,
+      mime,
+      title: body.title || null,
+    });
+    if (result.error) throw errors.badRequest(result.error);
+    invalidate('recipes');
+    ctx.json({ ok: true, ...result }, 201);
+  });
+
+  // ============================================================
+  // SHOPPING
+  // ============================================================
+  router.get(
+    '/api/shopping/current',
+    withCache(['shopping'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      ctx.json({ weekYear: wk, ...buildShoppingList(repos, wk) });
+    })
+  );
+
+  router.put(
+    '/api/shopping/check',
+    requireRole('adult'),
+    validateBody(schemas.shoppingCheckBody),
+    (ctx) => {
+      const { productKey, packSize } = ctx.body;
+      const product = repos.products.getByKey(productKey);
+      const ps = packSize || (product ? product.pack_size : 0);
+      const inv = repos.inventory.addPurchase(productKey, {
+        packSize: ps,
+        unit: product ? product.unit : '',
+        // Prefer the learned shelf_days once we have enough samples;
+        // otherwise falls back to the seeded products.shelf_days.
+        shelfDays: shelfLifeLearner.effectiveShelfDays(product),
+      });
+      repos.purchaseLog.insert({
+        productKey,
+        qty: ps,
+        unit: product?.unit || '',
+        pricePaid: null,
+        store: product?.store || null,
+        source: 'manual',
+      });
+      invalidate('shopping', 'inventory', 'today');
+      ctx.json({ ok: true, inventory: inv });
+    }
+  );
+
+  router.post(
+    '/api/shopping/add',
+    requireRole('adult'),
+    validateBody(schemas.shoppingAddBody),
+    (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      repos.shoppingExtras.add(wk, ctx.body);
+      invalidate('shopping');
+      ctx.json({ ok: true });
+    }
+  );
+
+  // ---- Persistent shopping list (Iterasjon 3b fase A) --------------
+
+  /**
+   * POST /api/shopping/generate — generate (or regenerate) the active
+   * shopping list for a week.
+   *
+   * Body: { weekYear?, force?, mode? }
+   *   - mode='merge' (default): smart-merge preserves bought items
+   *     and manual/extra rows, then adds fresh meal-ingredient rows
+   *     from the current meal plan. The frontend "Regenerate from
+   *     this week's meals" CTA uses this mode.
+   *   - mode='replace': wipe and regenerate from scratch.
+   *   - force=true: allow even when the week is not complete.
+   *
+   * Fails with 400 WEEK_NOT_COMPLETE if the week is incomplete and
+   * force is not set.
+   */
+  router.post(
+    '/api/shopping/generate',
+    requireRole('adult'),
+    validateBody(schemas.shoppingGenerateBody),
+    (ctx) => {
+      const wk = ctx.body.weekYear || ensureCurrentWeek(repos);
+      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      try {
+        const result = generateForWeek(repos, wk, {
+          force: !!ctx.body.force,
+          mode: ctx.body.mode || 'merge',
+        });
+        invalidate('shopping');
+        // Phase B: background enrichment kicks off immediately, self-rate-limited.
+        if (result && result.listId) {
+          enrichInBackground(repos, result.listId);
+        }
+        ctx.json({ ok: true, ...result });
+      } catch (err) {
+        if (err.code === 'WEEK_NOT_COMPLETE') {
+          throw errors.badRequest(err.message, { code: err.code });
+        }
+        throw err;
+      }
+    }
+  );
+
+  /**
+   * GET /api/shopping/list/current — active shopping list for the current
+   * week. Returns the same shape as /list/:id. Does not create one —
+   * returns a 404 if no active list exists for the week.
+   *
+   * NOTE: must be registered BEFORE /api/shopping/list/:id since the
+   * router matches in registration order and :id would otherwise capture
+   * 'current'.
+   */
+  router.get('/api/shopping/list/current', (ctx) => {
+    const wk = ensureCurrentWeek(repos);
+    const list = repos.shoppingLists.getActive(wk);
+    if (!list) {
+      // No active persistent list — return an empty shell so the UI can
+      // show "No shopping list generated yet" without throwing.
+      ctx.json({
+        id: null,
+        weekYear: wk,
+        status: null,
+        enrichmentStatus: 'done',
+        items: [],
+        categories: [],
+        totalEstPrice: 0,
+      });
+      return;
+    }
+    // Group items by category for fast UI rendering (same shape as the
+    // /api/shopping/current legacy route).
+    const categoriesMap = new Map();
+    let total = 0;
+    for (const it of list.items) {
+      // Bought items remain on the list (user requested toggle-not-hide in
+      // test 0.2). Frontend styles them with .checked-off + exposes an undo
+      // action; checkedOff is true when bought_at is set.
+      // Items without a category fall under the 'other' enum-key — the
+      // frontend localises that bucket header through i18n. Pre-existing
+      // seed items carry their Norwegian category strings (Frukt & grønt,
+      // Meieri, ...) and pass through unchanged; that broader migration
+      // is tracked in design-gaps.md.
+      const cat = it.category || 'other';
+      if (!categoriesMap.has(cat)) categoriesMap.set(cat, []);
+      // enrichItemForFrontend gives the row a stable shape (name,
+      // checkedOff, stillNeed, mealsJson:[]). The same helper is used
+      // by POST /api/shopping/items so the contract stays in lockstep.
+      categoriesMap.get(cat).push(enrichItemForFrontend(it));
+      total += it.estPrice || 0;
+    }
+
+    // Sorter items innenfor hver kategori etter kjede-preferanse
+    const profile = repos.familyProfile ? repos.familyProfile.get() : {};
+    const prefChain = (profile.preferredChain || '').toLowerCase();
+    const secChain = (profile.secondaryChain || '').toLowerCase();
+    if (prefChain || secChain) {
+      for (const [, items] of categoriesMap) {
+        for (const it of items) {
+          const chain = (extractChain(it.lastSeenStore) || '').toLowerCase();
+          it._chainRank = chain === prefChain ? 0 : chain === secChain ? 1 : 2;
+        }
+        items.sort((a, b) => {
+          if (a._chainRank !== b._chainRank) return a._chainRank - b._chainRank;
+          return (a.name || '').localeCompare(b.name || '', 'nb');
+        });
+      }
+    }
+
+    ctx.json({
+      id: list.id,
+      weekYear: list.weekYear,
+      status: list.status,
+      enrichmentStatus: list.enrichmentStatus,
+      generatedAt: list.generatedAt,
+      confirmedAt: list.confirmedAt,
+      totalEstPrice: list.totalEstPrice || Math.round(total),
+      categories: Array.from(categoriesMap.entries()).map(([category, items]) => ({
+        category,
+        items,
+      })),
+      items: list.items,
+    });
+  });
+
+  /**
+   * GET /api/shopping/list/:id — full persistent liste med items.
+   */
+  router.get('/api/shopping/list/:id', (ctx) => {
+    const id = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+    const list = repos.shoppingLists.getById(id);
+    if (!list) throw errors.notFound(`Shopping list ${id} not found`);
+    ctx.json({ list });
+  });
+
+  /**
+   * PUT /api/shopping/items/:id/bought — mark item as bought. Updates
+   * pantry via inventory.addPurchase + inventory_log
+   * (reason='shopping_bought'), and if the item has a resolution →
+   * productResolutions.incrementConfirmed.
+   */
+  router.put(
+    '/api/shopping/items/:id/bought',
+    requireRole('adult'),
+    validateBody(schemas.shoppingItemBoughtBody),
+    (ctx) => {
+      const itemId = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
+      const parent = repos.shoppingLists.getItemWithList(itemId);
+      if (!parent) throw errors.notFound(`Item ${itemId} not found`);
+      const { item } = parent;
+      if (item.boughtAt) {
+        ctx.json({ ok: true, alreadyBought: true });
+        return;
+      }
+
+      // Resolve a productKey for legacy manual items that pre-date the
+      // POST /api/shopping/items productKey-resolve step. Without this
+      // backfill, every row inserted before that fix lands here with
+      // productKey=null and silently bypasses the pantry update — the
+      // bug Christer reported on the Phase 2E pantry sub-view. Persist
+      // the resolved key so subsequent reads carry the same identity.
+      let productKey = item.productKey;
+      if (!productKey && item.ingredientName) {
+        try {
+          const resolved = pantryResolver.resolveOrCreate(repos, item.ingredientName);
+          if (resolved && resolved.productKey) {
+            productKey = resolved.productKey;
+            if (typeof repos.shoppingLists.setProductKey === 'function') {
+              repos.shoppingLists.setProductKey(itemId, productKey);
+            }
+          }
+        } catch {
+          /* fall through with productKey still null */
+        }
+      }
+
+      // Default to 1 unit when neither the request body nor the row
+      // carries a quantity. Manual QuickAdd items routinely arrive
+      // with qty=null because the user only typed a name; without a
+      // sane default the qtyPurchased>0 gate below would still skip
+      // the pantry update even after productKey is resolved.
+      const qtyPurchased = ctx.body.qty ?? item.packSize ?? item.qty ?? 1;
+
+      const tx = repos.transaction(() => {
+        repos.shoppingLists.markItemBought(itemId, qtyPurchased);
+
+        // Pantry + inventory_log (kun hvis vi vet product_key og qty > 0)
+        if (productKey && qtyPurchased > 0) {
+          const prev = repos.inventory.getByKey(productKey);
+          const prevQty = prev?.qtyRemaining || 0;
+          const product = repos.products.getByKey(productKey);
+          repos.inventory.addPurchase(productKey, {
+            packSize: qtyPurchased,
+            unit: item.unit || product?.unit || '',
+            // Prefer learned shelf-life once enough samples accumulate;
+            // seeded products.shelf_days is the fallback.
+            shelfDays: shelfLifeLearner.effectiveShelfDays(product),
+          });
+          const next = repos.inventory.getByKey(productKey);
+          repos.inventoryLog.insert({
+            productKey,
+            qtyDelta: (next?.qtyRemaining || 0) - prevQty,
+            newQty: next?.qtyRemaining || 0,
+            unit: item.unit || product?.unit || null,
+            reason: 'shopping_bought',
+            sourceId: itemId,
+            sourceTable: 'shopping_list_items',
+          });
+        }
+
+        // Capture hook: bekreft resolution for adaptive family persona
+        if (item.resolutionId) {
+          repos.productResolutions.incrementConfirmed(item.resolutionId);
+        }
+      });
+      tx();
+
+      invalidate('shopping', 'inventory', 'today');
+      ctx.json({ ok: true });
+    }
+  );
+
+  /**
+   * PUT /api/shopping/items/:id/unbought — undo "bought".
+   *
+   * Reverses /bought: clears bought_at and bought_qty, sets needs_buy=1
+   * so the item reappears as active. Pantry qty is NOT rolled back —
+   * unsafe if the user has eaten something in the meantime. To reduce
+   * pantry use the "edit pantry" flow (PUT /api/pantry/correct).
+   */
+  router.put('/api/shopping/items/:id/unbought', requireRole('adult'), (ctx) => {
+    const itemId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
+    const parent = repos.shoppingLists.getItemWithList(itemId);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
+    repos.shoppingLists.markItemUnbought(itemId);
+    invalidate('shopping', 'today');
+    ctx.json({ ok: true });
+  });
+
+  /**
+   * DELETE /api/shopping/items/:id — permanently delete the row from
+   * the active shopping list. No soft-delete; the row is removed.
+   *
+   * Scoped to the active week. If the user generates a new week-plan
+   * and the same recipe appears, the ingredient will come back via
+   * the usual generation step.
+   */
+  router.delete('/api/shopping/items/:id', requireRole('adult'), (ctx) => {
+    const itemId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
+    const parent = repos.shoppingLists.getItemWithList(itemId);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
+    repos.shoppingLists.removeItem(itemId);
+    invalidate('shopping', 'today');
+    ctx.json({ ok: true });
+  });
+
+  /**
+   * POST /api/shopping/items — manually append a single item to the
+   * active shopping list. Used by the QuickAdd input on the Phase 2D
+   * Shopping screen. Returns 400 NO_ACTIVE_LIST if no active list
+   * exists for the current week — the client is expected to call
+   * /api/shopping/generate first in that case.
+   */
+  router.post(
+    '/api/shopping/items',
+    requireRole('adult'),
+    validateBody(schemas.shoppingItemAddBody),
+    (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const list = repos.shoppingLists.getActive(wk);
+      if (!list) {
+        throw errors.badRequest("No active shopping list — generate from this week's meals first", {
+          code: 'NO_ACTIVE_LIST',
+        });
+      }
+      // Resolve a productKey from the manual name so PUT /bought has
+      // an inventory-link to write against. resolveOrCreate prefers
+      // catalog matches (Kassal/seed) and falls back to slugify; the
+      // returned key is stable across repeated adds with the same
+      // name. We deliberately do NOT inherit unit/category from the
+      // resolver — user-supplied values stay null when omitted, which
+      // matches the existing API contract (see tests/shopping-items-
+      // add.test.js). The pantry write itself reads unit from the
+      // products catalog when item.unit is null.
+      let productKey = null;
+      try {
+        const resolved = pantryResolver.resolveOrCreate(repos, ctx.body.name);
+        productKey = resolved?.productKey || null;
+      } catch {
+        /* if resolver fails, we still insert the row without productKey;
+           the lazy-resolve in PUT /bought picks it up later. */
+      }
+      const item = repos.shoppingLists.addItem(list.id, {
+        name: ctx.body.name,
+        qty: ctx.body.qty ?? null,
+        unit: ctx.body.unit ?? null,
+        category: ctx.body.category ?? null,
+        notes: ctx.body.notes ?? null,
+        productKey,
+      });
+      invalidate('shopping');
+      ctx.json({ ok: true, item }, 201);
+    }
+  );
+
+  /**
+   * PUT /api/shopping/items/:id/has-home — "jeg har denne hjemme allerede".
+   *
+   * Different from /bought: the row stays on the shopping list (no bought_at,
+   * no bought_qty) so the operator can still buy MORE later. We only top up
+   * the pantry quantity via inventory.upsertManual() so pantry catches up to
+   * reality without recording a purchase event.
+   *
+   * Body:
+   *   qty         — required, how much the operator already has
+   *   purchasedAt — optional YYYY-MM-DD, used as last_purchased in pantry
+   */
+  router.put('/api/shopping/items/:id/has-home', requireRole('adult'), (ctx) => {
+    const itemId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
+
+    const parent = repos.shoppingLists.getItemWithList(itemId);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
+    const item = parent.item;
+    const productKey = item.productKey;
+    if (!productKey) {
+      throw errors.badRequest('Varen har ingen pantry-kobling');
+    }
+
+    const qty = Number(ctx.body?.qty);
+    if (!Number.isFinite(qty) || qty <= 0) throw errors.badRequest('Ugyldig qty');
+
+    const purchasedAt =
+      typeof ctx.body?.purchasedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ctx.body.purchasedAt)
+        ? ctx.body.purchasedAt
+        : null;
+
+    const unit = item.unit || '';
+    if (typeof repos.inventory.upsertManual !== 'function') {
+      throw errors.serviceUnavailable('Inventory-repo mangler upsertManual');
+    }
+    const { next: nextInv } = repos.inventory.upsertManual(productKey, {
+      qtyAdded: qty,
+      unit,
+      incrementPurchaseCount: false,
+    });
+
+    // Optional purchasedAt override — upsertManual always sets last_purchased
+    // to today; if the operator specified a date, patch it.
+    if (purchasedAt) {
+      try {
+        repos._db
+          ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
+          .run(purchasedAt, productKey);
+      } catch {
+        /* ignore — cosmetic date override */
+      }
+    }
+
+    try {
+      if (typeof repos.inventoryLog?.insert === 'function') {
+        repos.inventoryLog.insert({
+          productKey,
+          qtyDelta: qty,
+          newQty: nextInv?.qtyRemaining ?? null,
+          unit,
+          reason: 'home_already_have',
+          sourceId: itemId,
+          sourceTable: 'shopping_list_items',
+        });
+      }
+    } catch {
+      /* logg-skrivefeil skal ikke blokkere hoved-handlingen */
+    }
+
+    invalidate('shopping', 'inventory', 'today');
+    ctx.json({ ok: true });
+  });
+
+  /**
+   * POST /api/shopping/items/:id/expiry — record an expiry date for an
+   * already-bought shopping row (PR A.2 shelf-life learning).
+   *
+   * Preconditions: the row must have bought_at set, expiresAt must not
+   * predate the purchase. On success we update inventory.expires_est and
+   * the shelf-life learner stores an observation that feeds the
+   * per-product moving average.
+   */
+  router.post(
+    '/api/shopping/items/:id/expiry',
+    requireRole('adult'),
+    validateBody(schemas.shoppingItemExpiryBody),
+    (ctx) => {
+      const itemId = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
+
+      const parent = repos.shoppingLists.getItemWithList(itemId);
+      if (!parent) throw errors.notFound(`Item ${itemId} not found`);
+      const item = parent.item;
+      const productKey = item.productKey;
+      if (!productKey) throw errors.badRequest('Varen har ingen pantry-kobling');
+      if (!item.boughtAt) {
+        throw errors.badRequest('Item must be marked as bought before setting expiry date');
+      }
+
+      const expiresAt = ctx.body.expiresAt;
+      const purchasedAt = String(item.boughtAt).slice(0, 10); // bought_at = ISO datetime
+      if (expiresAt < purchasedAt) {
+        throw errors.badRequest('Expiry date cannot be before purchase date');
+      }
+
+      try {
+        repos._db
+          .prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
+          .run(expiresAt, productKey);
+      } catch {
+        /* cosmetic — best effort */
+      }
+
+      const result = shelfLifeLearner.recordObservation({
+        productKey,
+        purchasedAt,
+        expiresAt,
+        source: 'shopping_bought',
+      });
+
+      invalidate('inventory', 'shopping', 'today');
+      ctx.json({ ok: true, ...result });
+    }
+  );
+
+  /**
+   * PUT /api/pantry/expiry — set or update an expiry date for an existing
+   * pantry item. purchasedAt defaults to inventory.last_purchased. Captures
+   * a shelf-life observation for learning.
+   */
+  router.put(
+    '/api/pantry/expiry',
+    requireRole('adult'),
+    validateBody(schemas.pantryExpiryBody),
+    (ctx) => {
+      const { productKey, expiresAt } = ctx.body;
+      const inv = repos.inventory.getByKey(productKey);
+      if (!inv) throw errors.notFound(`Pantry-vare ${productKey} ikke funnet`);
+
+      const purchasedAt = ctx.body.purchasedAt || inv.lastPurchased;
+      if (!purchasedAt) {
+        throw errors.badRequest('Missing purchase date — send purchasedAt or set last_purchased');
+      }
+      if (expiresAt < purchasedAt) {
+        throw errors.badRequest('Expiry date cannot be before purchase date');
+      }
+
+      try {
+        repos._db
+          .prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
+          .run(expiresAt, productKey);
+      } catch {
+        /* cosmetic — best effort */
+      }
+
+      const result = shelfLifeLearner.recordObservation({
+        productKey,
+        purchasedAt,
+        expiresAt,
+        source: 'pantry_edit',
+      });
+
+      invalidate('inventory', 'shopping', 'today');
+      ctx.json({ ok: true, ...result });
+    }
+  );
+
+  /**
+   * GET /api/products/:productKey/shelf-life — summary used by pantry UI
+   * to show learned-shelf-life badges (e.g. "Lært: Nd (X kjøp)") and
+   * surface which value is in effect.
+   */
+  router.get('/api/products/:productKey/shelf-life', (ctx) => {
+    const productKey = String(ctx.params.productKey || '').trim();
+    if (!productKey) throw errors.badRequest('productKey is required');
+    const product = repos.products.getByKey(productKey);
+    if (!product) throw errors.notFound(`Produkt ${productKey} ikke funnet`);
+    ctx.json(shelfLifeLearner.summarizeProduct(productKey, product));
+  });
+
+  /**
+   * PUT /api/shopping/items/:id/unpantry — "jeg har ikke denne varen likevel".
+   * Flipper pantry_has=0, needs_buy=1.
+   */
+  router.put('/api/shopping/items/:id/unpantry', requireRole('adult'), (ctx) => {
+    const itemId = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(itemId) || itemId <= 0) throw errors.badRequest('Invalid id');
+    const parent = repos.shoppingLists.getItemWithList(itemId);
+    if (!parent) throw errors.notFound(`Item ${itemId} not found`);
+    repos.shoppingLists.markItemUnpantry(itemId);
+    invalidate('shopping');
+    ctx.json({ ok: true });
+  });
+
+  /**
+   * POST /api/shopping/list/:id/enrich — manual retry of Kassal enrichment.
+   * Used when a previous run stopped on 'partial' (rate limit/circuit) or
+   * 'failed'. Returns 202 immediately and runs the enricher in the
+   * background. For 'done'/'running' this is no-op (idempotency is handled
+   * by enrichList).
+   */
+  router.post('/api/shopping/list/:id/enrich', requireRole('adult'), (ctx) => {
+    const id = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+    const list = repos.shoppingLists.getById(id);
+    if (!list) throw errors.notFound(`Shopping list ${id} not found`);
+    // If the list is on 'partial' or 'failed' we must reset to 'pending'
+    // first so enrichList doesn't bail on the 'already_done' check.
+    // 'pending' and 'partial' are already passed through by the enricher.
+    if (list.enrichmentStatus === 'failed') {
+      repos.shoppingLists.setEnrichmentStatus(id, 'pending', {});
+    }
+    enrichInBackground(repos, id);
+    ctx.json({ ok: true, listId: id, enrichmentStatus: 'pending' }, 202);
+  });
+
+  /**
+   * POST /api/shopping/list/:id/done — close the shopping list manually.
+   */
+  router.post('/api/shopping/list/:id/done', requireRole('adult'), (ctx) => {
+    const id = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+    const list = repos.shoppingLists.getById(id);
+    if (!list) throw errors.notFound(`Shopping list ${id} not found`);
+    repos.shoppingLists.markDone(id);
+    invalidate('shopping');
+    ctx.json({ ok: true });
+  });
+
+  // ============================================================
+  // CHORES
+  // ============================================================
+  router.get('/api/chores', (ctx) => {
+    const includeInactive = ctx.query.includeInactive === '1' && hasRole(ctx.user, 'adult');
+    const chores = repos.chores.getAll({ includeInactive }).map(toChoreDto);
+    ctx.json({ chores });
+  });
+
+  router.post('/api/chores', requireRole('adult'), validateBody(schemas.choreCreateBody), (ctx) => {
+    let row;
+    try {
+      row = repos.chores.insert(ctx.body);
+    } catch (err) {
+      throw errors.badRequest(err.message);
+    }
+    const defaultDay = ctx.body.defaultDay;
+    if (defaultDay != null) {
+      const wk = getWeekYear();
+      if (repos.choreSchedules.exists(wk)) {
+        repos.choreSchedules.add(wk, row.id, defaultDay);
+      }
+    }
+    invalidate('chores', 'today');
+    ctx.json({ ok: true, chore: toChoreDto(row) }, 201);
+  });
+
+  router.patch(
+    '/api/chores/:id',
+    requireRole('adult'),
+    validateBody(schemas.choreUpdateBody),
+    (ctx) => {
+      const id = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+      let row;
+      try {
+        row = repos.chores.update(id, ctx.body);
+      } catch (err) {
+        throw errors.badRequest(err.message);
+      }
+      if (!row) throw errors.notFound('Oppgave ikke funnet');
+      invalidate('chores', 'today');
+      ctx.json({ ok: true, chore: toChoreDto(row) });
+    }
+  );
+
+  router.get('/api/chores/stats', validateQuery(schemas.choreStatsQuery), (ctx) => {
+    if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+    const week = ctx.query.week || getWeekYear();
+    const family = repos.family.findFamilyById(ctx.familyId);
+    const enabled = !family || family.gamification_enabled !== 0;
+    const goal = family && family.week_goal != null ? Number(family.week_goal) : 5;
+    const xpRows = repos.choreCompletions.xpByUserForWeek(week);
+    const users = repos.auth.listByFamily(ctx.familyId);
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const byUser = xpRows.map((row) => {
+      const u = row.userId != null ? userById.get(row.userId) : null;
+      return {
+        userId: row.userId,
+        name: u ? u.name || u.email : null,
+        xp: Number(row.xp) || 0,
+        completions: Number(row.completions) || 0,
+      };
+    });
+    const streakByUser = [];
+    const seen = new Set();
+    for (const row of xpRows) {
+      if (row.userId == null || seen.has(row.userId)) continue;
+      seen.add(row.userId);
+      streakByUser.push({
+        userId: row.userId,
+        streak: consecutiveWeekStreak(repos, row.userId, week),
+      });
+    }
+    ctx.json({ enabled, goal, byUser, streakByUser });
+  });
+
+  router.get(
+    '/api/chores/current',
+    withCache(['chores'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const schedule = repos.choreSchedules.getWeek(wk);
+      const choresMap = choreCatalogMap(repos);
+      const result = schedule
+        .map((s) => {
+          const chore = choresMap.get(s.choreId);
+          const onThisWeek = choreEffectiveDay(s);
+          const effectiveDay = onThisWeek !== null ? onThisWeek : -1;
+          return {
+            ...s,
+            task: chore?.task || '?',
+            icon: chore?.icon || '',
+            frequency: chore?.frequency || '',
+            details: chore?.details || null,
+            effectiveDay,
+            dayName: onThisWeek !== null ? DAY_NAMES[onThisWeek] || '' : '',
+          };
+        })
+        .sort((a, b) => a.effectiveDay - b.effectiveDay);
+      ctx.json({ weekYear: wk, chores: result });
+    })
+  );
+
+  router.put(
+    '/api/chores/postpone',
+    requireRole('adult'),
+    validateBody(schemas.chorePostponeBody),
+    (ctx) => {
+      const { weekYear, choreId } = ctx.body;
+      const wk = weekYear || ensureCurrentWeek(repos);
+      const schedule = repos.choreSchedules.getWeek(wk);
+      const slot = schedule.find((s) => s.choreId === choreId);
+      if (!slot) throw errors.notFound('Oppgave ikke funnet');
+
+      const currentDay = slot.postponedTo !== null ? slot.postponedTo : slot.scheduledDay;
+      if (currentDay === 4) {
+        const nextWk = getWeekYear(new Date(Date.now() + 7 * 86400000));
+        if (!repos.choreSchedules.exists(nextWk)) repos.choreSchedules.seedDefault(nextWk);
+        // seedDefault already inserted this chore on default_day; UPDATE
+        // Monday instead of INSERT OR IGNORE (UNIQUE chore_id+week_year).
+        repos.choreSchedules.setScheduledDay(nextWk, choreId, 0);
+        repos.choreSchedules.postpone(wk, choreId, -1);
+      } else if (currentDay < 4) {
+        repos.choreSchedules.postpone(wk, choreId, currentDay + 1);
+      }
+      invalidate('chores', 'today');
+      ctx.json({ ok: true });
+    }
+  );
+
+  router.put('/api/chores/complete', validateBody(schemas.choreCompleteBody), (ctx) => {
+    const { weekYear, choreId } = ctx.body;
+    const wk = weekYear || ensureCurrentWeek(repos);
+    const chore = repos.chores.getById(choreId);
+    if (!chore) throw errors.notFound('Oppgave ikke funnet');
+    const assignee = chore.assignee_member_id;
+    if (
+      ctx.user &&
+      ctx.user.role === 'child' &&
+      assignee != null &&
+      Number(ctx.user.profile_member_id) !== Number(assignee)
+    ) {
+      throw errors.forbidden();
+    }
+    // B5 gamification: attribute the completion to a real user id when
+    // possible. Synthetic LOCAL_USER (pilot single-tenant) has id=0 and
+    // is not a row in users — pass null so the chore_completions.user_id
+    // FK stays satisfied.
+    const userId = ctx.user && !ctx.user._synthetic ? ctx.user.id : null;
+    repos.choreSchedules.markDone(wk, choreId, { userId });
+    invalidate('chores', 'today');
+    ctx.json({ ok: true });
+  });
+
+  // Undo "done" or "postponed" — resets status to 'pending' so the row
+  // gets its regular action buttons back. Body-schema reuses
+  // choreCompleteBody (same { weekYear?, choreId }).
+  router.put('/api/chores/undone', validateBody(schemas.choreCompleteBody), (ctx) => {
+    const { weekYear, choreId } = ctx.body;
+    const wk = weekYear || ensureCurrentWeek(repos);
+    repos.choreSchedules.markUndone(wk, choreId);
+    invalidate('chores', 'today');
+    ctx.json({ ok: true });
+  });
+
+  // ============================================================
+  // INVENTORY / PRODUCTS / CONSUMABLES
+  // ============================================================
+  router.get(
+    '/api/inventory',
+    withCache(['inventory'], (ctx) => {
+      ctx.json({ inventory: repos.inventory.getAll() });
+    })
+  );
+
+  router.get(
+    '/api/products',
+    withCache(['products'], (ctx) => {
+      const q = ctx.query.q || '';
+      if (q.length > 500) throw errors.badRequest('q max 500 tegn');
+      if (q) ctx.json({ products: repos.products.search(q) });
+      else ctx.json({ products: repos.products.getAllAsMap() });
+    })
+  );
+
+  router.get(
+    '/api/consumables',
+    withCache(['consumables'], (ctx) => {
+      ctx.json({ consumables: repos.consumables.getAll() });
+    })
+  );
+
+  router.put(
+    '/api/consumables/:id',
+    requireRole('adult'),
+    validateBody(schemas.consumableUpdateBody),
+    (ctx) => {
+      const id = requirePositiveInt(ctx.params.id);
+      repos.consumables.update(id, ctx.body);
+      const c = repos.consumables.getById(id);
+      if (!c) throw errors.notFound(`Consumable ${id} ikke funnet`);
+      invalidate('consumables', 'shopping');
+      ctx.json({ ok: true, consumable: c });
+    }
+  );
+
+  router.post(
+    '/api/consumables/:id/bought',
+    requireRole('adult'),
+    validateBody(schemas.consumableBoughtBody),
+    (ctx) => {
+      const id = parseInt(ctx.params.id, 10);
+      const c = repos.consumables.markBought(id, ctx.body.qty);
+      if (!c) throw errors.notFound(`Consumable ${id} ikke funnet`);
+      invalidate('consumables', 'shopping');
+      ctx.json({ ok: true, consumable: c });
+    }
+  );
+
+  router.post('/api/consumables/toggle-auto/:id', requireRole('adult'), (ctx) => {
+    const id = requirePositiveInt(ctx.params.id);
+    const c = repos.consumables.toggleAuto(id);
+    if (!c) throw errors.notFound(`Consumable ${id} ikke funnet`);
+    invalidate('consumables', 'shopping');
+    ctx.json({ ok: true, consumable: c });
+  });
+
+  // ============================================================
+  // PANTRY (Iteration 1 — manual add + correction + log)
+  // ============================================================
+
+  /**
+   * GET /api/pantry/suggest?q= — phase F, autocomplete for pantry add.
+   * Combines catalog search (repos.products) + pantry history.
+   * Always returns a "new" row at the bottom when no exact match exists.
+   */
+  router.get('/api/pantry/suggest', (ctx) => {
+    const q = (ctx.query.q || '').trim();
+    if (q.length < 1) {
+      ctx.json({ suggestions: [] });
+      return;
+    }
+    const suggestions = pantryResolver.resolvePantryInput(repos, q);
+    ctx.json({ suggestions });
+  });
+
+  /**
+   * GET /api/pantry — flat liste over alle inventory-rader med produktnavn
+   * for visning i UI. Skjuler rader med qty_remaining=0 som standard.
+   */
+  router.get('/api/pantry', (ctx) => {
+    const inventoryMap = repos.inventory.getAll();
+    const productsMap = repos.products.getAllAsMap();
+    const units = require('./services/units');
+    const items = [];
+    for (const [productKey, inv] of Object.entries(inventoryMap)) {
+      if (!inv.qtyRemaining || inv.qtyRemaining <= 0) continue;
+      const p = productsMap[productKey];
+      const total = inv.totalSize ?? null;
+      const ratio = total ? units.calculateRatio(inv.qtyRemaining, total) : null;
+      items.push({
+        productKey,
+        ingredientName: productKey,
+        ingredientNameNo: p?.productName || productKey,
+        name: p?.productName || productKey,
+        quantity: inv.qtyRemaining,
+        total,
+        ratio,
+        isLow: ratio !== null ? ratio < units.LOW_THRESHOLD : false,
+        unit: inv.unit || p?.unit || '',
+        category: p?.category || null,
+        expiresEst: inv.expiresEst || null,
+        lastPurchased: inv.lastPurchased || null,
+        // PR A.2 — learned shelf-life metadata so pantry UI can show a
+        // learned-days badge. shelfDaysLearned stays null until
+        // sampleCount crosses MIN_SAMPLES_TO_TRUST.
+        shelfDaysLearned: p?.shelfDaysLearned ?? null,
+        shelfDaysSampleCount: p?.shelfDaysSampleCount ?? 0,
+        shelfDaysSeed: p?.shelfDays ?? null,
+      });
+    }
+    // Sorter alfabetisk etter visningsnavn
+    items.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nb'));
+    ctx.json({ items });
+  });
+
+  /**
+   * DELETE /api/pantry/:productKey — nullstill pantry-rad ("har ikke likevel").
+   * Skriver inventory_log med reason='correction' for audit trail.
+   */
+  router.delete(
+    '/api/pantry/:productKey',
+    requireRole('adult'),
+    withAudit(
+      repos,
+      {
+        entityType: 'pantry_item',
+        getEntityId: (ctx) => ctx.params.productKey,
+        getBefore: (ctx) => repos.inventory.getByKey(ctx.params.productKey),
+        metadata: () => ({ reason: 'UI: har ikke likevel' }),
+      },
+      (ctx) => {
+        const productKey = ctx.params.productKey;
+        if (!productKey) throw errors.badRequest('productKey is required');
+        const existing = repos.inventory.getByKey(productKey);
+        if (!existing) throw errors.notFound(`Pantry-vare '${productKey}' ikke funnet`);
+        try {
+          pantryService.correctQty(repos, {
+            productKey,
+            newQty: 0,
+            notes: 'UI: har ikke likevel',
+          });
+        } catch (err) {
+          throw errors.badRequest(err.message);
+        }
+        invalidate('inventory', 'shopping', 'today');
+        ctx.json({ ok: true, productKey });
+      }
+    )
+  );
+
+  router.post(
+    '/api/pantry/add',
+    requireRole('adult'),
+    validateBody(schemas.pantryAddBody),
+    (ctx) => {
+      try {
+        // Fase F: resolve query → productKey hvis klient ikke oppgir productKey
+        const body = { ...ctx.body };
+        let resolved = null;
+        if (!body.productKey && body.query) {
+          resolved = pantryResolver.resolveOrCreate(repos, body.query);
+          body.productKey = resolved.productKey;
+          if (!body.unit && resolved.unit) body.unit = resolved.unit;
+          if (!body.category && resolved.category) body.category = resolved.category;
+        }
+        // Hvis productKey kom direkte, normaliser alltid via slugify for trygghets skyld
+        if (body.productKey) {
+          const normalized = slugifyProductKey(body.productKey) || body.productKey;
+          body.productKey = normalized;
+        }
+        const result = pantryService.addToPantry(repos, body);
+        // Apply optional backdated purchase date. pantryService always
+        // stamps last_purchased with today; if the operator picked a
+        // different date in the UI, patch it here.
+        if (body.purchasedAt && body.productKey) {
+          try {
+            repos._db
+              ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
+              .run(body.purchasedAt, body.productKey);
+          } catch {
+            /* cosmetic — ignore */
+          }
+        }
+        invalidate('inventory', 'shopping', 'today');
+        ctx.json({ ok: true, item: result, resolved: resolved || undefined });
+      } catch (err) {
+        throw errors.badRequest(err.message);
+      }
+    }
+  );
+
+  router.put(
+    '/api/pantry/correct',
+    requireRole('adult'),
+    validateBody(schemas.pantryCorrectBody),
+    (ctx) => {
+      try {
+        const result = pantryService.correctQty(repos, ctx.body);
+        // Optional purchasedAt override — same pattern as /add.
+        if (ctx.body.purchasedAt && ctx.body.productKey) {
+          try {
+            repos._db
+              ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
+              .run(ctx.body.purchasedAt, ctx.body.productKey);
+          } catch {
+            /* cosmetic — ignore */
+          }
+        }
+        invalidate('inventory', 'shopping', 'today');
+        ctx.json({ ok: true, ...result });
+      } catch (err) {
+        throw errors.badRequest(err.message);
+      }
+    }
+  );
+
+  router.get('/api/pantry/log', (ctx) => {
+    const limit = Math.min(parseInt(ctx.query.limit, 10) || 100, 500);
+    const key = ctx.query.productKey;
+    const reason = ctx.query.reason;
+    let rows;
+    if (key) rows = repos.inventoryLog.getByKey(key, limit);
+    else if (reason) rows = repos.inventoryLog.getByReason(reason, limit);
+    else rows = repos.inventoryLog.getRecent(limit);
+    ctx.json({ log: rows, counts: repos.inventoryLog.countByReason() });
+  });
+
+  router.get('/api/pantry/value', (ctx) => {
+    ctx.json(priceReferenceService.estimatePantryValue(repos));
+  });
+
+  // ============================================================
+  // FASE F6 — .env-skriving + integrasjons-test
+  // ============================================================
+  router.get('/api/settings/env', requireAdmin(), (ctx) => {
+    const envStore = require('./services/env-store.service');
+    ctx.json({ values: envStore.readMasked() });
+  });
+
+  router.post('/api/settings/env', requireAdmin(), async (ctx) => {
+    const envStore = require('./services/env-store.service');
+    const { key, value } = ctx.body || {};
+    if (!key || typeof key !== 'string') {
+      throw errors.badRequest('key is required');
+    }
+    if (value === undefined || value === null) {
+      throw errors.badRequest('value is required');
+    }
+    try {
+      const result = await envStore.write(key, String(value));
+      ctx.json(result);
+    } catch (err) {
+      throw errors.badRequest(err.message);
+    }
+  });
+
+  router.post('/api/integrations/:name/test', requireAdmin(), async (ctx) => {
+    const envStore = require('./services/env-store.service');
+    const name = ctx.params.name;
+    const result = await envStore.testIntegration(name);
+    ctx.json(result);
+  });
+
+  // ============================================================
+  // FASE F7 — Recipe sources (oppskriftskilder)
+  // ============================================================
+  router.get('/api/sources', (ctx) => {
+    const sources = repos.recipeSources ? repos.recipeSources.getAll() : [];
+    ctx.json({ sources });
+  });
+
+  router.post('/api/sources', requireRole('adult'), (ctx) => {
+    if (!repos.recipeSources) {
+      throw errors.badRequest('recipe_sources-tabell ikke tilgjengelig (migrasjon?)');
+    }
+    const { url, type, label } = ctx.body || {};
+    if (!url || typeof url !== 'string') {
+      throw errors.badRequest('url is required');
+    }
+    // Enkel URL-validering
+    if (!/^https?:\/\//i.test(url)) {
+      throw errors.badRequest('url must start with http:// or https://');
+    }
+    const recipeSourcesService = require('./services/recipe-sources.service');
+    const detectedType = type || recipeSourcesService.detectType(url);
+    try {
+      const id = repos.recipeSources.insert({ url, type: detectedType, label });
+      ctx.json({ ok: true, id, type: detectedType });
+    } catch (err) {
+      // UNIQUE constraint
+      if (err.message && err.message.includes('UNIQUE')) {
+        throw errors.badRequest('Denne URL-en finnes allerede');
+      }
+      throw errors.badRequest(err.message);
+    }
+  });
+
+  router.delete(
+    '/api/sources/:id',
+    requireRole('adult'),
+    withAudit(
+      repos,
+      {
+        entityType: 'recipe_source',
+        getEntityId: (ctx) => parseInt(ctx.params.id, 10),
+        getBefore: (ctx) => {
+          const id = parseInt(ctx.params.id, 10);
+          return Number.isFinite(id) && repos.recipeSources
+            ? repos.recipeSources.getById(id)
+            : null;
+        },
+      },
+      (ctx) => {
+        if (!repos.recipeSources) throw errors.notFound('not supported');
+        const id = requirePositiveInt(ctx.params.id);
+        repos.recipeSources.delete(id);
+        ctx.json({ ok: true });
+      }
+    )
+  );
+
+  router.post('/api/sources/:id/sync', requireRole('adult'), async (ctx) => {
+    if (!repos.recipeSources) throw errors.notFound('not supported');
+    const id = requirePositiveInt(ctx.params.id);
+    const recipeSourcesService = require('./services/recipe-sources.service');
+    const result = await recipeSourcesService.syncSource(repos, id);
+    ctx.json(result);
+  });
+
+  // ============================================================
+  // FASE F3 — Family profile + filter usage
+  // ============================================================
+  router.get('/api/profile', (ctx) => {
+    ctx.json(repos.familyProfile.get());
+  });
+
+  router.put(
+    '/api/profile',
+    requireRole('adult'),
+    validateBody(schemas.profileUpdateBody),
+    withAudit(
+      repos,
+      {
+        entityType: 'family_profile',
+        getEntityId: () => 'default',
+        getBefore: () => repos.familyProfile.get(),
+        getAfter: () => repos.familyProfile.get(),
+      },
+      (ctx) => {
+        const body = ctx.body || {};
+        const updated = repos.familyProfile.update(body);
+        ctx.json({ ok: true, profile: updated });
+      }
+    )
+  );
+
+  router.get('/api/profile/defaults', (ctx) => {
+    // Return recommended filter suggestions based on the family profile
+    const profile = repos.familyProfile.get();
+    const suggestions = [];
+
+    // Allergy-based: if lactose is in allergies → suggest "Lactose-free"
+    for (const allergy of profile.allergies || []) {
+      const lower = String(allergy).toLowerCase();
+      if (lower.includes('laktose')) suggestions.push('laktosefri');
+      if (lower.includes('gluten')) suggestions.push('glutenfri');
+      if (lower.includes('nøtt') || lower.includes('nott')) suggestions.push('nottefri');
+    }
+
+    // Preference-based
+    if (profile.preferences?.vegetarian) suggestions.push('vegetar');
+    if (profile.preferences?.quickMeals) suggestions.push('rask');
+    if (profile.preferences?.familyFriendly) suggestions.push('barnevennlig');
+
+    ctx.json({
+      recommended: [...new Set(suggestions)],
+      profile: { hasData: (profile.members?.length || 0) > 0 },
+    });
+  });
+
+  router.get('/api/profile/filter-usage', (ctx) => {
+    const limit = Math.min(parseInt(ctx.query.limit, 10) || 3, 10);
+    const topN = repos.filterUsage.getTopN(limit);
+    ctx.json({ top: topN });
+  });
+
+  router.post('/api/profile/filter-usage', (ctx) => {
+    const { filterId, action } = ctx.body || {};
+    if (!filterId || typeof filterId !== 'string') {
+      throw errors.badRequest('filterId is required');
+    }
+    if (!['enabled', 'disabled'].includes(action)) {
+      throw errors.badRequest('action must be "enabled" or "disabled"');
+    }
+    repos.filterUsage.recordUsage(filterId, action);
+    ctx.json({ ok: true });
+  });
+
+  // ============================================================
+  // PRICE REFERENCES (Iterasjon 1)
+  // ============================================================
+  router.get('/api/prices/lookup', (ctx) => {
+    const productKey = ctx.query.productKey;
+    const ean = ctx.query.ean;
+    if (!productKey && !ean) {
+      throw errors.badRequest('productKey or ean must be provided');
+    }
+    const result = priceReferenceService.lookupPrice(repos, productKey, { ean });
+    if (!result) {
+      ctx.json({ found: false, productKey: productKey || null, ean: ean || null });
+      return;
+    }
+    ctx.json({ found: true, ...result });
+  });
+
+  router.get('/api/prices/search', (ctx) => {
+    const q = ctx.query.q || '';
+    if (!q || q.length < 1) throw errors.badRequest('q is required');
+    if (q.length > 500) throw errors.badRequest('q max 500 tegn');
+    const results = repos.priceReferences.search(q, 20);
+    ctx.json({ query: q, results });
+  });
+
+  router.get('/api/prices/stats', (ctx) => {
+    ctx.json(repos.priceReferences.stats());
+  });
+
+  // ============================================================
+  // RECEIPTS (Iteration 2 — receipt ingest)
+  // ============================================================
+  // Upload accepts raw binary (image/*, application/pdf) via the request
+  // body. MIME must be provided via Content-Type.
+  router.post('/api/receipts/upload', requireRole('adult'), async (ctx) => {
+    const contentType = ctx.req.headers['content-type'] || 'application/octet-stream';
+    const mimeType = contentType.split(';')[0].trim();
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowed.includes(mimeType)) {
+      throw errors.badRequest(`Invalid MIME type: ${mimeType}. Allowed: ${allowed.join(', ')}`);
+    }
+
+    const MAX = 10 * 1024 * 1024;
+    const declaredLength = parseInt(ctx.req.headers['content-length'], 10);
+    if (declaredLength > MAX) {
+      throw errors.payloadTooLarge(`Content-Length ${declaredLength} overstiger maks ${MAX} bytes`);
+    }
+
+    const chunks = [];
+    let total = 0;
+    for await (const chunk of ctx.req) {
+      total += chunk.length;
+      if (total > MAX) throw errors.payloadTooLarge(`Fil > ${MAX} bytes`);
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+    if (buffer.length === 0) throw errors.badRequest('Tom fil');
+
+    try {
+      const result = await receiptService.processUpload(repos, { buffer, mimeType });
+      const items = repos.receiptItems.getByReceipt(result.receiptId);
+      const receipt = repos.receipts.getById(result.receiptId);
+      invalidate('receipts');
+      ctx.json({ ok: true, ...result, receipt, items });
+    } catch (err) {
+      throw errors.internal(err.message);
+    }
+  });
+
+  router.get('/api/receipts', (ctx) => {
+    const status = ctx.query.status || null;
+    const limit = Math.min(parseInt(ctx.query.limit, 10) || 50, 200);
+    ctx.json({
+      receipts: repos.receipts.list({ status, limit }),
+      stats: repos.receipts.stats(),
+    });
+  });
+
+  router.get('/api/receipts/:id', (ctx) => {
+    const id = parseInt(ctx.params.id, 10);
+    const receipt = repos.receipts.getById(id);
+    if (!receipt) throw errors.notFound(`Receipt ${id} ikke funnet`);
+    const items = repos.receiptItems.getByReceipt(id);
+    ctx.json({ receipt, items });
+  });
+
+  router.put(
+    '/api/receipts/confirm',
+    requireRole('adult'),
+    validateBody(schemas.receiptConfirmBody),
+    (ctx) => {
+      const { receiptId, items } = ctx.body;
+      const receipt = repos.receipts.getById(receiptId);
+      if (!receipt) throw errors.notFound(`Receipt ${receiptId} not found`);
+
+      // Optional: user has made edits before confirm
+      if (Array.isArray(items)) {
+        for (const edit of items) {
+          const { id, ...fields } = edit;
+          repos.receiptItems.updateItem(id, fields);
+        }
+      }
+
+      try {
+        const result = receiptService.confirmReceipt(repos, receiptId);
+        invalidate('receipts', 'inventory', 'shopping', 'today');
+        ctx.json({ ok: true, ...result });
+      } catch (err) {
+        throw errors.badRequest(err.message);
+      }
+    }
+  );
+
+  router.delete(
+    '/api/receipts/:id',
+    requireRole('adult'),
+    withAudit(
+      repos,
+      {
+        entityType: 'receipt',
+        getEntityId: (ctx) => parseInt(ctx.params.id, 10),
+        getBefore: (ctx) => {
+          const id = parseInt(ctx.params.id, 10);
+          return Number.isFinite(id) ? repos.receipts.getById(id) : null;
+        },
+        metadata: () => ({ reason: 'rejected via API' }),
+      },
+      (ctx) => {
+        const id = parseInt(ctx.params.id, 10);
+        const receipt = repos.receipts.getById(id);
+        if (!receipt) throw errors.notFound(`Receipt ${id} ikke funnet`);
+        repos.receipts.markStatus(id, 'rejected');
+        invalidate('receipts');
+        ctx.json({ ok: true, status: 'rejected' });
+      }
+    )
+  );
+
+  // ============================================================
+  // TODAY
+  // ============================================================
+  router.get(
+    '/api/today',
+    withCache(['today'], (ctx) => {
+      const wk = ensureCurrentWeek(repos);
+      const dayOfWeek = (new Date().getDay() + 6) % 7;
+      const plan = repos.mealPlans.getWeek(wk);
+      const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
+      const recipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
+
+      const choresMap = choreCatalogMap(repos);
+      const todayChores = repos.choreSchedules
+        .getWeek(wk)
+        .filter((s) => {
+          if (s.postponedTo !== null && s.postponedTo < 0) return false;
+          const effectiveDay = choreEffectiveDay(s);
+          return effectiveDay !== null && effectiveDay === dayOfWeek && s.status !== 'done';
+        })
+        .map((s) => {
+          const chore = choresMap.get(s.choreId);
+          return {
+            ...s,
+            task: chore?.task,
+            icon: chore?.icon,
+            assigneeMemberId: chore?.assignee_member_id ?? null,
+          };
+        });
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const events = expandRecurring(
+        repos.calendar.getEvents(todayStr, todayStr),
+        todayStr,
+        todayStr
+      );
+
+      ctx.json({
+        dayName: DAY_NAMES[dayOfWeek],
+        dayOfWeek,
+        weekYear: wk,
+        meal: todaySlot ? { ...todaySlot, recipe } : null,
+        chores: todayChores,
+        events,
+      });
+    })
+  );
+
+  // ============================================================
+  // SUNDAY PUSH
+  // ============================================================
+  router.get('/api/sunday-push', (ctx) => {
+    const draft = generateSundayDraft(repos);
+    repos.sundayDrafts.save(draft.weekYear, draft.meals);
+
+    const hasExisting = repos.mealPlans.exists(draft.weekYear);
+    if (!hasExisting) repos.mealPlans.seedDefault(draft.weekYear, draft.meals);
+
+    const shopList = buildShoppingList(repos, draft.weekYear);
+    const meals = draft.meals.map((s) => ({
+      ...s,
+      dayName: DAY_NAMES[s.dayOfWeek],
+      recipe: repos.recipes.getById(s.recipeId),
+    }));
+
+    const productsMap = repos.products.getAllAsMap();
+    const freshItems = shopList.categories
+      .flatMap((c) => c.items)
+      .filter((i) => i.source === 'recipe');
+    const shelfDays = freshItems
+      .map((i) => productsMap[i.key]?.shelfDays || 365)
+      .filter((x) => x < 365);
+    const minShelf = shelfDays.length > 0 ? Math.min(...shelfDays) : 14;
+    const handledag = minShelf <= 2 ? 'Onsdag eller torsdag (ferskvarer!)' : 'Mandag eller tirsdag';
+
+    ctx.json({
+      weekYear: draft.weekYear,
+      meals,
+      shoppingList: shopList,
+      handledag,
+      message: `Forslag til uke ${draft.weekYear.split('-W')[1]} \u2014 tilpass som du vil!`,
+    });
+  });
+
+  router.post(
+    '/api/sunday-push/accept',
+    requireRole('adult'),
+    validateBody(schemas.sundayAcceptBody),
+    (ctx) => {
+      const { weekYear, meals } = ctx.body;
+      const tx = repos.transaction(() => {
+        for (const m of meals) {
+          repos.mealPlans.setRecipe(
+            weekYear,
+            m.dayOfWeek,
+            m.recipeId || m.recipe?.id,
+            m.status || 'planned'
+          );
+        }
+        repos.sundayDrafts.markAccepted(weekYear);
+      });
+      tx();
+      invalidate('meals', 'today', 'shopping');
+      ctx.json({ ok: true, weekYear });
+    }
+  );
+
+  // ============================================================
+  // SYSTEM STATUS (used by Settings → About panel)
+  // ============================================================
+  router.get('/api/status', (ctx) => {
+    let driver = 'unknown';
+    let migrationCount = 0;
+    try {
+      // Try to determine backend by looking for a better-sqlite3-specific method
+      driver = repos._db && typeof repos._db.name === 'string' ? 'better-sqlite3' : 'sql.js';
+    } catch {
+      /* silent */
+    }
+    try {
+      migrationCount = repos._db.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get().c;
+    } catch {
+      /* table may not exist yet */
+    }
+    // M2.3: expose circuit-breaker state for observability
+    let breakers = null;
+    try {
+      breakers = require('./services/circuit-breaker').snapshotAll();
+    } catch {
+      /* modulen skal alltid finnes */
+    }
+
+    // Dynamic, operator-useful fields. Everything optional-chained so an
+    // older build without a given repo method degrades to null in UI.
+    const pkg = require('../package.json');
+    let llm = null;
+    try {
+      if (repos.llmConfigs && typeof repos.llmConfigs.getActive === 'function') {
+        const active = repos.llmConfigs.getActive();
+        if (active) llm = { backend: active.backend || null, model: active.model || null };
+      }
+    } catch {
+      /* ignore */
+    }
+    let lastBackup = null;
+    try {
+      const backupModule = require('./backup');
+      if (typeof backupModule.getLastBackupInfo === 'function') {
+        lastBackup = backupModule.getLastBackupInfo();
+      }
+    } catch {
+      /* backup module optional at runtime */
+    }
+    const counts = {};
+    try {
+      counts.recipes = repos.recipes?.count?.() ?? null;
+    } catch {
+      counts.recipes = null;
+    }
+    try {
+      counts.pantryItems = repos.inventory?.count?.() ?? null;
+    } catch {
+      counts.pantryItems = null;
+    }
+    try {
+      counts.familyMembers = repos.members?.count?.() ?? null;
+    } catch {
+      counts.familyMembers = null;
+    }
+
+    ctx.json({
+      version: pkg.version,
+      db: driver,
+      migrations: `${migrationCount} applikert`,
+      uptime: Math.round(process.uptime()),
+      breakers,
+      llm,
+      lastBackupAt: lastBackup?.ts || null,
+      lastBackupBytes: lastBackup?.bytes || null,
+      recipeCount: counts.recipes,
+      pantryItemCount: counts.pantryItems,
+      familyMemberCount: counts.familyMembers,
+    });
+  });
+
+  // ============================================================
+  // LLM / STT
+  // ============================================================
+  router.get('/api/llm/status', async (ctx) => {
+    const llmStatus = await isLLMAvailable();
+    const sttStatus = await isSTTAvailable();
+    ctx.json({
+      ...llmStatus,
+      model: OLLAMA_MODEL,
+      backend: LLM_BACKEND,
+      stt: sttStatus,
+      kb: { totalInteractions: repos.kb.count() },
+    });
+  });
+
+  // Uke 5 PERF-5: LLM cache health + prune expired entries.
+  // Dette er en "hygiene"-endpoint som kan kalles av cron eller manuelt
+  // fra Kontrollrommet. Cleanup tar <10ms for hundrevis av entries.
+  router.post('/api/llm/warm', (ctx) => {
+    const entriesBefore = repos.llmCache.count();
+    let pruned;
+    try {
+      pruned = repos.llmCache.cleanup();
+    } catch (err) {
+      throw errors.internal('LLM cache cleanup failed: ' + err.message);
+    }
+    const stats = repos.llmCache.stats();
+    ctx.json({
+      ok: true,
+      entriesBefore,
+      pruned,
+      entriesAfter: stats.entries,
+      totalHits: stats.totalHits,
+      note: 'Cleanup only removes expired entries. Active warming requires real LLM access.',
+    });
+  });
+
+  router.get('/api/llm/cache/stats', (ctx) => {
+    ctx.json(repos.llmCache.stats());
+  });
+
+  router.post('/api/stt/transcribe', requireRole('adult'), async (ctx) => {
+    // STT tar r\u00e5 buffer, ikke JSON \u2014 les direkte fra req
+    const chunks = [];
+    for await (const chunk of ctx.req) chunks.push(chunk);
+    const audioBuffer = Buffer.concat(chunks);
+    try {
+      const result = await transcribe(audioBuffer, { format: 'wav' });
+      ctx.json(result);
+    } catch (err) {
+      throw errors.internal(err.message);
+    }
+  });
+
+  router.get('/api/stt/status', async (ctx) => {
+    ctx.json(await isSTTAvailable());
+  });
+
+  router.post(
+    '/api/llm/chat',
+    requireRole('adult'),
+    validateBody(schemas.llmChatBody),
+    async (ctx) => {
+      const { message, history, saveToKB } = ctx.body;
+      const wk = ensureCurrentWeek(repos);
+      const dayOfWeek = (new Date().getDay() + 6) % 7;
+      const plan = repos.mealPlans.getWeek(wk);
+      const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
+      const todayRecipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
+
+      const choresMap = choreCatalogMap(repos);
+      const todayChoresList = repos.choreSchedules
+        .getWeek(wk)
+        .filter((s) => {
+          if (s.postponedTo !== null && s.postponedTo < 0) return false;
+          const eff = choreEffectiveDay(s);
+          return eff !== null && eff === dayOfWeek && s.status !== 'done';
+        })
+        .map((s) => choresMap.get(s.choreId)?.task)
+        .filter(Boolean);
+
+      const dbAdapter = { kbSearch: (q, l) => repos.kb.search(q, l) };
+      const result = await chat(
+        message,
+        history || [],
+        {
+          todayMeal: todayRecipe?.name,
+          todayChores: todayChoresList.join(', ') || 'Ingen',
+        },
+        dbAdapter
+      );
+
+      const executedTools = [];
+      if (result.type === 'tool_calls' && result.toolCalls) {
+        for (const tc of result.toolCalls) {
+          try {
+            const toolResult = executeToolCall(repos, tc.name, tc.arguments, wk);
+            executedTools.push({ tool: tc.name, args: tc.arguments, result: toolResult });
+            repos.llmAudit.log({
+              toolName: tc.name,
+              arguments: tc.arguments,
+              result: toolResult,
+              success: toolResult.ok !== false,
+              userMessage: message,
+            });
+          } catch (err) {
+            executedTools.push({ tool: tc.name, args: tc.arguments, error: err.message });
+            repos.llmAudit.log({
+              toolName: tc.name,
+              arguments: tc.arguments,
+              result: { error: err.message },
+              success: false,
+              userMessage: message,
+            });
+          }
+        }
+      }
+
+      const responseText =
+        result.type === 'tool_calls'
+          ? result.textResponse ||
+            executedTools.map((t) => t.result?.message || `\u2713 ${t.tool}`).join('\n')
+          : result.content;
+
+      if (saveToKB) {
+        const intent = await extractIntent(message).catch(() => ({ intent: 'chat' }));
+        repos.kb.insert({
+          timestamp: new Date().toISOString(),
+          userMessage: message,
+          aiResponse: responseText,
+          context: { meal: todayRecipe?.name, dayOfWeek },
+          intent: intent.intent,
+          entities: intent.entities,
+        });
+      }
+
+      ctx.json({
+        response: responseText,
+        toolCalls: executedTools.length > 0 ? executedTools : undefined,
+      });
+    }
+  );
+
+  router.post(
+    '/api/llm/recipe',
+    requireRole('adult'),
+    validateBody(schemas.llmRecipeBody),
+    async (ctx) => {
+      const query = ctx.body.query;
+
+      // Library-first: if an existing recipe matches the typed name, return
+      // it without calling the LLM. This eliminates hallucinated URLs for
+      // anything already in the family's saved library.
+      try {
+        const existing = repos.recipes.findByName(query);
+        if (existing) {
+          ctx.res.setHeader('X-LLM-Cache', 'LIBRARY');
+          return ctx.json({
+            name: existing.name,
+            category: existing.category,
+            prepTime: existing.prepTime,
+            servings: existing.servings,
+            url: existing.url || null,
+            source: 'library',
+            recipeId: existing.id,
+            ingredients: (existing.ingredients || []).map((i) => ({
+              name: i.name,
+              qty: i.qty,
+              unit: i.unit,
+              optional: !!i.optional,
+            })),
+          });
+        }
+      } catch {
+        /* fall through to LLM on repo error */
+      }
+
+      // Persistent LLM cache: the same recipe query returns the same answer
+      // for 7 days. Cache-key is bumped to recipe-v2: so old hallucinated
+      // URLs from the pre-fix cache are no longer hit.
+      const key = crypto
+        .createHash('sha256')
+        .update(`recipe-v2:${OLLAMA_MODEL}:${query.toLowerCase().trim()}`)
+        .digest('hex');
+      const hit = repos.llmCache.get(key);
+      if (hit) {
+        ctx.res.setHeader('X-LLM-Cache', 'HIT');
+        try {
+          return ctx.json({ ...JSON.parse(hit.response), source: 'llm' });
+        } catch {
+          /* fall through to regeneration */
+        }
+      }
+      const result = await suggestRecipeFromText(query);
+      if (result && !result.error) {
+        repos.llmCache.set(key, {
+          model: OLLAMA_MODEL,
+          prompt: query,
+          response: JSON.stringify(result),
+          ttlSeconds: 7 * 24 * 3600,
+        });
+      }
+      ctx.res.setHeader('X-LLM-Cache', 'MISS');
+      ctx.json({ ...result, source: result && !result.error ? 'llm' : undefined });
+    }
+  );
+
+  // Generate with LLM and save the recipe in the family library in one call.
+  // Used by "Swap dinner" when the user accepts an AI-generated recipe:
+  // meal_plans.recipe_id is FK to recipes, so we must persist before swap.
+  router.post('/api/recipes/from-llm', requireRole('adult'), async (ctx) => {
+    const query = String(ctx.body?.query || '').trim();
+    if (!query) throw errors.badRequest('Missing query');
+
+    // If the library already has a match, reuse it.
+    const existing = repos.recipes.findByName(query);
+    if (existing) {
+      return ctx.json({ ok: true, recipeId: existing.id, source: 'library', recipe: existing });
+    }
+
+    const llmResult = await suggestRecipeFromText(query);
+    if (!llmResult || llmResult.error || !llmResult.name) {
+      throw errors.badRequest(llmResult?.error || 'AI kunne ikke generere oppskrift');
+    }
+    const allowedCategories = new Set(['rask', 'comfort', 'helg']);
+    const category = allowedCategories.has(llmResult.category) ? llmResult.category : 'comfort';
+    const payload = {
+      name: String(llmResult.name).slice(0, 200),
+      category,
+      prepTime: llmResult.prepTime || null,
+      servings: Number(llmResult.servings) > 0 ? Number(llmResult.servings) : 2,
+      source: 'llm',
+      url: null, // never persist hallucinated URLs
+      notes: Array.isArray(llmResult.instructions) ? llmResult.instructions.join('\n') : null,
+      equipment: Array.isArray(llmResult.equipment) ? llmResult.equipment : null,
+      ingredients: Array.isArray(llmResult.ingredients)
+        ? llmResult.ingredients
+            .filter((i) => i && i.name && Number.isFinite(Number(i.qty)) && i.unit)
+            .map((i) => ({
+              name: String(i.name),
+              qty: Number(i.qty),
+              unit: String(i.unit),
+              optional: !!i.optional,
+            }))
+        : [],
+      sourceType: 'ai',
+    };
+    const recipeId = repos.recipes.insert(payload);
+    invalidate('recipes');
+    ctx.json({
+      ok: true,
+      recipeId,
+      source: 'llm',
+      recipe: { id: recipeId, ...payload },
+    });
+  });
+
+  // Import recipe from a URL (matprat/godt/generic schema.org/Recipe).
+  // The service does the fetch + JSON-LD parsing; we persist and return
+  // the stored recipe so the caller can swap to it.
+  router.post('/api/recipes/import-url', requireRole('adult'), async (ctx) => {
+    const url = String(ctx.body?.url || '').trim();
+    if (!url) throw errors.badRequest('Missing url');
+    let parsed;
+    try {
+      const svc = require('./services/recipe-url-import.service');
+      parsed = await svc.importRecipeFromUrl(url);
+    } catch (err) {
+      throw errors.badRequest(err.message || 'Kunne ikke importere oppskrift fra lenke');
+    }
+    const recipeId = repos.recipes.insert({ ...parsed, sourceType: 'imported' });
+    invalidate('recipes');
+    ctx.json({
+      ok: true,
+      recipeId,
+      source: parsed.source || 'imported',
+      recipe: { id: recipeId, ...parsed },
+    });
+  });
+
+  // ============================================================
+  // NOTIFICATIONS
+  // ============================================================
+  router.get('/api/notifications', (ctx) => {
+    ctx.json({ notifications: repos.notifications.getUnread() });
+  });
+
+  router.put('/api/notifications/read', (ctx) => {
+    repos.notifications.markAllRead();
+    ctx.json({ ok: true });
+  });
+
+  // ============================================================
+  // CALENDAR
+  // ============================================================
+  router.get(
+    '/api/calendar/events',
+    withCache(['calendar'], (ctx) => {
+      const from = ctx.query.from || new Date().toISOString().slice(0, 10);
+      const to = ctx.query.to || from;
+      const events = expandRecurring(repos.calendar.getEvents(from, to), from, to);
+      ctx.json({ events });
+    })
+  );
+
+  router.post(
+    '/api/calendar/events',
+    requireRole('adult'),
+    validateBody(schemas.calendarEventBody),
+    (ctx) => {
+      const createdByUserId = ctx.user && Number(ctx.user.id) > 0 ? ctx.user.id : null;
+      const ev = repos.calendar.insert({ ...ctx.body, createdByUserId });
+      invalidate('calendar', 'today');
+      ctx.json({ ok: true, event: ev });
+    }
+  );
+
+  router.patch(
+    '/api/calendar/events/:id',
+    requireRole('adult'),
+    validateBody(schemas.calendarEventPatchBody),
+    (ctx) => {
+      const evId = requirePositiveInt(ctx.params.id);
+      const ev = repos.calendar.update(evId, ctx.body);
+      if (!ev) throw errors.notFound('Calendar event not found');
+      invalidate('calendar', 'today');
+      ctx.json({ ok: true, event: ev });
+    }
+  );
+
+  router.delete(
+    '/api/calendar/events/:id',
+    requireRole('adult'),
+    withAudit(
+      repos,
+      {
+        entityType: 'calendar_event',
+        getEntityId: (ctx) => parseInt(ctx.params.id, 10),
+      },
+      (ctx) => {
+        const evId = requirePositiveInt(ctx.params.id);
+        const changes = repos.calendar.delete(evId);
+        if (!changes) throw errors.notFound('Calendar event not found');
+        invalidate('calendar', 'today');
+        ctx.json({ ok: true });
+      }
+    )
+  );
+
+  // ============================================================
+  // SBOM-7: Audit log (read-only) — non-repudiation for destruktive ops
+  // Krever AUTH_TOKEN i prod; /api/* er allerede bearer-beskyttet.
+  // ============================================================
+  router.get('/api/audit', (ctx) => {
+    const limit = Math.max(1, Math.min(500, parseInt(ctx.query.limit, 10) || 100));
+    const entityType = ctx.query.entityType || null;
+    const entityId = ctx.query.entityId || null;
+
+    let entries;
+    if (entityType) {
+      entries = repos.auditLog.getByEntity(entityType, entityId, limit);
+    } else {
+      entries = repos.auditLog.getRecent(limit);
+    }
+    ctx.json({
+      entries,
+      count: entries.length,
+      note: 'Append-only log. Hashes are sha256 of JSON-serialised before/after.',
+    });
+  });
+
+  router.get('/api/audit/stats', (ctx) => {
+    ctx.json(repos.auditLog.stats());
+  });
+
+  // ============================================================
+  // KB / self-improvement
+  // ============================================================
+  router.get('/api/kb/stats', (ctx) => {
+    ctx.json({
+      totalInteractions: repos.kb.count(),
+      recentTopics: repos.kb.getRecent(5).map((e) => (e.user_message || '').slice(0, 50)),
+    });
+  });
+
+  router.get('/api/kb/search', (ctx) => {
+    const q = ctx.query.q || '';
+    if (q.length > 500) throw errors.badRequest('q max 500 tegn');
+    ctx.json({ results: repos.kb.search(q, 10) });
+  });
+
+  // ============================================================
+  // CACHE STATS (Fase 3 observability)
+  // ============================================================
+  router.get('/api/cache/stats', (ctx) => {
+    ctx.json({
+      responseCache: responseCache.stats(),
+      llmCache: repos.llmCache.stats(),
+    });
+  });
+
+  // ============================================================
+  // METRICS (Fase 5 observability)
+  // ============================================================
+  //
+  // GET /metrics?format=prom    → Prometheus exposition format (default)
+  // GET /metrics?format=json    → JSON-snapshot med p50/p95/p99
+  //
+  // Ligger utenfor /api slik at monitoring-agenter kan scrape uten
+  // \u00e5 kollidere med bearer-auth hvis en reverse proxy s\u00f8rger for det.
+  router.get('/metrics', (ctx) => {
+    const format = ctx.query.format || 'prom';
+    if (format === 'json') {
+      ctx.json(metrics.snapshot());
+      return;
+    }
+    if (ctx.res.writableEnded) return;
+    const body = metrics.toPrometheus();
+    const payload = Buffer.from(body, 'utf8');
+    ctx.res.writeHead(200, {
+      'Content-Type': 'text/plain; version=0.0.4; charset=utf-8',
+      'Content-Length': String(payload.length),
+    });
+    ctx.res.end(payload);
+  });
+
+  // ============================================================
+  // OPENAPI SPEC (Fase 5.4)
+  // ============================================================
+  // Serveres fra disk slik at klientgeneratorer kan hente den fra /openapi.yaml.
+  const openapiPath = path.join(__dirname, '..', 'openapi.yaml');
+  router.get('/openapi.yaml', (ctx) => {
+    try {
+      const yaml = fs.readFileSync(openapiPath, 'utf8');
+      const payload = Buffer.from(yaml, 'utf8');
+      ctx.res.writeHead(200, {
+        'Content-Type': 'application/yaml; charset=utf-8',
+        'Content-Length': String(payload.length),
+      });
+      ctx.res.end(payload);
+    } catch {
+      throw errors.notFound('openapi.yaml not found on disk');
+    }
+  });
+
+  // ============================================================
+  // Admin: Kassal status (PR C3)
+  // ============================================================
+  // Reports activation state of the Kassal price-comparison API. Required
+  // for the admin UI to know whether the env-gated infrastructure is
+  // wired (KASSAL_API_KEY set) or in no-op mode. Admin-only — uses
+  // ctx.user.is_admin populated by the auth middleware. When the admin
+  // role migration (026) hasn't been applied yet this falls back to
+  // false, which 403s — safe.
+  router.get('/api/admin/kassal/status', (ctx) => {
+    if (!ctx.user || !ctx.user.is_admin) {
+      throw errors.forbidden('Admin role required.');
+    }
+    const kassalClient = require('./services/kassal-client.service');
+    const enabled = !!process.env.KASSAL_API_KEY;
+    const status = kassalClient.getStatus();
+    let productCount = 0;
+    let resolutionCount = 0;
+    try {
+      productCount = repos._db.prepare('SELECT COUNT(*) AS cnt FROM kassal_products').get().cnt;
+      resolutionCount = repos._db
+        .prepare('SELECT COUNT(*) AS cnt FROM product_resolutions')
+        .get().cnt;
+    } catch {
+      // Tables may not exist on older DB versions.
+    }
+    ctx.json({
+      enabled,
+      apiKeyConfigured: status.apiKeyConfigured,
+      productCount,
+      resolutionCount,
+      tokensAvailable: status.tokensAvailable,
+      bucketCapacity: status.bucketCapacity,
+      circuitOpen: status.circuitOpen,
+      circuitOpenUntil: status.circuitOpenUntil,
+    });
+  });
+}
+
+// ============================================================
+// Tool-call execution (fra LLM)
+// ============================================================
+function executeToolCall(repos, toolName, args, weekYear) {
+  switch (toolName) {
+    case 'add_to_shopping_list':
+      repos.shoppingExtras.add(weekYear, {
+        name: args.name,
+        category: args.category || 'T\u00f8rrvarer & annet',
+        quantity: args.quantity || 1,
+      });
+      invalidate('shopping');
+      return {
+        ok: true,
+        message: `\u2713 Lagt til "${args.name}" i handlelisten (${args.category})`,
+      };
+
+    case 'add_calendar_event': {
+      const ev = repos.calendar.insert({
+        title: args.title,
+        date: args.date,
+        startTime: args.startTime || null,
+        endTime: args.endTime || null,
+        location: args.location || null,
+      });
+      invalidate('calendar', 'today');
+      return { ok: true, message: `\u2713 Lagt til "${args.title}" ${args.date}`, event: ev };
+    }
+
+    case 'update_routine':
+      repos.kb.insert({
+        timestamp: new Date().toISOString(),
+        userMessage: `[RUTINE] ${args.category}: ${args.description}`,
+        aiResponse: `Registrert rutine-endring: ${args.description}`,
+        intent: 'routine',
+        entities: { category: args.category, action: args.action || 'add' },
+      });
+      return { ok: true, message: `\u2713 Rutine oppdatert: ${args.description}` };
+
+    case 'suggest_meal': {
+      const all = repos.recipes.getAll();
+      const criteria = (args.criteria || '').toLowerCase();
+      const matches = all
+        .filter(
+          (r) =>
+            r.name.toLowerCase().includes(criteria) ||
+            r.category.toLowerCase().includes(criteria) ||
+            (r.ingredients || []).some((i) => i.name.toLowerCase().includes(criteria))
+        )
+        .slice(0, 3);
+      return matches.length > 0
+        ? {
+            ok: true,
+            message: `Forslag: ${matches.map((r) => `${r.name} (${r.category})`).join(', ')}`,
+            suggestions: matches,
+          }
+        : { ok: true, message: 'Fant ingen oppskrifter som matcher.' };
+    }
+
+    case 'search_knowledge_base': {
+      const results = repos.kb.search(args.query, 5);
+      return results.length === 0
+        ? { ok: true, message: 'Ingen relevante funn.' }
+        : { ok: true, message: `Fant ${results.length} relevante samtaler`, results };
+    }
+
+    default:
+      return { ok: false, message: `Ukjent verkt\u00f8y: ${toolName}` };
+  }
+}
+
+module.exports = { registerRoutes };

@@ -19,7 +19,7 @@ const SAMPLE_MEALS: MealsCurrentResponse = {
   meals: Array.from({ length: 7 }, (_, i) => ({
     id: 300 + i,
     dayOfWeek: i,
-    dayName: ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'lørdag', 'søndag'][i] ?? '',
+    dayName: ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag'][i] ?? '',
     recipeId: i === 2 ? null : i + 1,
     status: 'planned' as const,
     notes: null,
@@ -207,30 +207,5 @@ describe('useMealsData hook', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(fetchMealsCurrent).toHaveBeenCalledTimes(2);
     expect(fetchFamily).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe('useMealsData weekYear', () => {
-  test('calls fetchMealsWeek when weekYear is provided', async () => {
-    const fetchMealsWeek = vi.fn().mockResolvedValue({
-      ...SAMPLE_MEALS,
-      weekYear: '2026-W20',
-    });
-    const fetchMealsCurrent = vi.fn().mockResolvedValue(SAMPLE_MEALS);
-    const fetchFamily = vi.fn().mockResolvedValue(SAMPLE_FAMILY);
-    const { result } = renderHook(() =>
-      useMealsData({
-        fetchMealsCurrent,
-        fetchMealsWeek,
-        fetchFamily,
-        weekYear: '2026-W20',
-        now: new Date(2026, 3, 28),
-      })
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(fetchMealsWeek).toHaveBeenCalledWith('2026-W20', expect.any(AbortSignal));
-    expect(fetchMealsCurrent).not.toHaveBeenCalled();
-    expect(result.current.meals?.weekYear).toBe('2026-W20');
-    expect(result.current.todayIndex).toBe(-1);
   });
 });

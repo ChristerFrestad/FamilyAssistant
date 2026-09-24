@@ -171,19 +171,6 @@ export async function fetchMealsCurrent(signal?: AbortSignal): Promise<MealsCurr
   return getJson<MealsCurrentResponse>('/api/meals/current', init);
 }
 
-/**
- * GET /api/meals/week/:weekYear — plan for a specific ISO week.
- * Backend seeds that week when it does not exist yet.
- */
-export async function fetchMealsWeek(
-  weekYear: string,
-  signal?: AbortSignal
-): Promise<MealsCurrentResponse> {
-  const init: FetchOptions = {};
-  if (signal) init.signal = signal;
-  return getJson<MealsCurrentResponse>(`/api/meals/week/${encodeURIComponent(weekYear)}`, init);
-}
-
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
     method: 'POST',

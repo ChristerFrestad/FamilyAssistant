@@ -24,7 +24,6 @@ import type { JSX } from 'react';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card } from '../components/layout/Card';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
@@ -38,16 +37,14 @@ import { WeekList } from '../components/meals/WeekList';
 import { useMealsData, computeScale, type FamilyFetchState } from '../meals/useMealsData';
 import { usePantryDeduction } from '../meals/usePantryDeduction';
 import { useRecipePicker } from '../meals/useRecipePicker';
-import { useSelectedWeek } from '../hooks/useSelectedWeek';
 import type { MealSlot } from '../meals/mealsApi';
 
 const RESULT_DISMISS_MS = 3000;
 
 export function Meals(): JSX.Element {
   const { t } = useTranslation(['meals', 'common']);
-  const { weekYear, goPrevWeek, goNextWeek, pathWithWeek } = useSelectedWeek();
   const { meals, isLoading, error, family, selectedDayIndex, todayIndex, selectDay, retry } =
-    useMealsData({ weekYear });
+    useMealsData();
 
   // Sprint 6 — meal-cooked dialog. After confirm/skip/cancel we refetch
   // meals so the hero re-renders with the new status.
@@ -96,52 +93,20 @@ export function Meals(): JSX.Element {
         title={t('meals:title')}
         titleId="meals-heading"
         actions={
-          <div className="flex items-center gap-2">
-            <Link
-              to={pathWithWeek('/shopping')}
-              className="shrink-0 font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
-              data-testid="meals-open-shopping"
-            >
-              {t('meals:actions.openShopping')}
-            </Link>
-            <Link
-              to="/recipes"
-              className="shrink-0 font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
-              data-testid="meals-open-library"
-            >
-              {t('meals:actions.openLibrary')}
-            </Link>
-          </div>
+          <Link
+            to="/recipes"
+            className="shrink-0 font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+            data-testid="meals-open-library"
+          >
+            {t('meals:actions.openLibrary')}
+          </Link>
         }
       >
-        <div className="mt-1 flex items-center gap-2" data-testid="meals-week-nav">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={t('meals:weekNav.prevAria')}
-            onClick={goPrevWeek}
-            data-testid="meals-week-prev"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <p
-            className="min-w-[8rem] text-center font-body text-meta text-text-2"
-            data-testid="meals-week-year"
-          >
-            {t('meals:weekHeader.week', { weekYear: meals?.weekYear ?? weekYear })}
+        {meals?.weekYear ? (
+          <p className="font-body text-meta text-text-2" data-testid="meals-week-year">
+            {t('meals:weekHeader.week', { weekYear: meals.weekYear })}
           </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={t('meals:weekNav.nextAria')}
-            onClick={goNextWeek}
-            data-testid="meals-week-next"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
+        ) : null}
       </ScreenHeader>
 
       {isLoading ? (

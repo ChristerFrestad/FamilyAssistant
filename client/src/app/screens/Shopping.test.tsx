@@ -15,7 +15,6 @@ import userEvent from '@testing-library/user-event';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { Shopping } from './Shopping';
-import { getIsoWeekYear } from '../hooks/isoWeek';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -48,9 +47,7 @@ function mockFetchByPath(handlers: Record<string, (init?: RequestInit) => Respon
   fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     for (const [pattern, handler] of Object.entries(handlers)) {
-      if (url === pattern || url.startsWith(pattern + '?')) {
-        return Promise.resolve(handler(init));
-      }
+      if (url === pattern) return Promise.resolve(handler(init));
     }
     return Promise.reject(new Error(`Unmocked fetch: ${url}`));
   });
@@ -338,7 +335,7 @@ describe('Shopping screen — QuickAdd', () => {
     await userEvent.type(screen.getByTestId('shopping-quickadd-input'), 'Bananer');
     await userEvent.click(screen.getByTestId('shopping-quickadd-submit'));
     await waitFor(() => expect(screen.getByText('Bananer')).toBeInTheDocument());
-    expect(postPayload).toEqual({ name: 'Bananer', weekYear: getIsoWeekYear() });
+    expect(postPayload).toEqual({ name: 'Bananer' });
   });
 });
 
