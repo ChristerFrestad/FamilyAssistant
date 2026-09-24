@@ -6,8 +6,8 @@
 //      shows an inline status when clicked)
 //   2. Members section — heading + grid of MemberCard.
 //      mobile: single column; >= sm: two columns.
-//   3. Footer actions — "Invite member" button (placeholder; shows
-//      an inline status when clicked).
+//   3. Footer actions — "Add member" (adult+owner) + "Invite member"
+//      (owner only). Add is name-only roster; Invite sends email.
 //
 // State machine:
 //   - useFamilyData hook drives loading/error/data states with
@@ -32,6 +32,7 @@ import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
 import { MemberCard } from '../components/family/MemberCard';
 import { InviteMemberModal } from '../components/family/InviteMemberModal';
+import { AddMemberModal } from '../components/family/AddMemberModal';
 import { PendingInvitationsList } from '../components/family/PendingInvitationsList';
 import { useFamilyData, joinMembersWithUsers } from '../family/useFamilyData';
 import { useAuthContext } from '../auth/AuthContext';
@@ -49,10 +50,13 @@ export function Family(): JSX.Element {
   // pending-list under the roster.
   const [editPlaceholderVisible, setEditPlaceholderVisible] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [invitationsError, setInvitationsError] = useState<string | null>(null);
   const isOwner = user?.role === 'owner';
+  // Roster add (name-only) is available to owner + adult; invite stays owner-only.
+  const canAddMember = user?.role === 'owner' || user?.role === 'adult';
 
   const showEditPlaceholder = useCallback(() => {
     setEditPlaceholderVisible(true);
@@ -202,17 +206,32 @@ export function Family(): JSX.Element {
         </section>
       ) : null}
 
-      {/* Footer actions */}
+      {/* Footer actions — Add (adult+owner) secondary when Invite is also
+          shown; primary when Add is the only action. Invite remains
+          owner-only primary. */}
       <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          variant="primary"
-          onClick={() => setInviteModalOpen(true)}
-          data-testid="invite-member-button"
-          disabled={!isOwner}
-        >
-          {t('family:actions.invite')}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-row-reverse sm:justify-start">
+          {isOwner ? (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => setInviteModalOpen(true)}
+              data-testid="invite-member-button"
+            >
+              {t('family:actions.invite')}
+            </Button>
+          ) : null}
+          {canAddMember ? (
+            <Button
+              type="button"
+              variant={isOwner ? 'secondary' : 'primary'}
+              onClick={() => setAddMemberModalOpen(true)}
+              data-testid="add-member-button"
+            >
+              {t('family:addMember')}
+            </Button>
+          ) : null}
+        </div>
         {statusMessage ? (
           <p
             className="font-body text-meta text-text-3"
@@ -224,6 +243,15 @@ export function Family(): JSX.Element {
           </p>
         ) : null}
       </div>
+
+      <AddMemberModal
+        open={addMemberModalOpen}
+        onClose={() => setAddMemberModalOpen(false)}
+        onSuccess={(member) => {
+          flashStatus(t('family:addMemberModal.success', { name: member.name }));
+          retry();
+        }}
+      />
 
       <InviteMemberModal
         open={inviteModalOpen}
