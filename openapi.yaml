@@ -303,10 +303,13 @@ paths:
     get:
       summary: Get meal plan for a specific ISO week
       description: >
-        Returns the 7 dinner slots for the requested ISO week (YYYY-WNN).
-        If the week has no meal_plans rows yet, the server seeds THAT week
-        (default recipes when the family has seed recipes, otherwise empty
-        planned slots). Does not seed a different week.
+        Returns the 7 dinner slots for the requested ISO week (YYYY-WNN),
+        always one per dayOfWeek 0..6 (Mon..Sun). If the week has no
+        meal_plans rows yet, the server seeds THAT week: days whose default
+        seed recipe the family still has (active) get it, every other day is
+        an unplanned slot (recipeId null, status planned). A stored week with
+        missing days is backfilled with unplanned slots on read (self-heal).
+        Does not seed a different week.
       parameters:
         - in: path
           name: weekYear

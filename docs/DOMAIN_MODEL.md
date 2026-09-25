@@ -219,6 +219,23 @@ in the family/household.
 - `tests/family-backup.test.js`
 - `tests/gdpr-endpoints.test.js`
 
+### MealPlan week
+
+**Source file:** `server/services/seed.service.js` (`ensureWeek`), `server/routes.js` (meals routes)
+**Repository:** `repos.mealPlans` in `server/repositories/meal.repo.js`
+**Table:** `meal_plans` (unique `(family_id, week_year, day_of_week, meal_type)`)
+
+**What it is:** One dinner row per day of an ISO week (`week_year` = `YYYY-WNN`, `day_of_week` 0=Mon..6=Sun). `recipe_id` NULL + `status='planned'` means "not planned yet".
+
+**Rules:**
+- A week always has 7 dinner rows. Seeding uses the family's own (active) default seed recipes; any day whose seed recipe is missing/deactivated is left unplanned (no substitute recipe)
+- Weeks stored with fewer than 7 rows are backfilled with unplanned rows on read (`INSERT OR IGNORE`, no migration)
+- Shopping generation requires every day decided (`isWeekComplete`); an unplanned day is plannable in the UI (swap), after which the list generates
+- Clients key days by `dayOfWeek`, never by array position
+
+**Covered by tests:**
+- `tests/meals-week-seed.test.js`
+
 ---
 
 ## BUSINESS RULES

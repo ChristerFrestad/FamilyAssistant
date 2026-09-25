@@ -25,9 +25,7 @@ import { fetchFamily, type FamilyResponse } from '../family/familyApi';
 import { getIsoWeekYear } from '../hooks/isoWeek';
 
 export type FamilyFetchState =
-  | { status: 'loading' }
-  | { status: 'ok'; portionSum: number }
-  | { status: 'failed' };
+  { status: 'loading' } | { status: 'ok'; portionSum: number } | { status: 'failed' };
 
 export interface UseMealsDataResult {
   meals: MealsCurrentResponse | null;
@@ -186,6 +184,28 @@ export function selectSlot(meals: MealsCurrentResponse | null, dayOfWeek: number
   if (!meals) return null;
   if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) return null;
   return meals.meals.find((s) => s.dayOfWeek === dayOfWeek) ?? null;
+}
+
+/**
+ * Returns exactly 7 slots ordered Monday..Sunday, keyed by dayOfWeek.
+ * Missing days become an unplanned placeholder (id null, no recipe) so
+ * the UI can still label and plan them. Defensive: the backend
+ * backfills missing days, but labels must never depend on array
+ * position (F1).
+ */
+export function normalizeWeekSlots(slots: MealSlot[]): MealSlot[] {
+  return [0, 1, 2, 3, 4, 5, 6].map(
+    (dayOfWeek) =>
+      slots.find((s) => s.dayOfWeek === dayOfWeek) ?? {
+        id: null,
+        dayOfWeek,
+        dayName: '',
+        recipeId: null,
+        status: 'planned',
+        notes: null,
+        recipe: null,
+      }
+  );
 }
 
 /**

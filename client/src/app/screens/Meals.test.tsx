@@ -327,6 +327,29 @@ describe('Meals — picker integration', () => {
   });
 });
 
+describe('Meals — always 7 days keyed by dayOfWeek (F1)', () => {
+  test('a 6-row week still renders 7 correctly labelled days and a plannable gap', async () => {
+    const full = makeMealsPayload() as { weekYear: string; meals: Array<{ dayOfWeek: number }> };
+    const sixDays = { ...full, meals: full.meals.filter((m) => m.dayOfWeek !== 2) };
+    mockFetchByPath({
+      '/api/meals/current': () => jsonResponse(200, sixDays),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    mountMeals();
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
+    });
+    expect(screen.getAllByTestId(/^day-pill-\d$/)).toHaveLength(7);
+    expect(screen.getByTestId('day-pill-2-empty')).toBeInTheDocument();
+    expect(screen.getByTestId('week-list-row-2')).toHaveTextContent('Onsdag');
+    expect(screen.getByTestId('week-list-row-2-text')).toHaveTextContent('+ Legg til middag');
+    const thursday = screen.getByTestId('week-list-row-3');
+    expect(thursday).toHaveTextContent('Torsdag');
+    expect(thursday).toHaveTextContent('Recipe 4');
+    expect(screen.getByTestId('week-list-row-6')).toHaveTextContent('Søndag');
+  });
+});
+
 describe('Meals — empty week', () => {
   test('renders week-empty card when all 7 slots are null', async () => {
     const allEmpty = makeMealsPayload(

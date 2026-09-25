@@ -35,7 +35,12 @@ import { MarkCookedDialog } from '../components/meals/MarkCookedDialog';
 import { RecipePickerDialog } from '../components/meals/RecipePickerDialog';
 import { RecipeIngredients } from '../components/meals/RecipeIngredients';
 import { WeekList } from '../components/meals/WeekList';
-import { useMealsData, computeScale, type FamilyFetchState } from '../meals/useMealsData';
+import {
+  useMealsData,
+  computeScale,
+  normalizeWeekSlots,
+  type FamilyFetchState,
+} from '../meals/useMealsData';
 import { usePantryDeduction } from '../meals/usePantryDeduction';
 import { useRecipePicker } from '../meals/useRecipePicker';
 import { useSelectedWeek } from '../hooks/useSelectedWeek';
@@ -288,8 +293,11 @@ function MealsContent({
   weekEmptyTitle,
   weekEmptyBody,
 }: MealsContentProps): JSX.Element {
-  const selectedSlot = slots[selectedDayIndex] ?? slots[0];
-  const allEmpty = slots.every((s) => s.recipe === null);
+  // Always 7 slots indexed by dayOfWeek (0=Mon..6=Sun), so
+  // selectedDayIndex/todayIndex/labels line up even if a row is missing.
+  const weekSlots = normalizeWeekSlots(slots);
+  const selectedSlot = weekSlots[selectedDayIndex] ?? weekSlots[0];
+  const allEmpty = weekSlots.every((s) => s.recipe === null);
 
   if (selectedSlot === undefined) {
     // Defensive fallback — backend contract guarantees 7 slots, but
@@ -310,7 +318,7 @@ function MealsContent({
         todayLabel={todayLabel}
         ariaLabel={dayStripAria}
         onSelect={onSelectDay}
-        dots={mealSlotDots(slots)}
+        dots={mealSlotDots(weekSlots)}
         testIdPrefix="day"
       />
 
@@ -341,7 +349,7 @@ function MealsContent({
         </Card>
       ) : (
         <WeekList
-          slots={slots}
+          slots={weekSlots}
           selectedIndex={selectedDayIndex}
           todayIndex={todayIndex}
           longDayLabels={longDayLabels}

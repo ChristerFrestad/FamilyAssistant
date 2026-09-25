@@ -73,8 +73,12 @@ export interface MealRecipe {
 }
 
 export interface MealSlot {
-  /** Primary key from meal_plans, used by the mark-cooked endpoints. */
-  id: number;
+  /**
+   * Primary key from meal_plans, used by the mark-cooked endpoints.
+   * null for a placeholder day that has no stored row (see
+   * normalizeWeekSlots / read-only past weeks).
+   */
+  id: number | null;
   /** ISO weekday: mandag=0, søndag=6. */
   dayOfWeek: number;
   /** Norwegian day name from backend (mandag/tirsdag/...). */
