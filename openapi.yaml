@@ -59,7 +59,7 @@ components:
     MealSlot:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: integer, nullable: true, description: "null for a virtual (not stored) slot in a read-only past week" }
         weekYear: { type: string, example: "2026-W15" }
         dayOfWeek: { type: integer, minimum: 0, maximum: 6 }
         dayName: { type: string }
@@ -72,6 +72,9 @@ components:
       type: object
       properties:
         weekYear: { type: string }
+        readOnly:
+          type: boolean
+          description: True for a past week with no stored plan (nothing persisted).
         meals:
           type: array
           items: { $ref: "#/components/schemas/MealSlot" }
@@ -309,7 +312,9 @@ paths:
         seed recipe the family still has (active) get it, every other day is
         an unplanned slot (recipeId null, status planned). A stored week with
         missing days is backfilled with unplanned slots on read (self-heal).
-        Does not seed a different week.
+        Does not seed a different week. Past weeks (entirely before the
+        current ISO week in Europe/Oslo) are never written: a past week with
+        no stored plan returns 7 virtual slots (id null) with readOnly true.
       parameters:
         - in: path
           name: weekYear

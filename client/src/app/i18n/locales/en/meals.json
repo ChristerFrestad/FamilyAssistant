@@ -52,6 +52,10 @@
     "weekTitle": "No meals planned this week",
     "weekBody": "Use \"Plan meal\" to add one for each day."
   },
+  "readOnly": {
+    "title": "No plan for this week",
+    "body": "This week is over and no dinners were saved for it."
+  },
   "status": {
     "awayTitle": "Away this day",
     "awayBody": "The family is not eating at home.",

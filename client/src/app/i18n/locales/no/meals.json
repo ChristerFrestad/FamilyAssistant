@@ -52,6 +52,10 @@
     "weekTitle": "Ingen middager planlagt denne uken",
     "weekBody": "Bruk «Planlegg middag» for å legge til en for hver dag."
   },
+  "readOnly": {
+    "title": "Ingen plan for denne uka",
+    "body": "Uka er over, og det ble ikke lagret noen middager for den."
+  },
   "status": {
     "awayTitle": "Borte denne dagen",
     "awayBody": "Familien spiser ikke hjemme.",

@@ -186,7 +186,16 @@ export function Meals(): JSX.Element {
         </Card>
       ) : null}
 
-      {!isLoading && error === null && meals !== null ? (
+      {!isLoading && error === null && meals !== null && meals.readOnly === true ? (
+        // Past week with no stored plan (F2): nothing was written, and
+        // there is nothing to plan or cook — show it empty and read-only.
+        <Card padding="md" shadow="low" data-testid="meals-week-readonly">
+          <h2 className="mb-1 font-display text-card text-text-1">{t('meals:readOnly.title')}</h2>
+          <p className="font-body text-body text-text-2">{t('meals:readOnly.body')}</p>
+        </Card>
+      ) : null}
+
+      {!isLoading && error === null && meals !== null && meals.readOnly !== true ? (
         <MealsContent
           slots={meals.meals}
           selectedDayIndex={selectedDayIndex}

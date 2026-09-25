@@ -232,6 +232,8 @@ in the family/household.
 - Weeks stored with fewer than 7 rows are backfilled with unplanned rows on read (`INSERT OR IGNORE`, no migration)
 - Shopping generation requires every day decided (`isWeekComplete`); an unplanned day is plannable in the UI (swap), after which the list generates
 - Clients key days by `dayOfWeek`, never by array position
+- Past weeks (entirely before the current ISO week in Europe/Oslo) are never written by reads: an unseen past week is returned as 7 virtual slots (`id: null`) with `readOnly: true` and shown read-only («Ingen plan for denne uka»); a stored past week is returned as-is, missing days virtual only. Current/future weeks seed as above
+- Server "current week" for `ensureCurrentWeek`/`/api/today`/cron is still UTC (`seed.getWeekYear`); `ensureCurrentWeek` bypasses the past-week guard
 
 **Covered by tests:**
 - `tests/meals-week-seed.test.js`

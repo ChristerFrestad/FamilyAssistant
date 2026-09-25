@@ -226,6 +226,48 @@ function buildSeedRecipeIdMapFromRepo(repos) {
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
+// ISO weeks for the past-week guard are computed in Europe/Oslo — the
+// app is Norwegian-first, the SPA computes its week from the device's
+// local clock, and there is no per-family timezone yet. NOTE: the
+// legacy seed.getWeekYear() (ensureCurrentWeek, /api/today, cron) still
+// uses UTC, so between Mon 00:00 and 01:00/02:00 Oslo it lags one week.
+// ensureCurrentWeek therefore bypasses the guard (allowPast) so the
+// server's own "current week" is never treated as past.
+const WEEK_TIME_ZONE = 'Europe/Oslo';
+
+/**
+ * ISO week-year (YYYY-WNN) of `now` as seen on a wall clock in `timeZone`.
+ * @param {Date} [now]
+ * @param {string} [timeZone]
+ * @returns {string}
+ */
+function getWeekYearInTimeZone(now = new Date(), timeZone = WEEK_TIME_ZONE) {
+  /** @type {Record<string, string>} */
+  const parts = {};
+  for (const p of new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)) {
+    parts[p.type] = p.value;
+  }
+  const localDate = new Date(
+    Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day))
+  );
+  return seed.getWeekYear(localDate);
+}
+
+/**
+ * True when the whole ISO week is before the current Europe/Oslo week.
+ * YYYY-WNN strings are zero-padded, so string order == chronological order.
+ * @param {string} weekYear
+ * @param {Date} [now]
+ */
+function isPastWeek(weekYear, now = new Date()) {
+  return String(weekYear) < getWeekYearInTimeZone(now);
+}
+
 /**
  * Build the 7-slot default dinner plan for a new week. Days whose seed
  * recipe the family still has (active, matched by name) get that recipe;
@@ -274,17 +316,25 @@ function backfillMissingDays(repos, weekYear) {
  *   - An existing week with missing days is backfilled with unplanned
  *     slots (no migration needed for weeks stored before this fix).
  *   - Chore schedule is seeded when missing (same as before).
+ *   - Past weeks (entirely before the current Europe/Oslo ISO week) are
+ *     never written: browsing back must not fabricate history (F2).
+ *     Callers show them read-only; an explicit swap still upserts its
+ *     own single row.
  *
  * Idempotent: existing rows are never modified.
  *
  * @param {object} repos
  * @param {string} weekYear
+ * @param {{ now?: Date, allowPast?: boolean }} [options]
  * @returns {string} the weekYear that was ensured
  */
-function ensureWeek(repos, weekYear) {
+function ensureWeek(repos, weekYear, { now = new Date(), allowPast = false } = {}) {
   const wk = String(weekYear || '');
   if (!/^\d{4}-W\d{2}$/.test(wk)) {
     throw new Error(`Invalid weekYear: ${wk}`);
+  }
+  if (!allowPast && isPastWeek(wk, now)) {
+    return wk;
   }
   if (!repos.mealPlans.exists(wk)) {
     // Only seed default recipes the family actually owns — otherwise the
@@ -302,7 +352,15 @@ function ensureWeek(repos, weekYear) {
 }
 
 function ensureCurrentWeek(repos) {
-  return ensureWeek(repos, seed.getWeekYear());
+  return ensureWeek(repos, seed.getWeekYear(), { allowPast: true });
 }
 
-module.exports = { seedIfEmpty, seedFamilyDefaults, ensureCurrentWeek, ensureWeek };
+module.exports = {
+  seedIfEmpty,
+  seedFamilyDefaults,
+  ensureCurrentWeek,
+  ensureWeek,
+  isPastWeek,
+  getWeekYearInTimeZone,
+  WEEK_TIME_ZONE,
+};

@@ -350,6 +350,38 @@ describe('Meals — always 7 days keyed by dayOfWeek (F1)', () => {
   });
 });
 
+describe('Meals — past week without a plan is read-only (F2)', () => {
+  test('shows «Ingen plan for denne uka» with no plan/cook actions', async () => {
+    const payload = {
+      weekYear: '2026-W30',
+      readOnly: true,
+      meals: Array.from({ length: 7 }, (_, i) => ({
+        id: null,
+        dayOfWeek: i,
+        dayName: '',
+        recipeId: null,
+        status: 'planned',
+        notes: null,
+        recipe: null,
+      })),
+    };
+    mockFetchByPath({
+      '/api/meals/current': () => jsonResponse(200, payload),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    mountMeals();
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-week-readonly')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('meals-week-readonly')).toHaveTextContent('Ingen plan for denne uka');
+    expect(screen.queryByTestId('meals-content')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('meal-hero-plan-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-list')).not.toBeInTheDocument();
+    // Week navigation stays available so the user can go forward again.
+    expect(screen.getByTestId('meals-week-next')).toBeInTheDocument();
+  });
+});
+
 describe('Meals — empty week', () => {
   test('renders week-empty card when all 7 slots are null', async () => {
     const allEmpty = makeMealsPayload(

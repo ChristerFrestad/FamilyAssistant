@@ -218,3 +218,121 @@ describe('Meals week seed — always 7 days (F1)', () => {
     assert.equal(countRows(wk), 7);
   });
 });
+
+// F2 (audit 2026-09-24): browsing back to a past week that was never
+// planned must not write rows (meal_plans or chore_schedules). It is
+// returned as 7 virtual empty slots with readOnly: true.
+describe('Meals week — no fabricated past weeks (F2)', () => {
+  const {
+    isPastWeek,
+    getWeekYearInTimeZone,
+    ensureWeek,
+  } = require('../server/services/seed.service');
+  const weekPlusDays = (days) => getWeekYear(new Date(Date.now() + days * 86400000));
+  let ctx;
+
+  before(async () => {
+    ctx = await startTestServer();
+  });
+
+  after(async () => {
+    await ctx.close();
+  });
+
+  function rowCounts(wk) {
+    const db = ctx.repos._db;
+    return {
+      meals: db.prepare('SELECT COUNT(*) AS n FROM meal_plans WHERE week_year = ?').get(wk).n,
+      chores: db.prepare('SELECT COUNT(*) AS n FROM chore_schedules WHERE week_year = ?').get(wk).n,
+    };
+  }
+
+  test('GET past unseen week writes nothing and returns 7 empty read-only slots', async () => {
+    const wk = weekPlusDays(-28);
+    assert.deepEqual(rowCounts(wk), { meals: 0, chores: 0 });
+
+    const res = await request(ctx.baseUrl, 'GET', `/api/meals/week/${wk}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.weekYear, wk);
+    assert.equal(res.body.readOnly, true);
+    assert.equal(res.body.meals.length, 7);
+    assert.deepEqual(
+      res.body.meals.map((m) => m.dayOfWeek),
+      [0, 1, 2, 3, 4, 5, 6]
+    );
+    for (const m of res.body.meals) {
+      assert.equal(m.id, null);
+      assert.equal(m.recipeId, null);
+      assert.equal(m.recipe, null);
+    }
+    assert.deepEqual(rowCounts(wk), { meals: 0, chores: 0 }, 'no rows written');
+
+    // Shopping for that week does not write either.
+    const list = await request(ctx.baseUrl, 'GET', `/api/shopping/list/current?week=${wk}`);
+    assert.equal(list.status, 200);
+    assert.equal(list.body.id, null);
+    const gen = await request(ctx.baseUrl, 'POST', '/api/shopping/generate', {
+      body: { weekYear: wk },
+    });
+    assert.equal(gen.status, 400);
+    assert.deepEqual(rowCounts(wk), { meals: 0, chores: 0 });
+  });
+
+  test('future unseen week still seeds 7 rows + chore schedule, not read-only', async () => {
+    const wk = weekPlusDays(14);
+    const res = await request(ctx.baseUrl, 'GET', `/api/meals/week/${wk}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.readOnly, false);
+    assert.equal(res.body.meals.length, 7);
+    assert.ok(res.body.meals.every((m) => Number.isInteger(m.id)));
+    const counts = rowCounts(wk);
+    assert.equal(counts.meals, 7);
+    assert.ok(counts.chores > 0, 'chore schedule seeded for future week');
+  });
+
+  test('current week is never read-only', async () => {
+    const res = await request(ctx.baseUrl, 'GET', `/api/meals/week/${getWeekYear()}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.readOnly, false);
+    assert.equal(res.body.meals.length, 7);
+  });
+
+  test('past week WITH a stored plan is returned as-is (editable), partial days virtual only', async () => {
+    const wk = weekPlusDays(-42);
+    const recipe = ctx.repos.recipes.getAll()[0];
+    ctx.repos.mealPlans.seedDefault(wk, [
+      { dayOfWeek: 0, recipeId: recipe.id, status: 'cooked' },
+      { dayOfWeek: 1, recipeId: recipe.id, status: 'planned' },
+    ]);
+    const res = await request(ctx.baseUrl, 'GET', `/api/meals/week/${wk}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.readOnly, false);
+    assert.equal(res.body.meals.length, 7);
+    assert.equal(res.body.meals[0].status, 'cooked');
+    assert.equal(res.body.meals[0].recipe.id, recipe.id);
+    assert.equal(res.body.meals[4].id, null, 'missing past day is virtual');
+    assert.deepEqual(rowCounts(wk), { meals: 2, chores: 0 }, 'past week not backfilled');
+  });
+
+  test('isPastWeek/getWeekYearInTimeZone use Europe/Oslo ISO weeks', () => {
+    // Mon 2026-09-28 00:30 Oslo (CEST) = Sun 2026-09-27 22:30 UTC.
+    const mondayOslo = new Date('2026-09-27T22:30:00Z');
+    assert.equal(getWeekYear(new Date(mondayOslo)), '2026-W39', 'UTC still W39');
+    assert.equal(getWeekYearInTimeZone(mondayOslo), '2026-W40', 'Oslo already W40');
+    assert.equal(isPastWeek('2026-W39', mondayOslo), true);
+    assert.equal(isPastWeek('2026-W40', mondayOslo), false);
+    assert.equal(isPastWeek('2026-W41', mondayOslo), false);
+    // Year boundary: 2026-W53 < 2027-W01 (string order == chronological).
+    assert.equal(isPastWeek('2026-W53', new Date('2027-01-06T12:00:00Z')), true);
+    assert.equal(isPastWeek('2025-W52', new Date('2026-01-01T12:00:00Z')), true);
+  });
+
+  test('ensureWeek({ now }) skips past weeks; allowPast overrides', () => {
+    const now = new Date('2026-09-30T12:00:00Z'); // 2026-W40
+    const wk = '2026-W30';
+    assert.equal(ensureWeek(ctx.repos, wk, { now }), wk);
+    assert.deepEqual(rowCounts(wk), { meals: 0, chores: 0 });
+    ensureWeek(ctx.repos, wk, { now, allowPast: true });
+    assert.equal(rowCounts(wk).meals, 7);
+  });
+});

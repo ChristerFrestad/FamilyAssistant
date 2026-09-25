@@ -34,7 +34,7 @@ const {
   generatePantryRestOfWeek,
   computeMissingForRestOfWeek,
 } = require('./services/meal-planning.service');
-const { ensureCurrentWeek, ensureWeek } = require('./services/seed.service');
+const { ensureCurrentWeek, ensureWeek, isPastWeek } = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
 const pantryDeduction = require('./services/pantry-deduction.service');
@@ -99,6 +99,35 @@ function previousIsoWeek(weekYear) {
 
 function isValidWeekYear(weekYear) {
   return /^\d{4}-W\d{2}$/.test(String(weekYear || ''));
+}
+
+/**
+ * Meals week payload: always 7 slots keyed by dayOfWeek. Days without a
+ * stored row (read-only past weeks) are virtual, unplanned slots with
+ * id null — they are NOT persisted.
+ */
+function toMealsWeekResponse(repos, weekYear, plan, { readOnly = false } = {}) {
+  const byDay = new Map(plan.map((slot) => [slot.dayOfWeek, slot]));
+  return {
+    weekYear,
+    readOnly,
+    meals: DAY_NAMES.map((dayName, dayOfWeek) => {
+      const slot = byDay.get(dayOfWeek) || {
+        id: null,
+        weekYear,
+        dayOfWeek,
+        mealType: 'middag',
+        recipeId: null,
+        status: 'planned',
+        notes: null,
+      };
+      return {
+        ...slot,
+        dayName,
+        recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+      };
+    }),
+  };
 }
 
 /** Resolve a requested weekYear or fall back to ensuring the current week. */
@@ -518,16 +547,12 @@ function registerRoutes(router, { repos, serverState }) {
         throw errors.badRequest('Ugyldig weekYear (f.eks. 2026-W15)', { code: 'INVALID_WEEK' });
       }
       // Seed the *requested* week when missing — not only the current week.
+      // ensureWeek never writes past weeks (F2).
       ensureWeek(repos, wk);
       const plan = repos.mealPlans.getWeek(wk);
-      ctx.json({
-        weekYear: wk,
-        meals: plan.map((slot) => ({
-          ...slot,
-          dayName: DAY_NAMES[slot.dayOfWeek],
-          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
-        })),
-      });
+      // Past week with no stored plan: empty + read-only, nothing written.
+      const readOnly = plan.length === 0 && isPastWeek(wk);
+      ctx.json(toMealsWeekResponse(repos, wk, plan, { readOnly }));
     })
   );
 
@@ -536,14 +561,7 @@ function registerRoutes(router, { repos, serverState }) {
     withCache(['meals'], (ctx) => {
       const wk = ensureCurrentWeek(repos);
       const plan = repos.mealPlans.getWeek(wk);
-      ctx.json({
-        weekYear: wk,
-        meals: plan.map((slot) => ({
-          ...slot,
-          dayName: DAY_NAMES[slot.dayOfWeek],
-          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
-        })),
-      });
+      ctx.json(toMealsWeekResponse(repos, wk, plan));
     })
   );
 

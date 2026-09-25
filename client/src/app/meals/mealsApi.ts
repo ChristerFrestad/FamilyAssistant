@@ -126,6 +126,11 @@ export interface MealsCurrentResponse {
   /** ISO week-year string, e.g. "2026-W18". */
   weekYear: string;
   meals: MealSlot[];
+  /**
+   * True for a past week with no stored plan: the server returns 7
+   * virtual empty slots, writes nothing, and the UI shows it read-only.
+   */
+  readOnly?: boolean;
 }
 
 // ============================================================
