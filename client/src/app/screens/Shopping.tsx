@@ -41,6 +41,7 @@ import { QuickAddInput } from '../components/shopping/QuickAddInput';
 import { EmptyState } from '../components/shopping/EmptyState';
 import { RegenerateDialog } from '../components/shopping/RegenerateDialog';
 import { useShoppingData } from '../shopping/useShoppingData';
+import { useSelectedWeek } from '../hooks/useSelectedWeek';
 import { PantryView } from '../components/pantry/PantryView';
 import { ShoppingViewToggle, readShoppingView } from '../components/pantry/ShoppingViewToggle';
 
@@ -65,6 +66,7 @@ export function Shopping(): JSX.Element {
 function ShoppingListView(): JSX.Element {
   const { t, i18n } = useTranslation(['shopping', 'common']);
   const navigate = useNavigate();
+  const { weekYear, pathWithWeek } = useSelectedWeek();
   const {
     list,
     isLoading,
@@ -79,7 +81,7 @@ function ShoppingListView(): JSX.Element {
     addItem,
     generateFromMeals,
     clearUserFacingError,
-  } = useShoppingData();
+  } = useShoppingData({ weekYear });
 
   const [generating, setGenerating] = useState(false);
   // Confirmation dialog for the always-visible regenerate CTA. The
@@ -149,6 +151,7 @@ function ShoppingListView(): JSX.Element {
         stats={stats}
         formatPrice={formatPrice}
         isEmpty={!hasActiveList || flatItems.length === 0}
+        weekYear={list?.weekYear ?? weekYear}
       />
 
       {/* Always-visible regenerate CTA. Hidden during loading/error and
@@ -214,7 +217,7 @@ function ShoppingListView(): JSX.Element {
           <p className="max-w-sm font-body text-body text-text-2">
             {t('shopping:empty.weekNotCompleteBody')}
           </p>
-          <Button type="button" variant="primary" onClick={() => navigate('/meals')}>
+          <Button type="button" variant="primary" onClick={() => navigate(pathWithWeek('/meals'))}>
             {t('shopping:actions.openMeals')}
           </Button>
         </Card>
@@ -265,7 +268,7 @@ function ShoppingListView(): JSX.Element {
       {/* Hidden link kept for SR users who land here via /shopping after
           a backend redirect; the inline navigate above handles button
           clicks. Intentionally unused in the visible flow. */}
-      <Link to="/meals" className="sr-only" aria-hidden="true" tabIndex={-1}>
+      <Link to={pathWithWeek('/meals')} className="sr-only" aria-hidden="true" tabIndex={-1}>
         {t('shopping:actions.openMeals')}
       </Link>
 

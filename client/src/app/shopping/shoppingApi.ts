@@ -88,6 +88,8 @@ export interface ShoppingItemAddBody {
   unit?: string;
   category?: string;
   notes?: string;
+  /** Target ISO week when Shopping is viewing a non-current week. */
+  weekYear?: string;
 }
 
 export interface ShoppingItemAddResponse {
@@ -176,11 +178,13 @@ async function sendJson<T>(
 // ============================================================
 
 export async function fetchShoppingList(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  weekYear?: string
 ): Promise<ShoppingListCurrentResponse> {
   const opts: FetchOptions = {};
   if (signal) opts.signal = signal;
-  return getJson<ShoppingListCurrentResponse>('/api/shopping/list/current', opts);
+  const q = weekYear ? `?week=${encodeURIComponent(weekYear)}` : '';
+  return getJson<ShoppingListCurrentResponse>(`/api/shopping/list/current${q}`, opts);
 }
 
 export async function markItemBought(
@@ -202,10 +206,18 @@ export async function deleteItem(itemId: number): Promise<{ ok: true }> {
   return sendJson<{ ok: true }>('DELETE', `/api/shopping/items/${itemId}`);
 }
 
-export async function addItem(body: ShoppingItemAddBody): Promise<ShoppingItemAddResponse> {
-  return sendJson<ShoppingItemAddResponse>('POST', '/api/shopping/items', body);
+export async function addItem(
+  body: ShoppingItemAddBody,
+  weekYear?: string
+): Promise<ShoppingItemAddResponse> {
+  const payload =
+    weekYear && !('weekYear' in body) ? { ...body, weekYear } : body;
+  return sendJson<ShoppingItemAddResponse>('POST', '/api/shopping/items', payload);
 }
 
-export async function generateFromMeals(): Promise<ShoppingGenerateResponse> {
-  return sendJson<ShoppingGenerateResponse>('POST', '/api/shopping/generate', {});
+export async function generateFromMeals(
+  weekYear?: string
+): Promise<ShoppingGenerateResponse> {
+  const body = weekYear ? { weekYear } : {};
+  return sendJson<ShoppingGenerateResponse>('POST', '/api/shopping/generate', body);
 }

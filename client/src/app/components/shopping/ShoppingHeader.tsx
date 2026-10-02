@@ -18,12 +18,15 @@ export interface ShoppingHeaderProps {
   formatPrice?: (kr: number) => string;
   /** When true, render the empty-state header (no stats, just the title). */
   isEmpty?: boolean;
+  /** Selected ISO week (shared with Meals via ?week=). */
+  weekYear?: string | null;
 }
 
 export function ShoppingHeader({
   stats,
   formatPrice,
   isEmpty = false,
+  weekYear = null,
 }: ShoppingHeaderProps): JSX.Element {
   const { t } = useTranslation(['shopping']);
   const showRemainingPrice = stats.remainingPriceSum > 0;
@@ -35,7 +38,13 @@ export function ShoppingHeader({
   const partial = showRemainingPrice && stats.itemsWithPriceCount < stats.remaining;
 
   return (
-    <ScreenHeader title={t('shopping:title')} data-testid="shopping-header">
+    <ScreenHeader
+      title={t('shopping:title')}
+      data-testid="shopping-header"
+      subtitle={
+        weekYear ? t('shopping:weekHeader.week', { weekYear }) : undefined
+      }
+    >
       {!isEmpty && stats.total > 0 && (
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 font-body text-meta text-text-2">
           <span>

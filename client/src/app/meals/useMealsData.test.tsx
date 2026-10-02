@@ -9,6 +9,7 @@ import {
   isoWeekday,
   selectSlot,
   computeScale,
+  normalizeWeekSlots,
   type FamilyFetchState,
 } from './useMealsData';
 import type { MealsCurrentResponse } from './mealsApi';
@@ -78,6 +79,16 @@ describe('selectSlot', () => {
     expect(selectSlot(SAMPLE_MEALS, -1)).toBeNull();
     expect(selectSlot(SAMPLE_MEALS, 7)).toBeNull();
     expect(selectSlot(SAMPLE_MEALS, 1.5)).toBeNull();
+  });
+});
+
+describe('normalizeWeekSlots', () => {
+  test('always returns 7 slots keyed by dayOfWeek, filling gaps with placeholders', () => {
+    const partial = SAMPLE_MEALS.meals.filter((s) => s.dayOfWeek !== 2).reverse();
+    const out = normalizeWeekSlots(partial);
+    expect(out.map((s) => s.dayOfWeek)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(out[2]).toMatchObject({ id: null, dayOfWeek: 2, recipe: null, status: 'planned' });
+    expect(out[3]).toBe(partial.find((s) => s.dayOfWeek === 3));
   });
 });
 
@@ -207,5 +218,30 @@ describe('useMealsData hook', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(fetchMealsCurrent).toHaveBeenCalledTimes(2);
     expect(fetchFamily).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('useMealsData weekYear', () => {
+  test('calls fetchMealsWeek when weekYear is provided', async () => {
+    const fetchMealsWeek = vi.fn().mockResolvedValue({
+      ...SAMPLE_MEALS,
+      weekYear: '2026-W20',
+    });
+    const fetchMealsCurrent = vi.fn().mockResolvedValue(SAMPLE_MEALS);
+    const fetchFamily = vi.fn().mockResolvedValue(SAMPLE_FAMILY);
+    const { result } = renderHook(() =>
+      useMealsData({
+        fetchMealsCurrent,
+        fetchMealsWeek,
+        fetchFamily,
+        weekYear: '2026-W20',
+        now: new Date(2026, 3, 28),
+      })
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(fetchMealsWeek).toHaveBeenCalledWith('2026-W20', expect.any(AbortSignal));
+    expect(fetchMealsCurrent).not.toHaveBeenCalled();
+    expect(result.current.meals?.weekYear).toBe('2026-W20');
+    expect(result.current.todayIndex).toBe(-1);
   });
 });

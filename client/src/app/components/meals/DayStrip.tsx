@@ -27,8 +27,12 @@ export function isMealSlotPlanned(slot: MealSlot): boolean {
   return true;
 }
 
+/** One dot per weekday (Mon..Sun), keyed by dayOfWeek — never by array position. */
 export function mealSlotDots(slots: MealSlot[]): WeekStripDot[] {
-  return slots.map((slot) => (isMealSlotPlanned(slot) ? 'active' : 'empty'));
+  return [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => {
+    const slot = slots.find((s) => s.dayOfWeek === dayOfWeek);
+    return slot !== undefined && isMealSlotPlanned(slot) ? 'active' : 'empty';
+  });
 }
 
 export function DayStrip({

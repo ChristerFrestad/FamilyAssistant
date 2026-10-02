@@ -34,7 +34,7 @@ const {
   generatePantryRestOfWeek,
   computeMissingForRestOfWeek,
 } = require('./services/meal-planning.service');
-const { ensureCurrentWeek } = require('./services/seed.service');
+const { ensureCurrentWeek, ensureWeek, isPastWeek } = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
 const pantryDeduction = require('./services/pantry-deduction.service');
@@ -95,6 +95,47 @@ function previousIsoWeek(weekYear) {
   if (week > 1) return `${year}-W${String(week - 1).padStart(2, '0')}`;
   // Dec 28 is always in the last ISO week of that year.
   return getWeekYear(new Date(Date.UTC(year - 1, 11, 28)));
+}
+
+function isValidWeekYear(weekYear) {
+  return /^\d{4}-W\d{2}$/.test(String(weekYear || ''));
+}
+
+/**
+ * Meals week payload: always 7 slots keyed by dayOfWeek. Days without a
+ * stored row (read-only past weeks) are virtual, unplanned slots with
+ * id null — they are NOT persisted.
+ */
+function toMealsWeekResponse(repos, weekYear, plan, { readOnly = false } = {}) {
+  const byDay = new Map(plan.map((slot) => [slot.dayOfWeek, slot]));
+  return {
+    weekYear,
+    readOnly,
+    meals: DAY_NAMES.map((dayName, dayOfWeek) => {
+      const slot = byDay.get(dayOfWeek) || {
+        id: null,
+        weekYear,
+        dayOfWeek,
+        mealType: 'middag',
+        recipeId: null,
+        status: 'planned',
+        notes: null,
+      };
+      return {
+        ...slot,
+        dayName,
+        recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+      };
+    }),
+  };
+}
+
+/** Resolve a requested weekYear or fall back to ensuring the current week. */
+function resolveWeekYear(repos, weekYear) {
+  if (weekYear && isValidWeekYear(weekYear)) {
+    return ensureWeek(repos, weekYear);
+  }
+  return ensureCurrentWeek(repos);
 }
 
 function consecutiveWeekStreak(repos, userId, endWeek) {
@@ -502,16 +543,16 @@ function registerRoutes(router, { repos, serverState }) {
     '/api/meals/week/:weekYear',
     withCache(['meals'], (ctx) => {
       const wk = ctx.params.weekYear;
-      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      if (!isValidWeekYear(wk)) {
+        throw errors.badRequest('Ugyldig weekYear (f.eks. 2026-W15)', { code: 'INVALID_WEEK' });
+      }
+      // Seed the *requested* week when missing — not only the current week.
+      // ensureWeek never writes past weeks (F2).
+      ensureWeek(repos, wk);
       const plan = repos.mealPlans.getWeek(wk);
-      ctx.json({
-        weekYear: wk,
-        meals: plan.map((slot) => ({
-          ...slot,
-          dayName: DAY_NAMES[slot.dayOfWeek],
-          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
-        })),
-      });
+      // Past week with no stored plan: empty + read-only, nothing written.
+      const readOnly = plan.length === 0 && isPastWeek(wk);
+      ctx.json(toMealsWeekResponse(repos, wk, plan, { readOnly }));
     })
   );
 
@@ -520,14 +561,7 @@ function registerRoutes(router, { repos, serverState }) {
     withCache(['meals'], (ctx) => {
       const wk = ensureCurrentWeek(repos);
       const plan = repos.mealPlans.getWeek(wk);
-      ctx.json({
-        weekYear: wk,
-        meals: plan.map((slot) => ({
-          ...slot,
-          dayName: DAY_NAMES[slot.dayOfWeek],
-          recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
-        })),
-      });
+      ctx.json(toMealsWeekResponse(repos, wk, plan));
     })
   );
 
@@ -537,8 +571,7 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.mealsSwapBody),
     (ctx) => {
       const { weekYear, dayOfWeek, recipeId } = ctx.body;
-      const wk = weekYear || ensureCurrentWeek(repos);
-      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      const wk = resolveWeekYear(repos, weekYear);
       repos.mealPlans.setRecipe(wk, dayOfWeek, recipeId, 'planned');
       invalidate('meals', 'today', 'shopping');
       const autogen = maybeAutogenerateShoppingList(repos, wk);
@@ -556,8 +589,7 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.mealsStatusBody),
     (ctx) => {
       const { weekYear, dayOfWeek, status } = ctx.body;
-      const wk = weekYear || ensureCurrentWeek(repos);
-      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      const wk = resolveWeekYear(repos, weekYear);
       repos.mealPlans.setStatus(wk, dayOfWeek, status);
       invalidate('meals', 'today');
       const autogen = maybeAutogenerateShoppingList(repos, wk);
@@ -571,8 +603,7 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.mealsReorderBody),
     (ctx) => {
       const { weekYear, fromDay, toDay } = ctx.body;
-      const wk = weekYear || ensureCurrentWeek(repos);
-      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      const wk = resolveWeekYear(repos, weekYear);
       const plan = repos.mealPlans.getWeek(wk);
       const shelfCheck = checkShelfLife(repos, plan, fromDay, toDay);
       repos.mealPlans.swapDays(wk, fromDay, toDay);
@@ -1075,8 +1106,7 @@ function registerRoutes(router, { repos, serverState }) {
     requireRole('adult'),
     validateBody(schemas.shoppingGenerateBody),
     (ctx) => {
-      const wk = ctx.body.weekYear || ensureCurrentWeek(repos);
-      if (!repos.mealPlans.exists(wk)) ensureCurrentWeek(repos);
+      const wk = resolveWeekYear(repos, ctx.body.weekYear);
       try {
         const result = generateForWeek(repos, wk, {
           force: !!ctx.body.force,
@@ -1107,7 +1137,10 @@ function registerRoutes(router, { repos, serverState }) {
    * 'current'.
    */
   router.get('/api/shopping/list/current', (ctx) => {
-    const wk = ensureCurrentWeek(repos);
+    // Optional ?week=YYYY-WNN so Shopping follows the same selected week as Meals.
+    const requested = ctx.query && ctx.query.week;
+    const wk =
+      requested && isValidWeekYear(requested) ? String(requested) : ensureCurrentWeek(repos);
     const list = repos.shoppingLists.getActive(wk);
     if (!list) {
       // No active persistent list — return an empty shell so the UI can
@@ -1325,7 +1358,7 @@ function registerRoutes(router, { repos, serverState }) {
     requireRole('adult'),
     validateBody(schemas.shoppingItemAddBody),
     (ctx) => {
-      const wk = ensureCurrentWeek(repos);
+      const wk = resolveWeekYear(repos, ctx.body.weekYear);
       const list = repos.shoppingLists.getActive(wk);
       if (!list) {
         throw errors.badRequest("No active shopping list — generate from this week's meals first", {

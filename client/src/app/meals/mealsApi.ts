@@ -73,8 +73,12 @@ export interface MealRecipe {
 }
 
 export interface MealSlot {
-  /** Primary key from meal_plans, used by the mark-cooked endpoints. */
-  id: number;
+  /**
+   * Primary key from meal_plans, used by the mark-cooked endpoints.
+   * null for a placeholder day that has no stored row (see
+   * normalizeWeekSlots / read-only past weeks).
+   */
+  id: number | null;
   /** ISO weekday: mandag=0, søndag=6. */
   dayOfWeek: number;
   /** Norwegian day name from backend (mandag/tirsdag/...). */
@@ -122,6 +126,11 @@ export interface MealsCurrentResponse {
   /** ISO week-year string, e.g. "2026-W18". */
   weekYear: string;
   meals: MealSlot[];
+  /**
+   * True for a past week with no stored plan: the server returns 7
+   * virtual empty slots, writes nothing, and the UI shows it read-only.
+   */
+  readOnly?: boolean;
 }
 
 // ============================================================
@@ -169,6 +178,19 @@ export async function fetchMealsCurrent(signal?: AbortSignal): Promise<MealsCurr
   const init: FetchOptions = {};
   if (signal) init.signal = signal;
   return getJson<MealsCurrentResponse>('/api/meals/current', init);
+}
+
+/**
+ * GET /api/meals/week/:weekYear — plan for a specific ISO week.
+ * Backend seeds that week when it does not exist yet.
+ */
+export async function fetchMealsWeek(
+  weekYear: string,
+  signal?: AbortSignal
+): Promise<MealsCurrentResponse> {
+  const init: FetchOptions = {};
+  if (signal) init.signal = signal;
+  return getJson<MealsCurrentResponse>(`/api/meals/week/${encodeURIComponent(weekYear)}`, init);
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {

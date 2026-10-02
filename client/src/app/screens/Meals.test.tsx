@@ -46,8 +46,16 @@ function mountMeals(): void {
 function mockFetchByPath(handlers: Record<string, () => Response>): void {
   fetchSpy.mockImplementation((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
+    // Week navigation hits /api/meals/week/:weekYear — reuse the
+    // /api/meals/current handler so existing fixtures stay valid.
+    const normalized = url.startsWith('/api/meals/week/') ? '/api/meals/current' : url;
     for (const [pattern, handler] of Object.entries(handlers)) {
-      if (url === pattern || url.startsWith(pattern + '?')) {
+      if (
+        normalized === pattern ||
+        normalized.startsWith(pattern + '?') ||
+        url === pattern ||
+        url.startsWith(pattern + '?')
+      ) {
         return Promise.resolve(handler());
       }
     }
@@ -319,6 +327,61 @@ describe('Meals — picker integration', () => {
   });
 });
 
+describe('Meals — always 7 days keyed by dayOfWeek (F1)', () => {
+  test('a 6-row week still renders 7 correctly labelled days and a plannable gap', async () => {
+    const full = makeMealsPayload() as { weekYear: string; meals: Array<{ dayOfWeek: number }> };
+    const sixDays = { ...full, meals: full.meals.filter((m) => m.dayOfWeek !== 2) };
+    mockFetchByPath({
+      '/api/meals/current': () => jsonResponse(200, sixDays),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    mountMeals();
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-content')).toBeInTheDocument();
+    });
+    expect(screen.getAllByTestId(/^day-pill-\d$/)).toHaveLength(7);
+    expect(screen.getByTestId('day-pill-2-empty')).toBeInTheDocument();
+    expect(screen.getByTestId('week-list-row-2')).toHaveTextContent('Onsdag');
+    expect(screen.getByTestId('week-list-row-2-text')).toHaveTextContent('+ Legg til middag');
+    const thursday = screen.getByTestId('week-list-row-3');
+    expect(thursday).toHaveTextContent('Torsdag');
+    expect(thursday).toHaveTextContent('Recipe 4');
+    expect(screen.getByTestId('week-list-row-6')).toHaveTextContent('Søndag');
+  });
+});
+
+describe('Meals — past week without a plan is read-only (F2)', () => {
+  test('shows «Ingen plan for denne uka» with no plan/cook actions', async () => {
+    const payload = {
+      weekYear: '2026-W30',
+      readOnly: true,
+      meals: Array.from({ length: 7 }, (_, i) => ({
+        id: null,
+        dayOfWeek: i,
+        dayName: '',
+        recipeId: null,
+        status: 'planned',
+        notes: null,
+        recipe: null,
+      })),
+    };
+    mockFetchByPath({
+      '/api/meals/current': () => jsonResponse(200, payload),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    mountMeals();
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-week-readonly')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('meals-week-readonly')).toHaveTextContent('Ingen plan for denne uka');
+    expect(screen.queryByTestId('meals-content')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('meal-hero-plan-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-list')).not.toBeInTheDocument();
+    // Week navigation stays available so the user can go forward again.
+    expect(screen.getByTestId('meals-week-next')).toBeInTheDocument();
+  });
+});
+
 describe('Meals — empty week', () => {
   test('renders week-empty card when all 7 slots are null', async () => {
     const allEmpty = makeMealsPayload(
@@ -354,5 +417,38 @@ describe('Meals — family fetch failure does not block the screen', () => {
     });
     // 400 g without scaling (family failed, so scale defaults to 1)
     expect(screen.getByText(/400 g/)).toBeInTheDocument();
+  });
+});
+
+describe('Meals — week navigation', () => {
+  test('renders prev/next week controls and advances the URL week', async () => {
+    mockFetchByPath({
+      '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    render(
+      <MemoryRouter initialEntries={['/meals']}>
+        <Meals />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('meals-week-nav')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('meals-week-prev')).toHaveAttribute(
+      'aria-label',
+      expect.stringMatching(/forrige|previous/i)
+    );
+    expect(screen.getByTestId('meals-week-next')).toHaveAttribute(
+      'aria-label',
+      expect.stringMatching(/neste|next/i)
+    );
+    fireEvent.click(screen.getByTestId('meals-week-next'));
+    await waitFor(() => {
+      // After next, fetch should hit a /api/meals/week/… path at least once.
+      const weekCalls = fetchSpy.mock.calls.filter((c: unknown[]) =>
+        String(c[0]).includes('/api/meals/week/')
+      );
+      expect(weekCalls.length).toBeGreaterThan(0);
+    });
   });
 });

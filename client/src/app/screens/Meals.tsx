@@ -24,6 +24,7 @@ import type { JSX } from 'react';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card } from '../components/layout/Card';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { Button } from '../components/base/Button';
@@ -34,17 +35,24 @@ import { MarkCookedDialog } from '../components/meals/MarkCookedDialog';
 import { RecipePickerDialog } from '../components/meals/RecipePickerDialog';
 import { RecipeIngredients } from '../components/meals/RecipeIngredients';
 import { WeekList } from '../components/meals/WeekList';
-import { useMealsData, computeScale, type FamilyFetchState } from '../meals/useMealsData';
+import {
+  useMealsData,
+  computeScale,
+  normalizeWeekSlots,
+  type FamilyFetchState,
+} from '../meals/useMealsData';
 import { usePantryDeduction } from '../meals/usePantryDeduction';
 import { useRecipePicker } from '../meals/useRecipePicker';
+import { useSelectedWeek } from '../hooks/useSelectedWeek';
 import type { MealSlot } from '../meals/mealsApi';
 
 const RESULT_DISMISS_MS = 3000;
 
 export function Meals(): JSX.Element {
   const { t } = useTranslation(['meals', 'common']);
+  const { weekYear, goPrevWeek, goNextWeek, pathWithWeek } = useSelectedWeek();
   const { meals, isLoading, error, family, selectedDayIndex, todayIndex, selectDay, retry } =
-    useMealsData();
+    useMealsData({ weekYear });
 
   // Sprint 6 — meal-cooked dialog. After confirm/skip/cancel we refetch
   // meals so the hero re-renders with the new status.
@@ -93,20 +101,52 @@ export function Meals(): JSX.Element {
         title={t('meals:title')}
         titleId="meals-heading"
         actions={
-          <Link
-            to="/recipes"
-            className="shrink-0 font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
-            data-testid="meals-open-library"
-          >
-            {t('meals:actions.openLibrary')}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to={pathWithWeek('/shopping')}
+              className="shrink-0 font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+              data-testid="meals-open-shopping"
+            >
+              {t('meals:actions.openShopping')}
+            </Link>
+            <Link
+              to="/recipes"
+              className="shrink-0 font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+              data-testid="meals-open-library"
+            >
+              {t('meals:actions.openLibrary')}
+            </Link>
+          </div>
         }
       >
-        {meals?.weekYear ? (
-          <p className="font-body text-meta text-text-2" data-testid="meals-week-year">
-            {t('meals:weekHeader.week', { weekYear: meals.weekYear })}
+        <div className="mt-1 flex items-center gap-2" data-testid="meals-week-nav">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={t('meals:weekNav.prevAria')}
+            onClick={goPrevWeek}
+            data-testid="meals-week-prev"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <p
+            className="min-w-[8rem] text-center font-body text-meta text-text-2"
+            data-testid="meals-week-year"
+          >
+            {t('meals:weekHeader.week', { weekYear: meals?.weekYear ?? weekYear })}
           </p>
-        ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={t('meals:weekNav.nextAria')}
+            onClick={goNextWeek}
+            data-testid="meals-week-next"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       </ScreenHeader>
 
       {isLoading ? (
@@ -146,7 +186,16 @@ export function Meals(): JSX.Element {
         </Card>
       ) : null}
 
-      {!isLoading && error === null && meals !== null ? (
+      {!isLoading && error === null && meals !== null && meals.readOnly === true ? (
+        // Past week with no stored plan (F2): nothing was written, and
+        // there is nothing to plan or cook — show it empty and read-only.
+        <Card padding="md" shadow="low" data-testid="meals-week-readonly">
+          <h2 className="mb-1 font-display text-card text-text-1">{t('meals:readOnly.title')}</h2>
+          <p className="font-body text-body text-text-2">{t('meals:readOnly.body')}</p>
+        </Card>
+      ) : null}
+
+      {!isLoading && error === null && meals !== null && meals.readOnly !== true ? (
         <MealsContent
           slots={meals.meals}
           selectedDayIndex={selectedDayIndex}
@@ -253,8 +302,11 @@ function MealsContent({
   weekEmptyTitle,
   weekEmptyBody,
 }: MealsContentProps): JSX.Element {
-  const selectedSlot = slots[selectedDayIndex] ?? slots[0];
-  const allEmpty = slots.every((s) => s.recipe === null);
+  // Always 7 slots indexed by dayOfWeek (0=Mon..6=Sun), so
+  // selectedDayIndex/todayIndex/labels line up even if a row is missing.
+  const weekSlots = normalizeWeekSlots(slots);
+  const selectedSlot = weekSlots[selectedDayIndex] ?? weekSlots[0];
+  const allEmpty = weekSlots.every((s) => s.recipe === null);
 
   if (selectedSlot === undefined) {
     // Defensive fallback — backend contract guarantees 7 slots, but
@@ -275,7 +327,7 @@ function MealsContent({
         todayLabel={todayLabel}
         ariaLabel={dayStripAria}
         onSelect={onSelectDay}
-        dots={mealSlotDots(slots)}
+        dots={mealSlotDots(weekSlots)}
         testIdPrefix="day"
       />
 
@@ -306,7 +358,7 @@ function MealsContent({
         </Card>
       ) : (
         <WeekList
-          slots={slots}
+          slots={weekSlots}
           selectedIndex={selectedDayIndex}
           todayIndex={todayIndex}
           longDayLabels={longDayLabels}

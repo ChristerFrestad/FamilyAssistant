@@ -43,13 +43,18 @@
     "retry": "Prøv igjen",
     "markCooked": "Marker tilberedt",
     "alreadyCooked": "Tilberedt",
-    "openLibrary": "Åpne bibliotek"
+    "openLibrary": "Åpne bibliotek",
+    "openShopping": "Åpne handleliste"
   },
   "empty": {
     "heroTitle": "Ingen middag planlagt",
     "heroBody": "Legg inn en oppskrift for denne dagen.",
     "weekTitle": "Ingen middager planlagt denne uken",
     "weekBody": "Bruk «Planlegg middag» for å legge til en for hver dag."
+  },
+  "readOnly": {
+    "title": "Ingen plan for denne uka",
+    "body": "Uka er over, og det ble ikke lagret noen middager for den."
   },
   "status": {
     "awayTitle": "Borte denne dagen",
@@ -124,5 +129,9 @@
     "successSkipped": "Markert tilberedt uten trekk.",
     "lowStock": "{{count}} vare lagt til handleliste fordi pantry ble lav.",
     "lowStock_other": "{{count}} varer lagt til handleliste fordi pantry ble lav."
+  },
+  "weekNav": {
+    "prevAria": "Forrige uke",
+    "nextAria": "Neste uke"
   }
 }
