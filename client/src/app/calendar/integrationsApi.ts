@@ -23,7 +23,8 @@ async function callApi(path: string, init: RequestInit, signal?: AbortSignal): P
     ...init,
     credentials: 'include',
     headers: { Accept: 'application/json', ...(init.headers ?? {}) },
-    signal,
+    // exactOptionalPropertyTypes: only set signal when we have one.
+    ...(signal ? { signal } : {}),
   });
   let parsed: unknown = null;
   try {
