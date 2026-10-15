@@ -60,8 +60,11 @@ describe('useSettingsData — initial load', () => {
     act(() => {
       result.current.retry();
     });
-    await waitFor(() => expect(result.current.error).toBeNull());
-    expect(result.current.family?.family.name).toBe('Frestad');
+    // retry() clears the error synchronously before the refetch resolves,
+    // so wait for the family itself rather than for error === null.
+    await waitFor(() => expect(result.current.family?.family.name).toBe('Frestad'));
+    expect(result.current.error).toBeNull();
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 });
 
