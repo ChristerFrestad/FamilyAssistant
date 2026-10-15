@@ -78,6 +78,18 @@ describe('Meals week seed — requested weekYear', () => {
     const r = await request(ctx.baseUrl, 'GET', '/api/meals/week/not-a-week');
     assert.equal(r.status, 400);
   });
+
+  test('week numbers outside 01-53 are rejected and nothing is seeded', async () => {
+    for (const wk of ['2026-W00', '2026-W54', '2026-W99']) {
+      const r = await request(ctx.baseUrl, 'GET', `/api/meals/week/${wk}`);
+      assert.equal(r.status, 400, `${wk} must be rejected`);
+      assert.equal(ctx.repos.mealPlans.exists(wk), false, `${wk} must not be seeded`);
+    }
+    // Shopping falls back to the current week instead of a bogus one.
+    const s = await request(ctx.baseUrl, 'GET', '/api/shopping/list/current?week=2026-W99');
+    assert.equal(s.status, 200);
+    assert.equal(s.body.weekYear, currentWeek);
+  });
 });
 
 // F1 (audit 2026-09-24): a week must always have 7 dinner rows, even when

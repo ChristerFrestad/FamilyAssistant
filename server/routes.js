@@ -98,7 +98,12 @@ function previousIsoWeek(weekYear) {
 }
 
 function isValidWeekYear(weekYear) {
-  return /^\d{4}-W\d{2}$/.test(String(weekYear || ''));
+  const wk = String(weekYear || '');
+  if (!/^\d{4}-W\d{2}$/.test(wk)) return false;
+  // Same bounds as schemas.weekYear: ISO weeks are 01-53. Without this a
+  // URL like /api/meals/week/2026-W99 would seed a bogus week.
+  const n = Number(wk.slice(6));
+  return n >= 1 && n <= 53;
 }
 
 /**
