@@ -76,6 +76,18 @@ jobs:
         env:
           NODE_ENV: test
 
+      # Client (React/Vite) gate. Before this, client typecheck, client unit
+      # tests and the client build only ran in release.yml (tag push) or in
+      # the Docker image build, so a broken client could reach main.
+      - name: Typecheck client (tsc --project client)
+        run: npm run typecheck:client
+
+      - name: Client unit tests (vitest)
+        run: npm run test:client
+
+      - name: Build client (vite build)
+        run: npm run build:client
+
   # ---------------------------------------------------------------------------
   # Cross-platform matrix: only runs on push to main or scheduled. Catches
   # OS-specific regressions (path separator, CRLF, better-sqlite3 native
