@@ -228,6 +228,33 @@ function createShoppingRepos(db, tryParseJson) {
         .all(familyId, weekYear);
     },
 
+    /**
+     * Bought history for the learned store-walk order: one row per bought
+     * item on the family's most recent lists that have any bought items.
+     * Read-only. Family-scoped like every other query here.
+     */
+    boughtHistory({ limitLists = 12 } = {}) {
+      const familyId = getFamilyId();
+      return db
+        .prepare(
+          `
+        SELECT si.list_id as listId, si.category, si.bought_at as boughtAt
+        FROM shopping_list_items si
+        WHERE si.family_id = ?
+          AND si.bought_at IS NOT NULL
+          AND si.list_id IN (
+            SELECT list_id FROM shopping_list_items
+            WHERE family_id = ? AND bought_at IS NOT NULL
+            GROUP BY list_id
+            ORDER BY MAX(bought_at) DESC
+            LIMIT ?
+          )
+        ORDER BY si.list_id, si.bought_at
+      `
+        )
+        .all(familyId, familyId, limitLists);
+    },
+
     _getItems(listId) {
       const familyId = getFamilyId();
       const rows = db

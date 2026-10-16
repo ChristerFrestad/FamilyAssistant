@@ -25,6 +25,11 @@ const metrics = require('./http/metrics');
 const schemas = require('./schemas');
 
 const { buildShoppingList, generateForWeek } = require('./services/shopping-list.service');
+const {
+  splitIntoTrips,
+  learnCategoryOrder,
+  applyLearnedOrder,
+} = require('./services/store-order.service');
 const { enrichInBackground } = require('./services/shopping-list-enricher.service');
 const { enrichItemForFrontend } = require('./repositories/shopping.repo');
 const {
@@ -168,6 +173,22 @@ function toChoreDto(row) {
     intervalDays: row.interval_days ?? null,
     active: !!row.active,
   };
+}
+
+// Order shopping categories by how this family usually walks the store,
+// learned from earlier check-offs. Falls back to the incoming order when
+// there is too little history or anything goes wrong; ordering must never
+// break the shopping list.
+function orderByLearnedStoreWalk(repos, entries) {
+  try {
+    if (!repos.shoppingLists || typeof repos.shoppingLists.boughtHistory !== 'function') {
+      return entries;
+    }
+    const learned = learnCategoryOrder(splitIntoTrips(repos.shoppingLists.boughtHistory()));
+    return applyLearnedOrder(entries, learned);
+  } catch {
+    return entries;
+  }
 }
 
 function choreCatalogMap(repos) {
@@ -1208,10 +1229,12 @@ function registerRoutes(router, { repos, serverState }) {
       generatedAt: list.generatedAt,
       confirmedAt: list.confirmedAt,
       totalEstPrice: list.totalEstPrice || Math.round(total),
-      categories: Array.from(categoriesMap.entries()).map(([category, items]) => ({
-        category,
-        items,
-      })),
+      categories: orderByLearnedStoreWalk(repos, Array.from(categoriesMap.entries())).map(
+        ([category, items]) => ({
+          category,
+          items,
+        })
+      ),
       items: list.items,
     });
   });
