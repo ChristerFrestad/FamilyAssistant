@@ -35,6 +35,21 @@ const CATEGORY_ORDER = [
   'Personlig pleie',
 ];
 
+/**
+ * Turn a { category: items[] } map into the ordered legacy `categories`
+ * array. Known categories follow CATEGORY_ORDER; any other category
+ * (e.g. 'Kjøkken' from seed products, or the 'other' enum-key used for
+ * manual items) is appended in first-seen order instead of being dropped.
+ * Pure function.
+ */
+function orderCategories(catMap) {
+  const known = CATEGORY_ORDER.filter((c) => catMap[c]);
+  const rest = Object.keys(catMap).filter((c) => !CATEGORY_ORDER.includes(c));
+  return [...known, ...rest]
+    .filter((c) => catMap[c] && catMap[c].length > 0)
+    .map((c) => ({ category: c, items: catMap[c] }));
+}
+
 // ============================================================
 // Computation (shared between build + generate)
 // ============================================================
@@ -274,10 +289,7 @@ function computeShoppingListForWeek(repos, weekYear) {
   return {
     flatItems,
     legacy: {
-      categories: CATEGORY_ORDER.filter((c) => catMap[c]).map((c) => ({
-        category: c,
-        items: catMap[c],
-      })),
+      categories: orderCategories(catMap),
       totalEstPrice: Math.round(totalEstPrice),
     },
   };
@@ -534,10 +546,7 @@ function legacyViewFromActiveList(list) {
   return {
     listId: list.id,
     enrichmentStatus: list.enrichmentStatus,
-    categories: CATEGORY_ORDER.filter((c) => catMap[c]).map((c) => ({
-      category: c,
-      items: catMap[c],
-    })),
+    categories: orderCategories(catMap),
     totalEstPrice: Math.round(list.totalEstPrice ?? totalEstPrice),
   };
 }
@@ -547,5 +556,6 @@ module.exports = {
   generateForWeek,
   computeShoppingListForWeek,
   legacyViewFromActiveList,
+  orderCategories,
   CATEGORY_ORDER,
 };
