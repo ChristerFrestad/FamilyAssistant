@@ -297,7 +297,9 @@ describe('Meals — picker integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('recipe-picker')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('recipe-picker-row-99')).toBeInTheDocument();
+    // The picker opens before /api/recipes resolves; wait for the row
+    // instead of asserting synchronously (flaked under CI load).
+    expect(await screen.findByTestId('recipe-picker-row-99')).toBeInTheDocument();
   });
 
   test('plan button on empty hero opens the recipe picker dialog', async () => {
@@ -323,7 +325,9 @@ describe('Meals — picker integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('recipe-picker')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('recipe-picker-row-7')).toBeInTheDocument();
+    // The picker opens before /api/recipes resolves; wait for the row
+    // instead of asserting synchronously (flaked under CI load).
+    expect(await screen.findByTestId('recipe-picker-row-7')).toBeInTheDocument();
   });
 });
 
