@@ -13,9 +13,11 @@ import type { MealSlot } from '../../meals/mealsApi';
 
 export interface WeekListProps {
   slots: MealSlot[];
+  /** Selected dayOfWeek (0..6). */
   selectedIndex: number;
+  /** dayOfWeek of today (0..6), or -1 when viewing another week. */
   todayIndex: number;
-  /** Localised long day-names indexed 0..6 (Mandag..Søndag). */
+  /** Localised long day-names indexed by dayOfWeek 0..6 (Mandag..Søndag). */
   longDayLabels: string[];
   /** Localised "+ Legg til middag" placeholder for empty rows. */
   emptyRowLabel: string;
@@ -55,10 +57,12 @@ export function WeekList({
         {sectionLabel}
       </h3>
       <ul className="flex flex-col gap-1.5" role="list" data-testid="week-list">
-        {slots.map((slot, idx) => {
-          const isSelected = idx === selectedIndex;
-          const isToday = idx === todayIndex;
-          const dayLabel = longDayLabels[idx] ?? '';
+        {slots.map((slot) => {
+          // Keyed by dayOfWeek, never array position, so a missing row can
+          // never shift labels (F1: Thursday's dinner shown as «Onsdag»).
+          const isSelected = slot.dayOfWeek === selectedIndex;
+          const isToday = slot.dayOfWeek === todayIndex;
+          const dayLabel = longDayLabels[slot.dayOfWeek] ?? '';
           const rowText = labelForRow(slot, emptyRowLabel, awayLabel, skippedLabel);
           const showPrepTime =
             slot.recipe !== null &&
@@ -72,7 +76,7 @@ export function WeekList({
               <button
                 type="button"
                 onClick={() => {
-                  onSelect(idx);
+                  onSelect(slot.dayOfWeek);
                   if (isEmpty && onSelectEmpty) onSelectEmpty(slot.dayOfWeek);
                 }}
                 aria-pressed={isSelected}

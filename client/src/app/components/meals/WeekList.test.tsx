@@ -41,6 +41,30 @@ const COMMON_PROPS = {
 };
 
 describe('WeekList', () => {
+  test('labels rows by dayOfWeek, not array position (F1 — missing Wednesday)', () => {
+    // Backend used to return 6 rows when a seed recipe was deactivated.
+    const slots = [0, 1, 3, 4, 5, 6].map((d) => makeSlot(d));
+    const onSelect = vi.fn();
+    render(
+      <WeekList
+        slots={slots}
+        selectedIndex={3}
+        todayIndex={3}
+        {...COMMON_PROPS}
+        onSelect={onSelect}
+      />
+    );
+    const thursday = screen.getByTestId('week-list-row-3');
+    expect(thursday).toHaveTextContent('Torsdag');
+    expect(thursday).toHaveTextContent('Recipe 4');
+    expect(thursday).not.toHaveTextContent('Onsdag');
+    expect(thursday).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('week-list-row-3-today')).toBeInTheDocument();
+    expect(screen.getByTestId('week-list-row-6')).toHaveTextContent('Søndag');
+    fireEvent.click(thursday);
+    expect(onSelect).toHaveBeenCalledWith(3);
+  });
+
   test('renders 7 rows with day labels', () => {
     const slots = NO_LONG.map((_, i) => makeSlot(i));
     render(

@@ -135,11 +135,13 @@ export function MealHero({
         {recipe.name}
       </h2>
       <div className="flex flex-wrap items-center gap-2">
-        {!isCooked && onMarkCooked ? (
+        {!isCooked && onMarkCooked && slot.id !== null ? (
           <Button
             type="button"
             variant="primary"
-            onClick={() => onMarkCooked(slot.id)}
+            onClick={() => {
+              if (slot.id !== null) onMarkCooked(slot.id);
+            }}
             data-testid="meal-hero-mark-cooked-button"
           >
             {t('actions.markCooked')}

@@ -206,10 +206,10 @@ function seedFamilyDefaults(repos, familyId) {
 
 /**
  * Build a seed-id → family-recipe-id map by name-lookup. Used by
- * ensureCurrentWeek so the default-week meal-plan points at recipes
+ * ensureWeek so the default-week meal-plan points at recipes
  * that actually belong to the current family. Returns an empty map
- * if no seed-recipes match — the caller then skips meal-plan seeding
- * to avoid orphan rows.
+ * if no seed-recipes match — the caller then seeds empty planned
+ * slots instead of orphan cross-family recipe ids.
  */
 function buildSeedRecipeIdMapFromRepo(repos) {
   /** @type {Record<number, number>} */
@@ -224,29 +224,143 @@ function buildSeedRecipeIdMapFromRepo(repos) {
   return mp;
 }
 
-function ensureCurrentWeek(repos) {
-  const weekYear = seed.getWeekYear();
-  if (!repos.mealPlans.exists(weekYear)) {
-    // Only seed a default meal-plan when the family already has seed
-    // recipes — otherwise the hardcoded `seed.defaultMealPlan` rows
-    // would create orphan meal_plans pointing at recipes that belong
-    // to another family (the multi-tenant bug repaired 2026-05-02).
-    const recipeIdMap = buildSeedRecipeIdMapFromRepo(repos);
-    const remapped = seed.defaultMealPlan
-      .map((slot) => {
-        const recipeId = recipeIdMap[slot.recipeId];
-        if (recipeId == null) return null;
-        return { ...slot, recipeId };
-      })
-      .filter((slot) => slot !== null);
-    if (remapped.length > 0) {
-      repos.mealPlans.seedDefault(weekYear, remapped);
-    }
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+// ISO weeks for the past-week guard are computed in Europe/Oslo — the
+// app is Norwegian-first, the SPA computes its week from the device's
+// local clock, and there is no per-family timezone yet. NOTE: the
+// legacy seed.getWeekYear() (ensureCurrentWeek, /api/today, cron) still
+// uses UTC, so between Mon 00:00 and 01:00/02:00 Oslo it lags one week.
+// ensureCurrentWeek therefore bypasses the guard (allowPast) so the
+// server's own "current week" is never treated as past.
+const WEEK_TIME_ZONE = 'Europe/Oslo';
+
+/**
+ * ISO week-year (YYYY-WNN) of `now` as seen on a wall clock in `timeZone`.
+ * @param {Date} [now]
+ * @param {string} [timeZone]
+ * @returns {string}
+ */
+function getWeekYearInTimeZone(now = new Date(), timeZone = WEEK_TIME_ZONE) {
+  /** @type {Record<string, string>} */
+  const parts = {};
+  for (const p of new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)) {
+    parts[p.type] = p.value;
   }
-  if (!repos.choreSchedules.exists(weekYear)) {
-    repos.choreSchedules.seedDefault(weekYear);
-  }
-  return weekYear;
+  const localDate = new Date(
+    Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day))
+  );
+  return seed.getWeekYear(localDate);
 }
 
-module.exports = { seedIfEmpty, seedFamilyDefaults, ensureCurrentWeek };
+/**
+ * True when the whole ISO week is before the current Europe/Oslo week.
+ * YYYY-WNN strings are zero-padded, so string order == chronological order.
+ * @param {string} weekYear
+ * @param {Date} [now]
+ */
+function isPastWeek(weekYear, now = new Date()) {
+  return String(weekYear) < getWeekYearInTimeZone(now);
+}
+
+/**
+ * Build the 7-slot default dinner plan for a new week. Days whose seed
+ * recipe the family still has (active, matched by name) get that recipe;
+ * every other day gets an unplanned slot (recipe_id NULL, status
+ * 'planned'). We deliberately do NOT substitute another recipe: an
+ * unplanned day is shown as «Planlegg middag» in the UI and counts as
+ * "not decided" for shopping (isWeekComplete), same as a family with no
+ * seed recipes at all. Always returns exactly 7 slots (F1 fix).
+ */
+function buildDefaultWeekPlan(repos) {
+  const recipeIdMap = buildSeedRecipeIdMapFromRepo(repos);
+  const byDay = new Map(seed.defaultMealPlan.map((slot) => [slot.dayOfWeek, slot]));
+  return ALL_DAYS.map((dayOfWeek) => {
+    const seedSlot = byDay.get(dayOfWeek);
+    const recipeId = seedSlot ? recipeIdMap[seedSlot.recipeId] : undefined;
+    return { dayOfWeek, recipeId: recipeId ?? null, status: 'planned' };
+  });
+}
+
+/**
+ * Self-heal weeks that were stored with fewer than 7 dinner rows (the
+ * pre-fix partial seed). Inserts an unplanned slot for each missing
+ * day_of_week. INSERT OR IGNORE on the unique key makes this idempotent
+ * and it never touches existing rows. Returns the number of days added.
+ */
+function backfillMissingDays(repos, weekYear) {
+  const present = new Set(repos.mealPlans.getWeek(weekYear).map((row) => row.dayOfWeek));
+  const missing = ALL_DAYS.filter((d) => !present.has(d)).map((dayOfWeek) => ({
+    dayOfWeek,
+    recipeId: null,
+    status: 'planned',
+  }));
+  if (missing.length > 0) repos.mealPlans.seedDefault(weekYear, missing);
+  return missing.length;
+}
+
+/**
+ * Ensure a meal plan (and chore schedule) exist for the given ISO
+ * weekYear (YYYY-WNN). Seeds THAT week — not "current" — so callers
+ * like GET /api/meals/week/:weekYear can open next/prev weeks.
+ *
+ * Seeding rules:
+ *   - Always 7 dinner slots. Days whose seed recipe the family still has
+ *     get the remapped seed.defaultMealPlan recipe (avoids cross-family
+ *     orphan recipe ids); other days are unplanned (recipe_id NULL).
+ *   - An existing week with missing days is backfilled with unplanned
+ *     slots (no migration needed for weeks stored before this fix).
+ *   - Chore schedule is seeded when missing (same as before).
+ *   - Past weeks (entirely before the current Europe/Oslo ISO week) are
+ *     never written: browsing back must not fabricate history (F2).
+ *     Callers show them read-only; an explicit swap still upserts its
+ *     own single row.
+ *
+ * Idempotent: existing rows are never modified.
+ *
+ * @param {object} repos
+ * @param {string} weekYear
+ * @param {{ now?: Date, allowPast?: boolean }} [options]
+ * @returns {string} the weekYear that was ensured
+ */
+function ensureWeek(repos, weekYear, { now = new Date(), allowPast = false } = {}) {
+  const wk = String(weekYear || '');
+  if (!/^\d{4}-W\d{2}$/.test(wk)) {
+    throw new Error(`Invalid weekYear: ${wk}`);
+  }
+  if (!allowPast && isPastWeek(wk, now)) {
+    return wk;
+  }
+  if (!repos.mealPlans.exists(wk)) {
+    // Only seed default recipes the family actually owns — otherwise the
+    // hardcoded `seed.defaultMealPlan` rows would create orphan meal_plans
+    // pointing at recipes that belong to another family (the multi-tenant
+    // bug repaired 2026-05-02). Unmatched days stay unplanned.
+    repos.mealPlans.seedDefault(wk, buildDefaultWeekPlan(repos));
+  } else {
+    backfillMissingDays(repos, wk);
+  }
+  if (!repos.choreSchedules.exists(wk)) {
+    repos.choreSchedules.seedDefault(wk);
+  }
+  return wk;
+}
+
+function ensureCurrentWeek(repos) {
+  return ensureWeek(repos, seed.getWeekYear(), { allowPast: true });
+}
+
+module.exports = {
+  seedIfEmpty,
+  seedFamilyDefaults,
+  ensureCurrentWeek,
+  ensureWeek,
+  isPastWeek,
+  getWeekYearInTimeZone,
+  WEEK_TIME_ZONE,
+};

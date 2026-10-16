@@ -10,6 +10,7 @@ import {
   createRecipe,
   deactivateRecipe,
   fetchMealsCurrent,
+  fetchMealsWeek,
   fetchRecipes,
   importRecipeFromUrl,
   MealsApiError,
@@ -145,5 +146,17 @@ describe('recipe mutations', () => {
       status: 400,
       message: 'Missing url',
     });
+  });
+});
+
+describe('fetchMealsWeek', () => {
+  test('GETs /api/meals/week/:weekYear with credentials', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { weekYear: '2026-W20', meals: [] }));
+    const r = await fetchMealsWeek('2026-W20');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/meals/week/2026-W20',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+    expect(r.weekYear).toBe('2026-W20');
   });
 });

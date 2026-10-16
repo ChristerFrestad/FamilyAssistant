@@ -237,3 +237,24 @@ describe('generateFromMeals', () => {
     }
   });
 });
+
+describe('fetchShoppingList weekYear', () => {
+  test('appends ?week= when a weekYear is provided', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        id: null,
+        weekYear: '2026-W20',
+        status: null,
+        enrichmentStatus: 'done',
+        categories: [],
+        totalEstPrice: 0,
+      })
+    );
+    const r = await fetchShoppingList(undefined, '2026-W20');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/shopping/list/current?week=2026-W20',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+    expect(r.weekYear).toBe('2026-W20');
+  });
+});

@@ -110,5 +110,8 @@
   },
   "badge": {
     "fromPantry": "Foreslått fra pantry"
+  },
+  "weekHeader": {
+    "week": "Uke {{weekYear}}"
   }
 }
