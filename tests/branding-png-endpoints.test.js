@@ -18,7 +18,7 @@
 //   - The renderer's in-memory cache returns the same buffer on
 //     repeated calls within the same brand snapshot
 
-const { test, describe } = require('node:test');
+const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 
@@ -96,6 +96,30 @@ const ENDPOINTS = [
 ];
 
 describe('Branding PNG endpoints', () => {
+  // Warm up sharp once before the per-request 10 s timeout applies. The
+  // first render in a fresh process loads libvips and initialises font
+  // handling for the SVG text; on GitHub's Windows runners that cold start
+  // alone can exceed 10 s (flake seen on main 2026-09-24 and 2026-10-15).
+  // sharp is process-global, so later renders in this file are fast.
+  // Linux/macOS are unaffected. If sharp is missing, the endpoints already
+  // degrade to 503 and the assertions below will say so.
+  before(
+    async () => {
+      let sharp;
+      try {
+        sharp = require('sharp');
+      } catch {
+        return;
+      }
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">' +
+        '<rect width="32" height="32" fill="#000"/>' +
+        '<text x="4" y="24" font-size="20" fill="#fff">F</text></svg>';
+      await sharp(Buffer.from(svg)).png().toBuffer();
+    },
+    { timeout: 120_000 }
+  );
+
   for (const { path: url, label } of ENDPOINTS) {
     test(`GET ${url} returns 200 + valid PNG bytes + 24 h cache + ETag`, async () => {
       const { server, request, restore } = await startServerWithEnv({});
