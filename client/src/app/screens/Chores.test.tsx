@@ -8,7 +8,7 @@
 //   * child omits FAB, postpone, and add modal
 //   * adult postpone / add are present
 
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { Chores } from './Chores';
@@ -69,6 +69,18 @@ function mountChores(user: AuthUser = ADULT_USER): void {
       </AuthProvider>
     </MemoryRouter>
   );
+}
+
+// The board renders as soon as GET /api/chores/current resolves, but the
+// Chores effect that resets the optimistic list on a new week (useEffect on
+// `week`) runs a tick later. findBy/waitFor return on the first matching
+// DOM, so a click right after could land before that effect and get its
+// optimistic state wiped. Yield one macrotask inside act so React flushes
+// pending effects before the test interacts with completion state.
+async function settleBoard(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 function mockFetchByPath(handlers: Record<string, (init?: RequestInit) => Response>): void {
@@ -259,16 +271,16 @@ describe('Chores — complete / undo / postpone', () => {
       },
     });
     mountChores();
-    await waitFor(() => {
-      expect(screen.getByTestId('chore-complete-12')).toBeInTheDocument();
-    });
-    const btn = screen.getByTestId('chore-complete-12');
+    const btn = await screen.findByTestId('chore-complete-12');
+    await settleBoard();
     expect(btn).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(btn);
     await waitFor(() => {
-      expect(btn).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('chore-complete-12')).toHaveAttribute('aria-pressed', 'true');
     });
-    expect(bodies).toEqual([{ choreId: 12, weekYear: '2026-W33' }]);
+    await waitFor(() => {
+      expect(bodies).toEqual([{ choreId: 12, weekYear: '2026-W33' }]);
+    });
   });
 
   test('complete failure reverts and shows an alert', async () => {
@@ -279,9 +291,8 @@ describe('Chores — complete / undo / postpone', () => {
       'PUT /api/chores/complete': () => jsonResponse(500, { detail: 'nope' }),
     });
     mountChores();
-    await waitFor(() => {
-      expect(screen.getByTestId('chore-complete-12')).toBeInTheDocument();
-    });
+    await screen.findByTestId('chore-complete-12');
+    await settleBoard();
     fireEvent.click(screen.getByTestId('chore-complete-12'));
     await waitFor(() => {
       expect(screen.getByTestId('chores-action-error')).toHaveTextContent(
@@ -306,9 +317,8 @@ describe('Chores — complete / undo / postpone', () => {
       },
     });
     mountChores();
-    await waitFor(() => {
-      expect(screen.getByTestId('chore-undo-4')).toBeInTheDocument();
-    });
+    await screen.findByTestId('chore-undo-4');
+    await settleBoard();
     fireEvent.click(screen.getByTestId('chore-undo-4'));
     await waitFor(() => {
       expect(bodies).toEqual([{ choreId: 4, weekYear: '2026-W33' }]);
