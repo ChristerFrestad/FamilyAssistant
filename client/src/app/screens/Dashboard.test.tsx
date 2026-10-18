@@ -15,6 +15,7 @@ import { MemoryRouter } from 'react-router';
 import { Dashboard } from './Dashboard';
 import { AuthProvider } from '../auth/AuthContext';
 import type { AuthUser } from '../auth/authApi';
+import { settleEffects } from '../../test-helpers/settle';
 
 const TEST_USER: AuthUser = {
   id: 7,
@@ -232,16 +233,16 @@ describe('Dashboard screen', () => {
 
     mountDashboard();
 
-    await waitFor(() => {
-      expect(screen.getByTestId('chore-complete-1')).toBeInTheDocument();
-    });
-    const btn = screen.getByTestId('chore-complete-1');
+    const btn = await screen.findByTestId('chore-complete-1');
+    await settleEffects();
     expect(btn).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(btn);
     await waitFor(() => {
-      expect(btn).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('chore-complete-1')).toHaveAttribute('aria-pressed', 'true');
     });
-    expect(bodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
+    await waitFor(() => {
+      expect(bodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
+    });
     expect(screen.getByText(/Vaske gulv/)).toBeInTheDocument();
   });
 
@@ -264,20 +265,22 @@ describe('Dashboard screen', () => {
 
     mountDashboard();
 
+    await screen.findByTestId('chore-complete-1');
+    await settleEffects();
+    fireEvent.click(screen.getByTestId('chore-complete-1'));
     await waitFor(() => {
-      expect(screen.getByTestId('chore-complete-1')).toBeInTheDocument();
+      expect(screen.getByTestId('chore-complete-1')).toHaveAttribute('aria-pressed', 'true');
     });
-    const btn = screen.getByTestId('chore-complete-1');
-    fireEvent.click(btn);
     await waitFor(() => {
-      expect(btn).toHaveAttribute('aria-pressed', 'true');
+      expect(completeBodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
     });
-    fireEvent.click(btn);
+    fireEvent.click(screen.getByTestId('chore-complete-1'));
     await waitFor(() => {
-      expect(btn).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByTestId('chore-complete-1')).toHaveAttribute('aria-pressed', 'false');
     });
-    expect(completeBodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
-    expect(undoBodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
+    await waitFor(() => {
+      expect(undoBodies).toEqual([{ choreId: 1, weekYear: '2026-W18' }]);
+    });
   });
 
   test('child cannot complete a chore assigned to another member', async () => {

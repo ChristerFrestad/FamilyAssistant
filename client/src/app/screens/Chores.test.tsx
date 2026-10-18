@@ -8,13 +8,14 @@
 //   * child omits FAB, postpone, and add modal
 //   * adult postpone / add are present
 
-import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { Chores } from './Chores';
 import { AuthProvider } from '../auth/AuthContext';
 import type { AuthUser } from '../auth/authApi';
 import type { CurrentChore } from '../chores/choresApi';
+import { settleEffects } from '../../test-helpers/settle';
 
 const ADULT_USER: AuthUser = {
   id: 1,
@@ -69,18 +70,6 @@ function mountChores(user: AuthUser = ADULT_USER): void {
       </AuthProvider>
     </MemoryRouter>
   );
-}
-
-// The board renders as soon as GET /api/chores/current resolves, but the
-// Chores effect that resets the optimistic list on a new week (useEffect on
-// `week`) runs a tick later. findBy/waitFor return on the first matching
-// DOM, so a click right after could land before that effect and get its
-// optimistic state wiped. Yield one macrotask inside act so React flushes
-// pending effects before the test interacts with completion state.
-async function settleBoard(): Promise<void> {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
 }
 
 function mockFetchByPath(handlers: Record<string, (init?: RequestInit) => Response>): void {
@@ -272,7 +261,7 @@ describe('Chores — complete / undo / postpone', () => {
     });
     mountChores();
     const btn = await screen.findByTestId('chore-complete-12');
-    await settleBoard();
+    await settleEffects();
     expect(btn).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(btn);
     await waitFor(() => {
@@ -292,7 +281,7 @@ describe('Chores — complete / undo / postpone', () => {
     });
     mountChores();
     await screen.findByTestId('chore-complete-12');
-    await settleBoard();
+    await settleEffects();
     fireEvent.click(screen.getByTestId('chore-complete-12'));
     await waitFor(() => {
       expect(screen.getByTestId('chores-action-error')).toHaveTextContent(
@@ -318,7 +307,7 @@ describe('Chores — complete / undo / postpone', () => {
     });
     mountChores();
     await screen.findByTestId('chore-undo-4');
-    await settleBoard();
+    await settleEffects();
     fireEvent.click(screen.getByTestId('chore-undo-4'));
     await waitFor(() => {
       expect(bodies).toEqual([{ choreId: 4, weekYear: '2026-W33' }]);
