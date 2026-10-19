@@ -46,17 +46,17 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
-    "i18next": "26.4.2",
+    "i18next": "26.4.6",
     "i18next-browser-languagedetector": "8.2.1",
-    "lucide-react": "1.54.0",
+    "lucide-react": "1.57.0",
     "pino": "^10.4.0",
-    "react-i18next": "17.0.16",
+    "react-i18next": "17.0.18",
     "sharp": "^0.35.5",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "optionalDependencies": {
     "@sentry/node": "^10.69.0",
-    "sql.js": "^1.14.2"
+    "sql.js": "^1.15.0"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "^6.0.0",
