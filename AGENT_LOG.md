@@ -6,6 +6,23 @@
 
 ---
 
+2026-11-03 – Security audit: zod 4.6.5
+
+Task: CI-sjekken Security audit feilet på PR 239.
+
+Årsak: `npm audit --omit=dev --audit-level=high` stopper på zod &lt;4.6.6
+(GHSA-mrhx-c7xc-m3w5). Lockfilen pinner 4.6.5. Samme feil ligger på
+main (CI 1. nov og 25. okt, SHA af97fef). Denne PR-en endret ikke
+avhengigheter.
+
+Done: package.json og lockfilen peker nå på zod 4.6.7, som er innenfor
+samme 4.x-rekke. `npm audit --omit=dev --audit-level=high` er grønn
+lokalt. Ingen merge.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-03 – Slett oppgave, åpne oppskrift, ingen middag, bytte, ny uke
 
 Task: Fem rapporterte feil i måltider og gjøremål. Oppgaver (egne og
