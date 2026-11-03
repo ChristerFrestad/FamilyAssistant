@@ -486,3 +486,26 @@ slettet felt.
   som mockup viste (cyan/amber/mint), og hva er semantikken
   (kjølighet, posisjon, eller bruksfrekvens)?"
 - **Status:** Pending
+
+### Ingen middag og åpne oppskrift på måltidskortet
+
+- **Skjerm/Kontekst:** Måltider, MealHero og «Hele uka»
+- **Oppdaget:** 2026-11-03, feilretting av ukemeny
+- **Hva mangler:** Mockupen har «Åpne oppskrift», men ikke en tilstand
+  for «denne dagen skal vi ikke ha middag». Slett-oppgave på
+  gjøremålskortet er heller ikke tegnet.
+- **Blokkerende-nivå:** lavt — handlingene måtte finnes, så de bruker
+  eksisterende knapper og kort
+- **Midlertidig løsning:** «Åpne oppskrift» er secondary-knapp og
+  tittelen er en knapp som åpner `/recipes/:id`. «Ingen middag» er
+  ghost-knapp som setter status removed og viser et tomt kort med
+  «Planlegg middag». «Slett» på oppgave er ghost-knapp med
+  window.confirm.
+- **Antatt design-grunnlag:** Button secondary/ghost, Card padding md,
+  shadow low, tekst text-text-1 / text-text-2, mint-fokusring. Samme
+  som MealHero sine øvrige handlinger.
+- **Spørsmål til design-runde:** «Tegn tilstanden Ingen middag på
+  ukemenyen (ikke det samme som uplanlagt eller hoppet over), og
+  plassering av Slett på et gjøremålskort. Skal bekreftelsen være
+  et eget ark eller er ett trykk nok?»
+- **Status:** Pending

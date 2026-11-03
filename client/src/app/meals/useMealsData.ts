@@ -42,6 +42,8 @@ export interface UseMealsDataResult {
   selectDay: (index: number) => void;
   /** Re-fetch both endpoints. */
   retry: () => void;
+  /** Replace the week from a mutation response (swap / clear). */
+  replaceMeals: (next: MealsCurrentResponse) => void;
 }
 
 export interface UseMealsDataOverrides {
@@ -158,6 +160,12 @@ export function useMealsData(overrides: UseMealsDataOverrides = {}): UseMealsDat
     setSelectedDayIndex(index);
   }, []);
 
+  const replaceMeals = useCallback((next: MealsCurrentResponse): void => {
+    setMeals(next);
+    setIsLoading(false);
+    setError(null);
+  }, []);
+
   return {
     meals,
     isLoading,
@@ -167,6 +175,7 @@ export function useMealsData(overrides: UseMealsDataOverrides = {}): UseMealsDat
     todayIndex,
     selectDay,
     retry: load,
+    replaceMeals,
   };
 }
 

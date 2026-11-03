@@ -160,6 +160,42 @@ describe('WeekList', () => {
     expect(screen.getByTestId('week-list-row-1-text')).toHaveTextContent('Hopp over');
   });
 
+  test('removed row shows the no-dinner label', () => {
+    const slots = NO_LONG.map((_, i) =>
+      i === 2 ? makeSlot(i, { status: 'removed', recipe: null, recipeId: null }) : makeSlot(i)
+    );
+    render(
+      <WeekList
+        slots={slots}
+        selectedIndex={0}
+        todayIndex={0}
+        {...COMMON_PROPS}
+        removedLabel="Ingen middag"
+        onSelect={() => undefined}
+      />
+    );
+    expect(screen.getByTestId('week-list-row-2-text')).toHaveTextContent('Ingen middag');
+  });
+
+  test('clicking a planned row opens the recipe', () => {
+    const slots = NO_LONG.map((_, i) => makeSlot(i));
+    const onSelect = vi.fn();
+    const onOpenRecipe = vi.fn();
+    render(
+      <WeekList
+        slots={slots}
+        selectedIndex={0}
+        todayIndex={0}
+        {...COMMON_PROPS}
+        onSelect={onSelect}
+        onOpenRecipe={onOpenRecipe}
+      />
+    );
+    fireEvent.click(screen.getByTestId('week-list-row-4'));
+    expect(onSelect).toHaveBeenCalledWith(4);
+    expect(onOpenRecipe).toHaveBeenCalledWith(5);
+  });
+
   test('clicking a row calls onSelect with the index', () => {
     const slots = NO_LONG.map((_, i) => makeSlot(i));
     const handler = vi.fn();

@@ -44,7 +44,9 @@
     "markCooked": "Mark cooked",
     "alreadyCooked": "Cooked",
     "openLibrary": "Open library",
-    "openShopping": "Open shopping list"
+    "openShopping": "Open shopping list",
+    "openRecipe": "Open recipe",
+    "removeDinner": "No dinner"
   },
   "empty": {
     "heroTitle": "No meal planned",
@@ -61,13 +63,16 @@
     "awayBody": "The family is not eating at home.",
     "awayRecipeMeta": "Was planned: {{name}}",
     "skippedTitle": "Skipped",
-    "skippedBody": "This day is paused."
+    "skippedBody": "This day is paused.",
+    "removedTitle": "No dinner",
+    "removedBody": "This day is marked as having no dinner."
   },
   "weekList": {
     "heading": "Whole week",
     "emptyRow": "+ Add meal",
     "awayLabel": "Away",
-    "skippedLabel": "Skipped"
+    "skippedLabel": "Skipped",
+    "removedLabel": "No dinner"
   },
   "recipe": {
     "ingredients": "Ingredients",
@@ -79,7 +84,8 @@
     }
   },
   "errors": {
-    "loadFailed": "Could not load the meal plan."
+    "loadFailed": "Could not load the meal plan.",
+    "removeFailed": "Could not remove the dinner."
   },
   "picker": {
     "titlePlan": "Plan meal",

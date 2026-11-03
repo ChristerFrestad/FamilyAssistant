@@ -117,6 +117,28 @@ function createChoreRepos(db) {
       return chores.update(id, { active: !!active });
     },
     /**
+     * Hide a chore (user-created or seeded) and drop it from this week
+     * onward. Completion history is kept. Future seedDefault only
+     * schedules active chores, so it does not come back.
+     * @param {number} id
+     * @param {string} fromWeekYear ISO week YYYY-WNN, inclusive
+     * @returns {object|null}
+     */
+    retire(id, fromWeekYear) {
+      const familyId = getFamilyId();
+      const existing = chores.getById(id);
+      if (!existing) return null;
+      const tx = db.transaction(() => {
+        db.prepare('UPDATE chores SET active = 0 WHERE family_id = ? AND id = ?').run(familyId, id);
+        db.prepare(
+          `DELETE FROM chore_schedules
+            WHERE family_id = ? AND chore_id = ? AND week_year >= ?`
+        ).run(familyId, id, fromWeekYear);
+      });
+      tx();
+      return chores.getById(id);
+    },
+    /**
      * Insert seed chores for the current family. Does NOT pass a
      * caller-supplied id — the INSERT OR REPLACE pattern that did so
      * was a multi-tenant footgun (family 2 seeding with seed-id=1

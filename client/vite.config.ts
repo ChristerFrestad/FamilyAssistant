@@ -21,9 +21,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 //
 // PWA (Phase 1+2): vite-plugin-pwa adds installable offline-capable app
 // with auto-updating service worker and Workbox caching. Phase 2 adds
-// production icons (SVG) + NetworkFirst/StaleWhileRevalidate for
-// shopping + pantry + meals APIs so the core lists remain usable
-// offline after first visit.
+// production icons (SVG) + NetworkFirst for shopping, pantry, and meals
+// so the lists stay usable offline after the first visit, and a meal
+// swap is not hidden behind a stale cached week.
 
 export default defineConfig({
   // enforceDevIsolation() MUST run in every Vite invocation (dev + build
@@ -132,12 +132,15 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Meals plan (read-mostly) — StaleWhileRevalidate for snappy UI
+          // Meals plan changes on swap, clear, and when the ISO week rolls.
+          // StaleWhileRevalidate served last week's menu (and the pre-swap
+          // dinner) on the first paint, so the first swap looked like a no-op.
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/meals'),
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'api-meals',
+              networkTimeoutSeconds: 8,
               expiration: {
                 maxEntries: 20,
                 maxAgeSeconds: 60 * 60 * 24 * 3,

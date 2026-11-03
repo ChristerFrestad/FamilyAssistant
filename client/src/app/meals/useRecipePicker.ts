@@ -13,8 +13,14 @@
 //   applying → applyError    (swap failed; dialog stays open)
 //   ready/error → idle       (user closed dialog)
 
-import { useCallback, useState } from 'react';
-import { fetchRecipes, swapMeal, MealsApiError, type RecipeSummary } from './mealsApi';
+import { useCallback, useRef, useState } from 'react';
+import {
+  fetchRecipes,
+  swapMeal,
+  MealsApiError,
+  type RecipeSummary,
+  type SwapMealResponse,
+} from './mealsApi';
 import type { PickerMode } from '../components/meals/RecipePickerDialog';
 
 export interface RecipePickerState {
@@ -51,15 +57,22 @@ export interface UseRecipePickerResult {
 }
 
 /**
- * @param weekYear        — current ISO weekYear from /api/meals/current
- * @param onAfterSwap     — fires after a successful swap so the parent
- *                          can refetch /api/meals/current
+ * @param weekYear        — ISO week the screen is showing (URL), never
+ *                          read from a render that has not loaded meals
+ * @param onAfterSwap     — fires after a successful swap with the
+ *                          server week, so the parent can paint it
+ *                          without a follow-up GET
  */
 export function useRecipePicker(
   weekYear: string | null,
-  onAfterSwap?: () => void
+  onAfterSwap?: (result: SwapMealResponse) => void
 ): UseRecipePickerResult {
   const [state, setState] = useState<RecipePickerState>(INITIAL_STATE);
+  // Written synchronously when the dialog opens, so the first select
+  // does not no-op on a stale render where dayOfWeek was still null.
+  const dayRef = useRef<number | null>(null);
+  const weekRef = useRef<string | null>(weekYear);
+  weekRef.current = weekYear;
 
   async function loadRecipes(): Promise<void> {
     setState((prev) => ({
@@ -86,6 +99,7 @@ export function useRecipePicker(
   }
 
   const openForPlan = useCallback(async (dayOfWeek: number): Promise<void> => {
+    dayRef.current = dayOfWeek;
     setState({
       ...INITIAL_STATE,
       open: true,
@@ -98,6 +112,7 @@ export function useRecipePicker(
 
   const openForSwap = useCallback(
     async (dayOfWeek: number, currentRecipeId: number): Promise<void> => {
+      dayRef.current = dayOfWeek;
       setState({
         ...INITIAL_STATE,
         open: true,
@@ -113,15 +128,17 @@ export function useRecipePicker(
 
   const select = useCallback(
     async (recipeId: number): Promise<void> => {
-      const day = state.dayOfWeek;
-      if (weekYear === null || day === null) return;
+      const day = dayRef.current;
+      const week = weekRef.current;
+      if (week === null || day === null) return;
       setState((prev) => ({ ...prev, applying: true, applyError: null }));
       try {
-        await swapMeal(weekYear, day, recipeId);
-        // Close dialog + reset state. Parent's onAfterSwap refetches
-        // meals so the hero re-renders with the new recipe.
+        const result = await swapMeal(week, day, recipeId);
+        // Close dialog + reset state. Parent paints `result.week`
+        // directly so a stale meals GET cannot hide the first swap.
+        dayRef.current = null;
         setState(INITIAL_STATE);
-        onAfterSwap?.();
+        onAfterSwap?.(result);
       } catch (err) {
         const message = err instanceof MealsApiError ? err.message : 'Network error';
         setState((prev) => ({
@@ -131,10 +148,11 @@ export function useRecipePicker(
         }));
       }
     },
-    [state.dayOfWeek, weekYear, onAfterSwap]
+    [onAfterSwap]
   );
 
   const close = useCallback((): void => {
+    dayRef.current = null;
     setState(INITIAL_STATE);
   }, []);
 

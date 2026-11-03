@@ -18,7 +18,13 @@ import { ChoreRow } from '../components/chores/ChoreRow';
 import { AddChoreModal } from '../components/chores/AddChoreModal';
 import { useAuthContext } from '../auth/AuthContext';
 import { useChoresData } from '../chores/useChoresData';
-import { completeChore, postponeChore, undoChore, type CurrentChore } from '../chores/choresApi';
+import {
+  completeChore,
+  deleteChore,
+  postponeChore,
+  undoChore,
+  type CurrentChore,
+} from '../chores/choresApi';
 import {
   choresOnDay,
   dayHasOverdue,
@@ -169,6 +175,24 @@ export function Chores(): JSX.Element {
     [longDayLabels, refresh, t, week?.weekYear]
   );
 
+  const handleDelete = useCallback(
+    async (chore: CurrentChore): Promise<void> => {
+      if (!window.confirm(t('chores:actions.confirmDelete', { task: chore.task }))) return;
+      const snapshot = chores;
+      setActionError(null);
+      setLocalChores(snapshot.filter((c) => c.choreId !== chore.choreId));
+      try {
+        await deleteChore(chore.choreId);
+        setLiveMessage(t('chores:live.deleted', { task: chore.task }));
+        refresh();
+      } catch {
+        setLocalChores(snapshot);
+        setActionError(t('chores:errors.deleteFailed'));
+      }
+    },
+    [chores, refresh, t]
+  );
+
   const handleCreated = useCallback(
     (defaultDay: number | null) => {
       if (defaultDay !== null) selectDay(defaultDay);
@@ -311,6 +335,7 @@ export function Chores(): JSX.Element {
                     onComplete={(c) => void handleComplete(c)}
                     onUndo={(c) => void handleUndo(c)}
                     onPostpone={(c) => void handlePostpone(c)}
+                    onDelete={(c) => void handleDelete(c)}
                   />
                 </li>
               ))}

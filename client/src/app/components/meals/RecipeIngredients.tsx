@@ -59,7 +59,9 @@ export function RecipeIngredients({ recipe, scale }: RecipeIngredientsProps): JS
     }
   }, [scalingUnavailable, recipe.id, recipe.servings]);
 
-  if (recipe.ingredients.length === 0) {
+  const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+
+  if (ingredients.length === 0) {
     return (
       <section aria-labelledby="ingredients-heading" data-testid="recipe-ingredients-empty">
         <h3 id="ingredients-heading" className="mb-2 font-display text-card text-text-1">
@@ -104,7 +106,7 @@ export function RecipeIngredients({ recipe, scale }: RecipeIngredientsProps): JS
         </p>
       ) : null}
       <ul className="flex flex-col gap-1.5" role="list" data-testid="recipe-ingredient-list">
-        {recipe.ingredients.map((ing, idx) => {
+        {ingredients.map((ing, idx) => {
           const qty = ing.qty * effectiveScale;
           return (
             <li

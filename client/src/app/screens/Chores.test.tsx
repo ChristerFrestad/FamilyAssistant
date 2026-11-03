@@ -350,7 +350,29 @@ describe('Chores — complete / undo / postpone', () => {
     });
   });
 
-  test('child has complete but no postpone, FAB, or add', async () => {
+  test('adult delete confirms and DELETEs the chore', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const deleted: string[] = [];
+    mockFetchByPath({
+      '/api/chores/current': () =>
+        jsonResponse(200, currentPayload([makeChore({ choreId: 11, task: 'Støvsuge' })])),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+      'DELETE /api/chores/11': () => {
+        deleted.push('11');
+        return jsonResponse(200, { ok: true, chore: { id: 11, active: false } });
+      },
+    });
+    mountChores();
+    await screen.findByTestId('chore-delete-11');
+    fireEvent.click(screen.getByTestId('chore-delete-11'));
+    await waitFor(() => {
+      expect(deleted).toEqual(['11']);
+    });
+    expect(confirmSpy).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  test('child has complete but no postpone, FAB, add, or delete', async () => {
     mockFetchByPath({
       '/api/chores/current': () =>
         jsonResponse(200, currentPayload([makeChore({ choreId: 5, task: 'Rydde rommet' })])),
@@ -364,6 +386,7 @@ describe('Chores — complete / undo / postpone', () => {
     expect(screen.queryByTestId('chore-postpone-5')).not.toBeInTheDocument();
     expect(screen.queryByTestId('chores-fab')).not.toBeInTheDocument();
     expect(screen.queryByTestId('chores-add')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chore-delete-5')).not.toBeInTheDocument();
   });
 
   test('child cannot complete a chore assigned to someone else', async () => {

@@ -236,59 +236,60 @@ function RecipeRow({ recipe, isCurrent, disabled, onSelect }: RowProps): JSX.Ele
   const blocked = isBlocked(recipe);
   const warned = !blocked && recipe.shownWithDislikeWarning === true;
   return (
-    <li
-      className={[
-        'flex items-center justify-between gap-3 rounded-md border p-3',
-        blocked ? 'border-stroke bg-stroke-strong/10 opacity-60' : 'border-stroke bg-canvas-0',
-      ].join(' ')}
-      data-testid={`recipe-picker-row-${recipe.id}`}
-    >
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={CATEGORY_BADGE_VARIANT[recipe.category]}>
-            {t(`category.${recipe.category}`)}
-          </Badge>
-          {recipe.prepTime ? (
-            <span className="font-body text-meta text-text-3">{recipe.prepTime}</span>
-          ) : null}
-          {isCurrent ? (
-            <Badge variant="cyan" data-testid={`recipe-picker-current-${recipe.id}`}>
-              {t('picker.currentBadge')}
-            </Badge>
-          ) : null}
-          {blocked ? (
-            <span
-              className="font-body text-meta text-coral-deep"
-              data-testid={`recipe-picker-blocked-${recipe.id}`}
-            >
-              {recipe.hiddenByAllergy ? t('picker.blockedByAllergy') : t('picker.blockedByDiet')}
-            </span>
-          ) : null}
-          {warned ? (
-            <span
-              className="font-body text-meta text-amber-deep"
-              data-testid={`recipe-picker-warned-${recipe.id}`}
-            >
-              {t('picker.dislikeWarning')}
-            </span>
-          ) : null}
-        </div>
-        <div
-          className="truncate font-body text-body text-text-1"
-          title={recipe.name.length > 40 ? recipe.name : undefined}
-        >
-          {recipe.name}
-        </div>
-      </div>
-      <Button
+    <li data-testid={`recipe-picker-row-${recipe.id}`}>
+      <button
         type="button"
-        variant="primary"
         onClick={() => onSelect(recipe.id)}
         disabled={disabled}
         data-testid={`recipe-picker-select-${recipe.id}`}
+        className={[
+          'flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-mint',
+          'disabled:cursor-not-allowed',
+          blocked ? 'border-stroke bg-stroke-strong/10 opacity-60' : 'border-stroke bg-canvas-0',
+        ].join(' ')}
       >
-        {t('picker.select')}
-      </Button>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={CATEGORY_BADGE_VARIANT[recipe.category]}>
+              {t(`category.${recipe.category}`)}
+            </Badge>
+            {recipe.prepTime ? (
+              <span className="font-body text-meta text-text-3">{recipe.prepTime}</span>
+            ) : null}
+            {isCurrent ? (
+              <Badge variant="cyan" data-testid={`recipe-picker-current-${recipe.id}`}>
+                {t('picker.currentBadge')}
+              </Badge>
+            ) : null}
+            {blocked ? (
+              <span
+                className="font-body text-meta text-coral-deep"
+                data-testid={`recipe-picker-blocked-${recipe.id}`}
+              >
+                {recipe.hiddenByAllergy ? t('picker.blockedByAllergy') : t('picker.blockedByDiet')}
+              </span>
+            ) : null}
+            {warned ? (
+              <span
+                className="font-body text-meta text-amber-deep"
+                data-testid={`recipe-picker-warned-${recipe.id}`}
+              >
+                {t('picker.dislikeWarning')}
+              </span>
+            ) : null}
+          </div>
+          <div
+            className="truncate font-body text-body text-text-1"
+            title={recipe.name.length > 40 ? recipe.name : undefined}
+          >
+            {recipe.name}
+          </div>
+        </div>
+        <span className="shrink-0 rounded-md bg-mint px-3 py-1.5 font-body text-body font-medium text-ink-contrast">
+          {t('picker.select')}
+        </span>
+      </button>
     </li>
   );
 }

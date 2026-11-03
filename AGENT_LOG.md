@@ -6,6 +6,45 @@
 
 ---
 
+2026-11-03 – Slett oppgave, åpne oppskrift, ingen middag, bytte, ny uke
+
+Task: Fem rapporterte feil i måltider og gjøremål. Oppgaver (egne og
+standard) skal kunne slettes. Oppskrift skal åpnes. En dag skal kunne
+stå uten middag. Bytte skal virke på første trykk. Ny uke skal få en
+ny meny, ikke de samme sju seed-middagene.
+
+Analysis: docs/analyses/2026-11-03-meals-chores-week-menu.md
+- Journey: 5 løp, dybde 3
+- Edge cases: 16
+- Decisions: 4, alle med anbefaling
+- Portainer risk: no
+
+Plan: Slett via active=0 + fjern fremtidige rader. Åpne oppskrift fra
+uke-lista og helten. PUT /api/meals/clear setter removed. Bytte-svaret
+inneholder uken så UI ikke leser gammel cache. Nye uker roterer
+biblioteket og hopper over de siste fire ukene.
+
+Done:
+- Branch: cursor/fix-meals-chores-week-menu-cd17
+- DOMAIN_MODEL.md updated: yes (ukemeny-regel og sletting av oppgave)
+- Deviation from plan: none
+
+Security: Voksen-rolle, Zod, parameterisert SQL, withAudit på slett.
+Familie-scope som før. Ingen nye hemmeligheter.
+
+ISO 25010: Functional suitability og reliability bedre. Security ikke
+påvirket.
+
+Status: waiting-for-operator
+
+Decisions the operator must make (with recommendation):
+Ingen. Anbefalingene i analysen er fulgt.
+
+Next: Les PR-en. Ikke merge før OK. Allerede lagrede uker blir ikke
+skrevet om — neste uke som åpnes får den nye menyen.
+
+---
+
 2026-08-16 – New-family consumable seed is grocery-first
 
 Live seed no longer inserts the branded/baby/personal-care demo

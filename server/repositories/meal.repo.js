@@ -42,6 +42,67 @@ function createMealRepos(db, tryParseJson) {
       `
       ).run(familyId, weekYear, dayOfWeek, recipeId, status);
     },
+    /**
+     * Mark a day as explicitly having no dinner. recipe_id is cleared
+     * so shopping skips the slot (status 'removed' is already excluded).
+     * Inserts the row when the week was ensured without that day.
+     */
+    clearDinner(weekYear, dayOfWeek) {
+      const familyId = getFamilyId();
+      const result = db
+        .prepare(
+          `
+        UPDATE meal_plans
+           SET recipe_id = NULL, status = 'removed'
+         WHERE family_id = ? AND week_year = ? AND day_of_week = ? AND meal_type = 'middag'
+      `
+        )
+        .run(familyId, weekYear, dayOfWeek);
+      if (result.changes === 0) {
+        db.prepare(
+          `
+          INSERT INTO meal_plans (family_id, week_year, day_of_week, meal_type, recipe_id, status)
+          VALUES (?, ?, ?, 'middag', NULL, 'removed')
+        `
+        ).run(familyId, weekYear, dayOfWeek);
+      }
+    },
+    /**
+     * Recipe ids used on recent weeks strictly before `beforeWeekYear`.
+     * Used so a newly seeded week does not repeat the last few menus.
+     * @param {string} beforeWeekYear
+     * @param {number} [weekCount]
+     * @returns {number[]}
+     */
+    recentRecipeIds(beforeWeekYear, weekCount = 4) {
+      const familyId = getFamilyId();
+      const limit = Number.isInteger(weekCount) && weekCount > 0 ? weekCount : 4;
+      const weeks = db
+        .prepare(
+          `
+        SELECT DISTINCT week_year AS weekYear
+          FROM meal_plans
+         WHERE family_id = ? AND week_year < ? AND meal_type = 'middag'
+         ORDER BY week_year DESC
+         LIMIT ?
+      `
+        )
+        .all(familyId, beforeWeekYear, limit);
+      if (weeks.length === 0) return [];
+      const placeholders = weeks.map(() => '?').join(',');
+      const rows = db
+        .prepare(
+          `
+        SELECT DISTINCT recipe_id AS recipeId
+          FROM meal_plans
+         WHERE family_id = ? AND meal_type = 'middag'
+           AND recipe_id IS NOT NULL
+           AND week_year IN (${placeholders})
+      `
+        )
+        .all(familyId, ...weeks.map((w) => w.weekYear));
+      return rows.map((r) => r.recipeId);
+    },
     setStatus(weekYear, dayOfWeek, status) {
       const familyId = getFamilyId();
       db.prepare(

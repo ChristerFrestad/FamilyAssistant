@@ -373,6 +373,101 @@ function computeMissingForRestOfWeek(repos, weekYear) {
   return missing;
 }
 
+const WEEK_CATEGORY_PLAN = ['rask', 'rask', 'rask', 'rask', 'comfort', 'helg', 'helg'];
+
+/**
+ * Stable week index so two consecutive ISO weeks rotate by one step.
+ * YYYY-WNN is zero-padded; a bad string yields 0.
+ * @param {string} weekYear
+ */
+function weekIndex(weekYear) {
+  const raw = String(weekYear || '');
+  const year = Number(raw.slice(0, 4));
+  const week = Number(raw.slice(6));
+  if (!Number.isFinite(year) || !Number.isFinite(week)) return 0;
+  return year * 53 + week;
+}
+
+function rotateList(list, shift) {
+  if (list.length === 0) return list;
+  const n = ((shift % list.length) + list.length) % list.length;
+  return list.slice(n).concat(list.slice(0, n));
+}
+
+/**
+ * Pick 7 dinner recipe ids for a week. Deterministic for the same
+ * catalog + week + recent set. Prefers the category mix
+ * Mon–Thu rask, Fri comfort, Sat–Sun helg, skips ids in `recentIds`
+ * while alternatives remain, and never repeats a recipe inside the week.
+ * Missing slots stay null (unplanned) when the catalog runs out.
+ *
+ * @param {Array<{id: number, category: string}>} recipes
+ * @param {string} weekYear
+ * @param {number[]} [recentIds]
+ * @returns {Array<{dayOfWeek: number, recipeId: number|null, status: string}>}
+ */
+function chooseWeekRecipes(recipes, weekYear, recentIds = []) {
+  const recent = new Set(recentIds.filter((id) => id != null));
+  const used = new Set();
+  const byCat = { rask: [], comfort: [], helg: [] };
+  const sorted = [...recipes].filter((r) => r && r.id != null).sort((a, b) => a.id - b.id);
+  for (const recipe of sorted) {
+    if (byCat[recipe.category]) byCat[recipe.category].push(recipe);
+  }
+  const shift = weekIndex(weekYear);
+  for (const cat of Object.keys(byCat)) {
+    byCat[cat] = rotateList(byCat[cat], shift);
+  }
+
+  function take(preferred) {
+    const order = [preferred, 'rask', 'comfort', 'helg'];
+    for (const cat of order) {
+      const fresh = (byCat[cat] || []).find((r) => !used.has(r.id) && !recent.has(r.id));
+      if (fresh) {
+        used.add(fresh.id);
+        return fresh.id;
+      }
+    }
+    for (const cat of order) {
+      const any = (byCat[cat] || []).find((r) => !used.has(r.id));
+      if (any) {
+        used.add(any.id);
+        return any.id;
+      }
+    }
+    return null;
+  }
+
+  return WEEK_CATEGORY_PLAN.map((category, dayOfWeek) => ({
+    dayOfWeek,
+    recipeId: take(category),
+    status: 'planned',
+  }));
+}
+
+/**
+ * Build a fresh 7-day dinner plan for a week that does not exist yet.
+ * Uses the family's active recipes, skips unsafe ones, and avoids
+ * dinners from the previous four weeks when the library is large enough.
+ * @param {object} repos
+ * @param {string} weekYear
+ */
+function buildVariedWeekPlan(repos, weekYear) {
+  const profile = (() => {
+    try {
+      return repos.familyProfile.get();
+    } catch {
+      return {};
+    }
+  })();
+  const all = (repos.recipes.getAll() || []).filter((recipe) => isRecipeSafe(recipe, profile));
+  const recent =
+    repos.mealPlans && typeof repos.mealPlans.recentRecipeIds === 'function'
+      ? repos.mealPlans.recentRecipeIds(weekYear, 4)
+      : [];
+  return chooseWeekRecipes(all, weekYear, recent);
+}
+
 module.exports = {
   getSwapSuggestions,
   checkShelfLife,
@@ -380,4 +475,6 @@ module.exports = {
   generatePantryRestOfWeek,
   computeMissingForRestOfWeek,
   resolveMode,
+  chooseWeekRecipes,
+  buildVariedWeekPlan,
 };

@@ -63,6 +63,38 @@ describe('MealHero — recipe state', () => {
     expect(screen.queryByTestId('meal-hero-source-link')).toBeNull();
   });
 
+  test('recipe name and open button call onOpenRecipe', () => {
+    const handler = vi.fn();
+    render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onOpenRecipe={handler} />);
+    fireEvent.click(screen.getByTestId('meal-hero-open-recipe'));
+    fireEvent.click(screen.getByTestId('meal-hero-open-recipe-button'));
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(handler).toHaveBeenCalledWith(1);
+  });
+
+  test('remove button calls onRemove with the day', () => {
+    const handler = vi.fn();
+    render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onRemove={handler} />);
+    fireEvent.click(screen.getByTestId('meal-hero-remove-button'));
+    expect(handler).toHaveBeenCalledWith(0);
+  });
+
+  test('removed status shows no dinner and a plan button', () => {
+    const handler = vi.fn();
+    render(
+      <MealHero
+        slot={makeSlot({ status: 'removed', recipe: null, recipeId: null })}
+        dayLabel="Onsdag"
+        isToday={false}
+        onPlan={handler}
+      />
+    );
+    expect(screen.getByTestId('meal-hero-removed')).toBeInTheDocument();
+    expect(screen.getByText('Ingen middag')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('meal-hero-plan-button'));
+    expect(handler).toHaveBeenCalledWith(0);
+  });
+
   test('swap button calls onSwap with dayOfWeek and current recipe id', () => {
     const handler = vi.fn();
     render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onSwap={handler} />);

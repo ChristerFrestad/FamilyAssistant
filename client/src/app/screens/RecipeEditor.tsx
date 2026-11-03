@@ -94,9 +94,10 @@ function emptyDraft(): EditorDraft {
 }
 
 function draftFromRecipe(recipe: RecipeDetail): EditorDraft {
+  const source = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   const ingredients =
-    recipe.ingredients.length > 0
-      ? recipe.ingredients.map((ing) => {
+    source.length > 0
+      ? source.map((ing) => {
           const row: IngredientDraft = {
             key: newIngredientKey(),
             name: ing.name,
@@ -197,6 +198,12 @@ export function RecipeEditor(): JSX.Element {
     fetchRecipe(recipeId, ctrl.signal).then(
       (res) => {
         if (ctrl.signal.aborted) return;
+        if (!res?.recipe) {
+          setRecipe(null);
+          setIsLoading(false);
+          setLoadError(t('recipes:errors.loadOneFailed'));
+          return;
+        }
         setRecipe(res.recipe);
         const next = draftFromRecipe(res.recipe);
         setDraft(next);
