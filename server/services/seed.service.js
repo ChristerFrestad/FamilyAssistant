@@ -204,26 +204,6 @@ function seedFamilyDefaults(repos, familyId) {
   });
 }
 
-/**
- * Build a seed-id → family-recipe-id map by name-lookup. Used by
- * ensureWeek so the default-week meal-plan points at recipes
- * that actually belong to the current family. Returns an empty map
- * if no seed-recipes match — the caller then seeds empty planned
- * slots instead of orphan cross-family recipe ids.
- */
-function buildSeedRecipeIdMapFromRepo(repos) {
-  /** @type {Record<number, number>} */
-  const mp = {};
-  if (typeof repos.recipes.findByName !== 'function') return mp;
-  for (const r of seed.recipes) {
-    const found = repos.recipes.findByName(r.name);
-    if (found && Number.isInteger(found.id)) {
-      mp[r.id] = found.id;
-    }
-  }
-  return mp;
-}
-
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 // ISO weeks for the past-week guard are computed in Europe/Oslo — the
@@ -269,22 +249,19 @@ function isPastWeek(weekYear, now = new Date()) {
 }
 
 /**
- * Build the 7-slot default dinner plan for a new week. Days whose seed
- * recipe the family still has (active, matched by name) get that recipe;
- * every other day gets an unplanned slot (recipe_id NULL, status
- * 'planned'). We deliberately do NOT substitute another recipe: an
- * unplanned day is shown as «Planlegg middag» in the UI and counts as
- * "not decided" for shopping (isWeekComplete), same as a family with no
- * seed recipes at all. Always returns exactly 7 slots (F1 fix).
+ * Build the 7-slot dinner plan for a week that does not exist yet.
+ * Rotates through the family's active, allergy-safe recipes and avoids
+ * the previous four weeks, so a new week is not a copy of
+ * seed.defaultMealPlan. Days left without a recipe stay unplanned
+ * (recipe_id NULL, status 'planned'). Always returns exactly 7 slots.
+ * @param {object} repos
+ * @param {string} weekYear
  */
-function buildDefaultWeekPlan(repos) {
-  const recipeIdMap = buildSeedRecipeIdMapFromRepo(repos);
-  const byDay = new Map(seed.defaultMealPlan.map((slot) => [slot.dayOfWeek, slot]));
-  return ALL_DAYS.map((dayOfWeek) => {
-    const seedSlot = byDay.get(dayOfWeek);
-    const recipeId = seedSlot ? recipeIdMap[seedSlot.recipeId] : undefined;
-    return { dayOfWeek, recipeId: recipeId ?? null, status: 'planned' };
-  });
+function buildDefaultWeekPlan(repos, weekYear) {
+  // Lazy require: meal-planning pulls seed.js, and this file is the
+  // seed orchestrator. Loading at call time keeps module init acyclic.
+  const { buildVariedWeekPlan } = require('./meal-planning.service');
+  return buildVariedWeekPlan(repos, weekYear);
 }
 
 /**
@@ -310,9 +287,10 @@ function backfillMissingDays(repos, weekYear) {
  * like GET /api/meals/week/:weekYear can open next/prev weeks.
  *
  * Seeding rules:
- *   - Always 7 dinner slots. Days whose seed recipe the family still has
- *     get the remapped seed.defaultMealPlan recipe (avoids cross-family
- *     orphan recipe ids); other days are unplanned (recipe_id NULL).
+ *   - Always 7 dinner slots. A new week rotates the family's own active
+ *     recipes (see buildVariedWeekPlan) and skips dinners from the
+ *     previous four weeks. Days without a safe recipe stay unplanned
+ *     (recipe_id NULL). Stored weeks are never rewritten.
  *   - An existing week with missing days is backfilled with unplanned
  *     slots (no migration needed for weeks stored before this fix).
  *   - Chore schedule is seeded when missing (same as before).
@@ -337,11 +315,10 @@ function ensureWeek(repos, weekYear, { now = new Date(), allowPast = false } = {
     return wk;
   }
   if (!repos.mealPlans.exists(wk)) {
-    // Only seed default recipes the family actually owns — otherwise the
-    // hardcoded `seed.defaultMealPlan` rows would create orphan meal_plans
-    // pointing at recipes that belong to another family (the multi-tenant
-    // bug repaired 2026-05-02). Unmatched days stay unplanned.
-    repos.mealPlans.seedDefault(wk, buildDefaultWeekPlan(repos));
+    // Family-scoped active recipes only. A varied plan never points at
+    // another family's recipe ids (the multi-tenant bug repaired
+    // 2026-05-02). Days without a safe recipe stay unplanned.
+    repos.mealPlans.seedDefault(wk, buildDefaultWeekPlan(repos, wk));
   } else {
     backfillMissingDays(repos, wk);
   }

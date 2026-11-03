@@ -45,6 +45,11 @@ const mealsStatusBody = z.object({
   status: mealStatus,
 });
 
+const mealsClearBody = z.object({
+  weekYear: weekYear.optional(),
+  dayOfWeek,
+});
+
 /**
  * Sprint 6 — meal-cooked deduction body. Used by
  * POST /api/meals/:id/apply-deduction. Each entry is one ingredient
@@ -589,6 +594,7 @@ const dayOfWeekParam = z.object({ dayOfWeek: z.coerce.number().int().min(0).max(
 module.exports = {
   mealsSwapBody,
   mealsStatusBody,
+  mealsClearBody,
   mealsReorderBody,
   mealApplyDeductionBody,
   pantrySuggestionBody,

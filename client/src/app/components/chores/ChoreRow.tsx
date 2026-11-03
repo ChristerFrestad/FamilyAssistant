@@ -27,6 +27,7 @@ export interface ChoreRowProps {
   onComplete: (chore: CurrentChore) => void;
   onUndo: (chore: CurrentChore) => void;
   onPostpone: (chore: CurrentChore) => void;
+  onDelete?: (chore: CurrentChore) => void;
 }
 
 export function ChoreRow({
@@ -39,6 +40,7 @@ export function ChoreRow({
   onComplete,
   onUndo,
   onPostpone,
+  onDelete,
 }: ChoreRowProps): JSX.Element {
   const { t } = useTranslation(['chores', 'meals']);
   const isAdult = role === 'owner' || role === 'adult';
@@ -134,7 +136,7 @@ export function ChoreRow({
             ) : null}
           </div>
 
-          {showPostpone || showUndo ? (
+          {showPostpone || showUndo || (isAdult && onDelete) ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {showPostpone ? (
                 <Button
@@ -156,6 +158,17 @@ export function ChoreRow({
                   data-testid={`chore-undo-${chore.choreId}`}
                 >
                   {t('chores:actions.undo')}
+                </Button>
+              ) : null}
+              {isAdult && onDelete ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(chore)}
+                  data-testid={`chore-delete-${chore.choreId}`}
+                >
+                  {t('chores:actions.delete')}
                 </Button>
               ) : null}
             </div>

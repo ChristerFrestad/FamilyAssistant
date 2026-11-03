@@ -44,7 +44,9 @@
     "markCooked": "Marker tilberedt",
     "alreadyCooked": "Tilberedt",
     "openLibrary": "Åpne bibliotek",
-    "openShopping": "Åpne handleliste"
+    "openShopping": "Åpne handleliste",
+    "openRecipe": "Åpne oppskrift",
+    "removeDinner": "Ingen middag"
   },
   "empty": {
     "heroTitle": "Ingen middag planlagt",
@@ -61,13 +63,16 @@
     "awayBody": "Familien spiser ikke hjemme.",
     "awayRecipeMeta": "Tidligere planlagt: {{name}}",
     "skippedTitle": "Hoppet over",
-    "skippedBody": "Denne dagen står i pause."
+    "skippedBody": "Denne dagen står i pause.",
+    "removedTitle": "Ingen middag",
+    "removedBody": "Denne dagen er satt til uten middag."
   },
   "weekList": {
     "heading": "Hele uka",
     "emptyRow": "+ Legg til middag",
     "awayLabel": "Borte",
-    "skippedLabel": "Hopp over"
+    "skippedLabel": "Hopp over",
+    "removedLabel": "Ingen middag"
   },
   "recipe": {
     "ingredients": "Ingredienser",
@@ -79,7 +84,8 @@
     }
   },
   "errors": {
-    "loadFailed": "Kunne ikke hente måltidsplanen."
+    "loadFailed": "Kunne ikke hente måltidsplanen.",
+    "removeFailed": "Kunne ikke fjerne middagen."
   },
   "picker": {
     "titlePlan": "Planlegg middag",

@@ -48,6 +48,10 @@ export interface MealHeroProps {
    * rendering the hero without supplying a handler.
    */
   onMarkCooked?: (mealId: number) => void;
+  /** Opens the in-app recipe page. */
+  onOpenRecipe?: (recipeId: number) => void;
+  /** Marks the day as having no dinner. */
+  onRemove?: (dayOfWeek: number) => void;
 }
 
 export function MealHero({
@@ -57,6 +61,8 @@ export function MealHero({
   onPlan,
   onSwap,
   onMarkCooked,
+  onOpenRecipe,
+  onRemove,
 }: MealHeroProps): JSX.Element {
   const { t } = useTranslation('meals');
 
@@ -78,6 +84,25 @@ export function MealHero({
             {t('status.awayRecipeMeta', { name: slot.recipe.name })}
           </p>
         ) : null}
+      </Card>
+    );
+  }
+
+  if (slot.status === 'removed') {
+    return (
+      <Card padding="md" shadow="low" data-testid="meal-hero-removed">
+        <HeroDayHeader label={headerLabel} />
+        <h2 className="font-display text-display-sm text-text-1">{t('status.removedTitle')}</h2>
+        <p className="mb-3 font-body text-body text-text-2">{t('status.removedBody')}</p>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => onPlan?.(slot.dayOfWeek)}
+          disabled={onPlan == null}
+          data-testid="meal-hero-plan-button"
+        >
+          {t('actions.plan')}
+        </Button>
       </Card>
     );
   }
@@ -132,7 +157,18 @@ export function MealHero({
         ) : null}
       </div>
       <h2 className="mb-3 font-display text-display-sm text-text-1" data-testid="meal-hero-name">
-        {recipe.name}
+        {onOpenRecipe ? (
+          <button
+            type="button"
+            onClick={() => onOpenRecipe(recipe.id)}
+            className="text-left underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+            data-testid="meal-hero-open-recipe"
+          >
+            {recipe.name}
+          </button>
+        ) : (
+          recipe.name
+        )}
       </h2>
       <div className="flex flex-wrap items-center gap-2">
         {!isCooked && onMarkCooked && slot.id !== null ? (
@@ -156,6 +192,26 @@ export function MealHero({
         >
           {t('actions.swap')}
         </Button>
+        {onOpenRecipe ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onOpenRecipe(recipe.id)}
+            data-testid="meal-hero-open-recipe-button"
+          >
+            {t('actions.openRecipe')}
+          </Button>
+        ) : null}
+        {onRemove ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onRemove(slot.dayOfWeek)}
+            data-testid="meal-hero-remove-button"
+          >
+            {t('actions.removeDinner')}
+          </Button>
+        ) : null}
         {recipe.url ? (
           <a
             className="inline-flex items-center rounded-pill border border-stroke px-3 py-1.5 font-body text-body text-text-2 hover:text-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint"

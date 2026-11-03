@@ -167,3 +167,8 @@ export async function createChore(
 ): Promise<{ ok: true; chore: CreatedChore }> {
   return sendJson<{ ok: true; chore: CreatedChore }>('/api/chores', 'POST', body);
 }
+
+/** DELETE /api/chores/:id — retire a user-added or seeded chore. */
+export async function deleteChore(choreId: number): Promise<{ ok: true }> {
+  return sendJson<{ ok: true }>(`/api/chores/${choreId}`, 'DELETE', undefined);
+}

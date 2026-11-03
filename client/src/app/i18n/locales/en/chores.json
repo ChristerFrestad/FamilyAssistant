@@ -21,7 +21,8 @@
     "completeFailed": "Could not mark this done.",
     "undoFailed": "Could not undo.",
     "postponeFailed": "Could not postpone.",
-    "saveFailed": "Could not save the chore."
+    "saveFailed": "Could not save the chore.",
+    "deleteFailed": "Could not delete the chore."
   },
   "actions": {
     "retry": "Try again",
@@ -30,7 +31,9 @@
     "complete": "Mark {{task}} done",
     "completed": "{{task}} is done. Undo",
     "undo": "Undo",
-    "postpone": "Postpone"
+    "postpone": "Postpone",
+    "delete": "Delete",
+    "confirmDelete": "Delete \"{{task}}\"? It disappears from this week and does not come back."
   },
   "status": {
     "overdue": "Overdue",
@@ -41,7 +44,8 @@
     "completed": "{{task}} marked done",
     "undone": "{{task}} is open again",
     "postponed": "{{task}} moved to {{day}}",
-    "postponedNextWeek": "{{task}} moved to next Monday"
+    "postponedNextWeek": "{{task}} moved to next Monday",
+    "deleted": "{{task}} was deleted"
   },
   "addModal": {
     "title": "New chore",

@@ -25,6 +25,8 @@ export interface WeekListProps {
   awayLabel: string;
   /** Localised status hint for "skipped" rows (compact). */
   skippedLabel: string;
+  /** Localised status hint for an explicit "no dinner" row. */
+  removedLabel?: string;
   /** Localised "I dag"-marker text. */
   todayLabel: string;
   /** Localised section heading (h3). */
@@ -36,6 +38,8 @@ export interface WeekListProps {
    * row just navigates (legacy behaviour).
    */
   onSelectEmpty?: (dayOfWeek: number) => void;
+  /** Opens the recipe page when the row has a planned dinner. */
+  onOpenRecipe?: (recipeId: number) => void;
 }
 
 export function WeekList({
@@ -46,10 +50,12 @@ export function WeekList({
   emptyRowLabel,
   awayLabel,
   skippedLabel,
+  removedLabel = 'Ingen middag',
   todayLabel,
   sectionLabel,
   onSelect,
   onSelectEmpty,
+  onOpenRecipe,
 }: WeekListProps): JSX.Element {
   return (
     <section aria-labelledby="week-list-heading" className="flex flex-col gap-2">
@@ -63,14 +69,22 @@ export function WeekList({
           const isSelected = slot.dayOfWeek === selectedIndex;
           const isToday = slot.dayOfWeek === todayIndex;
           const dayLabel = longDayLabels[slot.dayOfWeek] ?? '';
-          const rowText = labelForRow(slot, emptyRowLabel, awayLabel, skippedLabel);
+          const rowText = labelForRow(slot, emptyRowLabel, awayLabel, skippedLabel, removedLabel);
           const showPrepTime =
             slot.recipe !== null &&
             slot.status !== 'away' &&
             slot.status !== 'skipped' &&
             slot.recipe.prepTime !== null;
           const isEmpty =
-            slot.recipe === null && slot.status !== 'away' && slot.status !== 'skipped';
+            slot.recipe === null &&
+            slot.status !== 'away' &&
+            slot.status !== 'skipped' &&
+            slot.status !== 'removed';
+          const canOpen =
+            slot.recipe !== null &&
+            slot.status !== 'away' &&
+            slot.status !== 'skipped' &&
+            slot.status !== 'removed';
           return (
             <li key={slot.dayOfWeek}>
               <button
@@ -78,6 +92,7 @@ export function WeekList({
                 onClick={() => {
                   onSelect(slot.dayOfWeek);
                   if (isEmpty && onSelectEmpty) onSelectEmpty(slot.dayOfWeek);
+                  else if (canOpen && onOpenRecipe && slot.recipe) onOpenRecipe(slot.recipe.id);
                 }}
                 aria-pressed={isSelected}
                 aria-current={isToday ? 'date' : undefined}
@@ -131,12 +146,14 @@ function labelForRow(
   slot: MealSlot,
   emptyRowLabel: string,
   awayLabel: string,
-  skippedLabel: string
+  skippedLabel: string,
+  removedLabel: string
 ): string {
   if (slot.status === 'away') {
     return slot.recipe ? `${awayLabel} · ${slot.recipe.name}` : awayLabel;
   }
   if (slot.status === 'skipped') return skippedLabel;
+  if (slot.status === 'removed') return removedLabel;
   if (slot.recipe === null) return emptyRowLabel;
   return slot.recipe.name;
 }

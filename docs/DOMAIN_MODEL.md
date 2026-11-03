@@ -185,6 +185,24 @@ in the family/household.
 
 ---
 
+### Chore
+
+**Source file:** `server/routes.js` (catalog + week board)
+**Repository:** `repos.chores` / `repos.choreSchedules` in `server/repositories/chore.repo.js`
+**Table:** `chores`, `chore_schedules`
+
+**What it is:** A family task. Seed inserts the standard set (vacuum, trash, bathrooms, …). Adults can add more. Both kinds are ordinary rows — nothing is locked because it came from seed.
+
+**Rules:**
+- `DELETE /api/chores/:id` (adult) sets `active=0` and deletes `chore_schedules` from the current ISO week onward
+- Completion rows in `chore_completions` stay, so week XP is not rewritten
+- Later weeks only schedule `active=1` chores, so a deleted standard task does not return
+- Another family's id is 404. A child gets 403
+
+**Covered by tests:**
+- `tests/household-fixes.test.js`
+- `tests/chore-crud.test.js`
+
 ### ChoreCompletion / week XP
 
 **Source file:** `server/repositories/chore.repo.js` (`markDone`)
@@ -228,7 +246,8 @@ in the family/household.
 **What it is:** One dinner row per day of an ISO week (`week_year` = `YYYY-WNN`, `day_of_week` 0=Mon..6=Sun). `recipe_id` NULL + `status='planned'` means "not planned yet".
 
 **Rules:**
-- A week always has 7 dinner rows. Seeding uses the family's own (active) default seed recipes; any day whose seed recipe is missing/deactivated is left unplanned (no substitute recipe)
+- A week always has 7 dinner rows. A week that does not exist yet is filled by rotating the family's active, allergy-safe recipes (`chooseWeekRecipes`): Mon–Thu rask, Fri comfort, Sat–Sun helg when the library allows it. Recipes used in the previous four weeks are skipped while alternatives remain. The rotation is deterministic for a given week, so two devices do not roll different menus. Days without a safe recipe stay unplanned (`recipe_id` NULL, `status='planned'`). The curated `seed.defaultMealPlan` is only the first week inserted by `seedFamilyDefaults`, not every later week.
+- `PUT /api/meals/clear` sets `recipe_id` NULL and `status='removed'` (explicit "no dinner"). That counts as a decision for shopping and does not come back on the next read. `PUT /api/meals/swap` returns the joined `week` so the client does not have to refetch a cached plan.
 - Weeks stored with fewer than 7 rows are backfilled with unplanned rows on read (`INSERT OR IGNORE`, no migration)
 - Shopping generation requires every day decided (`isWeekComplete`); an unplanned day is plannable in the UI (swap), after which the list generates
 - Clients key days by `dayOfWeek`, never by array position

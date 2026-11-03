@@ -370,10 +370,36 @@ paths:
               properties:
                 weekYear: { type: string }
                 dayOfWeek: { type: integer }
-                status: { type: string, enum: [planned, cooked, skipped, away] }
+                status: { type: string, enum: [planned, cooked, skipped, away, removed] }
       responses:
         '200': { description: Updated }
         '400': { $ref: "#/components/responses/BadRequest" }
+
+  /api/meals/clear:
+    put:
+      summary: Mark a day as having no dinner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dayOfWeek]
+              properties:
+                weekYear: { type: string }
+                dayOfWeek: { type: integer, minimum: 0, maximum: 6 }
+      responses:
+        '200':
+          description: Day cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  week: { $ref: "#/components/schemas/MealsResponse" }
+        '400': { $ref: "#/components/responses/BadRequest" }
+        '403': { description: Requires adult }
 
   /api/recipes:
     get:
@@ -492,6 +518,27 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  chore: { $ref: "#/components/schemas/ChoreCatalogItem" }
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '403': { description: Requires adult }
+        '404': { description: Not found }
+    delete:
+      summary: Retire a chore, including a seeded standard task
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Retired
           content:
             application/json:
               schema:

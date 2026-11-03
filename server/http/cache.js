@@ -101,6 +101,11 @@ function createCache({ max = 200, ttlMs = 60_000 } = {}) {
 
 const responseCache = createCache({ max: 200, ttlMs: 60_000 });
 
+// Bumped on every invalidate. A GET that started before a write must
+// not store its (possibly pre-write) body afterwards — that put the
+// old week back in cache and made the first meal swap look like a no-op.
+let cacheEpoch = 0;
+
 function cacheKey(ctx) {
   // Family-scope the key so two tenants never share a cached GET.
   // Path + query alone leaked calendar (and other) lists across families.
@@ -134,9 +139,12 @@ function withCache(tags, handler) {
       return;
     }
     ctx.res.setHeader('X-Cache', 'MISS');
+    const seenEpoch = cacheEpoch;
     const origJson = ctx.json.bind(ctx);
     ctx.json = (data, status = 200) => {
-      if (status === 200) responseCache.set(key, data, { tags: tagList });
+      if (status === 200 && seenEpoch === cacheEpoch) {
+        responseCache.set(key, data, { tags: tagList });
+      }
       return origJson(data, status);
     };
     await handler(ctx);
@@ -144,6 +152,7 @@ function withCache(tags, handler) {
 }
 
 function invalidate(...tags) {
+  cacheEpoch += 1;
   let total = 0;
   for (const t of tags) total += responseCache.invalidateTag(t);
   return total;

@@ -96,7 +96,6 @@ describe('Meals week seed — requested weekYear', () => {
 // the family has deactivated a seed recipe, and weeks stored with <7 rows
 // (pre-fix) self-heal on read so Shopping is no longer a dead end.
 describe('Meals week seed — always 7 days (F1)', () => {
-  const seed = require('../server/seed');
   const DAY_NAMES = [
     'Mandag',
     'Tirsdag',
@@ -123,18 +122,12 @@ describe('Meals week seed — always 7 days (F1)', () => {
       .get(wk).n;
   }
 
-  test('deactivated seed recipe → new week still has 7 correctly labelled days', async () => {
-    const wednesdaySeed = seed.recipes.find(
-      (r) => r.id === seed.defaultMealPlan.find((s) => s.dayOfWeek === 2).recipeId
-    );
-    const wednesdayRecipe = ctx.repos.recipes.findByName(wednesdaySeed.name);
-    assert.ok(wednesdayRecipe, 'fixture: Wednesday seed recipe exists');
-    const deact = await request(
-      ctx.baseUrl,
-      'POST',
-      `/api/recipes/${wednesdayRecipe.id}/deactivate`,
-      { body: {} }
-    );
+  test('deactivated recipe is not used, and the new week still has 7 labelled days', async () => {
+    const hidden = ctx.repos.recipes.getAll()[0];
+    assert.ok(hidden, 'fixture: at least one active recipe');
+    const deact = await request(ctx.baseUrl, 'POST', `/api/recipes/${hidden.id}/deactivate`, {
+      body: {},
+    });
     assert.equal(deact.status, 200);
 
     const wk = weekPlusDays(21);
@@ -149,15 +142,13 @@ describe('Meals week seed — always 7 days (F1)', () => {
       res.body.meals.map((m) => m.dayName),
       DAY_NAMES
     );
-    const wednesday = res.body.meals[2];
-    assert.equal(wednesday.recipeId, null, 'deactivated seed day is left unplanned');
-    assert.equal(wednesday.recipe, null);
-    assert.equal(wednesday.status, 'planned');
-    // Thursday keeps its own seed recipe (no shift).
-    const thursdaySeed = seed.recipes.find(
-      (r) => r.id === seed.defaultMealPlan.find((s) => s.dayOfWeek === 3).recipeId
+    assert.equal(
+      res.body.meals.some((m) => m.recipeId === hidden.id),
+      false,
+      'deactivated recipe must not be planned'
     );
-    assert.equal(res.body.meals[3].recipe.name, thursdaySeed.name);
+    const ids = res.body.meals.map((m) => m.recipeId).filter((id) => id != null);
+    assert.equal(new Set(ids).size, ids.length, 'a new week does not repeat a dinner');
     assert.equal(countRows(wk), 7);
   });
 

@@ -3,7 +3,13 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createCache, cacheKey } = require('../server/http/cache');
+const {
+  createCache,
+  cacheKey,
+  withCache,
+  invalidate,
+  responseCache,
+} = require('../server/http/cache');
 
 describe('createCache', () => {
   test('set + get returnerer data', () => {
@@ -78,6 +84,38 @@ describe('cacheKey family scope', () => {
     assert.equal(cacheKey(ctx(undefined)), 'anon:/api/today?');
     assert.equal(cacheKey(ctx(0)), 'anon:/api/today?');
     assert.equal(cacheKey(ctx('2')), 'anon:/api/today?');
+  });
+
+  test('in-flight GET does not repopulate cache after invalidate', async () => {
+    responseCache.clear();
+    let snapshot = 'old';
+    const handler = withCache(['meals'], (ctx) => {
+      const body = { snapshot };
+      snapshot = 'new';
+      invalidate('meals');
+      ctx.json(body);
+    });
+    function ctx() {
+      return {
+        familyId: 9,
+        pathname: '/api/meals/current',
+        query: {},
+        res: { setHeader() {} },
+        json(data) {
+          this.body = data;
+        },
+      };
+    }
+    const first = ctx();
+    await handler(first);
+    assert.deepEqual(first.body, { snapshot: 'old' });
+
+    const second = ctx();
+    await handler(second);
+    // The first response must not have been stored after invalidate,
+    // so the second call runs the handler again and sees the new value.
+    assert.equal(second.res.headersSent, undefined);
+    assert.deepEqual(second.body, { snapshot: 'new' });
   });
 
   test('query string is sorted so key order is stable', () => {

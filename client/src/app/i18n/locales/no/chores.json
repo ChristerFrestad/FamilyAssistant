@@ -21,7 +21,8 @@
     "completeFailed": "Kunne ikke markere som gjort.",
     "undoFailed": "Kunne ikke angre.",
     "postponeFailed": "Kunne ikke utsette.",
-    "saveFailed": "Kunne ikke lagre oppgaven."
+    "saveFailed": "Kunne ikke lagre oppgaven.",
+    "deleteFailed": "Kunne ikke slette oppgaven."
   },
   "actions": {
     "retry": "Prøv igjen",
@@ -30,7 +31,9 @@
     "complete": "Marker {{task}} som gjort",
     "completed": "{{task}} er gjort. Angre",
     "undo": "Angre",
-    "postpone": "Utsett"
+    "postpone": "Utsett",
+    "delete": "Slett",
+    "confirmDelete": "Slette «{{task}}»? Den forsvinner fra denne uka og kommer ikke tilbake."
   },
   "status": {
     "overdue": "Forfalt",
@@ -41,7 +44,8 @@
     "completed": "{{task}} markert som gjort",
     "undone": "{{task}} er åpen igjen",
     "postponed": "{{task}} flyttet til {{day}}",
-    "postponedNextWeek": "{{task}} flyttet til neste mandag"
+    "postponedNextWeek": "{{task}} flyttet til neste mandag",
+    "deleted": "{{task}} er slettet"
   },
   "addModal": {
     "title": "Ny oppgave",

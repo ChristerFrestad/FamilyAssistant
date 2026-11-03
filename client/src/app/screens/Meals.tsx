@@ -21,9 +21,9 @@
 //   - Meal-plan fetch error → full error-card with retry.
 
 import type { JSX } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card } from '../components/layout/Card';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
@@ -43,6 +43,7 @@ import {
 } from '../meals/useMealsData';
 import { usePantryDeduction } from '../meals/usePantryDeduction';
 import { useRecipePicker } from '../meals/useRecipePicker';
+import { clearMeal } from '../meals/mealsApi';
 import { useSelectedWeek } from '../hooks/useSelectedWeek';
 import type { MealSlot } from '../meals/mealsApi';
 
@@ -50,9 +51,20 @@ const RESULT_DISMISS_MS = 3000;
 
 export function Meals(): JSX.Element {
   const { t } = useTranslation(['meals', 'common']);
+  const navigate = useNavigate();
   const { weekYear, goPrevWeek, goNextWeek, pathWithWeek } = useSelectedWeek();
-  const { meals, isLoading, error, family, selectedDayIndex, todayIndex, selectDay, retry } =
-    useMealsData({ weekYear });
+  const {
+    meals,
+    isLoading,
+    error,
+    family,
+    selectedDayIndex,
+    todayIndex,
+    selectDay,
+    retry,
+    replaceMeals,
+  } = useMealsData({ weekYear });
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Sprint 6 — meal-cooked dialog. After confirm/skip/cancel we refetch
   // meals so the hero re-renders with the new status.
@@ -76,7 +88,10 @@ export function Meals(): JSX.Element {
   // Sprint 6 — recipe picker dialog. Opens for plan (empty slot) and
   // swap (existing recipe) flows. Refetches meals after a successful
   // swap so the hero updates immediately.
-  const picker = useRecipePicker(meals?.weekYear ?? null, retry);
+  const picker = useRecipePicker(weekYear, (result) => {
+    if (result.week) replaceMeals(result.week);
+    else retry();
+  });
   const handlePlan = useCallback(
     (dayOfWeek: number) => {
       void picker.openForPlan(dayOfWeek);
@@ -85,9 +100,30 @@ export function Meals(): JSX.Element {
   );
   const handleSwap = useCallback(
     (dayOfWeek: number, currentRecipeId: number) => {
+      setActionError(null);
       void picker.openForSwap(dayOfWeek, currentRecipeId);
     },
     [picker]
+  );
+  const handleOpenRecipe = useCallback(
+    (recipeId: number) => {
+      navigate(`/recipes/${recipeId}`);
+    },
+    [navigate]
+  );
+  const handleRemove = useCallback(
+    (dayOfWeek: number) => {
+      setActionError(null);
+      void clearMeal(weekYear, dayOfWeek)
+        .then((result) => {
+          if (result.week) replaceMeals(result.week);
+          else retry();
+        })
+        .catch(() => {
+          setActionError(t('meals:errors.removeFailed'));
+        });
+    },
+    [replaceMeals, retry, t, weekYear]
   );
 
   const shortDayLabels = [0, 1, 2, 3, 4, 5, 6].map((i) => t(`meals:daysShort.${i}`));
@@ -208,11 +244,15 @@ export function Meals(): JSX.Element {
           onPlan={handlePlan}
           onSwap={handleSwap}
           onMarkCooked={handleMarkCooked}
+          onOpenRecipe={handleOpenRecipe}
+          onRemove={handleRemove}
+          actionError={actionError}
           weekListLabels={{
             heading: t('meals:weekList.heading'),
             emptyRow: t('meals:weekList.emptyRow'),
             away: t('meals:weekList.awayLabel'),
             skipped: t('meals:weekList.skippedLabel'),
+            removed: t('meals:weekList.removedLabel'),
           }}
           family={family}
           weekEmptyTitle={t('meals:empty.weekTitle')}
@@ -274,11 +314,15 @@ interface MealsContentProps {
   onPlan: (dayOfWeek: number) => void;
   onSwap: (dayOfWeek: number, currentRecipeId: number) => void;
   onMarkCooked: (mealId: number) => void;
+  onOpenRecipe: (recipeId: number) => void;
+  onRemove: (dayOfWeek: number) => void;
+  actionError: string | null;
   weekListLabels: {
     heading: string;
     emptyRow: string;
     away: string;
     skipped: string;
+    removed: string;
   };
   family: FamilyFetchState;
   weekEmptyTitle: string;
@@ -297,6 +341,9 @@ function MealsContent({
   onPlan,
   onSwap,
   onMarkCooked,
+  onOpenRecipe,
+  onRemove,
+  actionError,
   weekListLabels,
   family,
   weekEmptyTitle,
@@ -338,7 +385,19 @@ function MealsContent({
         onPlan={onPlan}
         onSwap={onSwap}
         onMarkCooked={onMarkCooked}
+        onOpenRecipe={onOpenRecipe}
+        onRemove={onRemove}
       />
+
+      {actionError ? (
+        <p
+          className="font-body text-body text-rose-deep"
+          role="alert"
+          data-testid="meals-action-error"
+        >
+          {actionError}
+        </p>
+      ) : null}
 
       {selectedSlot.recipe !== null &&
       selectedSlot.status !== 'away' &&
@@ -365,10 +424,12 @@ function MealsContent({
           emptyRowLabel={weekListLabels.emptyRow}
           awayLabel={weekListLabels.away}
           skippedLabel={weekListLabels.skipped}
+          removedLabel={weekListLabels.removed}
           todayLabel={todayLabel}
           sectionLabel={weekListLabels.heading}
           onSelect={onSelectDay}
           onSelectEmpty={onPlan}
+          onOpenRecipe={onOpenRecipe}
         />
       )}
     </div>
