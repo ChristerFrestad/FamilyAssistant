@@ -34,6 +34,7 @@
   "todayLabel": "Today",
   "dayStripAria": "Pick a day in the week menu",
   "hero": {
+    "region": "Dinner {{day}}",
     "todayHeading": "Today · {{day}}",
     "dayHeading": "{{day}}"
   },

@@ -15,7 +15,7 @@ import userEvent from '@testing-library/user-event';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { Shopping } from './Shopping';
-import { getIsoWeekYear, nextIsoWeek } from '../hooks/isoWeek';
+import { getIsoWeekYear, nextIsoWeek, weekNumber } from '../hooks/isoWeek';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -177,7 +177,9 @@ describe('Shopping screen — week navigation', () => {
     mountShopping();
     expect(screen.getByTestId('shopping-week-prev')).toHaveAttribute('aria-label', 'Forrige uke');
     expect(screen.getByTestId('shopping-week-next')).toHaveAttribute('aria-label', 'Neste uke');
-    expect(screen.getByTestId('shopping-week-year')).toHaveTextContent(getIsoWeekYear());
+    expect(screen.getByTestId('shopping-week-year')).toHaveTextContent(
+      `Henter uke ${weekNumber(getIsoWeekYear())}`
+    );
     expect(screen.getByTestId('shopping-week-year')).toHaveAttribute('aria-busy', 'true');
   });
 
@@ -206,14 +208,14 @@ describe('Shopping screen — week navigation', () => {
     await waitFor(() => {
       expect(screen.getByText('Melk')).toBeInTheDocument();
     });
-    expect(screen.getAllByText(`Uke ${current}`)).toHaveLength(1);
+    expect(screen.getAllByText(`Uke ${weekNumber(current)}`)).toHaveLength(1);
     expect(screen.getByTestId('shopping-week-year')).not.toHaveAttribute('aria-busy');
     await userEvent.click(screen.getByTestId('shopping-week-next'));
     await waitFor(() => {
       expect(screen.getByText('Epler')).toBeInTheDocument();
     });
     expect(screen.queryByText('Melk')).not.toBeInTheDocument();
-    expect(screen.getAllByText(`Uke ${next}`)).toHaveLength(1);
+    expect(screen.getAllByText(`Uke ${weekNumber(next)}`)).toHaveLength(1);
     expect(
       fetchSpy.mock.calls.some((call: unknown[]) => String(call[0]).includes(`week=${next}`))
     ).toBe(true);
