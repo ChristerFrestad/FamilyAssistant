@@ -1,5 +1,7 @@
 'use strict';
 
+const { enabledSourceNames } = require('../services/recipe-library/sources');
+
 function createRecipeLibraryRepo(db) {
   const upsertRecipe = db.prepare(`
     INSERT INTO recipe_library (
@@ -69,8 +71,10 @@ function createRecipeLibraryRepo(db) {
       return recipe;
     },
     search({ q, ingredient, source, maxMinutes, limit = 30 } = {}) {
-      const where = ['active = 1'];
-      const params = [];
+      const names = enabledSourceNames();
+      if (names.length === 0) return [];
+      const where = ['active = 1', `source_name IN (${names.map(() => '?').join(',')})`];
+      const params = [...names];
       const like = (value) => `%${String(value).replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
       if (q) {
         where.push("title LIKE ? ESCAPE '\\'");
@@ -103,25 +107,34 @@ function createRecipeLibraryRepo(db) {
         .all(...params, cap);
     },
     listSources() {
+      const names = enabledSourceNames();
+      if (names.length === 0) return [];
       return db
         .prepare(
           `SELECT DISTINCT source_name as sourceName
-             FROM recipe_library WHERE active = 1 ORDER BY source_name`
+             FROM recipe_library
+            WHERE active = 1 AND source_name IN (${names.map(() => '?').join(',')})
+            ORDER BY source_name`
         )
-        .all()
+        .all(...names)
         .map((row) => row.sourceName);
     },
     listSuggestions(excludeUrls, limit = 5) {
+      const names = enabledSourceNames();
+      if (names.length === 0) return [];
       const urls = (excludeUrls || []).filter(Boolean);
       const cap = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 10) : 5;
+      const sourceClause = `source_name IN (${names.map(() => '?').join(',')})`;
       if (urls.length === 0) {
         return db
           .prepare(
             `SELECT id, title, source_name as sourceName, canonical_url as canonicalUrl,
                     image_url as imageUrl, servings, total_time_min as totalTimeMin, category
-               FROM recipe_library WHERE active = 1 ORDER BY title LIMIT ?`
+               FROM recipe_library
+              WHERE active = 1 AND ${sourceClause}
+              ORDER BY title LIMIT ?`
           )
-          .all(cap);
+          .all(...names, cap);
       }
       const marks = urls.map(() => '?').join(',');
       return db
@@ -129,10 +142,10 @@ function createRecipeLibraryRepo(db) {
           `SELECT id, title, source_name as sourceName, canonical_url as canonicalUrl,
                   image_url as imageUrl, servings, total_time_min as totalTimeMin, category
              FROM recipe_library
-            WHERE active = 1 AND canonical_url NOT IN (${marks})
+            WHERE active = 1 AND ${sourceClause} AND canonical_url NOT IN (${marks})
             ORDER BY title LIMIT ?`
         )
-        .all(...urls, cap);
+        .all(...names, ...urls, cap);
     },
     getFetch(url) {
       return db.prepare('SELECT * FROM recipe_library_fetch WHERE url = ?').get(url) || null;

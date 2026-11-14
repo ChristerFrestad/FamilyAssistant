@@ -689,7 +689,6 @@ function registerRoutes(router, { repos, serverState }) {
     }
     const maxMinutes = ctx.query.maxMinutes ? Number(ctx.query.maxMinutes) : null;
     ctx.json({
-      enabled: config.RECIPE_LIBRARY_INGEST,
       recipes: repos.recipeLibrary.search({
         q,
         ingredient,
