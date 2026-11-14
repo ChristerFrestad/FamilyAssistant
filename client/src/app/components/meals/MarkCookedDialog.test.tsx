@@ -18,6 +18,7 @@ function makeState(overrides: Partial<MarkCookedDialogState> = {}): MarkCookedDi
     suggestions: [],
     resultMessage: null,
     lowStockCount: 0,
+    alreadyCooked: false,
     ...overrides,
   };
 }

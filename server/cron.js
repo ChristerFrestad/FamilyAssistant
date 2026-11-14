@@ -5,6 +5,7 @@ const { getWeekYear } = require('./seed');
 const { generateSundayDraft } = require('./services/meal-planning.service');
 const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
+const { deductionNote, hasExactDeduction } = require('./services/pantry-deduction.service');
 const { enrichPendingLists } = require('./services/shopping-list-enricher.service');
 const { purgeSoftDeletedUsers } = require('./auth/gdpr-routes');
 const { runWithFamily } = require('./auth/family-context');
@@ -29,28 +30,56 @@ function msUntilNext(dayOfWeek, hour, minute = 0) {
   return target.getTime() - now.getTime();
 }
 
+// Jobs that read family-scoped repos must run inside runWithFamily.
+// getFamilyId() falls back to family 1 when there is no request scope.
+function runForEachFamily(repos, jobName, fn) {
+  const familyIds =
+    repos.family && typeof repos.family.listIds === 'function' ? repos.family.listIds() : [];
+  for (const familyId of familyIds) {
+    try {
+      runWithFamily(familyId, () => fn());
+    } catch (err) {
+      log(`ERROR in ${jobName} for family ${familyId}: ${err.message}`);
+    }
+  }
+}
+
+function utcIsoDow(date) {
+  return (date.getUTCDay() + 6) % 7;
+}
+
 // === Job 1: Sunday push at 14:00 ===
 function sundayPushJob(repos) {
-  const nextWeekDate = new Date(Date.now() + 7 * 86400000);
-  const nextWk = getWeekYear(nextWeekDate);
+  runForEachFamily(repos, 'Sunday-push', () => {
+    const nextWeekDate = new Date(Date.now() + 7 * 86400000);
+    const nextWk = getWeekYear(nextWeekDate);
 
-  if (repos.mealPlans.exists(nextWk)) {
-    log(`Sunday push: week ${nextWk} already has a plan \u2014 skipping`);
-    return;
-  }
+    if (repos.mealPlans.exists(nextWk)) {
+      log(`Sunday push: week ${nextWk} already has a plan \u2014 skipping`);
+      return;
+    }
 
-  const draft = generateSundayDraft(repos);
-  repos.sundayDrafts.save(draft.weekYear, draft.meals);
+    const draft = generateSundayDraft(repos);
+    repos.sundayDrafts.save(draft.weekYear, draft.meals);
 
-  const names = draft.meals.map((s) => repos.recipes.getById(s.recipeId)?.name || '?').join(', ');
-  log(`Sunday push: generated suggestion for ${draft.weekYear} \u2014 ${names}`);
-  repos.notifications.insert('sunday_push', `Forslag til ukemeny for ${draft.weekYear} er klart`, {
-    weekYear: draft.weekYear,
+    const names = draft.meals.map((s) => repos.recipes.getById(s.recipeId)?.name || '?').join(', ');
+    log(`Sunday push: generated suggestion for ${draft.weekYear} \u2014 ${names}`);
+    repos.notifications.insert(
+      'sunday_push',
+      `Forslag til ukemeny for ${draft.weekYear} er klart`,
+      {
+        weekYear: draft.weekYear,
+      }
+    );
   });
 }
 
 // === Job 2: Shelf-life warnings (daily at 08:00) ===
 function shelfLifeCheckJob(repos) {
+  runForEachFamily(repos, 'Shelf-life', () => shelfLifeCheckOneFamily(repos));
+}
+
+function shelfLifeCheckOneFamily(repos) {
   const today = new Date().toISOString().split('T')[0];
   const inventoryMap = repos.inventory.getAll();
   const productsMap = repos.products.getAllAsMap();
@@ -89,13 +118,23 @@ function shelfLifeCheckJob(repos) {
 }
 
 // === Job 3: Inventory depletion (daily at 22:00) ===
-function dailyDepletionJob(repos) {
-  const wk = getWeekYear();
-  const dayOfWeek = (new Date().getDay() + 6) % 7;
+function dailyDepletionJob(repos, now = new Date()) {
+  runForEachFamily(repos, 'Depletion', () => depleteOneFamily(repos, now));
+}
+
+function depleteOneFamily(repos, now = new Date()) {
+  const wk = getWeekYear(new Date(now.getTime()));
+  const dayOfWeek = utcIsoDow(now);
   const plan = repos.mealPlans.getWeek(wk);
   const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
 
-  if (!todaySlot || todaySlot.status === 'away' || todaySlot.status === 'skipped') {
+  if (
+    !todaySlot ||
+    todaySlot.status === 'away' ||
+    todaySlot.status === 'skipped' ||
+    todaySlot.status === 'removed' ||
+    !todaySlot.recipeId
+  ) {
     log('Depletion: no dinner today \u2014 skipping');
     return;
   }
@@ -111,11 +150,31 @@ function dailyDepletionJob(repos) {
   const depleted = [];
   for (const ing of recipe.ingredients || []) {
     const key = ing.productKey || (ing.name || '').toLowerCase();
-    const inv = repos.inventory.getByKey(key);
-    if (inv && (inv.qtyRemaining || 0) > 0) {
-      repos.inventory.reduceQty(key, ing.qty);
-      depleted.push(`${key}: -${ing.qty}${ing.unit || ''}`);
-    }
+    const amount = ing.qty || 0;
+    if (amount <= 0) continue;
+    const applyOne = () => {
+      if (hasExactDeduction(repos, key, todaySlot.id)) return false;
+      const inv = repos.inventory.getByKey(key);
+      if (!inv || (inv.qtyRemaining || 0) <= 0) return false;
+      const beforeQty = inv.qtyRemaining || 0;
+      repos.inventory.reduceQty(key, amount);
+      const after = repos.inventory.getByKey(key);
+      const afterQty = after ? after.qtyRemaining || 0 : 0;
+      if (repos.inventoryLog && typeof repos.inventoryLog.insert === 'function') {
+        repos.inventoryLog.insert({
+          productKey: key,
+          qtyDelta: afterQty - beforeQty,
+          newQty: afterQty,
+          unit: ing.unit || inv.unit || null,
+          reason: 'cron_depletion',
+          notes: deductionNote(todaySlot.id),
+        });
+      }
+      return true;
+    };
+    const did =
+      typeof repos.transaction === 'function' ? repos.transaction(applyOne)() : applyOne();
+    if (did) depleted.push(`${key}: -${amount}${ing.unit || ''}`);
   }
   repos.consumables.reduceDaily(recipe.equipment || []);
 

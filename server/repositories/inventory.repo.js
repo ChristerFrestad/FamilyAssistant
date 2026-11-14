@@ -237,6 +237,20 @@ function createInventoryRepos(db) {
         )
         .all(familyId, reason, limit);
     },
+    hasExactNote(productKey, note) {
+      const familyId = getFamilyId();
+      if (!productKey || typeof note !== 'string' || note.length === 0) return false;
+      const row = db
+        .prepare(
+          `
+        SELECT 1 as hit FROM inventory_log
+        WHERE family_id = ? AND product_key = ? AND notes = ?
+        LIMIT 1
+      `
+        )
+        .get(familyId, productKey, note);
+      return !!row;
+    },
     countByReason() {
       const familyId = getFamilyId();
       const rows = db
