@@ -45,8 +45,8 @@ export interface RecipeIngredient {
   id?: number;
   productKey: string | null;
   name: string;
-  qty: number;
-  unit: string;
+  qty: number | null;
+  unit: string | null;
   optional?: boolean;
 }
 

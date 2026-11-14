@@ -125,8 +125,8 @@ function draftFromRecipe(recipe: RecipeDetail): EditorDraft {
           const row: IngredientDraft = {
             key: newIngredientKey(),
             name: ing.name,
-            qty: String(ing.qty),
-            unit: ing.unit,
+            qty: ing.qty == null ? '' : String(ing.qty),
+            unit: ing.unit ?? '',
             optional: Boolean(ing.optional),
           };
           if (ing.productKey) row.productKey = ing.productKey;

@@ -226,16 +226,27 @@ test('a missing quantity is not stored as 1 stk', () => {
     category: 'rask',
     fetchedAt: '2026-11-14T00:00:00.000Z',
     ingredients: [
-      { rawLine: 'en neve dill', qty: null, unit: null, name: 'en neve dill', productKey: null },
+      {
+        rawLine: 'salt og pepper',
+        qty: null,
+        unit: null,
+        name: 'salt og pepper',
+        productKey: null,
+      },
       { rawLine: '400 g laks', qty: 400, unit: 'g', name: 'laks', productKey: null },
     ],
   });
   const { copyLibraryRecipe } = require('../server/services/recipe-library/copy');
   const copied = runWithFamily(1, () => copyLibraryRecipe(server.repos, id));
   assert.equal(copied.rejected, undefined);
-  assert.equal(copied.recipe.ingredients.length, 1);
-  assert.equal(copied.recipe.ingredients[0].name, 'laks');
-  assert.notEqual(copied.recipe.ingredients[0].qty, 1);
+  const salt = copied.recipe.ingredients.find((ing) => ing.name === 'salt og pepper');
+  const laks = copied.recipe.ingredients.find((ing) => ing.name === 'laks');
+  assert.ok(salt);
+  assert.equal(salt.qty, null);
+  assert.equal(salt.unit, null);
+  assert.ok(laks);
+  assert.equal(laks.qty, 400);
+  assert.equal(laks.unit, 'g');
 });
 
 test('planning the last open day builds the shopping list', async () => {

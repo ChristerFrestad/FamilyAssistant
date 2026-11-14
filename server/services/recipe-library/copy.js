@@ -47,17 +47,12 @@ function copyLibraryRecipe(repos, libraryId) {
       url: canonical,
       servings: row.servings || 2,
       sourceType: 'imported',
-      ingredients: (row.ingredients || []).flatMap((ing) => {
-        if (ing.qty == null || !ing.unit) return [];
-        return [
-          {
-            productKey: ing.productKey || null,
-            name: ing.name || ing.rawLine,
-            qty: ing.qty,
-            unit: ing.unit,
-          },
-        ];
-      }),
+      ingredients: (row.ingredients || []).map((ing) => ({
+        productKey: ing.productKey || null,
+        name: ing.name || ing.rawLine,
+        qty: ing.qty == null ? null : ing.qty,
+        unit: ing.unit || null,
+      })),
     })
   );
   return { alreadyAdded: false, recipeId, recipe: repos.recipes.getById(recipeId) };

@@ -85,6 +85,7 @@ function computeShoppingListForWeek(repos, weekYear) {
     if (!recipe) continue;
     const scale = familyId ? effectiveScale(repos, familyId, recipe.servings) : 1;
     for (const ing of recipe.ingredients || []) {
+      if (ing.qty == null) continue;
       // Name-only lines keep a null productKey. The lowercased name is
       // only the in-memory group, matching the pre-alias shopping list.
       const namedOnly = !ing.productKey;
