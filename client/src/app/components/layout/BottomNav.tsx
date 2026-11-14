@@ -24,6 +24,7 @@
 import type { JSX } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useSelectedWeek } from '../../hooks/useSelectedWeek';
 import { MOBILE_NAV_ITEMS, type NavItem } from './nav-items';
 
 export interface BottomNavProps {
@@ -41,6 +42,7 @@ function isActive(item: NavItem, pathname: string): boolean {
 export function BottomNav({ className }: BottomNavProps): JSX.Element {
   const { t } = useTranslation('common');
   const { pathname } = useLocation();
+  const { pathWithWeek } = useSelectedWeek();
 
   return (
     <nav
@@ -76,7 +78,7 @@ export function BottomNav({ className }: BottomNavProps): JSX.Element {
                   constraint and keeps the matching logic in one
                   source of truth. */}
               <Link
-                to={item.to}
+                to={pathWithWeek(item.to)}
                 {...(active ? { 'aria-current': 'page' as const } : {})}
                 aria-label={label}
                 className={[

@@ -171,6 +171,16 @@ const EMPTY_SHELL = {
   items: [],
 };
 
+describe('Shopping screen — week navigation', () => {
+  test('renders previous and next week controls', () => {
+    fetchSpy.mockImplementation(() => new Promise(() => undefined));
+    mountShopping();
+    expect(screen.getByTestId('shopping-week-prev')).toHaveAttribute('aria-label', 'Forrige uke');
+    expect(screen.getByTestId('shopping-week-next')).toHaveAttribute('aria-label', 'Neste uke');
+    expect(screen.getByTestId('shopping-week-year')).toHaveTextContent(getIsoWeekYear());
+  });
+});
+
 describe('Shopping screen — loading/error states', () => {
   test('renders skeleton initially', async () => {
     let resolveFetch: ((res: Response) => void) | null = null;

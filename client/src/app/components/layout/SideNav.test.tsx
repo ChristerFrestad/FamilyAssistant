@@ -8,6 +8,7 @@ import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { SideNav } from './SideNav';
 import { DESKTOP_NAV_ITEMS, SECONDARY_NAV_ITEMS } from './nav-items';
+import { getIsoWeekYear } from '../../hooks/isoWeek';
 
 function renderAt(pathname: string): void {
   render(
@@ -33,6 +34,15 @@ describe('SideNav structure', () => {
     expect(screen.getByRole('link', { name: 'Handleliste' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kalender' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Innstillinger' })).toBeInTheDocument();
+  });
+
+  test('keeps a non-current week on the shopping link', () => {
+    const other = getIsoWeekYear() === '2026-W01' ? '2026-W02' : '2026-W01';
+    renderAt(`/meals?week=${other}`);
+    expect(screen.getByRole('link', { name: 'Handleliste' })).toHaveAttribute(
+      'href',
+      `/shopping?week=${other}`
+    );
   });
 
   test('exposes the source-of-truth nav-items split', () => {

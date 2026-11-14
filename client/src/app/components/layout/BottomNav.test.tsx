@@ -11,6 +11,7 @@ import { test, expect, describe } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { BottomNav } from './BottomNav';
 import { MOBILE_NAV_ITEMS } from './nav-items';
+import { getIsoWeekYear } from '../../hooks/isoWeek';
 
 function renderAt(pathname: string): void {
   render(
@@ -39,6 +40,24 @@ describe('BottomNav structure', () => {
     expect(screen.getByRole('link', { name: 'Handleliste' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kalender' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Familie' })).not.toBeInTheDocument();
+  });
+
+  test('keeps a non-current week on every nav link', () => {
+    const other = getIsoWeekYear() === '2026-W01' ? '2026-W02' : '2026-W01';
+    renderAt(`/meals?week=${other}`);
+    expect(screen.getByRole('link', { name: 'Handleliste' })).toHaveAttribute(
+      'href',
+      `/shopping?week=${other}`
+    );
+    expect(screen.getByRole('link', { name: 'Måltider' })).toHaveAttribute(
+      'href',
+      `/meals?week=${other}`
+    );
+  });
+
+  test('omits the week query when the selected week is the current one', () => {
+    renderAt('/meals');
+    expect(screen.getByRole('link', { name: 'Handleliste' })).toHaveAttribute('href', '/shopping');
   });
 
   test('exposes the source-of-truth nav-items count', () => {

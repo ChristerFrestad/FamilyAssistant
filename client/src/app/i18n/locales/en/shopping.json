@@ -113,5 +113,9 @@
   },
   "weekHeader": {
     "week": "Week {{weekYear}}"
+  },
+  "weekNav": {
+    "prevAria": "Previous week",
+    "nextAria": "Next week"
   }
 }

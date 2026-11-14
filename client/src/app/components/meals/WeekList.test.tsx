@@ -177,10 +177,9 @@ describe('WeekList', () => {
     expect(screen.getByTestId('week-list-row-2-text')).toHaveTextContent('Ingen middag');
   });
 
-  test('clicking a planned row opens the recipe', () => {
+  test('clicking a planned row selects the day and stays on the list', () => {
     const slots = NO_LONG.map((_, i) => makeSlot(i));
     const onSelect = vi.fn();
-    const onOpenRecipe = vi.fn();
     render(
       <WeekList
         slots={slots}
@@ -188,12 +187,10 @@ describe('WeekList', () => {
         todayIndex={0}
         {...COMMON_PROPS}
         onSelect={onSelect}
-        onOpenRecipe={onOpenRecipe}
       />
     );
     fireEvent.click(screen.getByTestId('week-list-row-4'));
     expect(onSelect).toHaveBeenCalledWith(4);
-    expect(onOpenRecipe).toHaveBeenCalledWith(5);
   });
 
   test('clicking a row calls onSelect with the index', () => {

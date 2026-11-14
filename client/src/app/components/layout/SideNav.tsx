@@ -22,6 +22,7 @@
 import type { JSX } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useSelectedWeek } from '../../hooks/useSelectedWeek';
 import { DESKTOP_NAV_ITEMS, SECONDARY_NAV_ITEMS, type NavItem } from './nav-items';
 
 export interface SideNavProps {
@@ -38,10 +39,12 @@ function isActive(item: NavItem, pathname: string): boolean {
 
 function NavRow({
   item,
+  to,
   active,
   label,
 }: {
   item: NavItem;
+  to: string;
   active: boolean;
   label: string;
 }): JSX.Element {
@@ -50,7 +53,7 @@ function NavRow({
   // and cannot express the `/` -> `/dashboard` alias we need).
   return (
     <Link
-      to={item.to}
+      to={to}
       {...(active ? { 'aria-current': 'page' as const } : {})}
       className={[
         'flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
@@ -69,6 +72,7 @@ function NavRow({
 export function SideNav({ className }: SideNavProps): JSX.Element {
   const { t } = useTranslation('common');
   const { pathname } = useLocation();
+  const { pathWithWeek } = useSelectedWeek();
 
   return (
     <nav
@@ -89,7 +93,12 @@ export function SideNav({ className }: SideNavProps): JSX.Element {
           const active = isActive(item, pathname);
           return (
             <li key={item.id}>
-              <NavRow item={item} active={active} label={t(item.i18nKey)} />
+              <NavRow
+                item={item}
+                to={pathWithWeek(item.to)}
+                active={active}
+                label={t(item.i18nKey)}
+              />
             </li>
           );
         })}
@@ -102,7 +111,12 @@ export function SideNav({ className }: SideNavProps): JSX.Element {
           const active = isActive(item, pathname);
           return (
             <li key={item.id}>
-              <NavRow item={item} active={active} label={t(item.i18nKey)} />
+              <NavRow
+                item={item}
+                to={pathWithWeek(item.to)}
+                active={active}
+                label={t(item.i18nKey)}
+              />
             </li>
           );
         })}

@@ -24,9 +24,9 @@ import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card } from '../components/layout/Card';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
+import { WeekSwitcher } from '../components/layout/WeekSwitcher';
 import { Button } from '../components/base/Button';
 import { WeekStrip } from '../components/layout/WeekStrip';
 import { mealSlotDots } from '../components/meals/DayStrip';
@@ -116,6 +116,16 @@ export function Meals(): JSX.Element {
     },
     [picker]
   );
+  const handleSelectDay = useCallback(
+    (index: number) => {
+      selectDay(index);
+      const hero = document.getElementById('meals-hero');
+      if (hero && typeof hero.scrollIntoView === 'function') {
+        hero.scrollIntoView({ block: 'nearest' });
+      }
+    },
+    [selectDay]
+  );
   const handleOpenRecipe = useCallback(
     (recipeId: number) => {
       navigate(`/recipes/${recipeId}`);
@@ -165,34 +175,14 @@ export function Meals(): JSX.Element {
           </div>
         }
       >
-        <div className="mt-1 flex items-center gap-2" data-testid="meals-week-nav">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={t('meals:weekNav.prevAria')}
-            onClick={goPrevWeek}
-            data-testid="meals-week-prev"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <p
-            className="min-w-[8rem] text-center font-body text-meta text-text-2"
-            data-testid="meals-week-year"
-          >
-            {t('meals:weekHeader.week', { weekYear: meals?.weekYear ?? weekYear })}
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={t('meals:weekNav.nextAria')}
-            onClick={goNextWeek}
-            data-testid="meals-week-next"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
+        <WeekSwitcher
+          label={t('meals:weekHeader.week', { weekYear: meals?.weekYear ?? weekYear })}
+          prevLabel={t('meals:weekNav.prevAria')}
+          nextLabel={t('meals:weekNav.nextAria')}
+          onPrev={goPrevWeek}
+          onNext={goNextWeek}
+          testIdPrefix="meals"
+        />
       </ScreenHeader>
 
       {isLoading ? (
@@ -250,7 +240,7 @@ export function Meals(): JSX.Element {
           longDayLabels={longDayLabels}
           todayLabel={todayLabel}
           dayStripAria={t('meals:dayStripAria')}
-          onSelectDay={selectDay}
+          onSelectDay={handleSelectDay}
           onPlan={handlePlan}
           onSwap={handleSwap}
           onMarkCooked={handleMarkCooked}
@@ -459,16 +449,18 @@ function MealsContent({
         testIdPrefix="day"
       />
 
-      <MealHero
-        slot={selectedSlot}
-        dayLabel={longDayLabels[selectedDayIndex] ?? ''}
-        isToday={selectedDayIndex === todayIndex}
-        onPlan={onPlan}
-        onSwap={onSwap}
-        onMarkCooked={onMarkCooked}
-        onOpenRecipe={onOpenRecipe}
-        onRemove={onRemove}
-      />
+      <div id="meals-hero">
+        <MealHero
+          slot={selectedSlot}
+          dayLabel={longDayLabels[selectedDayIndex] ?? ''}
+          isToday={selectedDayIndex === todayIndex}
+          onPlan={onPlan}
+          onSwap={onSwap}
+          onMarkCooked={onMarkCooked}
+          onOpenRecipe={onOpenRecipe}
+          onRemove={onRemove}
+        />
+      </div>
 
       {actionError ? (
         <p
@@ -510,7 +502,6 @@ function MealsContent({
           sectionLabel={weekListLabels.heading}
           onSelect={onSelectDay}
           onSelectEmpty={onPlan}
-          onOpenRecipe={onOpenRecipe}
         />
       )}
     </div>

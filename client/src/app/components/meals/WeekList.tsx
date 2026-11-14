@@ -1,6 +1,7 @@
 // Compact list of all 7 days under the hero card. Provides at-a-
 // glance context for the rest of the week and lets the user jump
-// to a different day without scrolling back up to the day strip.
+// to a different day. The row selects that day; the hero opens the
+// recipe. An empty row can still open the picker.
 //
 // Each row renders the long day-name (e.g. "Mandag"), the planned
 // recipe-name OR the empty-placeholder text, and a subtle prep-time
@@ -38,8 +39,6 @@ export interface WeekListProps {
    * row just navigates (legacy behaviour).
    */
   onSelectEmpty?: (dayOfWeek: number) => void;
-  /** Opens the recipe page when the row has a planned dinner. */
-  onOpenRecipe?: (recipeId: number) => void;
 }
 
 export function WeekList({
@@ -55,7 +54,6 @@ export function WeekList({
   sectionLabel,
   onSelect,
   onSelectEmpty,
-  onOpenRecipe,
 }: WeekListProps): JSX.Element {
   return (
     <section aria-labelledby="week-list-heading" className="flex flex-col gap-2">
@@ -80,11 +78,6 @@ export function WeekList({
             slot.status !== 'away' &&
             slot.status !== 'skipped' &&
             slot.status !== 'removed';
-          const canOpen =
-            slot.recipe !== null &&
-            slot.status !== 'away' &&
-            slot.status !== 'skipped' &&
-            slot.status !== 'removed';
           return (
             <li key={slot.dayOfWeek}>
               <button
@@ -92,7 +85,6 @@ export function WeekList({
                 onClick={() => {
                   onSelect(slot.dayOfWeek);
                   if (isEmpty && onSelectEmpty) onSelectEmpty(slot.dayOfWeek);
-                  else if (canOpen && onOpenRecipe && slot.recipe) onOpenRecipe(slot.recipe.id);
                 }}
                 aria-pressed={isSelected}
                 aria-current={isToday ? 'date' : undefined}
