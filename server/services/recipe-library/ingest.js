@@ -11,6 +11,7 @@ const DEFAULT_MAX_PAGES = 300;
 const TIMEOUT_MS = 15000;
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
+const MAX_CRAWL_DELAY_S = 30;
 
 let ingestRunning = false;
 
@@ -49,6 +50,16 @@ function assertAllowed(source, urlString) {
   }
   if (url.protocol !== 'https:') {
     const err = new Error('only https URLs are fetched');
+    err.code = 'URL_BLOCKED';
+    throw err;
+  }
+  if (url.username || url.password) {
+    const err = new Error('userinfo is not allowed');
+    err.code = 'URL_BLOCKED';
+    throw err;
+  }
+  if (url.port !== '') {
+    const err = new Error('non-default port is not allowed');
     err.code = 'URL_BLOCKED';
     throw err;
   }
@@ -142,9 +153,16 @@ async function waitTurn(deps, host, delayMs) {
   deps.lastByHost.set(host, deps.now());
 }
 
-async function fetchAllowed(deps, source, url, prior) {
+async function fetchAllowed(deps, source, url, prior, state) {
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    if (state && state.pages >= state.maxPages) {
+      const err = new Error('page cap reached');
+      err.code = 'PAGE_CAP';
+      throw err;
+    }
+    // Count the attempt before the fetch, including a hop that then fails.
+    if (state) state.pages += 1;
     assertAllowed(source, current);
     const host = new URL(current).hostname.toLowerCase();
     const delayMs = deps.delayByHost.get(host) || DELAY_MS;
@@ -201,20 +219,22 @@ function remember(deps, source, url, response, error) {
   });
 }
 
-async function hostDelay(deps, source) {
+async function hostDelay(deps, source, state) {
   const host = String(source.host).toLowerCase();
-  if (deps.delayByHost.has(host)) return;
+  if (deps.delayByHost.has(host)) return true;
   deps.delayByHost.set(host, DELAY_MS);
   const robotsUrl = `https://${host}/robots.txt`;
   try {
-    const response = await fetchAllowed(deps, source, robotsUrl, null);
+    const response = await fetchAllowed(deps, source, robotsUrl, null, state);
     const seconds = parseCrawlDelaySeconds(response.text, libraryUserAgent());
+    if (seconds != null && seconds > MAX_CRAWL_DELAY_S) return false;
     if (seconds != null && seconds * 1000 > DELAY_MS) {
       deps.delayByHost.set(host, seconds * 1000);
     }
   } catch (err) {
     remember(deps, source, robotsUrl, null, err.message || 'robots.txt failed');
   }
+  return true;
 }
 
 function childAllowed(source, loc) {
@@ -234,12 +254,11 @@ async function collectRecipeUrls(deps, source, state) {
     try {
       assertAllowed(source, url);
       const prior = deps.repos.recipeLibrary.getFetch(url);
-      response = await fetchAllowed(deps, source, url, prior);
+      response = await fetchAllowed(deps, source, url, prior, state);
     } catch (err) {
       remember(deps, source, url, null, err.message);
       continue;
     }
-    state.pages += 1;
     remember(
       deps,
       source,
@@ -306,7 +325,8 @@ async function ingestRecipeLibrary(repos, options = {}) {
     let fetched = 0;
     for (const source of sources) {
       if (state.pages >= state.maxPages) break;
-      await hostDelay(deps, source);
+      const crawl = await hostDelay(deps, source, state);
+      if (!crawl || state.pages >= state.maxPages) continue;
       let urls = [];
       try {
         urls = await collectRecipeUrls(deps, source, state);
@@ -320,13 +340,12 @@ async function ingestRecipeLibrary(repos, options = {}) {
         if (prior && prior.http_status === 200 && !prior.error && !options.refresh) continue;
         let response;
         try {
-          response = await fetchAllowed(deps, source, url, prior);
+          response = await fetchAllowed(deps, source, url, prior, state);
         } catch (err) {
           remember(deps, source, url, null, err.message);
           fetched += 1;
           continue;
         }
-        state.pages += 1;
         fetched += 1;
         if (response.status === 304) {
           remember(

@@ -83,10 +83,10 @@ describe('Phase 21 · Kept docs are exactly the intended set', () => {
     // English) + CHRISTER.md (gitignored, Norwegian, operator-specific).
     // PR 7 also gitignored CONTEXT.md (per-operator scratch context for
     // the active task). Neither CHRISTER.md nor CONTEXT.md is in this
-    // list because they are gitignored.
+    // list because they are gitignored. AGENT_LOG.md was removed from
+    // the public repo on 2026-11-14; the running log stays off git.
     assert.deepEqual(rootMds, [
       'AGENTS.md',
-      'AGENT_LOG.md',
       'CHANGELOG.md',
       'CI.md',
       'CONTRIBUTING.md',

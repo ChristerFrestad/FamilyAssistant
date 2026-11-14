@@ -9,6 +9,7 @@ function canonicalRecipeUrl(input) {
     return null;
   }
   if (url.protocol !== 'https:') return null;
+  if (url.username || url.password || url.port !== '') return null;
   url.hostname = url.hostname.toLowerCase();
   url.hash = '';
   url.search = '';

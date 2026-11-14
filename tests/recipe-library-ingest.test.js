@@ -13,6 +13,7 @@ const { libraryRecordFromHtml } = require('../server/services/recipe-library/rec
 const {
   ingestRecipeLibrary,
   releaseIngestLock,
+  assertAllowed,
   USER_AGENT,
   DELAY_MS,
 } = require('../server/services/recipe-library/ingest');
@@ -522,3 +523,161 @@ function createUserOn(target, email) {
   target.repos.auth.createSession({ id: sid, userId: user.id, ttlDays: 30 });
   return { cookie: cookieHeader(sid), userId: user.id };
 }
+
+test('failed fetches and redirect hops count before the next request', async () => {
+  const meny = SOURCES.find((source) => source.id === 'meny');
+  const original = meny.sitemapUrl;
+  meny.sitemapUrl = 'https://meny.no/page-cap.xml';
+  const seen = [];
+  let clock = 0;
+  try {
+    const failed = await ingestRecipeLibrary(server.repos, {
+      sourceId: 'meny',
+      maxPages: 3,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+      now: () => clock,
+      fetch: async (url) => {
+        const target = String(url);
+        seen.push(target);
+        if (target.endsWith('/robots.txt')) return ok('');
+        if (target.endsWith('/page-cap.xml')) {
+          return ok(
+            '<urlset><url><loc>https://meny.no/oppskrifter/fisk/en</loc></url>' +
+              '<url><loc>https://meny.no/oppskrifter/fisk/to</loc></url></urlset>'
+          );
+        }
+        if (target.endsWith('/en')) throw new Error('fail');
+        throw new Error('fetched past the cap: ' + target);
+      },
+    });
+    assert.equal(failed.pages, 3);
+    assert.equal(seen.includes('https://meny.no/oppskrifter/fisk/en'), true);
+    assert.equal(seen.includes('https://meny.no/oppskrifter/fisk/to'), false);
+
+    seen.length = 0;
+    clock = 0;
+    meny.sitemapUrl = 'https://meny.no/hop-cap.xml';
+    const hopped = await ingestRecipeLibrary(server.repos, {
+      sourceId: 'meny',
+      maxPages: 3,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+      now: () => clock,
+      fetch: async (url) => {
+        const target = String(url);
+        seen.push(target);
+        if (target.endsWith('/robots.txt')) return ok('');
+        if (target.endsWith('/hop-cap.xml')) {
+          return ok(
+            '<urlset><url><loc>https://meny.no/oppskrifter/fisk/start</loc></url></urlset>'
+          );
+        }
+        if (target.endsWith('/start')) {
+          return {
+            status: 302,
+            headers: {
+              get: (name) =>
+                name === 'location' ? 'https://meny.no/oppskrifter/fisk/landed' : null,
+            },
+            text: async () => '',
+          };
+        }
+        throw new Error('redirect target was fetched: ' + target);
+      },
+    });
+    assert.equal(hopped.pages, 3);
+    assert.equal(seen.includes('https://meny.no/oppskrifter/fisk/landed'), false);
+  } finally {
+    meny.sitemapUrl = original;
+  }
+});
+
+test('explicit ports and userinfo are rejected', async () => {
+  const meny = SOURCES.find((source) => source.id === 'meny');
+  assert.throws(() => assertAllowed(meny, 'https://meny.no:8443/oppskrifter/fisk/x'), /port/);
+  assert.throws(() => assertAllowed(meny, 'https://user@meny.no/oppskrifter/fisk/x'), /userinfo/);
+  assert.equal(
+    canonicalRecipeUrl('https://meny.no:443/oppskrifter/fisk/x'),
+    'https://meny.no/oppskrifter/fisk/x'
+  );
+  assert.equal(canonicalRecipeUrl('https://meny.no:8443/oppskrifter/fisk/x'), null);
+  assert.equal(canonicalRecipeUrl('https://user:pw@meny.no/oppskrifter/fisk/x'), null);
+
+  const original = meny.sitemapUrl;
+  meny.sitemapUrl = 'https://meny.no/blocked.xml';
+  const seen = [];
+  let clock = 0;
+  try {
+    await ingestRecipeLibrary(server.repos, {
+      sourceId: 'meny',
+      maxPages: 8,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+      now: () => clock,
+      fetch: async (url) => {
+        const target = String(url);
+        seen.push(target);
+        if (target.endsWith('/robots.txt')) return ok('');
+        if (target.endsWith('/blocked.xml')) {
+          return ok(
+            '<urlset><url><loc>https://meny.no/oppskrifter/fisk/port</loc></url>' +
+              '<url><loc>https://meny.no/oppskrifter/fisk/user</loc></url></urlset>'
+          );
+        }
+        if (target.endsWith('/port')) {
+          return {
+            status: 302,
+            headers: {
+              get: (name) => (name === 'location' ? 'https://meny.no:8443/secret' : null),
+            },
+            text: async () => '',
+          };
+        }
+        return {
+          status: 302,
+          headers: {
+            get: (name) => (name === 'location' ? 'https://user@meny.no/oppskrifter/fisk/x' : null),
+          },
+          text: async () => '',
+        };
+      },
+    });
+    assert.equal(seen.includes('https://meny.no:8443/secret'), false);
+    assert.equal(
+      seen.some((url) => url.includes('user@')),
+      false
+    );
+  } finally {
+    meny.sitemapUrl = original;
+  }
+});
+
+test('a crawl-delay above 30 seconds skips that source', async () => {
+  const meny = SOURCES.find((source) => source.id === 'meny');
+  const original = meny.sitemapUrl;
+  meny.sitemapUrl = 'https://meny.no/slow.xml';
+  const seen = [];
+  let clock = 0;
+  try {
+    const result = await ingestRecipeLibrary(server.repos, {
+      sourceId: 'meny',
+      maxPages: 5,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+      now: () => clock,
+      fetch: async (url) => {
+        seen.push(String(url));
+        return ok('User-agent: *\nCrawl-delay: 31\n');
+      },
+    });
+    assert.equal(result.stored, 0);
+    assert.deepEqual(seen, ['https://meny.no/robots.txt']);
+  } finally {
+    meny.sitemapUrl = original;
+  }
+});
