@@ -36,22 +36,31 @@ export interface MealHeroProps {
    * empty slot. Parent opens the recipe picker dialog for the slot's
    * dayOfWeek.
    */
-  onPlan?: (dayOfWeek: number) => void;
+  onPlan?: ((dayOfWeek: number) => void) | undefined;
   /**
    * Sprint 6 — fires when the user taps "Bytt middag". Parent opens
    * the same picker dialog with the current recipe id pre-marked.
    */
-  onSwap?: (dayOfWeek: number, currentRecipeId: number) => void;
+  onSwap?: ((dayOfWeek: number, currentRecipeId: number) => void) | undefined;
   /**
    * Sprint 6 — fires when the user taps "Marker tilberedt". Optional
    * so existing tests that do not exercise the cook-flow can keep
    * rendering the hero without supplying a handler.
    */
-  onMarkCooked?: (mealId: number) => void;
+  onMarkCooked?: ((mealId: number) => void) | undefined;
   /** Opens the in-app recipe page. */
   onOpenRecipe?: (recipeId: number) => void;
   /** Marks the day as having no dinner. */
-  onRemove?: (dayOfWeek: number) => void;
+  onRemove?: ((dayOfWeek: number) => void) | undefined;
+  /** Marks the day as away. The recipe, if any, stays on the slot. */
+  onMarkAway?: ((dayOfWeek: number) => void) | undefined;
+  /** Puts an away day back to planned so it can be cooked or changed. */
+  onUndoAway?: ((dayOfWeek: number) => void) | undefined;
+  /**
+   * Children cannot call the adult meal endpoints (they return 403).
+   * Hide those buttons and explain why.
+   */
+  canEdit?: boolean;
 }
 
 export function MealHero({
@@ -63,6 +72,9 @@ export function MealHero({
   onMarkCooked,
   onOpenRecipe,
   onRemove,
+  onMarkAway,
+  onUndoAway,
+  canEdit = true,
 }: MealHeroProps): JSX.Element {
   const { t } = useTranslation('meals');
 
@@ -75,15 +87,39 @@ export function MealHero({
       <Card padding="md" shadow="low" data-testid="meal-hero-away">
         <HeroDayHeader label={headerLabel} />
         <h2 className="font-display text-display-sm text-text-1">{t('status.awayTitle')}</h2>
-        <p className="font-body text-body text-text-2">{t('status.awayBody')}</p>
+        <p className="mb-3 font-body text-body text-text-2">{t('status.awayBody')}</p>
         {slot.recipe ? (
           <p
-            className="mt-2 font-body text-meta text-text-3"
+            className="mb-3 font-body text-meta text-text-3"
             data-testid="meal-hero-away-recipe-meta"
           >
             {t('status.awayRecipeMeta', { name: slot.recipe.name })}
           </p>
         ) : null}
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => onPlan?.(slot.dayOfWeek)}
+              disabled={onPlan == null}
+              data-testid="meal-hero-plan-button"
+            >
+              {t('actions.plan')}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onUndoAway?.(slot.dayOfWeek)}
+              disabled={onUndoAway == null}
+              data-testid="meal-hero-undo-away"
+            >
+              {t('actions.undoAway')}
+            </Button>
+          </div>
+        ) : (
+          <ChildHint />
+        )}
       </Card>
     );
   }
@@ -94,15 +130,22 @@ export function MealHero({
         <HeroDayHeader label={headerLabel} />
         <h2 className="font-display text-display-sm text-text-1">{t('status.removedTitle')}</h2>
         <p className="mb-3 font-body text-body text-text-2">{t('status.removedBody')}</p>
-        <Button
-          type="button"
-          variant="primary"
-          onClick={() => onPlan?.(slot.dayOfWeek)}
-          disabled={onPlan == null}
-          data-testid="meal-hero-plan-button"
-        >
-          {t('actions.plan')}
-        </Button>
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => onPlan?.(slot.dayOfWeek)}
+              disabled={onPlan == null}
+              data-testid="meal-hero-plan-button"
+            >
+              {t('actions.plan')}
+            </Button>
+            <AwayButton dayOfWeek={slot.dayOfWeek} onMarkAway={onMarkAway} />
+          </div>
+        ) : (
+          <ChildHint />
+        )}
       </Card>
     );
   }
@@ -123,27 +166,32 @@ export function MealHero({
         <HeroDayHeader label={headerLabel} />
         <h2 className="font-display text-display-sm text-text-1">{t('empty.heroTitle')}</h2>
         <p className="mb-3 font-body text-body text-text-2">{t('empty.heroBody')}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => onPlan?.(slot.dayOfWeek)}
-            disabled={onPlan == null}
-            data-testid="meal-hero-plan-button"
-          >
-            {t('actions.plan')}
-          </Button>
-          {onRemove ? (
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
-              onClick={() => onRemove(slot.dayOfWeek)}
-              data-testid="meal-hero-remove-button"
+              variant="primary"
+              onClick={() => onPlan?.(slot.dayOfWeek)}
+              disabled={onPlan == null}
+              data-testid="meal-hero-plan-button"
             >
-              {t('actions.removeDinner')}
+              {t('actions.plan')}
             </Button>
-          ) : null}
-        </div>
+            {onRemove ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onRemove(slot.dayOfWeek)}
+                data-testid="meal-hero-remove-button"
+              >
+                {t('actions.removeDinner')}
+              </Button>
+            ) : null}
+            <AwayButton dayOfWeek={slot.dayOfWeek} onMarkAway={onMarkAway} />
+          </div>
+        ) : (
+          <ChildHint />
+        )}
       </Card>
     );
   }
@@ -182,61 +230,100 @@ export function MealHero({
           recipe.name
         )}
       </h2>
-      <div className="flex flex-wrap items-center gap-2">
-        {!isCooked && onMarkCooked && slot.id !== null ? (
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => {
-              if (slot.id !== null) onMarkCooked(slot.id);
-            }}
-            data-testid="meal-hero-mark-cooked-button"
-          >
-            {t('actions.markCooked')}
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => onSwap?.(slot.dayOfWeek, recipe.id)}
-          disabled={onSwap == null}
-          data-testid="meal-hero-swap-button"
-        >
-          {t('actions.swap')}
-        </Button>
-        {onOpenRecipe ? (
+      {canEdit ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {!isCooked && onMarkCooked && slot.id !== null ? (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => {
+                if (slot.id !== null) onMarkCooked(slot.id);
+              }}
+              data-testid="meal-hero-mark-cooked-button"
+            >
+              {t('actions.markCooked')}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="secondary"
-            onClick={() => onOpenRecipe(recipe.id)}
-            data-testid="meal-hero-open-recipe-button"
+            onClick={() => onSwap?.(slot.dayOfWeek, recipe.id)}
+            disabled={onSwap == null}
+            data-testid="meal-hero-swap-button"
           >
-            {t('actions.openRecipe')}
+            {t('actions.swap')}
           </Button>
-        ) : null}
-        {onRemove ? (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onRemove(slot.dayOfWeek)}
-            data-testid="meal-hero-remove-button"
-          >
-            {t('actions.removeDinner')}
-          </Button>
-        ) : null}
-        {recipe.url ? (
-          <a
-            className="inline-flex items-center rounded-pill border border-stroke px-3 py-1.5 font-body text-body text-text-2 hover:text-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint"
-            href={recipe.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="meal-hero-source-link"
-          >
-            {t('actions.openSource')}
-          </a>
-        ) : null}
-      </div>
+          {onRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onRemove(slot.dayOfWeek)}
+              data-testid="meal-hero-remove-button"
+            >
+              {t('actions.removeDinner')}
+            </Button>
+          ) : null}
+          <AwayButton dayOfWeek={slot.dayOfWeek} onMarkAway={onMarkAway} />
+        </div>
+      ) : (
+        <ChildHint />
+      )}
+      {onOpenRecipe || recipe.url ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {onOpenRecipe ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onOpenRecipe(recipe.id)}
+              data-testid="meal-hero-open-recipe-button"
+            >
+              {t('actions.openRecipe')}
+            </Button>
+          ) : null}
+          {recipe.url ? (
+            <a
+              className="inline-flex min-h-6 items-center rounded-pill border border-stroke px-3 py-1.5 font-body text-body text-text-2 hover:text-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+              href={recipe.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="meal-hero-source-link"
+            >
+              {t('actions.openSource')}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
     </Card>
+  );
+}
+
+function AwayButton({
+  dayOfWeek,
+  onMarkAway,
+}: {
+  dayOfWeek: number;
+  onMarkAway?: ((dayOfWeek: number) => void) | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation('meals');
+  if (!onMarkAway) return null;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={() => onMarkAway(dayOfWeek)}
+      data-testid="meal-hero-away-button"
+    >
+      {t('actions.markAway')}
+    </Button>
+  );
+}
+
+function ChildHint(): JSX.Element {
+  const { t } = useTranslation('meals');
+  return (
+    <p className="font-body text-body text-text-2" data-testid="meal-hero-child-hint">
+      {t('actions.childHint')}
+    </p>
   );
 }
 

@@ -5,7 +5,8 @@
   },
   "weekHeader": {
     "label": "Week menu",
-    "week": "Week {{weekYear}}"
+    "week": "Week {{weekYear}}",
+    "loading": "Loading week {{weekYear}} …"
   },
   "daysShort": {
     "0": "Mon",
@@ -46,13 +47,18 @@
     "openLibrary": "Open library",
     "openShopping": "Open shopping list",
     "openRecipe": "Open recipe",
-    "removeDinner": "No dinner"
+    "removeDinner": "No dinner",
+    "markAway": "Away",
+    "undoAway": "Undo away",
+    "childHint": "Only adults can change the meal plan."
   },
   "empty": {
     "heroTitle": "No meal planned",
     "heroBody": "Pick a recipe for this day.",
     "weekTitle": "No meals planned this week",
-    "weekBody": "Use \"Plan meal\" to add one for each day."
+    "weekBody": "Use \"Plan meal\" to add one for each day.",
+    "weekSettledTitle": "The week is decided",
+    "weekSettledBody": "Every day is «No dinner» or «Away»."
   },
   "readOnly": {
     "title": "No plan for this week",
@@ -85,17 +91,19 @@
   },
   "errors": {
     "loadFailed": "Could not load the meal plan.",
-    "removeFailed": "Could not remove the dinner."
+    "removeFailed": "Could not remove the dinner.",
+    "awayFailed": "Could not mark the day as away.",
+    "undoAwayFailed": "Could not undo away."
   },
   "weekGate": {
     "undecidedTitle": "Shopping list is waiting",
-    "undecidedBody": "These days still need a choice. Pick a dinner, or mark the day as no dinner.",
+    "undecidedBody": "These days still need a choice. Pick a dinner, or mark the day as «No dinner» or «Away».",
     "dayListAria": "Days that are not decided",
     "readyTitle": "The week is decided",
     "readyBody": "You can build a shopping list from these dinners."
   },
   "shoppingReady": {
-    "title": "Shopping list updated",
+    "title": "Shopping list is ready",
     "body": "This week's dinners are on the shopping list."
   },
   "picker": {

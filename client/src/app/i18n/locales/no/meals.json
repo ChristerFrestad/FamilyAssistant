@@ -5,7 +5,8 @@
   },
   "weekHeader": {
     "label": "Ukens meny",
-    "week": "Uke {{weekYear}}"
+    "week": "Uke {{weekYear}}",
+    "loading": "Henter uke {{weekYear}} …"
   },
   "daysShort": {
     "0": "Man",
@@ -46,13 +47,18 @@
     "openLibrary": "Åpne bibliotek",
     "openShopping": "Åpne handleliste",
     "openRecipe": "Åpne oppskrift",
-    "removeDinner": "Ingen middag"
+    "removeDinner": "Ingen middag",
+    "markAway": "Borte",
+    "undoAway": "Angre borte",
+    "childHint": "Bare voksne kan endre middagsplanen."
   },
   "empty": {
     "heroTitle": "Ingen middag planlagt",
     "heroBody": "Legg inn en oppskrift for denne dagen.",
-    "weekTitle": "Ingen middager planlagt denne uken",
-    "weekBody": "Bruk «Planlegg middag» for å legge til en for hver dag."
+    "weekTitle": "Ingen middager planlagt denne uka",
+    "weekBody": "Bruk «Planlegg middag» for å legge til en for hver dag.",
+    "weekSettledTitle": "Uka er avklart",
+    "weekSettledBody": "Alle dagene er «Ingen middag» eller «Borte»."
   },
   "readOnly": {
     "title": "Ingen plan for denne uka",
@@ -85,17 +91,19 @@
   },
   "errors": {
     "loadFailed": "Kunne ikke hente måltidsplanen.",
-    "removeFailed": "Kunne ikke fjerne middagen."
+    "removeFailed": "Kunne ikke fjerne middagen.",
+    "awayFailed": "Kunne ikke markere dagen som borte.",
+    "undoAwayFailed": "Kunne ikke angre borte."
   },
   "weekGate": {
     "undecidedTitle": "Handlelisten venter",
-    "undecidedBody": "Disse dagene mangler et valg. Sett en middag, eller marker dagen som ingen middag.",
+    "undecidedBody": "Disse dagene mangler et valg. Sett en middag, eller marker dagen som «Ingen middag» eller «Borte».",
     "dayListAria": "Dager som ikke er avklart",
     "readyTitle": "Uka er avklart",
     "readyBody": "Du kan lage handleliste fra disse middagene."
   },
   "shoppingReady": {
-    "title": "Handlelisten er oppdatert",
+    "title": "Handlelisten er klar",
     "body": "Middagene denne uka er lagt inn i handlelisten."
   },
   "picker": {

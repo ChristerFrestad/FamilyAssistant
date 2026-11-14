@@ -38,7 +38,7 @@ export interface WeekListProps {
    * the recipe picker for that day. Without it, clicking an empty
    * row just navigates (legacy behaviour).
    */
-  onSelectEmpty?: (dayOfWeek: number) => void;
+  onSelectEmpty?: ((dayOfWeek: number) => void) | undefined;
 }
 
 export function WeekList({
@@ -78,13 +78,14 @@ export function WeekList({
             slot.status !== 'away' &&
             slot.status !== 'skipped' &&
             slot.status !== 'removed';
+          const opensPicker = Boolean(onSelectEmpty) && (isEmpty || slot.status === 'away');
           return (
             <li key={slot.dayOfWeek}>
               <button
                 type="button"
                 onClick={() => {
                   onSelect(slot.dayOfWeek);
-                  if (isEmpty && onSelectEmpty) onSelectEmpty(slot.dayOfWeek);
+                  if (opensPicker && onSelectEmpty) onSelectEmpty(slot.dayOfWeek);
                 }}
                 aria-pressed={isSelected}
                 aria-current={isToday ? 'date' : undefined}

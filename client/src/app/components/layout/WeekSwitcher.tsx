@@ -15,6 +15,8 @@ export interface WeekSwitcherProps {
   onNext: () => void;
   /** Prefix for data-testid values: `${prefix}-week-nav|prev|next|year`. */
   testIdPrefix: string;
+  /** True while the week fetch is still in flight. */
+  busy?: boolean;
 }
 
 export function WeekSwitcher({
@@ -24,6 +26,7 @@ export function WeekSwitcher({
   onPrev,
   onNext,
   testIdPrefix,
+  busy = false,
 }: WeekSwitcherProps): JSX.Element {
   return (
     <div className="mt-1 flex items-center gap-2" data-testid={`${testIdPrefix}-week-nav`}>
@@ -40,6 +43,7 @@ export function WeekSwitcher({
       <p
         className="min-w-[8rem] text-center font-body text-meta text-text-2"
         aria-live="polite"
+        aria-busy={busy ? true : undefined}
         data-testid={`${testIdPrefix}-week-year`}
       >
         {label}
