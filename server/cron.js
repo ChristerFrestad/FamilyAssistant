@@ -253,24 +253,38 @@ function priceCpiIndexingJob(repos) {
 // Picks up lists with enrichment_status='pending' or 'partial' and runs
 // them through product-resolver + Kassal. Sequential per list to share
 // the rate-limit budget. Errors are swallowed per list.
-function shoppingEnrichmentJob(repos) {
+// The scheduler does not await this job, so a second tick must not
+// start another Kassal run while the first is still walking families.
+let enrichmentInProgress = false;
+
+async function shoppingEnrichmentJob(repos, opts = {}) {
+  if (enrichmentInProgress) {
+    log('Enrichment: skipped, previous run still in progress');
+    return;
+  }
   const familyIds = familyIdsOrLog(repos, 'Enrichment');
   if (!familyIds) return;
-  // enrichPendingLists is async. Run one family at a time so a list
-  // lookup stays inside that family's scope. Errors go to the log.
-  Promise.all(
-    familyIds.map((familyId) =>
-      runWithFamily(familyId, () => enrichPendingLists(repos, { maxLists: 3, delayMs: 1100 }))
-        .then((results) => {
-          if (!results || results.length === 0) return;
-          const summary = results
-            .map((r) => `#${r.listId}:${r.finalStatus}(+${r.enriched}/~${r.skipped})`)
-            .join(' ');
-          log(`Enrichment family ${familyId}: ${summary}`);
-        })
-        .catch((err) => log(`Enrichment ERROR family ${familyId}: ${err.message}`))
-    )
-  ).catch((err) => log(`Enrichment ERROR: ${err.message}`));
+  enrichmentInProgress = true;
+  // One family at a time. Promise.all would share the Kassal rate limit.
+  const enrich = opts.enrich || enrichPendingLists;
+  try {
+    for (const familyId of familyIds) {
+      try {
+        const results = await runWithFamily(familyId, () =>
+          enrich(repos, { maxLists: opts.maxLists ?? 3, delayMs: opts.delayMs ?? 1100 })
+        );
+        if (!results || results.length === 0) continue;
+        const summary = results
+          .map((r) => `#${r.listId}:${r.finalStatus}(+${r.enriched}/~${r.skipped})`)
+          .join(' ');
+        log(`Enrichment family ${familyId}: ${summary}`);
+      } catch (err) {
+        log(`Enrichment ERROR family ${familyId}: ${err.message}`);
+      }
+    }
+  } finally {
+    enrichmentInProgress = false;
+  }
 }
 
 // === Scheduler ===

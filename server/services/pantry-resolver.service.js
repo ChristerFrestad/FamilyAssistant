@@ -21,6 +21,7 @@
  */
 
 const { slugifyProductKey } = require('./slugify');
+const { getFamilyId } = require('../auth/family-context');
 
 const MAX_RESULTS = 8;
 
@@ -88,19 +89,22 @@ function resolvePantryInput(repos, query) {
       const rows = repos._db
         .prepare(
           `
-          SELECT product_key, COUNT(*) as cnt, MAX(created_at) as last_used
+          SELECT product_key, COUNT(*) as cnt, MAX(logged_at) as last_used
           FROM inventory_log
-          WHERE lower(product_key) LIKE ? ESCAPE '\\'
+          WHERE family_id = ? AND lower(product_key) LIKE ? ESCAPE '\\'
           GROUP BY product_key
           ORDER BY cnt DESC
           LIMIT 20
         `
         )
-        .all(`%${escapedQ}%`);
+        .all(getFamilyId(), `%${escapedQ}%`);
       for (const r of rows) {
         if (seenKeys.has(r.product_key)) continue;
         seenKeys.add(r.product_key);
-        results.push({
+        const loggedKey = String(r.product_key).toLowerCase();
+        const exactLog = loggedKey === q;
+        const prefixLog = loggedKey.startsWith(q);
+        const row = {
           productKey: r.product_key,
           name: r.product_key,
           source: 'lokal',
@@ -109,8 +113,14 @@ function resolvePantryInput(repos, query) {
           packSize: null,
           frequency: r.cnt,
           lastUsedAt: r.last_used,
-          confidence: 0.4,
-        });
+          // Substring hits stay as suggestions. They must not outrank an
+          // exact key, or "løk" collapses into "hvitløk".
+          confidence: exactLog ? 1.0 : prefixLog ? 0.7 : 0.4,
+        };
+        // Not sent to the client. resolveOrCreate uses it so a history
+        // prefix (melk → melkesjokolade) is never saved automatically.
+        Object.defineProperty(row, 'origin', { value: 'history' });
+        results.push(row);
       }
     }
   } catch {
@@ -148,19 +158,39 @@ function resolvePantryInput(repos, query) {
 }
 
 /**
- * Resolve an incoming add request against the catalog. Returns canonical
- * productKey + source classification. Used by POST /api/pantry/add when
- * the client has not already chosen a productKey.
+ * Catalog and current pantry rows may be picked on an exact or prefix
+ * match. A catalog substring is not a pick. History (inventory_log) may
+ * be picked only when the key is exactly the query — a prefix such as
+ * melk → melkesjokolade stays a suggestion.
+ * @param {{ productKey?: string, name?: string, source?: string, origin?: string }} suggestion
+ * @param {string} query
+ */
+function isAutoPick(suggestion, query) {
+  if (!suggestion || suggestion.source === 'ny') return false;
+  const q = String(query || '')
+    .trim()
+    .toLowerCase();
+  if (!q) return false;
+  const key = String(suggestion.productKey || '').toLowerCase();
+  const name = String(suggestion.name || '').toLowerCase();
+  const exact = key === q || name === q;
+  if (suggestion.origin === 'history') return exact;
+  return exact || key.startsWith(q) || name.startsWith(q);
+}
+
+/**
+ * Resolve an incoming add request. History feeds the suggestion list.
+ * Auto-pick is exact, or a catalog/pantry prefix. Otherwise create a
+ * new key. Used by shopping bought, quick-add, and pantry add.
  */
 function resolveOrCreate(repos, query) {
   const suggestions = resolvePantryInput(repos, query);
+  const best = suggestions.find((row) => isAutoPick(row, query));
   let result;
-  if (suggestions.length === 0) {
-    // Fallback: slugify directly
+  if (!best) {
     const key = slugifyProductKey(query);
     result = { productKey: key, name: query, source: 'ny' };
   } else {
-    const best = suggestions[0];
     result = {
       productKey: best.productKey,
       name: best.name,
