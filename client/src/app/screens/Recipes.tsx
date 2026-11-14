@@ -14,6 +14,7 @@ import { Field } from '../components/form/Field';
 import { Input } from '../components/form/Input';
 import { Modal } from '../components/overlay/Modal';
 import { useAuthContext } from '../auth/AuthContext';
+import { RecipeLibraryBrowse } from '../components/recipes/RecipeLibraryBrowse';
 import {
   fetchRecipes,
   importRecipeFromUrl,
@@ -114,6 +115,7 @@ export function Recipes(): JSX.Element {
         subtitle={t('recipes:description')}
         actions={adultActions}
       />
+      <RecipeLibraryBrowse canAdd={isAdult} />
 
       {!isLoading && error === null ? (
         <div className="flex flex-col gap-3" data-testid="recipes-filters">

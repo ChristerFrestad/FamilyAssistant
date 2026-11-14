@@ -28,13 +28,33 @@
     "delete": "Delete permanently",
     "confirmDiscard": "Discard unsaved changes?",
     "clearFilters": "Clear filters",
-    "more": "More"
+    "more": "More",
+    "openSource": "Open source ({{source}})",
+    "openSourceLabel": "Open the {{source}} source in a new tab"
   },
   "meta": {
     "servings": "{{count}} servings",
     "allergyWarning": "Check allergens",
     "sourceImported": "Imported",
     "sourceAi": "Suggested"
+  },
+  "library": {
+    "heading": "Shared library",
+    "searchLabel": "Search by title",
+    "ingredientLabel": "Ingredient",
+    "sourceLabel": "Source",
+    "timeLabel": "Time",
+    "allSources": "All sources",
+    "anyTime": "Any time",
+    "withinMinutes": "Within {{count}} min",
+    "search": "Search",
+    "loading": "Loading the library …",
+    "empty": "No recipes in the shared library yet.",
+    "loadFailed": "Could not load the library.",
+    "add": "Add",
+    "added": "“{{title}}” was added to the family recipes.",
+    "alreadyAdded": "“{{title}}” is already added.",
+    "addFailed": "Could not add the recipe."
   },
   "category": {
     "rask": "Quick",

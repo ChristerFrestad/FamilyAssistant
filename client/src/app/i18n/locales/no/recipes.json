@@ -28,13 +28,33 @@
     "delete": "Slett for godt",
     "confirmDiscard": "Forkaste ulagrede endringer?",
     "clearFilters": "Nullstill filter",
-    "more": "Mer"
+    "more": "Mer",
+    "openSource": "Åpne kilde ({{source}})",
+    "openSourceLabel": "Åpne kilden {{source}} i en ny fane"
   },
   "meta": {
     "servings": "{{count}} porsjoner",
     "allergyWarning": "Sjekk allergener",
     "sourceImported": "Importert",
     "sourceAi": "Foreslått"
+  },
+  "library": {
+    "heading": "Felles bibliotek",
+    "searchLabel": "Søk på tittel",
+    "ingredientLabel": "Ingrediens",
+    "sourceLabel": "Kilde",
+    "timeLabel": "Tid",
+    "allSources": "Alle kilder",
+    "anyTime": "Alle tider",
+    "withinMinutes": "Innen {{count}} min",
+    "search": "Søk",
+    "loading": "Henter biblioteket …",
+    "empty": "Ingen oppskrifter i det felles biblioteket ennå.",
+    "loadFailed": "Kunne ikke hente biblioteket.",
+    "add": "Legg til",
+    "added": "«{{title}}» er lagt til i familiens oppskrifter.",
+    "alreadyAdded": "«{{title}}» er allerede lagt til.",
+    "addFailed": "Kunne ikke legge til oppskriften."
   },
   "category": {
     "rask": "Rask",

@@ -50,6 +50,11 @@ const mealsClearBody = z.object({
   dayOfWeek,
 });
 
+const libraryPlanBody = z.object({
+  weekYear: weekYear.optional(),
+  dayOfWeek,
+});
+
 /**
  * Sprint 6 — meal-cooked deduction body. Used by
  * POST /api/meals/:id/apply-deduction. Each entry is one ingredient
@@ -595,6 +600,7 @@ module.exports = {
   mealsSwapBody,
   mealsStatusBody,
   mealsClearBody,
+  libraryPlanBody,
   mealsReorderBody,
   mealApplyDeductionBody,
   pantrySuggestionBody,

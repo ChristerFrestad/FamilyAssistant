@@ -493,3 +493,61 @@ export async function setMealStatus(
   if (!res.ok) throw toMealsApiError(res.status, parsed);
   return parsed as SwapMealResponse;
 }
+
+export interface LibraryRecipeSummary {
+  id: number;
+  title: string;
+  sourceName: string;
+  canonicalUrl: string;
+  imageUrl: string | null;
+  servings: number | null;
+  totalTimeMin: number | null;
+  category: string | null;
+}
+
+export interface LibrarySearchResponse {
+  recipes: LibraryRecipeSummary[];
+  sources: string[];
+}
+
+export async function fetchRecipeLibrary(query: {
+  q?: string;
+  ingredient?: string;
+  source?: string;
+  maxMinutes?: number | null;
+}): Promise<LibrarySearchResponse> {
+  const params = new URLSearchParams();
+  if (query.q) params.set('q', query.q);
+  if (query.ingredient) params.set('ingredient', query.ingredient);
+  if (query.source) params.set('source', query.source);
+  if (query.maxMinutes) params.set('maxMinutes', String(query.maxMinutes));
+  const qs = params.toString();
+  return getJson<LibrarySearchResponse>(qs ? `/api/recipe-library?${qs}` : '/api/recipe-library');
+}
+
+export async function copyLibraryRecipe(
+  id: number
+): Promise<{ ok: true; alreadyAdded: boolean; recipeId: number }> {
+  return postJson('/api/recipe-library/' + id + '/copy', {});
+}
+
+export async function planLibraryRecipe(
+  id: number,
+  weekYear: string,
+  dayOfWeek: number
+): Promise<SwapMealResponse & { alreadyAdded: boolean; recipeId: number }> {
+  const res = await fetch(`/api/recipe-library/${id}/plan`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weekYear, dayOfWeek }),
+  });
+  let parsed: unknown = null;
+  try {
+    parsed = await res.json();
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) throw toMealsApiError(res.status, parsed);
+  return parsed as SwapMealResponse & { alreadyAdded: boolean; recipeId: number };
+}

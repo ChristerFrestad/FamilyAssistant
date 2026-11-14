@@ -124,6 +124,8 @@
     "dislikeWarning": "Inneholder mislikt ingrediens",
     "select": "Velg",
     "cancel": "Avbryt",
+    "fromLibrary": "Fra {{source}}",
+    "addAndPlan": "Legg til og planlegg",
     "errorLoad": "Kunne ikke hente oppskrifter.",
     "errorApply": "Kunne ikke lagre valget. Prøv igjen."
   },

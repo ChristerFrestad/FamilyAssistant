@@ -681,6 +681,51 @@ function registerRoutes(router, { repos, serverState }) {
     }
   );
 
+  router.get('/api/recipe-library', (ctx) => {
+    const maxMinutes = ctx.query.maxMinutes ? Number(ctx.query.maxMinutes) : null;
+    ctx.json({
+      recipes: repos.recipeLibrary.search({
+        q: ctx.query.q || '',
+        ingredient: ctx.query.ingredient || '',
+        source: ctx.query.source || '',
+        maxMinutes: Number.isFinite(maxMinutes) ? maxMinutes : null,
+      }),
+      sources: repos.recipeLibrary.listSources(),
+    });
+  });
+
+  router.post('/api/recipe-library/:id/copy', requireRole('adult'), (ctx) => {
+    const id = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+    const { copyLibraryRecipe } = require('./services/recipe-library/copy');
+    const result = copyLibraryRecipe(repos, id);
+    if (!result) throw errors.notFound('Oppskriften finnes ikke i biblioteket');
+    ctx.json({ ok: true, alreadyAdded: result.alreadyAdded, recipeId: result.recipeId });
+  });
+
+  router.post(
+    '/api/recipe-library/:id/plan',
+    requireRole('adult'),
+    validateBody(schemas.libraryPlanBody),
+    (ctx) => {
+      const id = parseInt(ctx.params.id, 10);
+      if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+      const { copyLibraryRecipe } = require('./services/recipe-library/copy');
+      const copied = copyLibraryRecipe(repos, id);
+      if (!copied) throw errors.notFound('Oppskriften finnes ikke i biblioteket');
+      const wk = resolveWeekYear(repos, ctx.body.weekYear);
+      repos.mealPlans.setRecipe(wk, ctx.body.dayOfWeek, copied.recipeId, 'planned');
+      invalidate('meals', 'today');
+      const plan = repos.mealPlans.getWeek(wk);
+      ctx.json({
+        ok: true,
+        alreadyAdded: copied.alreadyAdded,
+        recipeId: copied.recipeId,
+        week: toMealsWeekResponse(repos, wk, plan),
+      });
+    }
+  );
+
   router.get('/api/meals/suggestions/:dayOfWeek', (ctx) => {
     const dow = parseInt(ctx.params.dayOfWeek, 10);
     if (!Number.isInteger(dow) || dow < 0 || dow > 6) {

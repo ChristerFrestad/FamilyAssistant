@@ -124,6 +124,8 @@
     "dislikeWarning": "Contains a disliked ingredient",
     "select": "Select",
     "cancel": "Cancel",
+    "fromLibrary": "From {{source}}",
+    "addAndPlan": "Add and plan",
     "errorLoad": "Could not load recipes.",
     "errorApply": "Could not save the selection. Try again."
   },
