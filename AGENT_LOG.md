@@ -6,6 +6,20 @@
 
 ---
 
+2026-11-14 – Middager og gjøremål på kalenderskjermen
+
+Task: Kalenderskjermen skal vise middager og gjøremål, bare til lesing.
+
+Done:
+- GET /api/calendar/agenda legger dem inn i perioden, med tittel
+  «Middag: …» og «Gjøremål: …». Ingen sletteknapp. Merket med tekst,
+  ikke bare farge.
+- Ingen migrasjon. Eksisterende avtaler er uendret.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-03 – Security audit: zod 4.6.5
 
 Task: CI-sjekken Security audit feilet på PR 239.

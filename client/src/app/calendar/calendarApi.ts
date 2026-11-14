@@ -23,6 +23,24 @@ export class CalendarApiError extends Error {
 // Response shapes — match GET /api/calendar/events (and /api/today)
 // ============================================================
 
+export interface AgendaItem {
+  id: string;
+  kind: 'dinner' | 'chore';
+  date: string;
+  title: string;
+  startTime?: string;
+  allDay?: boolean;
+  readOnly: true;
+}
+
+export async function fetchCalendarAgenda(from: string, to: string): Promise<AgendaItem[]> {
+  const params = new URLSearchParams({ from, to });
+  const res = await fetch(`/api/calendar/agenda?${params}`, { credentials: 'include' });
+  if (!res.ok) throw new CalendarApiError(res.status, 'agenda');
+  const body = (await res.json()) as { items?: AgendaItem[] };
+  return Array.isArray(body.items) ? body.items : [];
+}
+
 export interface CalendarEvent {
   id: number;
   title: string;

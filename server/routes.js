@@ -41,6 +41,7 @@ const {
   computeMissingForRestOfWeek,
 } = require('./services/meal-planning.service');
 const { ensureCurrentWeek, ensureWeek, isPastWeek } = require('./services/seed.service');
+const { agendaForFamily } = require('./services/calendar-agenda.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
 const pantryDeduction = require('./services/pantry-deduction.service');
@@ -2974,6 +2975,16 @@ function registerRoutes(router, { repos, serverState }) {
       ctx.json({ events });
     })
   );
+
+  router.get('/api/calendar/agenda', (ctx) => {
+    const from = String(ctx.query.from || '');
+    const to = String(ctx.query.to || from);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      throw errors.badRequest('from og to må være datoer');
+    }
+    if (!ctx.familyId) throw errors.forbidden('User is not currently in a family.');
+    ctx.json({ items: agendaForFamily(repos, ctx.familyId, from, to) });
+  });
 
   router.post(
     '/api/calendar/events',
