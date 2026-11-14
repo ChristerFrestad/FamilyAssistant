@@ -1420,10 +1420,10 @@ function registerRoutes(router, { repos, serverState }) {
         });
       }
       // Resolve a productKey from the manual name so PUT /bought has
-      // an inventory-link to write against. resolveOrCreate prefers
-      // catalog matches (Kassal/seed) and falls back to slugify; the
-      // returned key is stable across repeated adds with the same
-      // name. We deliberately do NOT inherit unit/category from the
+      // an inventory-link to write against. resolveOrCreate auto-picks
+      // an exact or prefix match and otherwise slugifies a new key.
+      // History substrings stay suggestions only. We deliberately do
+      // NOT inherit unit/category from the
       // resolver — user-supplied values stay null when omitted, which
       // matches the existing API contract (see tests/shopping-items-
       // add.test.js). The pantry write itself reads unit from the

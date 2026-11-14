@@ -101,6 +101,9 @@ function resolvePantryInput(repos, query) {
       for (const r of rows) {
         if (seenKeys.has(r.product_key)) continue;
         seenKeys.add(r.product_key);
+        const loggedKey = String(r.product_key).toLowerCase();
+        const exactLog = loggedKey === q;
+        const prefixLog = loggedKey.startsWith(q);
         results.push({
           productKey: r.product_key,
           name: r.product_key,
@@ -110,7 +113,9 @@ function resolvePantryInput(repos, query) {
           packSize: null,
           frequency: r.cnt,
           lastUsedAt: r.last_used,
-          confidence: 0.4,
+          // Substring hits stay as suggestions. They must not outrank an
+          // exact key, or "løk" collapses into "hvitløk".
+          confidence: exactLog ? 1.0 : prefixLog ? 0.7 : 0.4,
         });
       }
     }
@@ -149,19 +154,35 @@ function resolvePantryInput(repos, query) {
 }
 
 /**
- * Resolve an incoming add request against the catalog. Returns canonical
- * productKey + source classification. Used by POST /api/pantry/add when
- * the client has not already chosen a productKey.
+ * True when a suggestion is the query itself or a longer key/name that
+ * starts with it. A substring such as hvitløk for løk is not a pick.
+ * @param {{ productKey?: string, name?: string, source?: string }} suggestion
+ * @param {string} query
+ */
+function isExactOrPrefix(suggestion, query) {
+  if (!suggestion || suggestion.source === 'ny') return false;
+  const q = String(query || '')
+    .trim()
+    .toLowerCase();
+  if (!q) return false;
+  const key = String(suggestion.productKey || '').toLowerCase();
+  const name = String(suggestion.name || '').toLowerCase();
+  return key === q || name === q || key.startsWith(q) || name.startsWith(q);
+}
+
+/**
+ * Resolve an incoming add request. History substring hits stay in the
+ * suggestion list only. Auto-pick an exact or prefix match; otherwise
+ * create a new key. Used by shopping bought, quick-add, and pantry add.
  */
 function resolveOrCreate(repos, query) {
   const suggestions = resolvePantryInput(repos, query);
+  const best = suggestions.find((row) => isExactOrPrefix(row, query));
   let result;
-  if (suggestions.length === 0) {
-    // Fallback: slugify directly
+  if (!best) {
     const key = slugifyProductKey(query);
     result = { productKey: key, name: query, source: 'ny' };
   } else {
-    const best = suggestions[0];
     result = {
       productKey: best.productKey,
       name: best.name,
