@@ -31,6 +31,7 @@
 'use strict';
 
 const { keyForIngredient } = require('./pantry-coverage.service');
+const { aliasGroup, aliasKeys } = require('./product-key-alias');
 const { effectiveScale } = require('./family.service');
 const pantryService = require('./pantry.service');
 const { getFamilyId } = require('../auth/family-context');
@@ -86,6 +87,66 @@ function hasExactDeduction(repos, productKey, mealId) {
   return rows.some((row) => row.notes === note);
 }
 
+function hasAliasDeduction(repos, productKey, mealId) {
+  return aliasKeys(productKey).some((key) => hasExactDeduction(repos, key, mealId));
+}
+
+function pantryOnHandFromRepos(repos, productKey) {
+  let total = 0;
+  for (const key of aliasKeys(productKey)) {
+    const inv = repos.inventory.getByKey(key);
+    total += Number(inv?.qtyRemaining) || 0;
+  }
+  return total;
+}
+
+/**
+ * Deduct `amount` across the raw row and the slug row. Caller holds the
+ * transaction. A note on either key blocks both. Each inventory row is
+ * touched at most once.
+ */
+function deductAcrossAliases(repos, mealId, productKey, amount, reason) {
+  const note = deductionNote(mealId);
+  if (note && hasAliasDeduction(repos, productKey, mealId)) {
+    return { taken: 0, reason: 'already-deducted', parts: [] };
+  }
+  let left = round1(amount);
+  const parts = [];
+  for (const key of aliasKeys(productKey)) {
+    if (left <= 0) break;
+    const inv = repos.inventory.getByKey(key);
+    const have = Number(inv?.qtyRemaining) || 0;
+    if (have <= 0) continue;
+    const take = Math.min(left, have);
+    const newQty = round1(have - take);
+    let lowStock = null;
+    if (reason === 'cron_depletion') {
+      repos.inventory.reduceQty(key, take);
+      if (repos.inventoryLog && typeof repos.inventoryLog.insert === 'function') {
+        repos.inventoryLog.insert({
+          productKey: key,
+          qtyDelta: round1(newQty - have),
+          newQty,
+          unit: inv.unit || null,
+          reason: 'cron_depletion',
+          notes: note,
+        });
+      }
+    } else {
+      const result = pantryService.correctQty(repos, {
+        productKey: key,
+        newQty,
+        notes: note,
+      });
+      lowStock = result.lowStock;
+    }
+    parts.push({ key, take, newQty, lowStock });
+    left = round1(left - take);
+  }
+  if (parts.length === 0) return { taken: 0, reason: 'not-in-pantry', parts };
+  return { taken: round1(amount - left), reason: null, parts };
+}
+
 function buildSuggestions(repos, mealPlanRow) {
   if (!mealPlanRow || !mealPlanRow.recipeId) return [];
   const recipe = repos.recipes.getById(mealPlanRow.recipeId);
@@ -101,16 +162,17 @@ function buildSuggestions(repos, mealPlanRow) {
   for (const ing of recipe.ingredients) {
     const key = keyForIngredient(ing);
     if (!key) continue;
+    const group = aliasGroup(key);
     const recipeAmount = Number(ing.qty) || 0;
     const scaledAmount = round1(recipeAmount * scale);
-    const existing = collated.get(key);
+    const existing = collated.get(group);
     if (existing) {
       existing.recipeAmount = round1(existing.recipeAmount + recipeAmount);
       existing.suggestedDeduction = round1(existing.suggestedDeduction + scaledAmount);
       // Keep first-seen name + optional flag — collation is rare and
       // either name reads correctly to the user.
     } else {
-      collated.set(key, {
+      collated.set(group, {
         productKey: ing.productKey || null,
         name: ing.name || key,
         recipeAmount,
@@ -127,12 +189,11 @@ function buildSuggestions(repos, mealPlanRow) {
   // Hydrate matched flag + pantry quantities from inventory.
   for (const [, suggestion] of collated) {
     if (!suggestion.productKey) continue;
-    const inv = repos.inventory.getByKey(suggestion.productKey);
-    if (!inv) continue;
-    suggestion.matched = true;
-    suggestion.pantryRemaining = Number(inv.qtyRemaining) || 0;
-    suggestion.pantryUnit = inv.unit || suggestion.pantryUnit;
-    if (hasExactDeduction(repos, suggestion.productKey, mealPlanRow.id)) {
+    const onHand = pantryOnHandFromRepos(repos, suggestion.productKey);
+    if (onHand <= 0 && !hasAliasDeduction(repos, suggestion.productKey, mealPlanRow.id)) continue;
+    suggestion.matched = onHand > 0;
+    suggestion.pantryRemaining = onHand;
+    if (hasAliasDeduction(repos, suggestion.productKey, mealPlanRow.id)) {
       suggestion.suggestedDeduction = 0;
       suggestion.alreadyDeducted = true;
       continue;
@@ -162,9 +223,9 @@ function applyDeduction(repos, mealId, items) {
   const applied = [];
   const skipped = [];
   const lowStockTriggered = [];
-  const noteTag = deductionNote(mealId);
 
   const run = () => {
+    const groups = new Map();
     for (const item of items) {
       if (!item || !item.productKey) {
         skipped.push({ productKey: item?.productKey ?? null, reason: 'missing-productKey' });
@@ -175,35 +236,29 @@ function applyDeduction(repos, mealId, items) {
         skipped.push({ productKey: item.productKey, reason: 'non-positive-amount' });
         continue;
       }
-      if (noteTag && hasExactDeduction(repos, item.productKey, mealId)) {
-        skipped.push({ productKey: item.productKey, reason: 'already-deducted' });
+      const group = aliasGroup(item.productKey);
+      const prev = groups.get(group);
+      if (prev) prev.amount = round1(prev.amount + requested);
+      else groups.set(group, { key: item.productKey, amount: requested });
+    }
+    for (const group of groups.values()) {
+      const result = deductAcrossAliases(repos, mealId, group.key, group.amount, 'correction');
+      if (result.reason === 'already-deducted') {
+        skipped.push({ productKey: group.key, reason: 'already-deducted' });
         continue;
       }
-      const inv = repos.inventory.getByKey(item.productKey);
-      if (!inv) {
-        skipped.push({ productKey: item.productKey, reason: 'not-in-pantry' });
+      if (result.parts.length === 0) {
+        skipped.push({ productKey: group.key, reason: 'not-in-pantry' });
         continue;
       }
-      const prevQty = Number(inv.qtyRemaining) || 0;
-      const clamped = Math.min(requested, prevQty);
-      if (clamped <= 0) {
-        skipped.push({ productKey: item.productKey, reason: 'pantry-empty' });
-        continue;
-      }
-      const newQty = round1(prevQty - clamped);
-      const result = pantryService.correctQty(repos, {
-        productKey: item.productKey,
-        newQty,
-        notes: noteTag,
-      });
-      applied.push({
-        productKey: item.productKey,
-        prevQty,
-        newQty,
-        delta: result.delta,
-      });
-      if (result.lowStock?.triggered) {
-        lowStockTriggered.push(item.productKey);
+      for (const part of result.parts) {
+        applied.push({
+          productKey: part.key,
+          prevQty: round1(part.newQty + part.take),
+          newQty: part.newQty,
+          delta: round1(-part.take),
+        });
+        if (part.lowStock?.triggered) lowStockTriggered.push(part.key);
       }
     }
   };
@@ -222,6 +277,8 @@ function round1(n) {
 module.exports = {
   buildSuggestions,
   applyDeduction,
+  deductAcrossAliases,
   deductionNote,
   hasExactDeduction,
+  hasAliasDeduction,
 };
