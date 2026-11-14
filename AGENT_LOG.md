@@ -6,6 +6,23 @@
 
 ---
 
+2026-11-14 – Pantry-bevisst ukeplan
+
+Task: Neste uke skal bruke det som finnes i pantry, og søndagsjobben
+skal ikke hoppe over en uke bare fordi den er åpnet.
+
+Done:
+- Uten valgt modus er rangeringen «balansert» (dekning pluss det som går ut snart).
+- Ukeplanen tar familiens retter og bibliotekretter fra påslåtte kilder. En valgt bibliotekrett kopieres inn, samme lenke gir ikke et nytt eksemplar. Siste fire uker unngås, og kategoriene beholdes.
+- Velgeren viser pantry-rekkefølgen og bruker uka som planlegges.
+- «Foreslå uka på nytt» spør før den bytter planlagte dager. Laget, borte og ingen middag blir stående.
+- Søndagsjobben oppdaterer automatiske dager. Egne valg (plan_origin manual) blir stående.
+- Migrasjon 039 legger plan_origin på meal_plans. Eksisterende rader blir manual, så ingen middag byttes av seg selv.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – Ingrediensmot og enheter
 
 Task: Ingredienser skal treffe produktkatalogen bedre, handlelisten

@@ -10,7 +10,7 @@
 // The scoring logic lives in pantry-coverage.service.js.
 
 const { altSuggestionMap, getWeekYear, recipes: seedRecipes } = require('../seed');
-const { FEW_RECIPES } = require('./recipe-library/copy');
+const { FEW_RECIPES, copyLibraryRecipe } = require('./recipe-library/copy');
 
 const seedRecipeById = new Map(seedRecipes.map((recipe) => [recipe.id, recipe]));
 const {
@@ -28,7 +28,9 @@ function resolveMode(repos) {
   try {
     const profile = repos.familyProfile.get();
     const mode = profile?.preferences?.suggestionMode;
-    return VALID_MODES.has(mode) ? mode : 'default';
+    if (mode === 'default' || mode === 'maksimer' || mode === 'balansert') return mode;
+    // No explicit choice. Balance pantry coverage with food that expires soon.
+    return 'balansert';
   } catch {
     return 'default';
   }
@@ -80,17 +82,39 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
       pool = allRecipes.filter((r) => !currentRecipeIds.includes(r.id) && isRecipeSafe(r, profile));
     }
 
-    const ranked = rankRecipes(pool, inventoryMap, mode, 5);
+    const haveUrls = allRecipes.map((recipe) => recipe.url).filter(Boolean);
+    const libraryRows =
+      repos.recipeLibrary && typeof repos.recipeLibrary.listPlanningCandidates === 'function'
+        ? repos.recipeLibrary.listPlanningCandidates(haveUrls, 40)
+        : [];
+    const libraryPool = libraryRows
+      .filter((row) => !targetCategory || row.category === targetCategory)
+      .map((row) => ({
+        id: null,
+        libraryId: row.id,
+        name: row.title,
+        prepTime: row.totalTimeMin ? `${row.totalTimeMin} min` : null,
+        category: row.category || 'comfort',
+        ingredients: row.ingredients || [],
+        fromLibrary: true,
+        sourceName: row.sourceName,
+        url: row.canonicalUrl,
+      }));
+    const ranked = rankRecipes([...pool, ...libraryPool], inventoryMap, mode, 8);
     return ranked.map(({ recipe, score, ingredientsAtHome, totalIngredients, expiringUsed }) => ({
-      recipeId: recipe.id,
+      recipeId: recipe.fromLibrary ? null : recipe.id,
+      libraryId: recipe.libraryId || null,
       name: recipe.name,
       prepTime: recipe.prepTime,
       category: recipe.category,
+      sourceName: recipe.sourceName || null,
+      sourceLabel: recipe.sourceName ? `Fra ${recipe.sourceName}` : null,
+      fromLibrary: recipe.fromLibrary === true,
       score,
       ingredientsAtHome,
       totalIngredients,
       expiringUsed,
-      reason: buildSuggestionReason(ingredientsAtHome, totalIngredients, expiringUsed, mode),
+      reason: suggestionReason(ingredientsAtHome, expiringUsed),
       ingredients: recipe.ingredients,
     }));
   }
@@ -155,12 +179,14 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
   return suggestions;
 }
 
-function buildSuggestionReason(atHome, total, expiringUsed, mode) {
-  const base = `${atHome}/${total} ingredienser hjemme`;
-  if (mode === 'balansert' && expiringUsed > 0) {
-    return `${base} · bruker ${expiringUsed} utløpsnær vare`;
-  }
-  return atHome > 0 ? base : 'Ny smak!';
+function suggestionReason(atHome, expiringUsed) {
+  if (expiringUsed > 0) return 'Går ut snart';
+  if (atHome > 0) return `Bruker ${atHome} ting du har`;
+  return 'Ny smak';
+}
+
+function buildSuggestionReason(atHome, _total, expiringUsed) {
+  return suggestionReason(atHome, expiringUsed);
 }
 
 function checkShelfLife(repos, plan, fromDay, toDay) {
@@ -480,7 +506,27 @@ function chooseWeekRecipes(recipes, weekYear, recentIds = []) {
  * @param {object} repos
  * @param {string} weekYear
  */
-function buildVariedWeekPlan(repos, weekYear) {
+function libraryCandidates(repos, familyRecipes, profile) {
+  if (!repos.recipeLibrary || typeof repos.recipeLibrary.listPlanningCandidates !== 'function') {
+    return [];
+  }
+  const have = familyRecipes.map((recipe) => recipe.url).filter(Boolean);
+  return repos.recipeLibrary
+    .listPlanningCandidates(have, 60)
+    .map((row) => ({
+      libraryId: row.id,
+      name: row.title,
+      category: row.category || 'comfort',
+      prepTime: row.totalTimeMin ? `${row.totalTimeMin} min` : null,
+      ingredients: row.ingredients || [],
+      fromLibrary: true,
+      sourceName: row.sourceName,
+      url: row.canonicalUrl,
+    }))
+    .filter((recipe) => isRecipeSafe(recipe, profile));
+}
+
+function buildVariedWeekPlan(repos, weekYear, blockedIds = []) {
   const profile = (() => {
     try {
       return repos.familyProfile.get();
@@ -488,12 +534,94 @@ function buildVariedWeekPlan(repos, weekYear) {
       return {};
     }
   })();
-  const all = (repos.recipes.getAll() || []).filter((recipe) => isRecipeSafe(recipe, profile));
-  const recent =
+  const mode = resolveMode(repos);
+  const rankMode = mode === 'default' ? 'balansert' : mode;
+  const family = (repos.recipes.getAll() || []).filter((recipe) => isRecipeSafe(recipe, profile));
+  const library = libraryCandidates(repos, family, profile);
+  const recent = new Set(
     repos.mealPlans && typeof repos.mealPlans.recentRecipeIds === 'function'
       ? repos.mealPlans.recentRecipeIds(weekYear, 4)
-      : [];
-  return chooseWeekRecipes(all, weekYear, recent);
+      : []
+  );
+  for (const id of blockedIds) recent.add(id);
+  const usedFamily = new Set();
+  const usedLibrary = new Set();
+  let pantry = repos.inventory.getAll();
+
+  function candidates(category, allowRecent) {
+    const own = family.filter(
+      (recipe) =>
+        recipe.category === category &&
+        !usedFamily.has(recipe.id) &&
+        (allowRecent || !recent.has(recipe.id))
+    );
+    const shared = library.filter(
+      (recipe) => recipe.category === category && !usedLibrary.has(recipe.libraryId)
+    );
+    return [...own, ...shared];
+  }
+
+  function take(category) {
+    let src = candidates(category, false);
+    if (src.length === 0) src = candidates(category, true);
+    if (src.length === 0) {
+      src = [
+        ...family.filter((recipe) => !usedFamily.has(recipe.id)),
+        ...library.filter((recipe) => !usedLibrary.has(recipe.libraryId)),
+      ];
+    }
+    if (src.length === 0) return null;
+    const ranked = rankRecipes(src, pantry, rankMode, 1);
+    const chosen = ranked[0]?.recipe;
+    if (!chosen) return null;
+    if (chosen.fromLibrary) {
+      usedLibrary.add(chosen.libraryId);
+      const copied = copyLibraryRecipe(repos, chosen.libraryId);
+      if (!copied || copied.rejected) return take(category);
+      usedFamily.add(copied.recipeId);
+      pantry = subtractIngredientsFromInventory(pantry, chosen);
+      return copied.recipeId;
+    }
+    usedFamily.add(chosen.id);
+    pantry = subtractIngredientsFromInventory(pantry, chosen);
+    return chosen.id;
+  }
+
+  return WEEK_CATEGORY_PLAN.map((category, dayOfWeek) => ({
+    dayOfWeek,
+    recipeId: take(category),
+    status: 'planned',
+  }));
+}
+
+const LOCKED_STATUSES = new Set(['cooked', 'away', 'skipped', 'removed']);
+
+/**
+ * Replace dinners that are still a draft. Cooked, away, skipped and
+ * removed days stay. onlyAuto leaves a person's own planned choice.
+ * @param {object} repos
+ * @param {string} weekYear
+ * @param {{ onlyAuto?: boolean }} [options]
+ */
+function regenerateUnlockedDays(repos, weekYear, { onlyAuto = false } = {}) {
+  const plan = repos.mealPlans.getWeek(weekYear);
+  const blocked = plan
+    .filter((row) => LOCKED_STATUSES.has(row.status) || (onlyAuto && row.planOrigin === 'manual'))
+    .map((row) => row.recipeId)
+    .filter((id) => id != null);
+  const picks = buildVariedWeekPlan(repos, weekYear, blocked);
+  let cursor = 0;
+  for (let day = 0; day < 7; day += 1) {
+    const row = plan.find((slot) => slot.dayOfWeek === day);
+    const locked = row && LOCKED_STATUSES.has(row.status);
+    const manual = row && row.planOrigin === 'manual';
+    if (locked || (onlyAuto && manual)) continue;
+    const chosen = picks[cursor];
+    cursor += 1;
+    if (!chosen || chosen.recipeId == null) continue;
+    repos.mealPlans.setRecipe(weekYear, day, chosen.recipeId, 'planned', 'auto');
+  }
+  return repos.mealPlans.getWeek(weekYear);
 }
 
 module.exports = {
@@ -505,4 +633,6 @@ module.exports = {
   resolveMode,
   chooseWeekRecipes,
   buildVariedWeekPlan,
+  regenerateUnlockedDays,
+  suggestionReason,
 };

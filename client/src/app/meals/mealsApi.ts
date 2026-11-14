@@ -282,6 +282,8 @@ export interface RecipeSummary {
   hiddenByDiet?: boolean;
   shownWithDislikeWarning?: boolean;
   safeForProfile?: boolean;
+  /** Pantry reason shown under the name. Already translated by the client. */
+  reason?: string;
   /** Recipe-filter blocked-ingredients list when allergy hits. Empty when safe. */
   blockedIngredients?: RecipeBlockedIngredient[];
 }
@@ -558,10 +560,36 @@ export interface MealSuggestion {
   name: string;
   sourceName?: string;
   fromLibrary?: boolean;
+  ingredientsAtHome?: number;
+  expiringUsed?: number;
 }
 
-export async function fetchMealSuggestions(dayOfWeek: number): Promise<{
+export async function fetchMealSuggestions(
+  dayOfWeek: number,
+  weekYear?: string | null
+): Promise<{
   suggestions: MealSuggestion[];
 }> {
-  return getJson(`/api/meals/suggestions/${dayOfWeek}`);
+  const params = new URLSearchParams();
+  if (weekYear) params.set('weekYear', weekYear);
+  const qs = params.toString();
+  return getJson(
+    qs ? `/api/meals/suggestions/${dayOfWeek}?${qs}` : `/api/meals/suggestions/${dayOfWeek}`
+  );
+}
+
+export async function suggestWeekAgain(weekYear: string): Promise<SwapMealResponse> {
+  const res = await fetch(`/api/meals/week/${weekYear}/suggest-again`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  let parsed: unknown = null;
+  try {
+    parsed = await res.json();
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) throw toMealsApiError(res.status, parsed);
+  return parsed as SwapMealResponse;
 }

@@ -107,6 +107,13 @@
     "title": "Handlelisten er klar",
     "body": "Middagene denne uka er lagt inn i handlelisten."
   },
+  "suggestAgain": {
+    "button": "Foreslå uka på nytt",
+    "title": "Foreslå uka på nytt?",
+    "body": "Planlagte dager blir byttet. Dager merket laget, borte eller ingen middag blir stående.",
+    "confirm": "Bytt middagene",
+    "cancel": "Avbryt"
+  },
   "picker": {
     "titlePlan": "Planlegg middag",
     "titleSwap": "Bytt middag",
@@ -126,6 +133,9 @@
     "cancel": "Avbryt",
     "fromLibrary": "Fra {{source}}",
     "addAndPlan": "Legg til og planlegg",
+    "reasonUsing": "Bruker {{count}} ting du har",
+    "reasonExpiring": "Går ut snart",
+    "reasonNew": "Ny smak",
     "errorLoad": "Kunne ikke hente oppskrifter.",
     "errorApply": "Kunne ikke lagre valget. Prøv igjen."
   },
