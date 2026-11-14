@@ -208,6 +208,9 @@ const envSchema = z.object({
   // The admin trigger can still run a capped ingest on purpose.
   RECIPE_LIBRARY_INGEST: envBoolean.default(false),
   RECIPE_LIBRARY_MAX_PAGES: z.coerce.number().int().positive().default(300),
+  // Operator site name belongs in Portainer, not in the public repo.
+  // Example: Hverdagsplanleggeren/1.0 (+https://example.com)
+  RECIPE_LIBRARY_USER_AGENT: z.string().min(1).default('FamilyAssistant/1.0 (recipe-library)'),
 });
 
 // Auto-detect node --test and set NODE_ENV=test if not explicitly set.

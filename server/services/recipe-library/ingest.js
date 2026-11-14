@@ -4,7 +4,12 @@ const { enabledSources, sourceById } = require('./sources');
 const { extractLocs, isSitemapIndex } = require('./sitemap');
 const { libraryRecordFromHtml } = require('./record');
 
-const USER_AGENT = 'Hverdagsplanleggeren/1.0 (+https://hverdagsplanleggeren.com)';
+const USER_AGENT = 'FamilyAssistant/1.0 (recipe-library)';
+
+function libraryUserAgent() {
+  const { config } = require('../../config');
+  return config.RECIPE_LIBRARY_USER_AGENT || USER_AGENT;
+}
 const DELAY_MS = 2500;
 const DEFAULT_MAX_PAGES = 300;
 
@@ -20,7 +25,7 @@ async function politeFetch(deps, lastByHost, url, prior) {
   if (wait > 0) await deps.sleep(wait);
   lastByHost.set(host, deps.now());
   const headers = {
-    'User-Agent': USER_AGENT,
+    'User-Agent': libraryUserAgent(),
     Accept: 'text/html,application/xhtml+xml,application/xml',
   };
   if (prior?.etag) headers['If-None-Match'] = prior.etag;
@@ -171,6 +176,7 @@ module.exports = {
   ingestRecipeLibrary,
   politeFetch,
   USER_AGENT,
+  libraryUserAgent,
   DELAY_MS,
   DEFAULT_MAX_PAGES,
 };
