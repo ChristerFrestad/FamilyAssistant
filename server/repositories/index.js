@@ -17,6 +17,7 @@ const { createFeedbackRepo } = require('./feedback.repo');
 const { createShelfObservationRepo } = require('./shelf-observation.repo');
 const { createPilotPasswordAttemptsRepo } = require('./pilot-password-attempts.repo');
 const { createCalendarRepos } = require('./calendar.repo');
+const { createRecipeLibraryRepo } = require('./recipe-library.repo');
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
@@ -30,6 +31,7 @@ function tryParseJson(s) {
 function createRepositories(db) {
   const { products } = createProductRepos(db);
   const { recipes, recipeSources } = createRecipeRepos(db, tryParseJson);
+  const recipeLibrary = createRecipeLibraryRepo(db);
   const { inventory, inventoryLog } = createInventoryRepos(db);
   const { mealPlans, mealHistory, sundayDrafts } = createMealRepos(db, tryParseJson);
   const { chores, choreSchedules } = createChoreRepos(db);
@@ -94,6 +96,7 @@ function createRepositories(db) {
     familyProfile,
     filterUsage,
     recipeSources,
+    recipeLibrary,
     auditLog,
     shelfObservations,
     pilotPasswordAttempts,

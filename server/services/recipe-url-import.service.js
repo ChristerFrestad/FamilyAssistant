@@ -201,7 +201,27 @@ function inferCategory(recipe) {
   return 'comfort';
 }
 
-function mapRecipeNode(node, urlObj) {
+function isoDurationMinutes(iso) {
+  if (!iso || typeof iso !== 'string') return null;
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?/i.exec(iso.trim());
+  if (!m) return null;
+  const hours = m[1] ? Number(m[1]) : 0;
+  const mins = m[2] ? Number(m[2]) : 0;
+  if (!hours && !mins) return null;
+  return hours * 60 + mins;
+}
+
+function imageUrlOf(node) {
+  const img = node && node.image;
+  if (!img) return null;
+  if (typeof img === 'string') return img;
+  if (Array.isArray(img)) return imageUrlOf({ image: img[0] });
+  if (typeof img === 'object' && typeof img.url === 'string') return img.url;
+  return null;
+}
+
+function mapRecipeNode(node, urlObj, options = {}) {
+  const includeInstructions = options.includeInstructions !== false;
   const name = textOf(node.name) || 'Imported recipe';
   const prepTime = parseIsoDuration(node.totalTime) || parseIsoDuration(node.cookTime);
   const servingsRaw = node.recipeYield;
@@ -232,7 +252,9 @@ function mapRecipeNode(node, urlObj) {
     url: urlObj.toString(),
     source: inferSourceLabel(urlObj),
     ingredients,
-    notes: instructions.length ? instructions.join('\n') : null,
+    notes: includeInstructions && instructions.length ? instructions.join('\n') : null,
+    imageUrl: imageUrlOf(node),
+    totalTimeMin: isoDurationMinutes(node.totalTime) || isoDurationMinutes(node.cookTime),
   };
 }
 
@@ -257,6 +279,8 @@ module.exports = {
   findRecipeNode,
   mapRecipeNode,
   parseIsoDuration,
+  isoDurationMinutes,
+  imageUrlOf,
   parseIngredientLine,
   assertSupportedUrl,
 };

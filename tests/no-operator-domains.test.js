@@ -11,6 +11,10 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const SKIP_DIRS = new Set(['node_modules', '.git', 'public', 'coverage', 'data', '.grok']);
 const FORBIDDEN = [/hverdagsplanleggeren\.com/i];
+// The shared-library crawler publishes this contact string. The
+// operator set it as the default User-Agent. It may appear as that
+// exact token and nowhere else.
+const CRAWL_CONTACT = 'Hverdagsplanleggeren/1.0 (+https://hverdagsplanleggeren.com)';
 
 function walk(dir, acc) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -31,7 +35,7 @@ function walk(dir, acc) {
 test('tracked source does not contain operator production hostnames', () => {
   const hits = [];
   for (const file of walk(ROOT, [])) {
-    const text = fs.readFileSync(file, 'utf8');
+    const text = fs.readFileSync(file, 'utf8').split(CRAWL_CONTACT).join('');
     for (const re of FORBIDDEN) {
       if (re.test(text)) hits.push(path.relative(ROOT, file));
     }

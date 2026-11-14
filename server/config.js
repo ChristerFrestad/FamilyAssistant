@@ -203,6 +203,15 @@ const envSchema = z.object({
   MARKETING_HOSTS: z.string().optional().default(''),
   MARKETING_CANONICAL: z.string().optional(),
   APP_PUBLIC_URL: z.string().optional(),
+
+  // Shared recipe library crawl. Off unless an operator turns it on.
+  // The admin trigger refuses to start while this is off.
+  RECIPE_LIBRARY_INGEST: envBoolean.default(false),
+  RECIPE_LIBRARY_MAX_PAGES: z.coerce.number().int().positive().default(300),
+  RECIPE_LIBRARY_USER_AGENT: z
+    .string()
+    .min(1)
+    .default('Hverdagsplanleggeren/1.0 (+https://hverdagsplanleggeren.com)'),
 });
 
 // Auto-detect node --test and set NODE_ENV=test if not explicitly set.

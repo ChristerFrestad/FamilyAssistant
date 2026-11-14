@@ -371,6 +371,26 @@ async function recipeSourcesSyncJob(repos) {
   }
 }
 
+async function recipeLibraryIngestJob(repos) {
+  const { config } = require('./config');
+  if (!config.RECIPE_LIBRARY_INGEST) return;
+  const { ingestRecipeLibrary } = require('./services/recipe-library/ingest');
+  try {
+    const result = await ingestRecipeLibrary(repos, {
+      maxPages: config.RECIPE_LIBRARY_MAX_PAGES,
+    });
+    if (result.alreadyRunning) {
+      log('Recipe-library ingest already running');
+      return;
+    }
+    log(
+      `Recipe-library: pages ${result.pages}, fetched ${result.fetched}, stored ${result.stored}`
+    );
+  } catch (err) {
+    log(`Recipe-library ERROR: ${err.message}`);
+  }
+}
+
 function gdprPurgeJob(repos) {
   try {
     const res = purgeSoftDeletedUsers(repos);
@@ -405,6 +425,7 @@ function startCronJobs(repos) {
     log('WARNING: startCronJobs called without repos \u2014 cron jobs are disabled');
     return;
   }
+  cronStopped = false;
   log('=== Starting cron jobs ===');
   scheduleJob('Sunday-push', 0, 14, 0, sundayPushJob, repos);
   scheduleJob('Chore-plan', 1, 7, 0, weeklyChoresJob, repos);
@@ -419,6 +440,10 @@ function startCronJobs(repos) {
   scheduleIntervalJob('Shopping-enrichment', 10 * 60000, shoppingEnrichmentJob, repos);
   // Phase F7: sync recipe sources every 6 hours
   scheduleIntervalJob('Recipe-sources-sync', 6 * 60 * 60 * 1000, recipeSourcesSyncJob, repos);
+  const { config } = require('./config');
+  if (config.RECIPE_LIBRARY_INGEST) {
+    scheduleIntervalJob('Recipe-library-ingest', 6 * 60 * 60 * 1000, recipeLibraryIngestJob, repos);
+  }
   log('=== All cron jobs scheduled ===');
 }
 
@@ -441,4 +466,5 @@ module.exports = {
   priceCpiIndexingJob,
   shoppingEnrichmentJob,
   recipeSourcesSyncJob,
+  recipeLibraryIngestJob,
 };
