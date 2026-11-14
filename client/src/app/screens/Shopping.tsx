@@ -36,6 +36,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Card } from '../components/layout/Card';
 import { Button } from '../components/base/Button';
 import { ShoppingHeader } from '../components/shopping/ShoppingHeader';
+import { WeekSwitcher } from '../components/layout/WeekSwitcher';
 import { CategoryGroup } from '../components/shopping/CategoryGroup';
 import { QuickAddInput } from '../components/shopping/QuickAddInput';
 import { EmptyState } from '../components/shopping/EmptyState';
@@ -66,7 +67,7 @@ export function Shopping(): JSX.Element {
 function ShoppingListView(): JSX.Element {
   const { t, i18n } = useTranslation(['shopping', 'common']);
   const navigate = useNavigate();
-  const { weekYear, pathWithWeek } = useSelectedWeek();
+  const { weekYear, goPrevWeek, goNextWeek, pathWithWeek } = useSelectedWeek();
   const {
     list,
     isLoading,
@@ -152,6 +153,14 @@ function ShoppingListView(): JSX.Element {
         formatPrice={formatPrice}
         isEmpty={!hasActiveList || flatItems.length === 0}
         weekYear={list?.weekYear ?? weekYear}
+      />
+      <WeekSwitcher
+        label={t('shopping:weekHeader.week', { weekYear: list?.weekYear ?? weekYear })}
+        prevLabel={t('shopping:weekNav.prevAria')}
+        nextLabel={t('shopping:weekNav.nextAria')}
+        onPrev={goPrevWeek}
+        onNext={goNextWeek}
+        testIdPrefix="shopping"
       />
 
       {/* Always-visible regenerate CTA. Hidden during loading/error and

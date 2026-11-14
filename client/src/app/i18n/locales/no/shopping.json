@@ -113,5 +113,9 @@
   },
   "weekHeader": {
     "week": "Uke {{weekYear}}"
+  },
+  "weekNav": {
+    "prevAria": "Forrige uke",
+    "nextAria": "Neste uke"
   }
 }

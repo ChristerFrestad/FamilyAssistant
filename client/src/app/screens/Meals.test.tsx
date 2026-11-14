@@ -16,7 +16,7 @@
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { Meals } from './Meals';
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -421,6 +421,32 @@ describe('Meals — family fetch failure does not block the screen', () => {
     });
     // 400 g without scaling (family failed, so scale defaults to 1)
     expect(screen.getByText(/400 g/)).toBeInTheDocument();
+  });
+});
+
+describe('Meals — week row stays on the planner', () => {
+  test('selects the day and scrolls the hero into view', async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    mockFetchByPath({
+      '/api/meals/current': () => jsonResponse(200, makeMealsPayload()),
+      '/api/family': () => jsonResponse(200, FAMILY_DATA),
+    });
+    render(
+      <MemoryRouter initialEntries={['/meals']}>
+        <Routes>
+          <Route path="/meals" element={<Meals />} />
+          <Route path="/recipes/:id" element={<div data-testid="recipe-page" />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('week-list-row-0')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('week-list-row-0'));
+    expect(screen.queryByTestId('recipe-page')).not.toBeInTheDocument();
+    expect(screen.getByTestId('meal-hero-name')).toHaveTextContent('Recipe 1');
+    expect(scroll).toHaveBeenCalled();
   });
 });
 
