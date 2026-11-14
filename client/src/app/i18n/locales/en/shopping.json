@@ -112,7 +112,8 @@
     "fromPantry": "Suggested from pantry"
   },
   "weekHeader": {
-    "week": "Week {{weekYear}}"
+    "week": "Week {{weekYear}}",
+    "loading": "Loading week {{weekYear}} …"
   },
   "weekNav": {
     "prevAria": "Previous week",

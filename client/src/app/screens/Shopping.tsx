@@ -152,15 +152,19 @@ function ShoppingListView(): JSX.Element {
         stats={stats}
         formatPrice={formatPrice}
         isEmpty={!hasActiveList || flatItems.length === 0}
-        weekYear={list?.weekYear ?? weekYear}
       />
       <WeekSwitcher
-        label={t('shopping:weekHeader.week', { weekYear: list?.weekYear ?? weekYear })}
+        label={
+          isLoading
+            ? t('shopping:weekHeader.loading', { weekYear })
+            : t('shopping:weekHeader.week', { weekYear: list?.weekYear ?? weekYear })
+        }
         prevLabel={t('shopping:weekNav.prevAria')}
         nextLabel={t('shopping:weekNav.nextAria')}
         onPrev={goPrevWeek}
         onNext={goNextWeek}
         testIdPrefix="shopping"
+        busy={isLoading}
       />
 
       {/* Always-visible regenerate CTA. Hidden during loading/error and
