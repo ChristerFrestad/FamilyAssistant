@@ -21,11 +21,7 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": [
-    "server/**/*.js",
-    "scripts/coverage-gate.js",
-    "scripts/run-tests.js"
-  ],
+  "include": ["server/**/*.js", "scripts/coverage-gate.js", "scripts/run-tests.js"],
   "exclude": [
     "node_modules",
     "tests",
@@ -34,8 +30,6 @@
     "backups",
     "coverage",
     ".claude",
-    "scripts/load-baseline.js",
-    "scripts/extract-frontend.js",
-    "scripts/rewrite-index-html.js"
+    "scripts/load-baseline.js"
   ]
 }
