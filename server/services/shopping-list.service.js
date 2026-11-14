@@ -21,7 +21,7 @@
 
 const { normalizeSync } = require('./ingredient-normalizer.service');
 const { aliasGroup, aliasKeys, preferredKey } = require('./product-key-alias');
-const { convertQuantity, toCanonical } = require('./unit-convert');
+const { canonicalUnit, convertQuantity } = require('./unit-convert');
 const { getOptionalFamilyId } = require('../auth/family-context');
 const { effectiveScale } = require('./family.service');
 
@@ -140,12 +140,12 @@ function computeShoppingListForWeek(repos, weekYear) {
         ? String(rawKey).trim().toLowerCase()
         : aliasGroup(ing.productKey, repos);
       if (!key) continue;
-      const canonical = toCanonical(ing.qty * scale, ing.unit);
-      const groupKey = canonical ? `${key}:${canonical.unit}` : `${key}:${String(ing.unit || '')}`;
+      const dimension = canonicalUnit(ing.unit) || String(ing.unit || '');
+      const groupKey = `${key}:${dimension}`;
       if (!seen.has(groupKey)) {
         seen.set(groupKey, {
           totalQty: 0,
-          unit: canonical ? canonical.unit : ing.unit,
+          unit: ing.unit,
           unmeasured: false,
           meals: [],
           name: ing.name,
@@ -155,7 +155,9 @@ function computeShoppingListForWeek(repos, weekYear) {
         });
       }
       const entry = seen.get(groupKey);
-      entry.totalQty += canonical ? canonical.qty : (Number(ing.qty) || 0) * scale;
+      const amount = (Number(ing.qty) || 0) * scale;
+      const converted = convertQuantity(amount, ing.unit, entry.unit);
+      entry.totalQty += converted == null ? amount : converted;
       entry.meals.push(recipe.name);
       entry.recipeIds.add(recipe.id);
     }
