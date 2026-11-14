@@ -26,10 +26,8 @@ import {
   type CreateCalendarEventBody,
 } from '../calendar/calendarApi';
 import {
-  connectIcloud,
   disconnectCalendarIntegration,
   fetchCalendarIntegrations,
-  startGoogleCalendar,
   type CalendarIntegration,
 } from '../calendar/integrationsApi';
 
@@ -98,11 +96,6 @@ export function Calendar(): JSX.Element {
   const [notes, setNotes] = useState('');
 
   const [integrations, setIntegrations] = useState<CalendarIntegration[]>([]);
-  const [googleConfigured, setGoogleConfigured] = useState(false);
-  const [googleDisabledReason, setGoogleDisabledReason] = useState<string | null>(null);
-  const [icloudEmail, setIcloudEmail] = useState('');
-  const [icloudPassword, setIcloudPassword] = useState('');
-  const [connecting, setConnecting] = useState(false);
 
   const load = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
@@ -130,17 +123,11 @@ export function Calendar(): JSX.Element {
         const res = await fetchCalendarIntegrations(signal);
         if (signal?.aborted) return;
         setIntegrations(Array.isArray(res.integrations) ? res.integrations : []);
-        setGoogleConfigured(!!res.googleConfigured);
-        setGoogleDisabledReason(
-          res.googleConfigured ? null : t('calendar:integrations.googleDisabled')
-        );
       } catch {
         if (signal?.aborted) return;
-        setGoogleConfigured(false);
-        setGoogleDisabledReason(t('calendar:integrations.googleDisabled'));
       }
     },
-    [canManage, t]
+    [canManage]
   );
 
   useEffect(() => {
@@ -192,22 +179,6 @@ export function Calendar(): JSX.Element {
     }
   }
 
-  async function handleIcloudConnect(e: FormEvent<HTMLFormElement>): Promise<void> {
-    e.preventDefault();
-    if (!icloudEmail.trim() || !icloudPassword) return;
-    setActionError(null);
-    setConnecting(true);
-    try {
-      await connectIcloud({ email: icloudEmail.trim(), appPassword: icloudPassword });
-      setIcloudPassword('');
-      await loadIntegrations();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('calendar:integrations.connectFailed'));
-    } finally {
-      setConnecting(false);
-    }
-  }
-
   async function handleDisconnect(id: number): Promise<void> {
     setActionError(null);
     try {
@@ -216,19 +187,6 @@ export function Calendar(): JSX.Element {
     } catch (err) {
       setActionError(
         err instanceof Error ? err.message : t('calendar:integrations.disconnectFailed')
-      );
-    }
-  }
-
-  async function handleGoogleConnect(): Promise<void> {
-    setActionError(null);
-    try {
-      const res = await startGoogleCalendar();
-      if (res.url) window.location.assign(res.url);
-    } catch (err) {
-      setGoogleConfigured(false);
-      setGoogleDisabledReason(
-        err instanceof Error ? err.message : t('calendar:integrations.googleDisabled')
       );
     }
   }
@@ -451,48 +409,12 @@ export function Calendar(): JSX.Element {
               </ul>
             )}
 
-            <form className="flex flex-col gap-3" onSubmit={(e) => void handleIcloudConnect(e)}>
-              <Field label={t('calendar:integrations.email')}>
-                <Input
-                  type="email"
-                  value={icloudEmail}
-                  onChange={(e) => setIcloudEmail(e.target.value)}
-                  autoComplete="username"
-                />
-              </Field>
-              <Field label={t('calendar:integrations.appPassword')}>
-                <Input
-                  type="password"
-                  value={icloudPassword}
-                  onChange={(e) => setIcloudPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
-              </Field>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  loading={connecting}
-                  disabled={!icloudEmail.trim() || !icloudPassword}
-                >
-                  {t('calendar:actions.connectIcloud')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={!googleConfigured}
-                  title={googleDisabledReason ?? undefined}
-                  onClick={() => void handleGoogleConnect()}
-                >
-                  {t('calendar:actions.connectGoogle')}
-                </Button>
-              </div>
-              {!googleConfigured && googleDisabledReason ? (
-                <p className="font-body text-meta text-text-3" data-testid="google-disabled-reason">
-                  {googleDisabledReason}
-                </p>
-              ) : null}
-            </form>
+            <p
+              className="font-body text-body text-text-2"
+              data-testid="calendar-connect-unavailable"
+            >
+              {t('calendar:integrations.unavailable')}
+            </p>
           </div>
         </Card>
       ) : null}

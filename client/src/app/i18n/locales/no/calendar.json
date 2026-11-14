@@ -45,6 +45,7 @@
     "appPassword": "App-passord",
     "empty": "Ingen kalendere er koblet til ennå.",
     "googleDisabled": "Google Kalender er ikke konfigurert på denne serveren.",
+    "unavailable": "Kobling til Google og iCloud virker ikke ennå. Knappene er skjult til tilkoblingen er klar.",
     "connectedAs": "{{provider}} · {{email}}",
     "lastError": "Siste feil: {{error}}",
     "connectFailed": "Kunne ikke koble til kalenderen.",
