@@ -107,7 +107,9 @@ export function RecipeIngredients({ recipe, scale }: RecipeIngredientsProps): JS
       ) : null}
       <ul className="flex flex-col gap-1.5" role="list" data-testid="recipe-ingredient-list">
         {ingredients.map((ing, idx) => {
-          const qty = ing.qty * effectiveScale;
+          const qty = ing.qty != null && Number.isFinite(ing.qty) ? ing.qty * effectiveScale : null;
+          const amount =
+            qty == null ? '' : `${formatQty(qty)}${ing.unit ? ` ${ing.unit}` : ''}`.trim();
           return (
             <li
               key={ing.id ?? `${ing.name}-${idx}`}
@@ -115,9 +117,7 @@ export function RecipeIngredients({ recipe, scale }: RecipeIngredientsProps): JS
               data-testid={`recipe-ingredient-${idx}`}
             >
               <span className="text-text-1">{ing.name}</span>
-              <span className="text-text-2 font-mono">
-                {formatQty(qty)} {ing.unit}
-              </span>
+              <span className="text-text-2 font-mono">{amount}</span>
             </li>
           );
         })}

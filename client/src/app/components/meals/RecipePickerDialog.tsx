@@ -43,6 +43,8 @@ export interface RecipePickerDialogProps {
   applyError: string | null;
   /** Recipe id of the currently planned recipe for visual cue (optional). */
   currentRecipeId?: number | null;
+  librarySuggestions?: Array<{ libraryId: number; name: string; sourceName: string }>;
+  onAddAndPlan?: (libraryId: number) => void;
   onSelect: (recipeId: number) => void;
   onClose: () => void;
 }
@@ -57,6 +59,8 @@ export function RecipePickerDialog({
   applying,
   applyError,
   currentRecipeId,
+  librarySuggestions = [],
+  onAddAndPlan,
   onSelect,
   onClose,
 }: RecipePickerDialogProps): JSX.Element {
@@ -190,6 +194,31 @@ export function RecipePickerDialog({
                 disabled={applying || isBlocked(r)}
                 onSelect={onSelect}
               />
+            ))}
+          </ul>
+        ) : null}
+
+        {librarySuggestions.length > 0 ? (
+          <ul className="flex flex-col gap-2" data-testid="recipe-picker-library">
+            {librarySuggestions.map((item) => (
+              <li
+                key={item.libraryId}
+                className="flex flex-col gap-2 rounded-md border border-stroke p-3"
+              >
+                <p className="font-body text-body text-text-1">{item.name}</p>
+                <p className="font-body text-meta text-text-3">
+                  {t('picker.fromLibrary', { source: item.sourceName })}
+                </p>
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={applying || !onAddAndPlan}
+                  onClick={() => onAddAndPlan?.(item.libraryId)}
+                  data-testid={`recipe-picker-library-add-${item.libraryId}`}
+                >
+                  {t('picker.addAndPlan')}
+                </Button>
+              </li>
             ))}
           </ul>
         ) : null}

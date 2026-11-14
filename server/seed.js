@@ -1086,7 +1086,7 @@ const recipes = [
     category: 'rask',
     prepTime: '20 min',
     source: 'matprat.no',
-    url: 'https://www.matprat.no/oppskrifter/rask/laks-i-airfryer/',
+    url: null,
     servings: 2,
     equipment: ['airfryer'],
     ingredients: [

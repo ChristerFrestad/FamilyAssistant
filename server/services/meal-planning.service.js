@@ -9,7 +9,10 @@
 //
 // The scoring logic lives in pantry-coverage.service.js.
 
-const { altSuggestionMap, getWeekYear } = require('../seed');
+const { altSuggestionMap, getWeekYear, recipes: seedRecipes } = require('../seed');
+const { FEW_RECIPES } = require('./recipe-library/copy');
+
+const seedRecipeById = new Map(seedRecipes.map((recipe) => [recipe.id, recipe]));
 const {
   rankRecipes,
   subtractIngredientsFromInventory,
@@ -92,14 +95,17 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
     }));
   }
 
-  // Default: keep current behavior (altSuggestionMap + simple homeCount annotation).
+  // Default: altSuggestionMap lists seed ids. Later families get new
+  // row ids, so match the seed recipe by name.
   const altIds = altSuggestionMap[dayOfWeek] || [];
   const suggestions = [];
 
   for (const rid of altIds) {
-    if (currentRecipeIds.includes(rid)) continue;
-    const recipe = allRecipes.find((r) => r.id === rid);
-    if (!recipe) continue;
+    const seedRecipe = seedRecipeById.get(rid);
+    const recipe = seedRecipe
+      ? allRecipes.find((item) => item.name === seedRecipe.name)
+      : allRecipes.find((item) => item.id === rid);
+    if (!recipe || currentRecipeIds.includes(recipe.id)) continue;
 
     let homeCount = 0;
     for (const ing of recipe.ingredients || []) {
@@ -122,6 +128,28 @@ function getSwapSuggestions(repos, dayOfWeek, weekYear) {
     });
 
     if (suggestions.length >= 5) break;
+  }
+
+  const activeCount = allRecipes.length;
+  if ((activeCount < FEW_RECIPES || suggestions.length === 0) && repos.recipeLibrary) {
+    const have = new Set(allRecipes.map((recipe) => recipe.url).filter(Boolean));
+    const libraryRows = repos.recipeLibrary.listSuggestions([...have], 5);
+    for (const row of libraryRows) {
+      suggestions.push({
+        recipeId: null,
+        libraryId: row.id,
+        name: row.title,
+        prepTime: row.totalTimeMin ? `${row.totalTimeMin} min` : null,
+        category: row.category || 'comfort',
+        sourceName: row.sourceName,
+        sourceLabel: `Fra ${row.sourceName}`,
+        fromLibrary: true,
+        ingredientsAtHome: 0,
+        totalIngredients: 0,
+        reason: `Fra ${row.sourceName}`,
+        ingredients: [],
+      });
+    }
   }
 
   return suggestions;

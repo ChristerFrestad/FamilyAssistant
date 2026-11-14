@@ -73,6 +73,30 @@ function isAdultRole(role: string | undefined): boolean {
   return role === 'owner' || role === 'adult';
 }
 
+function SourceLink({
+  url,
+  source,
+}: {
+  url: string | null | undefined;
+  source: string | null | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation('recipes');
+  if (!url) return null;
+  const name = source && source.trim() ? source.trim() : url;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={t('actions.openSourceLabel', { source: name })}
+      className="inline-flex min-h-6 items-center font-body text-body text-mint underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+      data-testid="recipe-open-source"
+    >
+      {t('actions.openSource', { source: name })}
+    </a>
+  );
+}
+
 function newIngredientKey(): string {
   return `ing-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -101,8 +125,8 @@ function draftFromRecipe(recipe: RecipeDetail): EditorDraft {
           const row: IngredientDraft = {
             key: newIngredientKey(),
             name: ing.name,
-            qty: String(ing.qty),
-            unit: ing.unit,
+            qty: ing.qty == null ? '' : String(ing.qty),
+            unit: ing.unit ?? '',
             optional: Boolean(ing.optional),
           };
           if (ing.productKey) row.productKey = ing.productKey;
@@ -465,6 +489,7 @@ export function RecipeEditor(): JSX.Element {
             </h1>
             {isDesktop ? <div className="hidden md:block">{saveBar}</div> : null}
           </header>
+          {recipe ? <SourceLink url={recipe.url} source={recipe.source} /> : null}
 
           {recipe && recipe.active === false ? (
             <Card
@@ -806,6 +831,7 @@ function RecipeReadOnly({
       <h1 id="recipe-editor-heading" className="font-display text-display-md text-text-1">
         {heading}
       </h1>
+      <SourceLink url={recipe.url} source={recipe.source} />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={badgeVariant}>{t(`category.${recipe.category}`)}</Badge>
         {recipe.prepTime ? (

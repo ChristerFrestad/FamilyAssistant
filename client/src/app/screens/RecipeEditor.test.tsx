@@ -248,10 +248,37 @@ describe('RecipeEditor — edit', () => {
   });
 });
 
+describe('RecipeEditor — source link', () => {
+  test('adult and the link open the recipe url in a new tab', async () => {
+    const recipe = {
+      ...TACO,
+      source: 'Meny',
+      url: 'https://meny.no/oppskrifter/fisk/fiskekaker',
+    };
+    mockApi({
+      'GET /api/recipes/12': () => jsonResponse(200, { recipe }),
+    });
+    mountEditor('/recipes/12');
+    const link = await screen.findByTestId('recipe-open-source');
+    expect(link).toHaveAttribute('href', recipe.url);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link).toHaveTextContent('Åpne kilde (Meny)');
+    expect(link).toHaveAttribute('aria-label', 'Åpne kilden Meny i en ny fane');
+  });
+});
+
 describe('RecipeEditor — child read-only', () => {
   test('renders text, not inputs, and omits save and deactivate', async () => {
     mockApi({
-      'GET /api/recipes/12': () => jsonResponse(200, { recipe: TACO }),
+      'GET /api/recipes/12': () =>
+        jsonResponse(200, {
+          recipe: {
+            ...TACO,
+            source: 'Meny',
+            url: 'https://meny.no/oppskrifter/fisk/fiskekaker',
+          },
+        }),
     });
     mountEditor('/recipes/12', CHILD_USER);
     await waitFor(() => {
@@ -263,5 +290,8 @@ describe('RecipeEditor — child read-only', () => {
     expect(screen.queryByTestId('recipe-save')).toBeNull();
     expect(screen.queryByTestId('recipe-deactivate')).toBeNull();
     expect(screen.getByTestId('recipe-ingredients')).toBeInTheDocument();
+    const link = screen.getByTestId('recipe-open-source');
+    expect(link).toHaveAttribute('href', 'https://meny.no/oppskrifter/fisk/fiskekaker');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });

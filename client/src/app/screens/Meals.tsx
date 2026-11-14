@@ -363,6 +363,8 @@ export function Meals(): JSX.Element {
         applying={picker.state.applying}
         applyError={picker.state.applyError !== null ? t('meals:picker.errorApply') : null}
         currentRecipeId={picker.state.currentRecipeId}
+        librarySuggestions={picker.state.librarySuggestions}
+        onAddAndPlan={picker.selectLibrary}
         onSelect={picker.select}
         onClose={picker.close}
       />
