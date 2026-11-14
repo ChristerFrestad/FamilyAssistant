@@ -35,6 +35,8 @@ export interface MarkCookedDialogState {
   resultMessage: string | null;
   /** Optional summary of low-stock-trigger items added to shopping. */
   lowStockCount: number;
+  /** True when the meal was already cooked before this dialog opened. */
+  alreadyCooked: boolean;
 }
 
 export interface MarkCookedDialogProps {

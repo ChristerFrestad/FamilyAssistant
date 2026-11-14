@@ -5,6 +5,7 @@ const { getWeekYear } = require('./seed');
 const { generateSundayDraft } = require('./services/meal-planning.service');
 const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
+const { deductionNote, hasExactDeduction } = require('./services/pantry-deduction.service');
 const { enrichPendingLists } = require('./services/shopping-list-enricher.service');
 const { purgeSoftDeletedUsers } = require('./auth/gdpr-routes');
 const { runWithFamily } = require('./auth/family-context');
@@ -43,15 +44,8 @@ function runForEachFamily(repos, jobName, fn) {
   }
 }
 
-function deductionTag(mealId) {
-  return `meal_deduction:${mealId}`;
-}
-
-function alreadyDeductedForMeal(repos, productKey, mealId) {
-  if (!repos.inventoryLog || typeof repos.inventoryLog.getByKey !== 'function') return false;
-  const tag = deductionTag(mealId);
-  const rows = repos.inventoryLog.getByKey(productKey, 50);
-  return rows.some((row) => typeof row.notes === 'string' && row.notes.includes(tag));
+function utcIsoDow(date) {
+  return (date.getUTCDay() + 6) % 7;
 }
 
 // === Job 1: Sunday push at 14:00 ===
@@ -124,13 +118,13 @@ function shelfLifeCheckOneFamily(repos) {
 }
 
 // === Job 3: Inventory depletion (daily at 22:00) ===
-function dailyDepletionJob(repos) {
-  runForEachFamily(repos, 'Depletion', () => depleteOneFamily(repos));
+function dailyDepletionJob(repos, now = new Date()) {
+  runForEachFamily(repos, 'Depletion', () => depleteOneFamily(repos, now));
 }
 
-function depleteOneFamily(repos) {
-  const wk = getWeekYear();
-  const dayOfWeek = (new Date().getDay() + 6) % 7;
+function depleteOneFamily(repos, now = new Date()) {
+  const wk = getWeekYear(new Date(now.getTime()));
+  const dayOfWeek = utcIsoDow(now);
   const plan = repos.mealPlans.getWeek(wk);
   const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
 
@@ -158,24 +152,29 @@ function depleteOneFamily(repos) {
     const key = ing.productKey || (ing.name || '').toLowerCase();
     const amount = ing.qty || 0;
     if (amount <= 0) continue;
-    if (alreadyDeductedForMeal(repos, key, todaySlot.id)) continue;
-    const inv = repos.inventory.getByKey(key);
-    if (!inv || (inv.qtyRemaining || 0) <= 0) continue;
-    const beforeQty = inv.qtyRemaining || 0;
-    repos.inventory.reduceQty(key, amount);
-    const after = repos.inventory.getByKey(key);
-    const afterQty = after ? after.qtyRemaining || 0 : 0;
-    if (repos.inventoryLog && typeof repos.inventoryLog.insert === 'function') {
-      repos.inventoryLog.insert({
-        productKey: key,
-        qtyDelta: afterQty - beforeQty,
-        newQty: afterQty,
-        unit: ing.unit || inv.unit || null,
-        reason: 'correction',
-        notes: deductionTag(todaySlot.id),
-      });
-    }
-    depleted.push(`${key}: -${amount}${ing.unit || ''}`);
+    const applyOne = () => {
+      if (hasExactDeduction(repos, key, todaySlot.id)) return false;
+      const inv = repos.inventory.getByKey(key);
+      if (!inv || (inv.qtyRemaining || 0) <= 0) return false;
+      const beforeQty = inv.qtyRemaining || 0;
+      repos.inventory.reduceQty(key, amount);
+      const after = repos.inventory.getByKey(key);
+      const afterQty = after ? after.qtyRemaining || 0 : 0;
+      if (repos.inventoryLog && typeof repos.inventoryLog.insert === 'function') {
+        repos.inventoryLog.insert({
+          productKey: key,
+          qtyDelta: afterQty - beforeQty,
+          newQty: afterQty,
+          unit: ing.unit || inv.unit || null,
+          reason: 'cron_depletion',
+          notes: deductionNote(todaySlot.id),
+        });
+      }
+      return true;
+    };
+    const did =
+      typeof repos.transaction === 'function' ? repos.transaction(applyOne)() : applyOne();
+    if (did) depleted.push(`${key}: -${amount}${ing.unit || ''}`);
   }
   repos.consumables.reduceDaily(recipe.equipment || []);
 

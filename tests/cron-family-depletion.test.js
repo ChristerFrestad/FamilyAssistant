@@ -10,11 +10,16 @@ const { startTestServer } = require('./helpers');
 const { runWithFamily } = require('../server/auth/family-context');
 const { getWeekYear } = require('../server/seed');
 const { dailyDepletionJob, sundayPushJob, shelfLifeCheckJob } = require('../server/cron');
+const { applyDeduction } = require('../server/services/pantry-deduction.service');
 
 let server;
 
-function todayDow() {
-  return (new Date().getDay() + 6) % 7;
+// Noon UTC, away from every local midnight, so week and weekday cannot
+// disagree during the test.
+const FIXED_NOW = new Date('2026-06-15T12:00:00Z');
+
+function isoDow(date) {
+  return (date.getUTCDay() + 6) % 7;
 }
 
 function createFamily(name) {
@@ -30,7 +35,7 @@ function qtyOf(familyId, key) {
   return row ? row.qty : null;
 }
 
-function plantDinner(familyId, { status, productKey, withDeduction }) {
+function plantDinner(familyId, { status, productKey, withDeduction }, now = FIXED_NOW) {
   return runWithFamily(familyId, () => {
     const recipeId = Number(
       server.repos.recipes.insert({
@@ -39,10 +44,11 @@ function plantDinner(familyId, { status, productKey, withDeduction }) {
         ingredients: [{ productKey, name: productKey, qty: 2, unit: 'stk' }],
       })
     );
-    const wk = getWeekYear();
-    server.repos.mealPlans.setRecipe(wk, todayDow(), recipeId, status);
+    const wk = getWeekYear(new Date(now.getTime()));
+    const dow = isoDow(now);
+    server.repos.mealPlans.setRecipe(wk, dow, recipeId, status);
     server.repos.inventory.addPurchase(productKey, { packSize: 10, unit: 'stk' });
-    const slot = server.repos.mealPlans.getWeek(wk).find((row) => row.dayOfWeek === todayDow());
+    const slot = server.repos.mealPlans.getWeek(wk).find((row) => row.dayOfWeek === dow);
     if (withDeduction) {
       server.repos.inventoryLog.insert({
         productKey,
@@ -80,14 +86,20 @@ test('dailyDepletionJob deducts every family once and skips removed or already d
   plantDinner(familyRemoved, { status: 'removed', productKey: keyRemoved });
   plantDinner(familyDone, { status: 'cooked', productKey: keyDone, withDeduction: true });
 
-  dailyDepletionJob(server.repos);
+  dailyDepletionJob(server.repos, FIXED_NOW);
 
   assert.equal(qtyOf(familyA, keyA), 8);
   assert.equal(qtyOf(familyB, keyB), 8);
   assert.equal(qtyOf(familyRemoved, keyRemoved), 10);
   assert.equal(qtyOf(familyDone, keyDone), 10);
+  const reason = server.repos._db
+    .prepare(
+      `SELECT reason FROM inventory_log WHERE family_id = ? AND product_key = ? AND notes LIKE 'meal_deduction:%'`
+    )
+    .get(familyA, keyA);
+  assert.equal(reason.reason, 'cron_depletion');
 
-  dailyDepletionJob(server.repos);
+  dailyDepletionJob(server.repos, FIXED_NOW);
 
   assert.equal(qtyOf(familyA, keyA), 8, 'second run must not deduct again');
   assert.equal(qtyOf(familyB, keyB), 8, 'second run must not deduct again');
@@ -116,4 +128,65 @@ test('sundayPushJob and shelfLifeCheckJob visit a family that is not family 1', 
     .get(familyId).c;
   assert.equal(sunday, 1);
   assert.ok(shelf >= 1);
+});
+
+test('cron deduction blocks a later dialog apply, and a repeat apply is a no-op', () => {
+  const familyId = createFamily('Cron Then Dialog');
+  const key = 'shared-milk';
+  const mealId = plantDinner(familyId, { status: 'planned', productKey: key });
+
+  dailyDepletionJob(server.repos, FIXED_NOW);
+  assert.equal(qtyOf(familyId, key), 8);
+
+  const first = runWithFamily(familyId, () =>
+    applyDeduction(server.repos, mealId, [{ productKey: key, amountToDeduct: 2 }])
+  );
+  assert.equal(first.applied.length, 0);
+  assert.equal(first.skipped[0].reason, 'already-deducted');
+  assert.equal(qtyOf(familyId, key), 8);
+
+  const second = runWithFamily(familyId, () =>
+    applyDeduction(server.repos, mealId, [{ productKey: key, amountToDeduct: 2 }])
+  );
+  assert.equal(second.applied.length, 0);
+  assert.equal(qtyOf(familyId, key), 8);
+});
+
+test('a longer meal id in the log does not block a shorter meal, and families do not share a key', () => {
+  const familyA = createFamily('Exact A');
+  const familyB = createFamily('Exact B');
+  const key = 'shared-milk';
+  const mealA = plantDinner(familyA, { status: 'planned', productKey: key });
+  const mealB = plantDinner(familyB, { status: 'planned', productKey: key });
+
+  runWithFamily(familyA, () => {
+    server.repos.inventoryLog.insert({
+      productKey: key,
+      qtyDelta: 0,
+      newQty: 10,
+      unit: 'stk',
+      reason: 'cron_depletion',
+      notes: `meal_deduction:${mealA}1`,
+    });
+  });
+
+  const deducted = runWithFamily(familyA, () =>
+    applyDeduction(server.repos, mealA, [{ productKey: key, amountToDeduct: 2 }])
+  );
+  assert.equal(deducted.applied.length, 1);
+  assert.equal(qtyOf(familyA, key), 8);
+  assert.equal(qtyOf(familyB, key), 10);
+
+  const again = runWithFamily(familyA, () =>
+    applyDeduction(server.repos, mealA, [{ productKey: key, amountToDeduct: 2 }])
+  );
+  assert.equal(again.applied.length, 0);
+  assert.equal(qtyOf(familyA, key), 8);
+
+  const otherFamily = runWithFamily(familyB, () =>
+    applyDeduction(server.repos, mealB, [{ productKey: key, amountToDeduct: 2 }])
+  );
+  assert.equal(otherFamily.applied.length, 1);
+  assert.equal(qtyOf(familyB, key), 8);
+  assert.equal(qtyOf(familyA, key), 8);
 });

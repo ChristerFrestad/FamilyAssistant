@@ -18,7 +18,7 @@
 // /api/pantry on next render). The dialog itself only needs the local
 // state captured in MarkCookedDialogState.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   applyMealDeduction,
   markMealEaten,
@@ -39,6 +39,7 @@ const INITIAL_STATE: MarkCookedDialogState = {
   suggestions: [],
   resultMessage: null,
   lowStockCount: 0,
+  alreadyCooked: false,
 };
 
 export interface UsePantryDeductionResult {
@@ -61,28 +62,41 @@ export interface UsePantryDeductionResult {
 
 export function usePantryDeduction(onAfterMutate?: () => void): UsePantryDeductionResult {
   const [state, setState] = useState<MarkCookedDialogState>(INITIAL_STATE);
+  const openGen = useRef(0);
+  const onAfterRef = useRef(onAfterMutate);
+  onAfterRef.current = onAfterMutate;
 
   const open = useCallback(async (mealId: number): Promise<void> => {
-    setState((prev) => ({
-      ...prev,
+    const gen = ++openGen.current;
+    setState({
+      ...INITIAL_STATE,
       open: true,
       loading: true,
-      error: null,
-      applying: false,
-      applyError: null,
       mealId,
-      suggestions: [],
-      resultMessage: null,
-      lowStockCount: 0,
-    }));
+    });
     try {
       const res = await markMealEaten(mealId);
+      if (gen !== openGen.current) {
+        // Dismissed while mark-eaten was in flight. Undo only the cook
+        // this request just created.
+        if (!res.alreadyCooked) {
+          try {
+            await unmarkMealEaten(mealId);
+          } catch {
+            // The parent refetches. Closing must not hang.
+          }
+          onAfterRef.current?.();
+        }
+        return;
+      }
       setState((prev) => ({
         ...prev,
         loading: false,
         suggestions: res.suggestions,
+        alreadyCooked: res.alreadyCooked,
       }));
     } catch (err) {
+      if (gen !== openGen.current) return;
       const message = err instanceof MealsApiError ? err.message : 'Network error';
       setState((prev) => ({
         ...prev,
@@ -130,8 +144,13 @@ export function usePantryDeduction(onAfterMutate?: () => void): UsePantryDeducti
   }, []);
 
   const cancel = useCallback(async (): Promise<void> => {
+    if (state.loading) {
+      openGen.current += 1;
+      setState(INITIAL_STATE);
+      return;
+    }
     const mealId = state.mealId;
-    if (mealId == null) {
+    if (mealId == null || state.alreadyCooked || state.resultMessage !== null) {
       setState(INITIAL_STATE);
       return;
     }
@@ -144,12 +163,17 @@ export function usePantryDeduction(onAfterMutate?: () => void): UsePantryDeducti
     }
     setState(INITIAL_STATE);
     onAfterMutate?.();
-  }, [state.mealId, onAfterMutate]);
+  }, [onAfterMutate, state.alreadyCooked, state.loading, state.mealId, state.resultMessage]);
 
   const close = useCallback((): void => {
+    if (state.loading) {
+      openGen.current += 1;
+      setState(INITIAL_STATE);
+      return;
+    }
     const mealId = state.mealId;
     const settled = state.resultMessage !== null;
-    if (mealId == null || settled) {
+    if (mealId == null || settled || state.alreadyCooked) {
       setState(INITIAL_STATE);
       return;
     }
@@ -162,7 +186,7 @@ export function usePantryDeduction(onAfterMutate?: () => void): UsePantryDeducti
       setState(INITIAL_STATE);
       onAfterMutate?.();
     })();
-  }, [onAfterMutate, state.mealId, state.resultMessage]);
+  }, [onAfterMutate, state.alreadyCooked, state.loading, state.mealId, state.resultMessage]);
 
   return { state, open, confirm, skip, cancel, close };
 }

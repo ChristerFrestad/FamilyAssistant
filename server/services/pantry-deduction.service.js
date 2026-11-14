@@ -57,6 +57,35 @@ const { getFamilyId } = require('../auth/family-context');
  * @param {Object} mealPlanRow             Row from mealPlans.getWeek
  * @returns {DeductionSuggestion[]}
  */
+/**
+ * Exact inventory_log.notes value for one meal. Equality, not a prefix:
+ * meal 5 must not match meal_deduction:51.
+ * @param {number} mealId
+ * @returns {string}
+ */
+function deductionNote(mealId) {
+  const id = Number(mealId);
+  if (!Number.isInteger(id) || id <= 0) return '';
+  return `meal_deduction:${id}`;
+}
+
+/**
+ * @param {Object} repos
+ * @param {string} productKey
+ * @param {number} mealId
+ * @returns {boolean}
+ */
+function hasExactDeduction(repos, productKey, mealId) {
+  const note = deductionNote(mealId);
+  if (!note || !productKey) return false;
+  if (repos.inventoryLog && typeof repos.inventoryLog.hasExactNote === 'function') {
+    return repos.inventoryLog.hasExactNote(productKey, note);
+  }
+  if (!repos.inventoryLog || typeof repos.inventoryLog.getByKey !== 'function') return false;
+  const rows = repos.inventoryLog.getByKey(productKey, 200);
+  return rows.some((row) => row.notes === note);
+}
+
 function buildSuggestions(repos, mealPlanRow) {
   if (!mealPlanRow || !mealPlanRow.recipeId) return [];
   const recipe = repos.recipes.getById(mealPlanRow.recipeId);
@@ -103,6 +132,11 @@ function buildSuggestions(repos, mealPlanRow) {
     suggestion.matched = true;
     suggestion.pantryRemaining = Number(inv.qtyRemaining) || 0;
     suggestion.pantryUnit = inv.unit || suggestion.pantryUnit;
+    if (hasExactDeduction(repos, suggestion.productKey, mealPlanRow.id)) {
+      suggestion.suggestedDeduction = 0;
+      suggestion.alreadyDeducted = true;
+      continue;
+    }
     // Clamp the suggested deduction so the UI does not default to a
     // value greater than what we have at home.
     if (suggestion.suggestedDeduction > suggestion.pantryRemaining) {
@@ -128,45 +162,54 @@ function applyDeduction(repos, mealId, items) {
   const applied = [];
   const skipped = [];
   const lowStockTriggered = [];
-  const noteTag = `meal_deduction:${mealId}`;
+  const noteTag = deductionNote(mealId);
 
-  for (const item of items) {
-    if (!item || !item.productKey) {
-      skipped.push({ productKey: item?.productKey ?? null, reason: 'missing-productKey' });
-      continue;
+  const run = () => {
+    for (const item of items) {
+      if (!item || !item.productKey) {
+        skipped.push({ productKey: item?.productKey ?? null, reason: 'missing-productKey' });
+        continue;
+      }
+      const requested = Number(item.amountToDeduct);
+      if (!Number.isFinite(requested) || requested <= 0) {
+        skipped.push({ productKey: item.productKey, reason: 'non-positive-amount' });
+        continue;
+      }
+      if (noteTag && hasExactDeduction(repos, item.productKey, mealId)) {
+        skipped.push({ productKey: item.productKey, reason: 'already-deducted' });
+        continue;
+      }
+      const inv = repos.inventory.getByKey(item.productKey);
+      if (!inv) {
+        skipped.push({ productKey: item.productKey, reason: 'not-in-pantry' });
+        continue;
+      }
+      const prevQty = Number(inv.qtyRemaining) || 0;
+      const clamped = Math.min(requested, prevQty);
+      if (clamped <= 0) {
+        skipped.push({ productKey: item.productKey, reason: 'pantry-empty' });
+        continue;
+      }
+      const newQty = round1(prevQty - clamped);
+      const result = pantryService.correctQty(repos, {
+        productKey: item.productKey,
+        newQty,
+        notes: noteTag,
+      });
+      applied.push({
+        productKey: item.productKey,
+        prevQty,
+        newQty,
+        delta: result.delta,
+      });
+      if (result.lowStock?.triggered) {
+        lowStockTriggered.push(item.productKey);
+      }
     }
-    const requested = Number(item.amountToDeduct);
-    if (!Number.isFinite(requested) || requested <= 0) {
-      skipped.push({ productKey: item.productKey, reason: 'non-positive-amount' });
-      continue;
-    }
-    const inv = repos.inventory.getByKey(item.productKey);
-    if (!inv) {
-      skipped.push({ productKey: item.productKey, reason: 'not-in-pantry' });
-      continue;
-    }
-    const prevQty = Number(inv.qtyRemaining) || 0;
-    const clamped = Math.min(requested, prevQty);
-    if (clamped <= 0) {
-      skipped.push({ productKey: item.productKey, reason: 'pantry-empty' });
-      continue;
-    }
-    const newQty = round1(prevQty - clamped);
-    const result = pantryService.correctQty(repos, {
-      productKey: item.productKey,
-      newQty,
-      notes: noteTag,
-    });
-    applied.push({
-      productKey: item.productKey,
-      prevQty,
-      newQty,
-      delta: result.delta,
-    });
-    if (result.lowStock?.triggered) {
-      lowStockTriggered.push(item.productKey);
-    }
-  }
+  };
+
+  if (typeof repos.transaction === 'function') repos.transaction(run)();
+  else run();
 
   return { applied, skipped, lowStockTriggered };
 }
@@ -179,4 +222,6 @@ function round1(n) {
 module.exports = {
   buildSuggestions,
   applyDeduction,
+  deductionNote,
+  hasExactDeduction,
 };

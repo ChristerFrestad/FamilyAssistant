@@ -14,6 +14,7 @@
 // an object.
 
 const { logger } = require('../logger');
+const { getFamilyId } = require('../auth/family-context');
 const units = require('./units');
 const seed = require('../seed');
 
@@ -167,6 +168,7 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
   const delta = newQty - prevQty;
   const effectiveUnit = resolvedUnit || existing?.unit || '';
 
+  const familyId = getFamilyId();
   const tx = repos.transaction(() => {
     if (!existing) {
       repos.inventory.upsertManual(productKey, {
@@ -182,10 +184,10 @@ function correctQty(repos, { productKey, newQty, newTotal, newUnit, notes }) {
            SET qty_remaining = ?,
                unit = CASE WHEN ? = '' THEN unit ELSE ? END,
                updated_at = datetime('now')
-         WHERE product_key = ?
+         WHERE family_id = ? AND product_key = ?
       `
         )
-        .run(newQty, resolvedUnit || '', resolvedUnit || '', productKey);
+        .run(newQty, resolvedUnit || '', resolvedUnit || '', familyId, productKey);
     }
     // Phase F2: update total_size if provided
     if (Number.isFinite(newTotal) && newTotal > 0) {
