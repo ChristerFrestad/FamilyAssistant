@@ -3,6 +3,26 @@
   "header": {
     "subtitle": "System, family, and account"
   },
+  "apiTokens": {
+    "title": "Access for Home Assistant",
+    "help": "Create a token for this family. It can read today, change the shopping list and chores, and mark a dinner cooked. It is never an administrator. The token is shown only once.",
+    "name": "Name",
+    "scopes": "Access",
+    "scope": {
+      "read": "Read",
+      "shopping_write": "Shopping list",
+      "chores_write": "Chores",
+      "meals_cooked": "Mark dinner cooked"
+    },
+    "create": "Create token",
+    "once": "Copy the token now. It will not be shown again.",
+    "copy": "Copy",
+    "revoke": "Revoke",
+    "revoked": "revoked",
+    "loadFailed": "Could not load tokens.",
+    "createFailed": "Could not create the token.",
+    "revokeFailed": "Could not revoke the token."
+  },
   "sections": {
     "system": "System",
     "family": "Family",

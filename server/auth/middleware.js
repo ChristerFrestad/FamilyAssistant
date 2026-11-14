@@ -93,6 +93,8 @@ const SOFT_AUTH_PATH_PREFIXES = [
 
 const SOFT_AUTH_PATHS_EXACT = new Set(['/api/auth/me', '/api/auth/logout']);
 
+const { assertApiTokenAccess } = require('./api-token-access');
+
 const LOCAL_USER = Object.freeze({
   id: 0,
   email: null,
@@ -227,16 +229,32 @@ function createAuthenticate(repos) {
 
     // Bearer token fallback (RPi service mode)
     if (bearerMatch) {
-      if (!config.AUTH_TOKEN) {
-        if (soft) return;
-        throw errors.unauthorized('Bearer auth not configured on this server.');
+      if (config.AUTH_TOKEN && constantTimeEquals(bearerMatch[1], config.AUTH_TOKEN)) {
+        attachLocalUser(ctx);
+        return;
       }
-      if (!constantTimeEquals(bearerMatch[1], config.AUTH_TOKEN)) {
-        if (soft) return;
-        throw errors.unauthorized('Invalid token.');
+      const record = repos?.apiTokens?.findActiveByToken(bearerMatch[1]);
+      if (record) {
+        ctx.user = {
+          id: 0,
+          email: null,
+          name: 'Integration',
+          role: 'owner',
+          family_id: record.familyId,
+          profile_member_id: null,
+          is_admin: false,
+          _synthetic: true,
+          _apiToken: true,
+        };
+        ctx.familyId = record.familyId;
+        ctx.apiToken = record;
+        assertApiTokenAccess(ctx);
+        return;
       }
-      attachLocalUser(ctx);
-      return;
+      if (soft) return;
+      throw errors.unauthorized(
+        config.AUTH_TOKEN ? 'Invalid token.' : 'Bearer auth not configured on this server.'
+      );
     }
 
     // Session cookie

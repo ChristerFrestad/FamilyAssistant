@@ -6,6 +6,23 @@
 
 ---
 
+2026-11-14 – Familietoken til Home Assistant
+
+Task: Hver familie skal kunne lage et token med begrenset tilgang.
+Det instans-vide tokenet skal ikke brukes mot Home Assistant.
+
+Done:
+- Eier kan lage, liste og trekke tilbake token. Hemmeligheten lagres
+  som sha256 og vises én gang. Aldri admin.
+- Tilgang: les /api/today, handleliste, gjøremål, marker middag laget.
+- Migrasjon 041 lager api_tokens. Eksisterende data røres ikke.
+  040 er allerede library_recipe_id på main.
+- docs/operations/home-assistant-rest.md beskriver REST-sensoren.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – Klokke i Oslo og skjulte kalenderknapper
 
 Task: «I dag» skal følge Europe/Oslo, og Google/iCloud-knappene skal
