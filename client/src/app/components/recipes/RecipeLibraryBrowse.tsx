@@ -14,7 +14,13 @@ import {
 
 const TIME_OPTIONS = [20, 30, 45, 60];
 
-export function RecipeLibraryBrowse({ canAdd }: { canAdd: boolean }): JSX.Element {
+export function RecipeLibraryBrowse({
+  canAdd,
+  onAdded,
+}: {
+  canAdd: boolean;
+  onAdded?: () => void;
+}): JSX.Element | null {
   const { t } = useTranslation('recipes');
   const [q, setQ] = useState('');
   const [ingredient, setIngredient] = useState('');
@@ -26,12 +32,15 @@ export function RecipeLibraryBrowse({ canAdd }: { canAdd: boolean }): JSX.Elemen
   const [error, setError] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [enabled, setEnabled] = useState(true);
+  const [searched, setSearched] = useState(false);
 
   async function load(next = { q, ingredient, source, maxMinutes }): Promise<void> {
     setLoading(true);
     setError(false);
     try {
       const res = await fetchRecipeLibrary(next);
+      setEnabled(res.enabled !== false);
       setRecipes(res.recipes);
       setSources(res.sources);
     } catch {
@@ -51,6 +60,7 @@ export function RecipeLibraryBrowse({ canAdd }: { canAdd: boolean }): JSX.Elemen
   function onSubmit(event: FormEvent): void {
     event.preventDefault();
     setNotice(null);
+    setSearched(true);
     void load();
   }
 
@@ -59,6 +69,7 @@ export function RecipeLibraryBrowse({ canAdd }: { canAdd: boolean }): JSX.Elemen
     setNotice(null);
     try {
       const result = await copyLibraryRecipe(recipe.id);
+      onAdded?.();
       setNotice(
         result.alreadyAdded
           ? t('library.alreadyAdded', { title: recipe.title })
@@ -70,6 +81,9 @@ export function RecipeLibraryBrowse({ canAdd }: { canAdd: boolean }): JSX.Elemen
       setBusyId(null);
     }
   }
+
+  if (!enabled) return null;
+  if (!loading && !error && !searched && recipes && recipes.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="recipe-library-heading">
@@ -159,7 +173,12 @@ export function RecipeLibraryBrowse({ canAdd }: { canAdd: boolean }): JSX.Elemen
             <li key={recipe.id}>
               <Card padding="md" shadow="low" className="flex gap-3">
                 {recipe.imageUrl ? (
-                  <img src={recipe.imageUrl} alt="" className="h-16 w-16 rounded-md object-cover" />
+                  <img
+                    src={recipe.imageUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-16 w-16 rounded-md object-cover"
+                  />
                 ) : null}
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <h3 className="font-display text-card text-text-1">{recipe.title}</h3>

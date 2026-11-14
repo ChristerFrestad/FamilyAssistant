@@ -121,9 +121,8 @@ describe('Recipes — initial render', () => {
     });
     expect(screen.getByText('Ingen oppskrifter ennå')).toBeInTheDocument();
     expect(screen.queryByTestId('recipes-list')).toBeNull();
-    expect(screen.getByTestId('library-empty')).toHaveTextContent(
-      'Ingen oppskrifter i det felles biblioteket ennå.'
-    );
+    expect(screen.queryByTestId('library-empty')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Felles bibliotek' })).toBeNull();
   });
 
   test('renders recipe name, category, prepTime, servings and links the row', async () => {
@@ -231,5 +230,85 @@ describe('Recipes — import URL', () => {
     fireEvent.click(screen.getAllByTestId('recipes-import-cta')[0] as HTMLElement);
     expect(screen.getByTestId('recipes-import-sheet')).toBeInTheDocument();
     expect(screen.getByTestId('recipes-import-url')).toBeInTheDocument();
+  });
+});
+
+describe('Recipes — shared library', () => {
+  test('hides the section when the library flag is off', async () => {
+    mockFetchByPath({
+      '/api/recipes': () => jsonResponse(200, recipesPayload([])),
+      '/api/recipe-library': () =>
+        jsonResponse(200, {
+          enabled: false,
+          recipes: [
+            {
+              id: 3,
+              title: 'Fiskekaker',
+              sourceName: 'Meny',
+              canonicalUrl: 'https://meny.no/oppskrifter/fisk/fiskekaker',
+              imageUrl: null,
+              servings: 4,
+              totalTimeMin: 25,
+              category: 'comfort',
+            },
+          ],
+          sources: ['Meny'],
+        }),
+    });
+    mountRecipes();
+    await waitFor(() => {
+      expect(screen.getByTestId('recipes-empty')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('heading', { name: 'Felles bibliotek' })).toBeNull();
+  });
+
+  test('adds a library recipe and refreshes the family list', async () => {
+    let family: Array<{
+      id: number;
+      name: string;
+      category: string;
+      prepTime: string | null;
+      servings: number | null;
+    }> = [];
+    mockFetchByPath({
+      '/api/recipes': () => jsonResponse(200, recipesPayload(family)),
+      '/api/recipe-library/3/copy': () => {
+        family = [
+          {
+            id: 9,
+            name: 'Fiskekaker',
+            category: 'comfort',
+            prepTime: '25 min',
+            servings: 4,
+          },
+        ];
+        return jsonResponse(200, { ok: true, alreadyAdded: false, recipeId: 9 });
+      },
+      '/api/recipe-library': () =>
+        jsonResponse(200, {
+          enabled: true,
+          recipes: [
+            {
+              id: 3,
+              title: 'Fiskekaker',
+              sourceName: 'Meny',
+              canonicalUrl: 'https://meny.no/oppskrifter/fisk/fiskekaker',
+              imageUrl: 'https://meny.no/img/fiskekaker.jpg',
+              servings: 4,
+              totalTimeMin: 25,
+              category: 'comfort',
+            },
+          ],
+          sources: ['Meny'],
+        }),
+    });
+    mountRecipes();
+    const add = await screen.findByTestId('library-add-3');
+    const image = document.querySelector('img');
+    expect(image).toHaveAttribute('referrerpolicy', 'no-referrer');
+    fireEvent.click(add);
+    await waitFor(() => {
+      expect(screen.getByTestId('recipe-row-9')).toHaveTextContent('Fiskekaker');
+    });
   });
 });

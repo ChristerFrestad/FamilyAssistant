@@ -115,7 +115,7 @@ export function Recipes(): JSX.Element {
         subtitle={t('recipes:description')}
         actions={adultActions}
       />
-      <RecipeLibraryBrowse canAdd={isAdult} />
+      <RecipeLibraryBrowse canAdd={isAdult} onAdded={retry} />
 
       {!isLoading && error === null ? (
         <div className="flex flex-col gap-3" data-testid="recipes-filters">
