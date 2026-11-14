@@ -48,7 +48,7 @@ const { createShelfLifeLearner } = require('./services/shelf-life-learner.servic
 const priceReferenceService = require('./services/price-reference.service');
 const receiptService = require('./services/receipt.service');
 const recipeImportService = require('./services/recipe-import.service');
-const { catalogKey } = require('./services/product-key-alias');
+const { catalogKey, dedupeSearchSuggestions } = require('./services/product-key-alias');
 const { extractChain } = require('./services/product-resolver.service');
 
 const {
@@ -1949,7 +1949,7 @@ function registerRoutes(router, { repos, serverState }) {
       ctx.json({ suggestions: [] });
       return;
     }
-    const suggestions = pantryResolver.resolvePantryInput(repos, q);
+    const suggestions = dedupeSearchSuggestions(pantryResolver.resolvePantryInput(repos, q), repos);
     ctx.json({ suggestions });
   });
 

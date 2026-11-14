@@ -5,7 +5,7 @@ const { getWeekYear } = require('./seed');
 const { generateSundayDraft } = require('./services/meal-planning.service');
 const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
-const { aliasGroup } = require('./services/product-key-alias');
+const { aliasGroup, preferredKey } = require('./services/product-key-alias');
 const { deductAcrossAliases } = require('./services/pantry-deduction.service');
 const { enrichPendingLists } = require('./services/shopping-list-enricher.service');
 const { purgeSoftDeletedUsers } = require('./auth/gdpr-routes');
@@ -153,10 +153,10 @@ function depleteOneFamily(repos, now = new Date()) {
     const key = ing.productKey || (ing.name || '').toLowerCase();
     const amount = Number(ing.qty) || 0;
     if (!key || amount <= 0) continue;
-    const group = aliasGroup(key);
+    const group = aliasGroup(key, repos);
     const prev = groups.get(group);
     if (prev) prev.amount += amount;
-    else groups.set(group, { key, amount });
+    else groups.set(group, { key: preferredKey(key, repos), amount });
   }
   const depleted = [];
   for (const group of groups.values()) {

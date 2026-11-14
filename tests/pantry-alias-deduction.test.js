@@ -10,6 +10,7 @@ const { runWithFamily } = require('../server/auth/family-context');
 const { getWeekYear } = require('../server/seed');
 const { applyDeduction, buildSuggestions } = require('../server/services/pantry-deduction.service');
 const { computeShoppingListForWeek } = require('../server/services/shopping-list.service');
+const { dedupeSearchSuggestions } = require('../server/services/product-key-alias');
 const { scoreRecipeByPantry } = require('../server/services/pantry-coverage.service');
 const { dailyDepletionJob } = require('../server/cron');
 
@@ -198,5 +199,98 @@ test('shopping and coverage count stock stored under the other spelling', () => 
       server.repos.inventory.getAll()
     );
     assert.ok(score.ingredientsAtHome >= 1);
+  });
+});
+
+test('romme listed first still deducts stock stored as rømme', () => {
+  const familyId = Number(
+    server.repos._db.prepare('INSERT INTO families(name) VALUES(?)').run('Romme first')
+      .lastInsertRowid
+  );
+  stock(familyId, 'rømme', 10);
+  const dow = (FIXED_NOW.getUTCDay() + 6) % 7;
+  const weekYear = getWeekYear(new Date(FIXED_NOW.getTime()));
+  runWithFamily(familyId, () => {
+    const recipeId = Number(
+      server.repos.recipes.insert({
+        name: 'Slug before catalog',
+        category: 'rask',
+        ingredients: [
+          { productKey: 'romme', name: 'Romme', qty: 2, unit: 'g' },
+          { productKey: 'rømme', name: 'Rømme', qty: 2, unit: 'g' },
+        ],
+      })
+    );
+    server.repos.mealPlans.setRecipe(weekYear, dow, recipeId, 'planned');
+    const suggestions = buildSuggestions(
+      server.repos,
+      server.repos.mealPlans.getWeek(weekYear).find((row) => row.dayOfWeek === dow)
+    );
+    const sour = suggestions.find(
+      (row) => row.productKey === 'rømme' || row.productKey === 'romme'
+    );
+    assert.ok(sour);
+    assert.equal(sour.productKey, 'rømme');
+    assert.equal(sour.pantryRemaining, 10);
+  });
+  dailyDepletionJob(server.repos, FIXED_NOW);
+  assert.equal(qtyOf(familyId, 'rømme'), 6);
+
+  const onlySlug = runWithFamily(familyId, () =>
+    applyDeduction(server.repos, 77, [{ productKey: 'romme', amountToDeduct: 1 }])
+  );
+  assert.equal(onlySlug.applied.length, 1);
+  assert.equal(onlySlug.applied[0].productKey, 'rømme');
+  assert.equal(qtyOf(familyId, 'rømme'), 5);
+});
+
+test('a capitalised recipe key matches the catalog spelling', () => {
+  const familyId = Number(
+    server.repos._db.prepare('INSERT INTO families(name) VALUES(?)').run('Capital key')
+      .lastInsertRowid
+  );
+  stock(familyId, 'rømme', 4);
+  const result = runWithFamily(familyId, () =>
+    applyDeduction(server.repos, 78, [{ productKey: 'Rømme', amountToDeduct: 1 }])
+  );
+  assert.equal(result.applied.length, 1);
+  assert.equal(result.applied[0].productKey, 'rømme');
+  assert.equal(qtyOf(familyId, 'rømme'), 3);
+});
+
+test('search suggestions collapse rømme and romme onto the catalog spelling', () => {
+  const collapsed = dedupeSearchSuggestions(
+    [
+      { productKey: 'romme', name: 'romme', source: 'lokal', confidence: 0.4 },
+      { productKey: 'rømme', name: 'Rømme', source: 'kassal', confidence: 1 },
+    ],
+    server.repos
+  );
+  assert.equal(collapsed.length, 1);
+  assert.equal(collapsed[0].productKey, 'rømme');
+});
+
+test('a name-only ingredient is not stored under a lowercased product key', () => {
+  const familyId = Number(
+    server.repos._db.prepare('INSERT INTO families(name) VALUES(?)').run('Name only')
+      .lastInsertRowid
+  );
+  const weekYear = '2026-W31';
+  runWithFamily(familyId, () => {
+    const recipeId = Number(
+      server.repos.recipes.insert({
+        name: 'No key',
+        category: 'rask',
+        servings: 2,
+        ingredients: [{ name: 'Ukjent Krydder', qty: 1, unit: 'stk' }],
+      })
+    );
+    for (let day = 0; day < 7; day += 1) {
+      server.repos.mealPlans.setRecipe(weekYear, day, recipeId, day === 0 ? 'planned' : 'removed');
+    }
+    const computed = computeShoppingListForWeek(server.repos, weekYear);
+    const line = computed.flatItems.find((item) => item.ingredientName === 'Ukjent Krydder');
+    assert.ok(line);
+    assert.equal(line.productKey, null);
   });
 });

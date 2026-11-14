@@ -24,7 +24,8 @@ const URGENCY_BONUS_CRITICAL = 0.15; // daysLeft <= 1
 const URGENCY_BONUS_SOON = 0.08; // daysLeft <= 3
 
 function keyForIngredient(ing) {
-  return ing.productKey || (ing.name || '').toLowerCase();
+  const raw = ing.productKey || ing.name || '';
+  return String(raw).trim().toLowerCase();
 }
 
 function coverForIngredient(ing, invItem) {
@@ -190,7 +191,7 @@ function parsePrepTimeMinutes(s) {
  * counted twice.
  */
 function aliasInventory(inventoryMap, productKey, onHand) {
-  for (const key of aliasKeys(productKey)) {
+  for (const key of aliasKeys(productKey, Object.keys(inventoryMap || {}))) {
     const inv = inventoryMap[key];
     if (inv) return { ...inv, qtyRemaining: onHand };
   }
@@ -201,7 +202,7 @@ function subtractIngredientsFromInventory(inventoryMap, recipe) {
   const next = { ...inventoryMap };
   for (const ing of recipe.ingredients || []) {
     let left = Number(ing.qty) || 0;
-    for (const key of aliasKeys(keyForIngredient(ing))) {
+    for (const key of aliasKeys(keyForIngredient(ing), Object.keys(next))) {
       if (left <= 0) break;
       const inv = next[key];
       if (!inv) continue;

@@ -20,7 +20,7 @@
 //     for enrichment after the list is saved.
 
 const { normalizeSync } = require('./ingredient-normalizer.service');
-const { aliasGroup, aliasKeys, pantryOnHand } = require('./product-key-alias');
+const { aliasGroup, aliasKeys, pantryOnHand, preferredKey } = require('./product-key-alias');
 const { getOptionalFamilyId } = require('../auth/family-context');
 const { effectiveScale } = require('./family.service');
 
@@ -85,8 +85,13 @@ function computeShoppingListForWeek(repos, weekYear) {
     if (!recipe) continue;
     const scale = familyId ? effectiveScale(repos, familyId, recipe.servings) : 1;
     for (const ing of recipe.ingredients || []) {
-      const rawKey = ing.productKey || (ing.name || '').toLowerCase();
-      const key = aliasGroup(rawKey);
+      // Name-only lines keep a null productKey. The lowercased name is
+      // only the in-memory group, matching the pre-alias shopping list.
+      const namedOnly = !ing.productKey;
+      const rawKey = namedOnly ? ing.name || '' : ing.productKey;
+      const key = namedOnly
+        ? String(rawKey).trim().toLowerCase()
+        : aliasGroup(ing.productKey, repos);
       if (!key) continue;
       if (!seen.has(key)) {
         seen.set(key, {
@@ -94,7 +99,7 @@ function computeShoppingListForWeek(repos, weekYear) {
           unit: ing.unit,
           meals: [],
           name: ing.name,
-          productKey: ing.productKey || rawKey,
+          productKey: namedOnly ? null : preferredKey(ing.productKey, repos),
           recipeIds: new Set(),
         });
       }
@@ -112,15 +117,19 @@ function computeShoppingListForWeek(repos, weekYear) {
   for (const [key, data] of seen) {
     let product = productsMap[key];
     let catalogKey = data.productKey;
-    for (const candidate of aliasKeys(data.productKey || key)) {
-      if (productsMap[candidate]) {
-        product = productsMap[candidate];
-        catalogKey = candidate;
-        break;
+    if (data.productKey) {
+      for (const candidate of aliasKeys(data.productKey, repos)) {
+        if (productsMap[candidate]) {
+          product = productsMap[candidate];
+          catalogKey = candidate;
+          break;
+        }
       }
     }
     const cat = product ? product.category : 'T\u00f8rrvarer & annet';
-    const hasHome = pantryOnHand(inventoryMap, data.productKey || key);
+    const hasHome = data.productKey
+      ? pantryOnHand(inventoryMap, data.productKey, repos)
+      : Number(inventoryMap[key]?.qtyRemaining) || 0;
     const stillNeed = Math.max(0, data.totalQty - hasHome);
     const pantryHas = hasHome > 0 && stillNeed === 0;
     const needsBuy = stillNeed > 0;

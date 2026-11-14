@@ -31,7 +31,7 @@
 'use strict';
 
 const { keyForIngredient } = require('./pantry-coverage.service');
-const { aliasGroup, aliasKeys } = require('./product-key-alias');
+const { aliasGroup, aliasKeys, preferredKey } = require('./product-key-alias');
 const { effectiveScale } = require('./family.service');
 const pantryService = require('./pantry.service');
 const { getFamilyId } = require('../auth/family-context');
@@ -87,13 +87,25 @@ function hasExactDeduction(repos, productKey, mealId) {
   return rows.some((row) => row.notes === note);
 }
 
+function inventoryKeys(repos) {
+  if (!repos.inventory || typeof repos.inventory.getAll !== 'function') return [];
+  return Object.keys(repos.inventory.getAll() || {});
+}
+
+function spellings(repos, productKey) {
+  return aliasKeys(productKey, { repos, extraKeys: inventoryKeys(repos) });
+}
+
 function hasAliasDeduction(repos, productKey, mealId) {
-  return aliasKeys(productKey).some((key) => hasExactDeduction(repos, key, mealId));
+  return spellings(repos, productKey).some((key) => hasExactDeduction(repos, key, mealId));
 }
 
 function pantryOnHandFromRepos(repos, productKey) {
   let total = 0;
-  for (const key of aliasKeys(productKey)) {
+  const seen = new Set();
+  for (const key of spellings(repos, productKey)) {
+    if (seen.has(key)) continue;
+    seen.add(key);
     const inv = repos.inventory.getByKey(key);
     total += Number(inv?.qtyRemaining) || 0;
   }
@@ -112,7 +124,7 @@ function deductAcrossAliases(repos, mealId, productKey, amount, reason) {
   }
   let left = round1(amount);
   const parts = [];
-  for (const key of aliasKeys(productKey)) {
+  for (const key of spellings(repos, productKey)) {
     if (left <= 0) break;
     const inv = repos.inventory.getByKey(key);
     const have = Number(inv?.qtyRemaining) || 0;
@@ -162,7 +174,7 @@ function buildSuggestions(repos, mealPlanRow) {
   for (const ing of recipe.ingredients) {
     const key = keyForIngredient(ing);
     if (!key) continue;
-    const group = aliasGroup(key);
+    const group = aliasGroup(key, repos);
     const recipeAmount = Number(ing.qty) || 0;
     const scaledAmount = round1(recipeAmount * scale);
     const existing = collated.get(group);
@@ -173,7 +185,7 @@ function buildSuggestions(repos, mealPlanRow) {
       // either name reads correctly to the user.
     } else {
       collated.set(group, {
-        productKey: ing.productKey || null,
+        productKey: preferredKey(key, repos) || ing.productKey || null,
         name: ing.name || key,
         recipeAmount,
         portionFactor: scale,
@@ -236,10 +248,10 @@ function applyDeduction(repos, mealId, items) {
         skipped.push({ productKey: item.productKey, reason: 'non-positive-amount' });
         continue;
       }
-      const group = aliasGroup(item.productKey);
+      const group = aliasGroup(item.productKey, repos);
       const prev = groups.get(group);
       if (prev) prev.amount = round1(prev.amount + requested);
-      else groups.set(group, { key: item.productKey, amount: requested });
+      else groups.set(group, { key: preferredKey(item.productKey, repos), amount: requested });
     }
     for (const group of groups.values()) {
       const result = deductAcrossAliases(repos, mealId, group.key, group.amount, 'correction');
