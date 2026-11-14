@@ -150,8 +150,8 @@ export function Calendar(): JSX.Element {
   const groups = useMemo(() => {
     const merged: CalendarEvent[] = [
       ...(events ?? []),
-      ...agenda.map((item) => ({
-        id: item.kind === 'dinner' ? -1 : -2,
+      ...agenda.map((item, index) => ({
+        id: -(index + 1),
         title: item.title,
         date: item.date,
         startTime: item.startTime ?? null,
@@ -298,7 +298,7 @@ export function Calendar(): JSX.Element {
                             {event.source && event.source !== 'local' ? (
                               <Tag
                                 variant={event.source === 'google' ? 'cyan' : 'amber'}
-                                data-testid={`event-source-${event.source}-${event.date}`}
+                                data-testid={`event-source-${event.id}`}
                               >
                                 {event.source === 'google'
                                   ? t('calendar:source.google')
