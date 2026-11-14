@@ -2486,6 +2486,49 @@ function registerRoutes(router, { repos, serverState }) {
   );
 
   // ============================================================
+  // Family API tokens (Home Assistant and similar). Owner only.
+  // The instance-wide AUTH_TOKEN is unchanged and is not for integrations.
+  // ============================================================
+  const { ALLOWED_SCOPES } = require('./repositories/api-token.repo');
+
+  router.get('/api/api-tokens', requireRole('owner'), (ctx) => {
+    ctx.json({ tokens: repos.apiTokens.list(ctx.familyId) });
+  });
+
+  router.post('/api/api-tokens', requireRole('owner'), (ctx) => {
+    const name = String(ctx.body?.name || '')
+      .trim()
+      .slice(0, 80);
+    if (!name) throw errors.badRequest('Navn mangler');
+    const requested = Array.isArray(ctx.body?.scopes) ? ctx.body.scopes : [...ALLOWED_SCOPES];
+    if (requested.some((scope) => scope === 'admin' || !ALLOWED_SCOPES.includes(scope))) {
+      throw errors.badRequest('Ukjent tilgang');
+    }
+    const scopes = [...new Set(requested)];
+    if (scopes.length === 0) throw errors.badRequest('Velg minst én tilgang');
+    const created = repos.apiTokens.create({
+      familyId: ctx.familyId,
+      name,
+      scopes,
+      createdBy: ctx.user?.id,
+    });
+    ctx.json({
+      ok: true,
+      id: created.id,
+      name: created.name,
+      scopes: created.scopes,
+      token: created.token,
+    });
+  });
+
+  router.delete('/api/api-tokens/:id', requireRole('owner'), (ctx) => {
+    const id = parseInt(ctx.params.id, 10);
+    if (!Number.isInteger(id) || id <= 0) throw errors.badRequest('Invalid id');
+    if (!repos.apiTokens.revoke(ctx.familyId, id)) throw errors.notFound('Tokenet finnes ikke');
+    ctx.json({ ok: true });
+  });
+
+  // ============================================================
   // TODAY
   // ============================================================
   router.get(
