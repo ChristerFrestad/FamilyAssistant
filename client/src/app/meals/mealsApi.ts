@@ -551,3 +551,17 @@ export async function planLibraryRecipe(
   if (!res.ok) throw toMealsApiError(res.status, parsed);
   return parsed as SwapMealResponse & { alreadyAdded: boolean; recipeId: number };
 }
+
+export interface MealSuggestion {
+  recipeId?: number | null;
+  libraryId?: number;
+  name: string;
+  sourceName?: string;
+  fromLibrary?: boolean;
+}
+
+export async function fetchMealSuggestions(dayOfWeek: number): Promise<{
+  suggestions: MealSuggestion[];
+}> {
+  return getJson(`/api/meals/suggestions/${dayOfWeek}`);
+}

@@ -15,13 +15,21 @@
 
 import { useCallback, useRef, useState } from 'react';
 import {
+  fetchMealSuggestions,
   fetchRecipes,
+  planLibraryRecipe,
   swapMeal,
   MealsApiError,
   type RecipeSummary,
   type SwapMealResponse,
 } from './mealsApi';
 import type { PickerMode } from '../components/meals/RecipePickerDialog';
+
+export interface LibraryPickerItem {
+  libraryId: number;
+  name: string;
+  sourceName: string;
+}
 
 export interface RecipePickerState {
   open: boolean;
@@ -30,6 +38,7 @@ export interface RecipePickerState {
   loading: boolean;
   error: string | null;
   recipes: RecipeSummary[];
+  librarySuggestions: LibraryPickerItem[];
   applying: boolean;
   applyError: string | null;
   /** When swapping, the current recipe's id so the picker can flag it. */
@@ -43,6 +52,7 @@ const INITIAL_STATE: RecipePickerState = {
   loading: false,
   error: null,
   recipes: [],
+  librarySuggestions: [],
   applying: false,
   applyError: null,
   currentRecipeId: null,
@@ -53,6 +63,7 @@ export interface UseRecipePickerResult {
   openForPlan: (dayOfWeek: number) => Promise<void>;
   openForSwap: (dayOfWeek: number, currentRecipeId: number) => Promise<void>;
   select: (recipeId: number) => Promise<void>;
+  selectLibrary: (libraryId: number) => Promise<void>;
   close: () => void;
 }
 
@@ -80,13 +91,31 @@ export function useRecipePicker(
       loading: true,
       error: null,
       recipes: [],
+      librarySuggestions: [],
     }));
     try {
       const res = await fetchRecipes();
+      const day = dayRef.current;
+      let librarySuggestions: LibraryPickerItem[] = [];
+      if (day !== null) {
+        try {
+          const suggestions = await fetchMealSuggestions(day);
+          librarySuggestions = (suggestions.suggestions || [])
+            .filter((item) => item.fromLibrary === true && typeof item.libraryId === 'number')
+            .map((item) => ({
+              libraryId: item.libraryId as number,
+              name: item.name,
+              sourceName: item.sourceName || '',
+            }));
+        } catch {
+          librarySuggestions = [];
+        }
+      }
       setState((prev) => ({
         ...prev,
         loading: false,
         recipes: Array.isArray(res.recipes) ? res.recipes : [],
+        librarySuggestions,
       }));
     } catch (err) {
       const message = err instanceof MealsApiError ? err.message : 'Network error';
@@ -151,10 +180,33 @@ export function useRecipePicker(
     [onAfterSwap]
   );
 
+  const selectLibrary = useCallback(
+    async (libraryId: number): Promise<void> => {
+      const day = dayRef.current;
+      const week = weekRef.current;
+      if (week === null || day === null) return;
+      setState((prev) => ({ ...prev, applying: true, applyError: null }));
+      try {
+        const result = await planLibraryRecipe(libraryId, week, day);
+        dayRef.current = null;
+        setState(INITIAL_STATE);
+        onAfterSwap?.(result);
+      } catch (err) {
+        const message = err instanceof MealsApiError ? err.message : 'Network error';
+        setState((prev) => ({
+          ...prev,
+          applying: false,
+          applyError: message,
+        }));
+      }
+    },
+    [onAfterSwap]
+  );
+
   const close = useCallback((): void => {
     dayRef.current = null;
     setState(INITIAL_STATE);
   }, []);
 
-  return { state, openForPlan, openForSwap, select, close };
+  return { state, openForPlan, openForSwap, select, selectLibrary, close };
 }

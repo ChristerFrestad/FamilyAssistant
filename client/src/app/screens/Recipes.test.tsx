@@ -70,6 +70,9 @@ function mockFetchByPath(handlers: Record<string, () => Response>): void {
         return Promise.resolve(handler());
       }
     }
+    if (url.startsWith('/api/recipe-library')) {
+      return Promise.resolve(jsonResponse(200, { recipes: [], sources: [] }));
+    }
     return Promise.reject(new Error(`Unmocked fetch: ${url}`));
   });
 }
@@ -118,6 +121,9 @@ describe('Recipes — initial render', () => {
     });
     expect(screen.getByText('Ingen oppskrifter ennå')).toBeInTheDocument();
     expect(screen.queryByTestId('recipes-list')).toBeNull();
+    expect(screen.getByTestId('library-empty')).toHaveTextContent(
+      'Ingen oppskrifter i det felles biblioteket ennå.'
+    );
   });
 
   test('renders recipe name, category, prepTime, servings and links the row', async () => {

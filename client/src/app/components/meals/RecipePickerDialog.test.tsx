@@ -227,4 +227,29 @@ describe('RecipePickerDialog', () => {
     );
     expect(screen.getByTestId('recipe-picker-apply-error')).toHaveTextContent('Could not save');
   });
+
+  test('library suggestion shows the source and plans in one tap', () => {
+    const onAddAndPlan = vi.fn();
+    render(
+      <RecipePickerDialog
+        open
+        mode="plan"
+        dayOfWeek={0}
+        recipes={[]}
+        loading={false}
+        error={null}
+        applying={false}
+        applyError={null}
+        librarySuggestions={[{ libraryId: 7, name: 'Fiskekaker', sourceName: 'Meny' }]}
+        onAddAndPlan={onAddAndPlan}
+        onSelect={NOOP}
+        onClose={NOOP}
+      />
+    );
+    expect(screen.getByText('Fra Meny')).toBeInTheDocument();
+    const button = screen.getByTestId('recipe-picker-library-add-7');
+    expect(button).toHaveTextContent('Legg til og planlegg');
+    fireEvent.click(button);
+    expect(onAddAndPlan).toHaveBeenCalledWith(7);
+  });
 });
