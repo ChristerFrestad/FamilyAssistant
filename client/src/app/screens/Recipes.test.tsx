@@ -255,8 +255,8 @@ describe('Recipes — shared library', () => {
         }),
     });
     mountRecipes();
-    expect(await screen.findByRole('heading', { name: 'Felles bibliotek' })).toBeInTheDocument();
-    expect(screen.getByText('Fiskekaker')).toBeInTheDocument();
+    expect(await screen.findByText('Fiskekaker')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Felles bibliotek' })).toBeInTheDocument();
   });
 
   test('hides the section when the library is empty', async () => {
