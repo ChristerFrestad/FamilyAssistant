@@ -123,6 +123,20 @@ describe('MealHero — empty state', () => {
     expect(screen.getByTestId('meal-hero-plan-button')).toBeInTheDocument();
   });
 
+  test('remove button calls onRemove when the day has no recipe', () => {
+    const handler = vi.fn();
+    render(
+      <MealHero
+        slot={makeSlot({ recipe: null, recipeId: null })}
+        dayLabel="Mandag"
+        isToday={false}
+        onRemove={handler}
+      />
+    );
+    fireEvent.click(screen.getByTestId('meal-hero-remove-button'));
+    expect(handler).toHaveBeenCalledWith(0);
+  });
+
   test('plan button calls onPlan with dayOfWeek', () => {
     const handler = vi.fn();
     render(

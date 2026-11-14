@@ -87,6 +87,17 @@
     "loadFailed": "Kunne ikke hente måltidsplanen.",
     "removeFailed": "Kunne ikke fjerne middagen."
   },
+  "weekGate": {
+    "undecidedTitle": "Handlelisten venter",
+    "undecidedBody": "Disse dagene mangler et valg. Sett en middag, eller marker dagen som ingen middag.",
+    "dayListAria": "Dager som ikke er avklart",
+    "readyTitle": "Uka er avklart",
+    "readyBody": "Du kan lage handleliste fra disse middagene."
+  },
+  "shoppingReady": {
+    "title": "Handlelisten er oppdatert",
+    "body": "Middagene denne uka er lagt inn i handlelisten."
+  },
   "picker": {
     "titlePlan": "Planlegg middag",
     "titleSwap": "Bytt middag",

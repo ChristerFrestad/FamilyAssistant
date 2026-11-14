@@ -87,6 +87,17 @@
     "loadFailed": "Could not load the meal plan.",
     "removeFailed": "Could not remove the dinner."
   },
+  "weekGate": {
+    "undecidedTitle": "Shopping list is waiting",
+    "undecidedBody": "These days still need a choice. Pick a dinner, or mark the day as no dinner.",
+    "dayListAria": "Days that are not decided",
+    "readyTitle": "The week is decided",
+    "readyBody": "You can build a shopping list from these dinners."
+  },
+  "shoppingReady": {
+    "title": "Shopping list updated",
+    "body": "This week's dinners are on the shopping list."
+  },
   "picker": {
     "titlePlan": "Plan meal",
     "titleSwap": "Swap meal",

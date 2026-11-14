@@ -188,9 +188,12 @@ describe('Sprint 6 — POST /api/meals/:id/apply-deduction', () => {
     mealId = slot.id;
     const recipe = ctx.repos.recipes.getById(slot.recipeId);
     firstIng = recipe.ingredients.find((i) => i.productKey);
-    // Stock pantry for the first ingredient so we have something to deduct
-    await request(ctx.baseUrl, 'POST', '/api/pantry/add', {
-      body: { productKey: firstIng.productKey, qty: 1000, unit: firstIng.unit || 'stk' },
+    // Stock the raw product key. POST /api/pantry/add slugifies (kjøttpølser
+    // -> kjottpolser), and the week's first recipe is not stable, so the
+    // HTTP path misses the row the deduction looks up.
+    ctx.repos.inventory.addPurchase(firstIng.productKey, {
+      packSize: 1000,
+      unit: firstIng.unit || 'stk',
     });
     // Mark cooked first (apply-deduction requires status=cooked)
     await request(ctx.baseUrl, 'POST', `/api/meals/${mealId}/mark-eaten`, { body: {} });

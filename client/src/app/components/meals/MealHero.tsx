@@ -123,15 +123,27 @@ export function MealHero({
         <HeroDayHeader label={headerLabel} />
         <h2 className="font-display text-display-sm text-text-1">{t('empty.heroTitle')}</h2>
         <p className="mb-3 font-body text-body text-text-2">{t('empty.heroBody')}</p>
-        <Button
-          type="button"
-          variant="primary"
-          onClick={() => onPlan?.(slot.dayOfWeek)}
-          disabled={onPlan == null}
-          data-testid="meal-hero-plan-button"
-        >
-          {t('actions.plan')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => onPlan?.(slot.dayOfWeek)}
+            disabled={onPlan == null}
+            data-testid="meal-hero-plan-button"
+          >
+            {t('actions.plan')}
+          </Button>
+          {onRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onRemove(slot.dayOfWeek)}
+              data-testid="meal-hero-remove-button"
+            >
+              {t('actions.removeDinner')}
+            </Button>
+          ) : null}
+        </div>
       </Card>
     );
   }
