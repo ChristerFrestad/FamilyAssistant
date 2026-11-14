@@ -48,7 +48,7 @@ const { createShelfLifeLearner } = require('./services/shelf-life-learner.servic
 const priceReferenceService = require('./services/price-reference.service');
 const receiptService = require('./services/receipt.service');
 const recipeImportService = require('./services/recipe-import.service');
-const { slugifyProductKey } = require('./services/slugify');
+const { catalogKey, dedupeSearchSuggestions } = require('./services/product-key-alias');
 const { extractChain } = require('./services/product-resolver.service');
 
 const {
@@ -1949,7 +1949,7 @@ function registerRoutes(router, { repos, serverState }) {
       ctx.json({ suggestions: [] });
       return;
     }
-    const suggestions = pantryResolver.resolvePantryInput(repos, q);
+    const suggestions = dedupeSearchSuggestions(pantryResolver.resolvePantryInput(repos, q), repos);
     ctx.json({ suggestions });
   });
 
@@ -2043,10 +2043,10 @@ function registerRoutes(router, { repos, serverState }) {
           if (!body.unit && resolved.unit) body.unit = resolved.unit;
           if (!body.category && resolved.category) body.category = resolved.category;
         }
-        // Hvis productKey kom direkte, normaliser alltid via slugify for trygghets skyld
+        // Catalog keys stay as written, including case (Kjøttpølser → kjøttpølser).
+        // Free-text keys are still slugified.
         if (body.productKey) {
-          const normalized = slugifyProductKey(body.productKey) || body.productKey;
-          body.productKey = normalized;
+          body.productKey = catalogKey(repos, body.productKey);
         }
         const result = pantryService.addToPantry(repos, body);
         // Apply optional backdated purchase date. pantryService always

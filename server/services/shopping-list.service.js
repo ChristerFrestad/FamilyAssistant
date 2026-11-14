@@ -20,6 +20,7 @@
 //     for enrichment after the list is saved.
 
 const { normalizeSync } = require('./ingredient-normalizer.service');
+const { aliasGroup, aliasKeys, pantryOnHand, preferredKey } = require('./product-key-alias');
 const { getOptionalFamilyId } = require('../auth/family-context');
 const { effectiveScale } = require('./family.service');
 
@@ -84,14 +85,21 @@ function computeShoppingListForWeek(repos, weekYear) {
     if (!recipe) continue;
     const scale = familyId ? effectiveScale(repos, familyId, recipe.servings) : 1;
     for (const ing of recipe.ingredients || []) {
-      const key = ing.productKey || (ing.name || '').toLowerCase();
+      // Name-only lines keep a null productKey. The lowercased name is
+      // only the in-memory group, matching the pre-alias shopping list.
+      const namedOnly = !ing.productKey;
+      const rawKey = namedOnly ? ing.name || '' : ing.productKey;
+      const key = namedOnly
+        ? String(rawKey).trim().toLowerCase()
+        : aliasGroup(ing.productKey, repos);
+      if (!key) continue;
       if (!seen.has(key)) {
         seen.set(key, {
           totalQty: 0,
           unit: ing.unit,
           meals: [],
           name: ing.name,
-          productKey: ing.productKey || null,
+          productKey: namedOnly ? null : preferredKey(ing.productKey, repos),
           recipeIds: new Set(),
         });
       }
@@ -107,10 +115,21 @@ function computeShoppingListForWeek(repos, weekYear) {
   const catMap = {};
 
   for (const [key, data] of seen) {
-    const product = productsMap[key];
+    let product = productsMap[key];
+    let catalogKey = data.productKey;
+    if (data.productKey) {
+      for (const candidate of aliasKeys(data.productKey, repos)) {
+        if (productsMap[candidate]) {
+          product = productsMap[candidate];
+          catalogKey = candidate;
+          break;
+        }
+      }
+    }
     const cat = product ? product.category : 'T\u00f8rrvarer & annet';
-    const invItem = inventoryMap[key] || {};
-    const hasHome = invItem.qtyRemaining || 0;
+    const hasHome = data.productKey
+      ? pantryOnHand(inventoryMap, data.productKey, repos)
+      : Number(inventoryMap[key]?.qtyRemaining) || 0;
     const stillNeed = Math.max(0, data.totalQty - hasHome);
     const pantryHas = hasHome > 0 && stillNeed === 0;
     const needsBuy = stillNeed > 0;
@@ -143,7 +162,7 @@ function computeShoppingListForWeek(repos, weekYear) {
       sourceRef: data.recipeIds.size > 0 ? Array.from(data.recipeIds).join(',') : null,
       ingredientName: name,
       ingredientNameNo,
-      productKey: data.productKey,
+      productKey: catalogKey,
       qty: stillNeed > 0 ? stillNeed : data.totalQty,
       unit: data.unit,
       category: cat,

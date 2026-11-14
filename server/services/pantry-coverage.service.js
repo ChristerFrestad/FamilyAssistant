@@ -14,6 +14,8 @@
 
 'use strict';
 
+const { aliasKeys, pantryOnHand } = require('./product-key-alias');
+
 const OPTIONAL_WEIGHT = 0.3;
 const REQUIRED_WEIGHT = 1.0;
 
@@ -22,7 +24,8 @@ const URGENCY_BONUS_CRITICAL = 0.15; // daysLeft <= 1
 const URGENCY_BONUS_SOON = 0.08; // daysLeft <= 3
 
 function keyForIngredient(ing) {
-  return ing.productKey || (ing.name || '').toLowerCase();
+  const raw = ing.productKey || ing.name || '';
+  return String(raw).trim().toLowerCase();
 }
 
 function coverForIngredient(ing, invItem) {
@@ -83,7 +86,8 @@ function scoreRecipeByPantry(recipe, inventoryMap, mode = 'maksimer', now = Date
 
   for (const ing of ings) {
     const key = keyForIngredient(ing);
-    const invItem = inventoryMap[key];
+    const onHand = pantryOnHand(inventoryMap, key);
+    const invItem = aliasInventory(inventoryMap, key, onHand);
     const cover = coverForIngredient(ing, invItem);
     const weight = ing.optional ? OPTIONAL_WEIGHT : REQUIRED_WEIGHT;
 
@@ -186,14 +190,27 @@ function parsePrepTimeMinutes(s) {
  * recipe selection across a week where the same item should not be
  * counted twice.
  */
+function aliasInventory(inventoryMap, productKey, onHand) {
+  for (const key of aliasKeys(productKey, Object.keys(inventoryMap || {}))) {
+    const inv = inventoryMap[key];
+    if (inv) return { ...inv, qtyRemaining: onHand };
+  }
+  return onHand > 0 ? { qtyRemaining: onHand } : null;
+}
+
 function subtractIngredientsFromInventory(inventoryMap, recipe) {
   const next = { ...inventoryMap };
   for (const ing of recipe.ingredients || []) {
-    const key = keyForIngredient(ing);
-    const inv = next[key];
-    if (!inv) continue;
-    const remaining = Math.max(0, (inv.qtyRemaining || 0) - (ing.qty || 0));
-    next[key] = { ...inv, qtyRemaining: remaining };
+    let left = Number(ing.qty) || 0;
+    for (const key of aliasKeys(keyForIngredient(ing), Object.keys(next))) {
+      if (left <= 0) break;
+      const inv = next[key];
+      if (!inv) continue;
+      const have = Number(inv.qtyRemaining) || 0;
+      const take = Math.min(left, have);
+      next[key] = { ...inv, qtyRemaining: Math.max(0, have - take) };
+      left -= take;
+    }
   }
   return next;
 }

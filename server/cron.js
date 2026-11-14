@@ -5,7 +5,8 @@ const { getWeekYear } = require('./seed');
 const { generateSundayDraft } = require('./services/meal-planning.service');
 const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
-const { deductionNote, hasExactDeduction } = require('./services/pantry-deduction.service');
+const { aliasGroup, preferredKey } = require('./services/product-key-alias');
+const { deductAcrossAliases } = require('./services/pantry-deduction.service');
 const { enrichPendingLists } = require('./services/shopping-list-enricher.service');
 const { purgeSoftDeletedUsers } = require('./auth/gdpr-routes');
 const { runWithFamily } = require('./auth/family-context');
@@ -147,34 +148,23 @@ function depleteOneFamily(repos, now = new Date()) {
 
   // Reduce inventory for the recipe ingredients
   // (No outer tx \u2014 every operation is idempotent and reduceDaily has its own)
-  const depleted = [];
+  const groups = new Map();
   for (const ing of recipe.ingredients || []) {
     const key = ing.productKey || (ing.name || '').toLowerCase();
-    const amount = ing.qty || 0;
-    if (amount <= 0) continue;
-    const applyOne = () => {
-      if (hasExactDeduction(repos, key, todaySlot.id)) return false;
-      const inv = repos.inventory.getByKey(key);
-      if (!inv || (inv.qtyRemaining || 0) <= 0) return false;
-      const beforeQty = inv.qtyRemaining || 0;
-      repos.inventory.reduceQty(key, amount);
-      const after = repos.inventory.getByKey(key);
-      const afterQty = after ? after.qtyRemaining || 0 : 0;
-      if (repos.inventoryLog && typeof repos.inventoryLog.insert === 'function') {
-        repos.inventoryLog.insert({
-          productKey: key,
-          qtyDelta: afterQty - beforeQty,
-          newQty: afterQty,
-          unit: ing.unit || inv.unit || null,
-          reason: 'cron_depletion',
-          notes: deductionNote(todaySlot.id),
-        });
-      }
-      return true;
-    };
-    const did =
+    const amount = Number(ing.qty) || 0;
+    if (!key || amount <= 0) continue;
+    const group = aliasGroup(key, repos);
+    const prev = groups.get(group);
+    if (prev) prev.amount += amount;
+    else groups.set(group, { key: preferredKey(key, repos), amount });
+  }
+  const depleted = [];
+  for (const group of groups.values()) {
+    const applyOne = () =>
+      deductAcrossAliases(repos, todaySlot.id, group.key, group.amount, 'cron_depletion');
+    const result =
       typeof repos.transaction === 'function' ? repos.transaction(applyOne)() : applyOne();
-    if (did) depleted.push(`${key}: -${amount}${ing.unit || ''}`);
+    if (result.taken > 0) depleted.push(`${group.key}: -${result.taken}`);
   }
   repos.consumables.reduceDaily(recipe.equipment || []);
 
