@@ -116,7 +116,7 @@ export function useRecipePicker(
             if ((item.expiringUsed || 0) > 0) row.reason = 'expiring';
             else if ((item.ingredientsAtHome || 0) > 0) {
               row.reason = `using:${item.ingredientsAtHome}`;
-            }
+            } else row.reason = 'new';
             first.push(row);
           }
           ordered = [...first, ...family.filter((recipe) => !seen.has(recipe.id))];
@@ -131,7 +131,7 @@ export function useRecipePicker(
               if ((item.expiringUsed || 0) > 0) row.reason = 'expiring';
               else if ((item.ingredientsAtHome || 0) > 0) {
                 row.reason = `using:${item.ingredientsAtHome}`;
-              }
+              } else row.reason = 'new';
               return row;
             });
         } catch {

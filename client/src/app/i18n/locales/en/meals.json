@@ -110,9 +110,10 @@
   "suggestAgain": {
     "button": "Suggest the week again",
     "title": "Suggest the week again?",
-    "body": "Planned days are replaced. Days marked cooked, away or no dinner stay as they are.",
+    "body": "Dinners the app suggested are replaced. Dinners you chose, and days marked cooked, away or no dinner, stay as they are.",
     "confirm": "Replace the dinners",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "error": "Could not suggest the week again. Try again."
   },
   "picker": {
     "titlePlan": "Plan meal",

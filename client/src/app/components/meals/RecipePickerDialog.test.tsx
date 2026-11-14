@@ -252,4 +252,22 @@ describe('RecipePickerDialog', () => {
     fireEvent.click(button);
     expect(onAddAndPlan).toHaveBeenCalledWith(7);
   });
+
+  test('shows Ny smak for a suggestion that uses nothing from the pantry', () => {
+    render(
+      <RecipePickerDialog
+        open
+        mode="plan"
+        dayOfWeek={0}
+        recipes={[makeRecipe({ reason: 'new' })]}
+        loading={false}
+        error={null}
+        applying={false}
+        applyError={null}
+        onSelect={NOOP}
+        onClose={NOOP}
+      />
+    );
+    expect(screen.getByText('Ny smak')).toBeInTheDocument();
+  });
 });

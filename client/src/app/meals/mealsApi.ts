@@ -582,7 +582,8 @@ export async function suggestWeekAgain(weekYear: string): Promise<SwapMealRespon
   const res = await fetch(`/api/meals/week/${weekYear}/suggest-again`, {
     method: 'POST',
     credentials: 'include',
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
   });
   let parsed: unknown = null;
   try {

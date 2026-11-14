@@ -6,6 +6,30 @@
 
 ---
 
+2026-11-14 – Rettelser etter gjennomgang av ukeplanen
+
+Task: Automatisk ukeplan skal ikke kopiere bibliotekretter inn i
+familien, og en ny runde skal ikke flytte en dag til en annen dags valg.
+
+Done:
+- Bibliotekmiddager lagres som referanse. Kopi skjer bare når en voksen
+  ber om det. En uke der alle dager er låst, skrives ikke.
+- «Foreslå på nytt» krever confirm: true. Egne valg blir stående.
+  Søndagsjobben fyller bare tomme dager i en uke som allerede er åpnet,
+  og varselet nevner middagene som faktisk ligger der.
+- Hver dag får sitt eget valg og sin kategori. Ny runde unngår det som
+  allerede ligger der når det finnes et alternativ, og skrives i én
+  transaksjon.
+- Bekreftelsen bruker samme dialog som resten av appen, med feilmelding
+  og sperre mot dobbelt trykk. «Ny smak» vises når ingenting er hjemme.
+- Uken regnes i Europe/Oslo. Hurtigbufferen tømmes etter søndagsjobben.
+- Migrasjon 040 legger library_recipe_id på meal_plans. Eksisterende
+  rader får NULL og peker fortsatt på familiens egne oppskrifter.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – Pantry-bevisst ukeplan
 
 Task: Neste uke skal bruke det som finnes i pantry, og søndagsjobben

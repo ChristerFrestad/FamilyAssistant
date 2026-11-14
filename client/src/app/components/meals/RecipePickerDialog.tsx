@@ -262,6 +262,7 @@ function pickerReason(
   reason?: string
 ): string | null {
   if (!reason) return null;
+  if (reason === 'new') return t('picker.reasonNew', { count: 0 });
   if (reason === 'expiring') return t('picker.reasonExpiring', { count: 0 });
   if (reason.startsWith('using:')) {
     const count = Number(reason.slice('using:'.length));
