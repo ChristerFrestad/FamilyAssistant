@@ -3069,6 +3069,18 @@ function registerRoutes(router, { repos, serverState }) {
   // ctx.user.is_admin populated by the auth middleware. When the admin
   // role migration (026) hasn't been applied yet this falls back to
   // false, which 403s — safe.
+  router.post('/api/admin/recipe-library/ingest', requireAdmin(), async (ctx) => {
+    const { ingestRecipeLibrary } = require('./services/recipe-library/ingest');
+    const { config } = require('./config');
+    const requested = Number(ctx.body?.maxPages);
+    const maxPages =
+      Number.isInteger(requested) && requested > 0
+        ? Math.min(requested, config.RECIPE_LIBRARY_MAX_PAGES)
+        : config.RECIPE_LIBRARY_MAX_PAGES;
+    const result = await ingestRecipeLibrary(repos, { maxPages });
+    ctx.json({ ok: true, ...result });
+  });
+
   router.get('/api/admin/kassal/status', (ctx) => {
     if (!ctx.user || !ctx.user.is_admin) {
       throw errors.forbidden('Admin role required.');

@@ -354,20 +354,21 @@ function scheduleIntervalJob(name, intervalMs, jobFn, repos) {
 
 // === Phase F7: Sync of recipe sources ===
 async function recipeSourcesSyncJob(repos) {
-  const familyIds = familyIdsOrLog(repos, 'Recipe-sources');
-  if (!familyIds) return;
-  const recipeSourcesService = require('./services/recipe-sources.service');
-  for (const familyId of familyIds) {
-    try {
-      const result = await runWithFamily(familyId, () =>
-        recipeSourcesService.syncAllEnabled(repos)
-      );
-      log(
-        `Recipe-sources sync family ${familyId}: ${result.synced || 0}/${result.total || 0} synced`
-      );
-    } catch (err) {
-      log(`ERROR in recipe-sources sync for family ${familyId}: ${err.message}`);
-    }
+  const { config } = require('./config');
+  if (!config.RECIPE_LIBRARY_INGEST) {
+    log('Recipe-library ingest is off');
+    return;
+  }
+  const { ingestRecipeLibrary } = require('./services/recipe-library/ingest');
+  try {
+    const result = await ingestRecipeLibrary(repos, {
+      maxPages: config.RECIPE_LIBRARY_MAX_PAGES,
+    });
+    log(
+      `Recipe-library: pages ${result.pages}, fetched ${result.fetched}, stored ${result.stored}`
+    );
+  } catch (err) {
+    log(`Recipe-library ERROR: ${err.message}`);
   }
 }
 
