@@ -43,7 +43,12 @@ import {
 } from '../meals/useMealsData';
 import { usePantryDeduction } from '../meals/usePantryDeduction';
 import { useRecipePicker } from '../meals/useRecipePicker';
-import { clearMeal, setMealStatus, type SwapMealResponse } from '../meals/mealsApi';
+import {
+  clearMeal,
+  setMealStatus,
+  suggestWeekAgain,
+  type SwapMealResponse,
+} from '../meals/mealsApi';
 import { useSelectedWeek } from '../hooks/useSelectedWeek';
 import { useAuth } from '../auth/useAuth';
 import type { MealSlot } from '../meals/mealsApi';
@@ -57,7 +62,9 @@ export function Meals(): JSX.Element {
   const canEdit = user != null && user.role !== 'child';
   const { weekYear, currentWeekYear, goPrevWeek, goNextWeek, pathWithWeek } = useSelectedWeek();
   const isPastWeek = weekYear < currentWeekYear;
+  const isFutureWeek = weekYear > currentWeekYear;
   const canEditWeek = canEdit && !isPastWeek;
+  const [suggestOpen, setSuggestOpen] = useState(false);
   const {
     meals,
     isLoading,
@@ -228,6 +235,56 @@ export function Meals(): JSX.Element {
           testIdPrefix="meals"
           busy={isLoading}
         />
+        {canEditWeek && isFutureWeek ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setSuggestOpen(true)}
+              data-testid="meals-suggest-again"
+            >
+              {t('meals:suggestAgain.button')}
+            </Button>
+            {suggestOpen ? (
+              <div
+                role="dialog"
+                aria-labelledby="suggest-again-title"
+                aria-describedby="suggest-again-body"
+                className="flex flex-col gap-2 rounded-md border border-stroke p-3"
+                data-testid="meals-suggest-again-dialog"
+              >
+                <h2 id="suggest-again-title" className="font-display text-card text-text-1">
+                  {t('meals:suggestAgain.title')}
+                </h2>
+                <p id="suggest-again-body" className="font-body text-body text-text-2">
+                  {t('meals:suggestAgain.body')}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => {
+                      void suggestWeekAgain(weekYear)
+                        .then((result) => applyMealResult(result))
+                        .finally(() => setSuggestOpen(false));
+                    }}
+                    data-testid="meals-suggest-again-confirm"
+                  >
+                    {t('meals:suggestAgain.confirm')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setSuggestOpen(false)}
+                    data-testid="meals-suggest-again-cancel"
+                  >
+                    {t('meals:suggestAgain.cancel')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </ScreenHeader>
 
       <div aria-live="polite" aria-atomic="true" data-testid="meals-shopping-announce">

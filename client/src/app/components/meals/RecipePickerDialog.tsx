@@ -43,7 +43,12 @@ export interface RecipePickerDialogProps {
   applyError: string | null;
   /** Recipe id of the currently planned recipe for visual cue (optional). */
   currentRecipeId?: number | null;
-  librarySuggestions?: Array<{ libraryId: number; name: string; sourceName: string }>;
+  librarySuggestions?: Array<{
+    libraryId: number;
+    name: string;
+    sourceName: string;
+    reason?: string;
+  }>;
   onAddAndPlan?: (libraryId: number) => void;
   onSelect: (recipeId: number) => void;
   onClose: () => void;
@@ -209,6 +214,9 @@ export function RecipePickerDialog({
                 <p className="font-body text-meta text-text-3">
                   {t('picker.fromLibrary', { source: item.sourceName })}
                 </p>
+                {pickerReason(t, item.reason) ? (
+                  <p className="font-body text-meta text-text-2">{pickerReason(t, item.reason)}</p>
+                ) : null}
                 <Button
                   type="button"
                   variant="primary"
@@ -249,6 +257,20 @@ export function RecipePickerDialog({
   );
 }
 
+function pickerReason(
+  t: (key: string, options: { count: number }) => string,
+  reason?: string
+): string | null {
+  if (!reason) return null;
+  if (reason === 'expiring') return t('picker.reasonExpiring', { count: 0 });
+  if (reason.startsWith('using:')) {
+    const count = Number(reason.slice('using:'.length));
+    if (!Number.isFinite(count) || count <= 0) return null;
+    return t('picker.reasonUsing', { count });
+  }
+  return null;
+}
+
 function isBlocked(r: RecipeSummary): boolean {
   return r.hiddenByAllergy === true || r.hiddenByDiet === true;
 }
@@ -285,6 +307,11 @@ function RecipeRow({ recipe, isCurrent, disabled, onSelect }: RowProps): JSX.Ele
             </Badge>
             {recipe.prepTime ? (
               <span className="font-body text-meta text-text-3">{recipe.prepTime}</span>
+            ) : null}
+            {pickerReason(t, recipe.reason) ? (
+              <span className="font-body text-meta text-text-2">
+                {pickerReason(t, recipe.reason)}
+              </span>
             ) : null}
             {isCurrent ? (
               <Badge variant="cyan" data-testid={`recipe-picker-current-${recipe.id}`}>

@@ -39,6 +39,7 @@ const {
   generateSundayDraft,
   generatePantryRestOfWeek,
   computeMissingForRestOfWeek,
+  regenerateUnlockedDays,
 } = require('./services/meal-planning.service');
 const { ensureCurrentWeek, ensureWeek, isPastWeek } = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
@@ -589,6 +590,21 @@ function registerRoutes(router, { repos, serverState }) {
     })
   );
 
+  router.post('/api/meals/week/:weekYear/suggest-again', requireRole('adult'), (ctx) => {
+    const wk = ctx.params.weekYear;
+    if (!isValidWeekYear(wk)) {
+      throw errors.badRequest('Ugyldig weekYear (f.eks. 2026-W15)', { code: 'INVALID_WEEK' });
+    }
+    if (wk <= getWeekYear()) {
+      throw errors.badRequest('Bare en fremtidig uke kan foreslås på nytt');
+    }
+    ensureWeek(repos, wk);
+    regenerateUnlockedDays(repos, wk, { onlyAuto: false });
+    invalidate('meals', 'today', 'shopping');
+    const plan = repos.mealPlans.getWeek(wk);
+    ctx.json({ ok: true, week: toMealsWeekResponse(repos, wk, plan) });
+  });
+
   router.get(
     '/api/meals/current',
     withCache(['meals'], (ctx) => {
@@ -740,7 +756,8 @@ function registerRoutes(router, { repos, serverState }) {
     if (!Number.isInteger(dow) || dow < 0 || dow > 6) {
       throw errors.badRequest('dayOfWeek m\u00e5 v\u00e6re 0\u20136');
     }
-    const wk = ensureCurrentWeek(repos);
+    const requested = typeof ctx.query.weekYear === 'string' ? ctx.query.weekYear : '';
+    const wk = requested && isValidWeekYear(requested) ? requested : ensureCurrentWeek(repos);
     ctx.json({ suggestions: getSwapSuggestions(repos, dow, wk) });
   });
 

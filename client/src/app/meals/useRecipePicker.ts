@@ -29,6 +29,7 @@ export interface LibraryPickerItem {
   libraryId: number;
   name: string;
   sourceName: string;
+  reason?: string;
 }
 
 export interface RecipePickerState {
@@ -96,17 +97,43 @@ export function useRecipePicker(
     try {
       const res = await fetchRecipes();
       const day = dayRef.current;
+      const family = Array.isArray(res.recipes) ? res.recipes : [];
       let librarySuggestions: LibraryPickerItem[] = [];
+      let ordered = family;
       if (day !== null) {
         try {
-          const suggestions = await fetchMealSuggestions(day);
-          librarySuggestions = (suggestions.suggestions || [])
+          const suggestions = await fetchMealSuggestions(day, weekRef.current);
+          const ranked = suggestions.suggestions || [];
+          const byId = new Map(family.map((recipe) => [recipe.id, recipe]));
+          const seen = new Set<number>();
+          const first: RecipeSummary[] = [];
+          for (const item of ranked) {
+            if (item.fromLibrary || item.recipeId == null) continue;
+            const recipe = byId.get(item.recipeId);
+            if (!recipe || seen.has(recipe.id)) continue;
+            seen.add(recipe.id);
+            const row: RecipeSummary = { ...recipe };
+            if ((item.expiringUsed || 0) > 0) row.reason = 'expiring';
+            else if ((item.ingredientsAtHome || 0) > 0) {
+              row.reason = `using:${item.ingredientsAtHome}`;
+            }
+            first.push(row);
+          }
+          ordered = [...first, ...family.filter((recipe) => !seen.has(recipe.id))];
+          librarySuggestions = ranked
             .filter((item) => item.fromLibrary === true && typeof item.libraryId === 'number')
-            .map((item) => ({
-              libraryId: item.libraryId as number,
-              name: item.name,
-              sourceName: item.sourceName || '',
-            }));
+            .map((item) => {
+              const row: LibraryPickerItem = {
+                libraryId: item.libraryId as number,
+                name: item.name,
+                sourceName: item.sourceName || '',
+              };
+              if ((item.expiringUsed || 0) > 0) row.reason = 'expiring';
+              else if ((item.ingredientsAtHome || 0) > 0) {
+                row.reason = `using:${item.ingredientsAtHome}`;
+              }
+              return row;
+            });
         } catch {
           librarySuggestions = [];
         }
@@ -114,7 +141,7 @@ export function useRecipePicker(
       setState((prev) => ({
         ...prev,
         loading: false,
-        recipes: Array.isArray(res.recipes) ? res.recipes : [],
+        recipes: ordered,
         librarySuggestions,
       }));
     } catch (err) {

@@ -55,10 +55,13 @@ function sundayPushJob(repos) {
     const nextWeekDate = new Date(Date.now() + 7 * 86400000);
     const nextWk = getWeekYear(nextWeekDate);
 
-    if (repos.mealPlans.exists(nextWk)) {
-      log(`Sunday push: week ${nextWk} already has a plan \u2014 skipping`);
-      return;
-    }
+    // Opening next week already stores a draft. Refresh the automatic
+    // days instead of skipping, so a changed pantry still updates the
+    // week. Cooked days and a person's own choice stay.
+    const { regenerateUnlockedDays } = require('./services/meal-planning.service');
+    const { ensureWeek } = require('./services/seed.service');
+    ensureWeek(repos, nextWk);
+    regenerateUnlockedDays(repos, nextWk, { onlyAuto: true });
 
     const draft = generateSundayDraft(repos);
     repos.sundayDrafts.save(draft.weekYear, draft.meals);
