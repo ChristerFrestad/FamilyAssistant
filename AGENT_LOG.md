@@ -6,6 +6,21 @@
 
 ---
 
+2026-11-14 – Klokke i Oslo og skjulte kalenderknapper
+
+Task: «I dag» skal følge Europe/Oslo, og Google/iCloud-knappene skal
+ikke love en tilkobling som ikke virker.
+
+Done:
+- docker-compose setter TZ=Europe/Oslo. Ingen Google-hemmeligheter.
+- /api/today bruker dato og ukedag i Oslo, også rett etter midnatt.
+- Knappene «Koble til Google» og «Koble til iCloud» er borte. Teksten
+  sier at koblingen ikke virker ennå.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-03 – Security audit: zod 4.6.5
 
 Task: CI-sjekken Security audit feilet på PR 239.
