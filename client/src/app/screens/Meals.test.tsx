@@ -933,6 +933,9 @@ describe('Meals — suggest the week again', () => {
       'Kunne ikke foreslå uka på nytt. Prøv igjen.'
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(confirm).not.toHaveAttribute('aria-busy', 'true');
+    });
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
