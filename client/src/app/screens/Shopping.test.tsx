@@ -15,7 +15,7 @@ import userEvent from '@testing-library/user-event';
 import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { Shopping } from './Shopping';
-import { getIsoWeekYear } from '../hooks/isoWeek';
+import { getIsoWeekYear, nextIsoWeek } from '../hooks/isoWeek';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -178,6 +178,45 @@ describe('Shopping screen — week navigation', () => {
     expect(screen.getByTestId('shopping-week-prev')).toHaveAttribute('aria-label', 'Forrige uke');
     expect(screen.getByTestId('shopping-week-next')).toHaveAttribute('aria-label', 'Neste uke');
     expect(screen.getByTestId('shopping-week-year')).toHaveTextContent(getIsoWeekYear());
+    expect(screen.getByTestId('shopping-week-year')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  test('arrows change the week and the list, and the week is labelled once', async () => {
+    const current = getIsoWeekYear();
+    const next = nextIsoWeek(current);
+    const named = (name: string, weekYear: string) => {
+      const list = structuredClone(FULL_LIST);
+      const item = list.categories[0]?.items[0];
+      if (!item) throw new Error('missing shopping item');
+      list.weekYear = weekYear;
+      item.ingredientName = name;
+      item.name = name;
+      return list;
+    };
+    fetchSpy.mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (!url.includes('/api/shopping/list/current')) {
+        return Promise.reject(new Error(`Unmocked fetch: ${url}`));
+      }
+      const week = new URL(url, 'http://local').searchParams.get('week') ?? current;
+      const name = week === next ? 'Epler' : 'Melk';
+      return Promise.resolve(jsonResponse(200, named(name, week)));
+    });
+    mountShopping();
+    await waitFor(() => {
+      expect(screen.getByText('Melk')).toBeInTheDocument();
+    });
+    expect(screen.getAllByText(`Uke ${current}`)).toHaveLength(1);
+    expect(screen.getByTestId('shopping-week-year')).not.toHaveAttribute('aria-busy');
+    await userEvent.click(screen.getByTestId('shopping-week-next'));
+    await waitFor(() => {
+      expect(screen.getByText('Epler')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Melk')).not.toBeInTheDocument();
+    expect(screen.getAllByText(`Uke ${next}`)).toHaveLength(1);
+    expect(
+      fetchSpy.mock.calls.some((call: unknown[]) => String(call[0]).includes(`week=${next}`))
+    ).toBe(true);
   });
 });
 

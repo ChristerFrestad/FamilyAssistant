@@ -112,7 +112,8 @@
     "fromPantry": "Foreslått fra pantry"
   },
   "weekHeader": {
-    "week": "Uke {{weekYear}}"
+    "week": "Uke {{weekYear}}",
+    "loading": "Henter uke {{weekYear}} …"
   },
   "weekNav": {
     "prevAria": "Forrige uke",
