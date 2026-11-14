@@ -3,6 +3,26 @@
   "header": {
     "subtitle": "System, familie og konto"
   },
+  "apiTokens": {
+    "title": "Tilgang for Home Assistant",
+    "help": "Lag et eget token til denne familien. Det kan lese i dag, endre handleliste og gjøremål, og markere middag som laget. Det er aldri administrator. Tokenet vises bare én gang.",
+    "name": "Navn",
+    "scopes": "Tilgang",
+    "scope": {
+      "read": "Les",
+      "shopping_write": "Handleliste",
+      "chores_write": "Gjøremål",
+      "meals_cooked": "Marker middag som laget"
+    },
+    "create": "Lag token",
+    "once": "Kopier tokenet nå. Det vises ikke igjen.",
+    "copy": "Kopier",
+    "revoke": "Trekk tilbake",
+    "revoked": "trukket tilbake",
+    "loadFailed": "Kunne ikke hente tokener.",
+    "createFailed": "Kunne ikke lage token.",
+    "revokeFailed": "Kunne ikke trekke tilbake tokenet."
+  },
   "sections": {
     "system": "System",
     "family": "Familie",
