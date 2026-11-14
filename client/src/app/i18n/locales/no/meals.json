@@ -110,9 +110,10 @@
   "suggestAgain": {
     "button": "Foreslå uka på nytt",
     "title": "Foreslå uka på nytt?",
-    "body": "Planlagte dager blir byttet. Dager merket laget, borte eller ingen middag blir stående.",
+    "body": "Middager appen foreslo blir byttet. Middager du har valgt selv, og dager merket laget, borte eller ingen middag, blir stående.",
     "confirm": "Bytt middagene",
-    "cancel": "Avbryt"
+    "cancel": "Avbryt",
+    "error": "Kunne ikke foreslå uka på nytt. Prøv igjen."
   },
   "picker": {
     "titlePlan": "Planlegg middag",

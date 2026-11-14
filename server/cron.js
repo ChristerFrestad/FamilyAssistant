@@ -2,7 +2,8 @@
 // No external dependencies \u2014 plain Node.js setTimeout.
 
 const { getWeekYear } = require('./seed');
-const { generateSundayDraft } = require('./services/meal-planning.service');
+const { getWeekYearInTimeZone } = require('./services/seed.service');
+const { invalidate } = require('./http/cache');
 const { applyCpiIndexing } = require('./services/price-reference.service');
 const { removeExpired } = require('./services/pantry.service');
 const { aliasGroup, preferredKey } = require('./services/product-key-alias');
@@ -45,6 +46,15 @@ function runForEachFamily(repos, jobName, fn) {
   }
 }
 
+function dinnerTitle(repos, slot) {
+  if (slot.recipeId) return repos.recipes.getById(slot.recipeId)?.name || null;
+  if (slot.libraryRecipeId && repos.recipeLibrary) {
+    const row = repos.recipeLibrary.getById(slot.libraryRecipeId);
+    return row ? row.title : null;
+  }
+  return null;
+}
+
 function utcIsoDow(date) {
   return (date.getUTCDay() + 6) % 7;
 }
@@ -52,29 +62,38 @@ function utcIsoDow(date) {
 // === Job 1: Sunday push at 14:00 ===
 function sundayPushJob(repos) {
   runForEachFamily(repos, 'Sunday-push', () => {
-    const nextWeekDate = new Date(Date.now() + 7 * 86400000);
-    const nextWk = getWeekYear(nextWeekDate);
+    const nextWk = getWeekYearInTimeZone(new Date(Date.now() + 7 * 86400000));
 
-    // Opening next week already stores a draft. Refresh the automatic
-    // days instead of skipping, so a changed pantry still updates the
-    // week. Cooked days and a person's own choice stay.
-    const { regenerateUnlockedDays } = require('./services/meal-planning.service');
+    // A week the family has already opened is not rolled again. Empty
+    // days can still be filled. The first time the week is seen, the
+    // seed writes it once.
+    const { fillEmptyDays } = require('./services/meal-planning.service');
     const { ensureWeek } = require('./services/seed.service');
+    const existed = repos.mealPlans.exists(nextWk);
     ensureWeek(repos, nextWk);
-    regenerateUnlockedDays(repos, nextWk, { onlyAuto: true });
+    if (existed) fillEmptyDays(repos, nextWk);
 
-    const draft = generateSundayDraft(repos);
-    repos.sundayDrafts.save(draft.weekYear, draft.meals);
-
-    const names = draft.meals.map((s) => repos.recipes.getById(s.recipeId)?.name || '?').join(', ');
-    log(`Sunday push: generated suggestion for ${draft.weekYear} \u2014 ${names}`);
+    const plan = repos.mealPlans.getWeek(nextWk);
+    const names = plan.map((slot) => dinnerTitle(repos, slot)).filter(Boolean);
+    repos.sundayDrafts.save(
+      nextWk,
+      plan.map((slot) => ({
+        dayOfWeek: slot.dayOfWeek,
+        recipeId: slot.recipeId,
+        libraryRecipeId: slot.libraryRecipeId || null,
+        status: slot.status,
+      }))
+    );
+    const listed = names.join(', ');
+    log(`Sunday push: stored ${nextWk} — ${listed}`);
     repos.notifications.insert(
       'sunday_push',
-      `Forslag til ukemeny for ${draft.weekYear} er klart`,
-      {
-        weekYear: draft.weekYear,
-      }
+      listed
+        ? `Forslag til ukemeny for ${nextWk} er klart: ${listed}`
+        : `Forslag til ukemeny for ${nextWk} er klart`,
+      { weekYear: nextWk }
     );
+    invalidate('meals', 'today', 'shopping');
   });
 }
 

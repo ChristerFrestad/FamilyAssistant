@@ -28,6 +28,7 @@ import { Card } from '../components/layout/Card';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { WeekSwitcher } from '../components/layout/WeekSwitcher';
 import { Button } from '../components/base/Button';
+import { Modal } from '../components/overlay/Modal';
 import { WeekStrip } from '../components/layout/WeekStrip';
 import { mealSlotDots } from '../components/meals/DayStrip';
 import { MealHero } from '../components/meals/MealHero';
@@ -65,6 +66,8 @@ export function Meals(): JSX.Element {
   const isFutureWeek = weekYear > currentWeekYear;
   const canEditWeek = canEdit && !isPastWeek;
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const {
     meals,
     isLoading,
@@ -245,28 +248,44 @@ export function Meals(): JSX.Element {
             >
               {t('meals:suggestAgain.button')}
             </Button>
-            {suggestOpen ? (
-              <div
-                role="dialog"
-                aria-labelledby="suggest-again-title"
-                aria-describedby="suggest-again-body"
-                className="flex flex-col gap-2 rounded-md border border-stroke p-3"
-                data-testid="meals-suggest-again-dialog"
-              >
-                <h2 id="suggest-again-title" className="font-display text-card text-text-1">
-                  {t('meals:suggestAgain.title')}
-                </h2>
-                <p id="suggest-again-body" className="font-body text-body text-text-2">
-                  {t('meals:suggestAgain.body')}
-                </p>
+            <Modal
+              open={suggestOpen}
+              onClose={() => {
+                if (suggestBusy) return;
+                setSuggestError(null);
+                setSuggestOpen(false);
+              }}
+              title={t('meals:suggestAgain.title')}
+              description={t('meals:suggestAgain.body')}
+            >
+              <div className="flex flex-col gap-3" data-testid="meals-suggest-again-dialog">
+                {suggestError ? (
+                  <p
+                    role="alert"
+                    className="font-body text-body text-text-1"
+                    data-testid="meals-suggest-again-error"
+                  >
+                    {suggestError}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="primary"
+                    loading={suggestBusy}
                     onClick={() => {
+                      if (suggestBusy) return;
+                      setSuggestBusy(true);
+                      setSuggestError(null);
                       void suggestWeekAgain(weekYear)
-                        .then((result) => applyMealResult(result))
-                        .finally(() => setSuggestOpen(false));
+                        .then((result) => {
+                          applyMealResult(result);
+                          setSuggestOpen(false);
+                        })
+                        .catch(() => {
+                          setSuggestError(t('meals:suggestAgain.error'));
+                        })
+                        .finally(() => setSuggestBusy(false));
                     }}
                     data-testid="meals-suggest-again-confirm"
                   >
@@ -275,14 +294,18 @@ export function Meals(): JSX.Element {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setSuggestOpen(false)}
+                    disabled={suggestBusy}
+                    onClick={() => {
+                      setSuggestError(null);
+                      setSuggestOpen(false);
+                    }}
                     data-testid="meals-suggest-again-cancel"
                   >
                     {t('meals:suggestAgain.cancel')}
                   </Button>
                 </div>
               </div>
-            ) : null}
+            </Modal>
           </div>
         ) : null}
       </ScreenHeader>

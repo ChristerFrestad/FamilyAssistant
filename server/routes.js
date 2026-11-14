@@ -41,7 +41,12 @@ const {
   computeMissingForRestOfWeek,
   regenerateUnlockedDays,
 } = require('./services/meal-planning.service');
-const { ensureCurrentWeek, ensureWeek, isPastWeek } = require('./services/seed.service');
+const {
+  ensureCurrentWeek,
+  ensureWeek,
+  isPastWeek,
+  getWeekYearInTimeZone,
+} = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
 const pantryDeduction = require('./services/pantry-deduction.service');
@@ -118,6 +123,29 @@ function isValidWeekYear(weekYear) {
  * stored row (read-only past weeks) are virtual, unplanned slots with
  * id null — they are NOT persisted.
  */
+function recipeForSlot(repos, slot) {
+  if (slot.recipeId) return repos.recipes.getById(slot.recipeId);
+  if (!slot.libraryRecipeId || !repos.recipeLibrary) return null;
+  const row = repos.recipeLibrary.getById(slot.libraryRecipeId);
+  if (!row) return null;
+  return {
+    id: null,
+    libraryId: row.id,
+    name: row.title,
+    category: row.category || 'comfort',
+    prepTime: row.total_time_min ? `${row.total_time_min} min` : null,
+    servings: row.servings || 2,
+    source: row.source_name,
+    fromLibrary: true,
+    ingredients: (row.ingredients || []).map((ing) => ({
+      name: ing.name || ing.rawLine,
+      qty: ing.qty,
+      unit: ing.unit,
+      productKey: ing.productKey || null,
+    })),
+  };
+}
+
 function toMealsWeekResponse(repos, weekYear, plan, { readOnly = false } = {}) {
   const byDay = new Map(plan.map((slot) => [slot.dayOfWeek, slot]));
   return {
@@ -136,7 +164,7 @@ function toMealsWeekResponse(repos, weekYear, plan, { readOnly = false } = {}) {
       return {
         ...slot,
         dayName,
-        recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+        recipe: recipeForSlot(repos, slot),
       };
     }),
   };
@@ -595,11 +623,14 @@ function registerRoutes(router, { repos, serverState }) {
     if (!isValidWeekYear(wk)) {
       throw errors.badRequest('Ugyldig weekYear (f.eks. 2026-W15)', { code: 'INVALID_WEEK' });
     }
-    if (wk <= getWeekYear()) {
+    if (ctx.body?.confirm !== true) {
+      throw errors.badRequest('Bekreft med confirm: true');
+    }
+    if (isPastWeek(wk) || wk === getWeekYearInTimeZone()) {
       throw errors.badRequest('Bare en fremtidig uke kan foreslås på nytt');
     }
     ensureWeek(repos, wk);
-    regenerateUnlockedDays(repos, wk, { onlyAuto: false });
+    regenerateUnlockedDays(repos, wk);
     invalidate('meals', 'today', 'shopping');
     const plan = repos.mealPlans.getWeek(wk);
     ctx.json({ ok: true, week: toMealsWeekResponse(repos, wk, plan) });

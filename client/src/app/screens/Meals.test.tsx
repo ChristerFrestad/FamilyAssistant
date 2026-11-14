@@ -887,3 +887,55 @@ describe('Meals — Borte, past weeks, and child role', () => {
     expect(await screen.findByRole('heading', { name: 'Bytt middag' })).toBeInTheDocument();
   });
 });
+
+describe('Meals — suggest the week again', () => {
+  function mockWeek(post: (init?: RequestInit) => Promise<Response>): void {
+    fetchSpy.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      const method = init?.method ?? 'GET';
+      if (method === 'POST' && url.includes('/suggest-again')) return post(init);
+      const normalized = url.startsWith('/api/meals/week/') ? '/api/meals/current' : url;
+      if (normalized === '/api/meals/current' || normalized.startsWith('/api/meals/current?')) {
+        return Promise.resolve(jsonResponse(200, makeMealsPayload()));
+      }
+      if (normalized === '/api/family' || normalized.startsWith('/api/family?')) {
+        return Promise.resolve(jsonResponse(200, FAMILY_DATA));
+      }
+      return Promise.reject(new Error(`Unmocked fetch: ${method} ${url}`));
+    });
+  }
+
+  test('confirms in a modal, blocks a second submit, and shows a Norwegian error', async () => {
+    let posts = 0;
+    let release: (value: Response) => void = () => undefined;
+    mockWeek(
+      (init) =>
+        new Promise((resolve) => {
+          posts += 1;
+          const body = JSON.parse(String(init?.body)) as { confirm?: boolean };
+          expect(body.confirm).toBe(true);
+          release = resolve;
+        })
+    );
+    mountMeals({ entry: '/meals?week=2099-W02' });
+    fireEvent.click(await screen.findByTestId('meals-suggest-again'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    const confirm = screen.getByTestId('meals-suggest-again-confirm');
+    fireEvent.click(confirm);
+    await waitFor(() => {
+      expect(confirm).toHaveAttribute('aria-busy', 'true');
+    });
+    fireEvent.click(confirm);
+    expect(posts).toBe(1);
+    release(jsonResponse(500, { error: 'no' }));
+    expect(await screen.findByTestId('meals-suggest-again-error')).toHaveTextContent(
+      'Kunne ikke foreslå uka på nytt. Prøv igjen.'
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+});

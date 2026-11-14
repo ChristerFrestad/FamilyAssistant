@@ -151,7 +151,7 @@ function createRecipeLibraryRepo(db) {
       const names = enabledSourceNames();
       if (names.length === 0) return [];
       const urls = (excludeUrls || []).filter(Boolean);
-      const cap = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 80) : 60;
+      const cap = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 400) : 400;
       const params = [...names];
       let sql = `SELECT id, title, source_name as sourceName, canonical_url as canonicalUrl,
                         total_time_min as totalTimeMin, category
@@ -161,7 +161,7 @@ function createRecipeLibraryRepo(db) {
         sql += ` AND canonical_url NOT IN (${urls.map(() => '?').join(',')})`;
         params.push(...urls);
       }
-      sql += ' ORDER BY title LIMIT ?';
+      sql += ' ORDER BY id LIMIT ?';
       const rows = db.prepare(sql).all(...params, cap);
       if (rows.length === 0) return rows;
       const ids = rows.map((row) => row.id);
