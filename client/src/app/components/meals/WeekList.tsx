@@ -38,7 +38,7 @@ export interface WeekListProps {
    * the recipe picker for that day. Without it, clicking an empty
    * row just navigates (legacy behaviour).
    */
-  onSelectEmpty?: (dayOfWeek: number) => void;
+  onSelectEmpty?: ((dayOfWeek: number) => void) | undefined;
 }
 
 export function WeekList({
