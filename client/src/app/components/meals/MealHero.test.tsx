@@ -63,6 +63,31 @@ describe('MealHero — recipe state', () => {
     expect(screen.queryByTestId('meal-hero-source-link')).toBeNull();
   });
 
+  test('a library dinner opens the publisher and not /recipes/null', () => {
+    const handler = vi.fn();
+    render(
+      <MealHero
+        slot={makeSlot({
+          recipeId: null,
+          recipe: {
+            ...makeSlot().recipe!,
+            id: null,
+            fromLibrary: true,
+            url: 'https://meny.no/oppskrifter/kylling/taco',
+          },
+        })}
+        dayLabel="Mandag"
+        isToday={false}
+        onOpenRecipe={handler}
+      />
+    );
+    const link = screen.getByTestId('meal-hero-open-recipe-button');
+    expect(link).toHaveAttribute('href', 'https://meny.no/oppskrifter/kylling/taco');
+    expect(link).toHaveAttribute('target', '_blank');
+    fireEvent.click(link);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   test('recipe name and open button call onOpenRecipe', () => {
     const handler = vi.fn();
     render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onOpenRecipe={handler} />);

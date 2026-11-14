@@ -175,7 +175,8 @@ function createMealRepos(db, tryParseJson) {
         .prepare(
           `
         SELECT id, week_year as weekYear, day_of_week as dayOfWeek,
-               meal_type as mealType, recipe_id as recipeId, status, notes
+               meal_type as mealType, recipe_id as recipeId,
+               library_recipe_id as libraryRecipeId, status, notes
         FROM meal_plans
         WHERE family_id = ? AND id = ?
       `

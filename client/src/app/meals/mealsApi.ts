@@ -61,7 +61,7 @@ export interface RecipeIngredient {
  * defensively.
  */
 export interface MealRecipe {
-  id: number;
+  id: number | null;
   name: string;
   category: RecipeCategory;
   prepTime: string | null;
@@ -69,6 +69,7 @@ export interface MealRecipe {
   source: string | null;
   url: string | null;
   notes: string | null;
+  fromLibrary?: boolean;
   ingredients: RecipeIngredient[];
 }
 

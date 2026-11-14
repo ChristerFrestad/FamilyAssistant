@@ -41,6 +41,7 @@ const {
   computeMissingForRestOfWeek,
   regenerateUnlockedDays,
 } = require('./services/meal-planning.service');
+const { visibleLibraryDinner } = require('./services/recipe-library/copy');
 const {
   ensureCurrentWeek,
   ensureWeek,
@@ -124,26 +125,9 @@ function isValidWeekYear(weekYear) {
  * id null — they are NOT persisted.
  */
 function recipeForSlot(repos, slot) {
+  if (!slot) return null;
   if (slot.recipeId) return repos.recipes.getById(slot.recipeId);
-  if (!slot.libraryRecipeId || !repos.recipeLibrary) return null;
-  const row = repos.recipeLibrary.getById(slot.libraryRecipeId);
-  if (!row) return null;
-  return {
-    id: null,
-    libraryId: row.id,
-    name: row.title,
-    category: row.category || 'comfort',
-    prepTime: row.total_time_min ? `${row.total_time_min} min` : null,
-    servings: row.servings || 2,
-    source: row.source_name,
-    fromLibrary: true,
-    ingredients: (row.ingredients || []).map((ing) => ({
-      name: ing.name || ing.rawLine,
-      qty: ing.qty,
-      unit: ing.unit,
-      productKey: ing.productKey || null,
-    })),
-  };
+  return visibleLibraryDinner(repos, slot.libraryRecipeId);
 }
 
 function toMealsWeekResponse(repos, weekYear, plan, { readOnly = false } = {}) {
@@ -856,7 +840,12 @@ function registerRoutes(router, { repos, serverState }) {
     if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
     const slot = repos.mealPlans.getById(mealId);
     if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
-    if (!slot.recipeId) {
+    if (!slot.recipeId && !slot.libraryRecipeId) {
+      throw errors.badRequest('Cannot mark cooked: no recipe on this slot', {
+        code: 'NO_RECIPE',
+      });
+    }
+    if (!slot.recipeId && !visibleLibraryDinner(repos, slot.libraryRecipeId)) {
       throw errors.badRequest('Cannot mark cooked: no recipe on this slot', {
         code: 'NO_RECIPE',
       });
@@ -2543,7 +2532,7 @@ function registerRoutes(router, { repos, serverState }) {
       const dayOfWeek = (new Date().getDay() + 6) % 7;
       const plan = repos.mealPlans.getWeek(wk);
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
-      const recipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
+      const recipe = recipeForSlot(repos, todaySlot);
 
       const choresMap = choreCatalogMap(repos);
       const todayChores = repos.choreSchedules
@@ -2786,7 +2775,7 @@ function registerRoutes(router, { repos, serverState }) {
       const dayOfWeek = (new Date().getDay() + 6) % 7;
       const plan = repos.mealPlans.getWeek(wk);
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
-      const todayRecipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
+      const todayRecipe = recipeForSlot(repos, todaySlot);
 
       const choresMap = choreCatalogMap(repos);
       const todayChoresList = repos.choreSchedules

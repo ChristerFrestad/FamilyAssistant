@@ -23,6 +23,9 @@ const { getOptionalFamilyId } = require('../auth/family-context');
 const { effectiveScale } = require('./family.service');
 
 const VALID_MODES = new Set(['default', 'maksimer', 'balansert']);
+const MAX_LIBRARY_DINNERS = 2;
+const MIN_OWN_FOR_FULL_WEEK = 7;
+const LIBRARY_SCORE_MARGIN = 0.25;
 
 function resolveMode(repos) {
   try {
@@ -550,8 +553,8 @@ function buildVariedWeekPlan(repos, weekYear, blockedIds = [], options = {}) {
       : []
   );
   for (const id of blockedIds) recent.add(id);
-  const usedFamily = new Set();
-  const usedLibrary = new Set();
+  const usedFamily = new Set(options.keepFamilyIds || []);
+  const usedLibrary = new Set(options.keepLibraryIds || []);
   let pantry = repos.inventory.getAll();
 
   function candidates(category, allowRecent) {
@@ -580,8 +583,22 @@ function buildVariedWeekPlan(repos, weekYear, blockedIds = [], options = {}) {
       ];
     }
     if (src.length === 0) return null;
-    const ranked = rankRecipes(src, pantry, rankMode, 1);
-    const chosen = ranked[0]?.recipe;
+    const own = src.filter((recipe) => !recipe.fromLibrary);
+    const shared = src.filter((recipe) => recipe.fromLibrary);
+    const ownBest = own.length > 0 ? rankRecipes(own, pantry, rankMode, 1)[0] : null;
+    const libBest = shared.length > 0 ? rankRecipes(shared, pantry, rankMode, 1)[0] : null;
+    const libraryRoom =
+      family.length < MIN_OWN_FOR_FULL_WEEK || usedLibrary.size < MAX_LIBRARY_DINNERS;
+    const clearlyBetter =
+      Boolean(libBest && ownBest) && libBest.score >= ownBest.score + LIBRARY_SCORE_MARGIN;
+    let chosen = null;
+    if (ownBest && libBest && (clearlyBetter || (libraryRoom && libBest.score > ownBest.score))) {
+      chosen = libBest.recipe;
+    } else if (ownBest) {
+      chosen = ownBest.recipe;
+    } else if (libBest && libraryRoom) {
+      chosen = libBest.recipe;
+    }
     if (!chosen) return null;
     if (chosen.fromLibrary) {
       usedLibrary.add(chosen.libraryId);
@@ -632,6 +649,16 @@ function regenerateUnlockedDays(repos, weekYear, { fillEmptyOnly = false } = {})
 
   const avoidIds = [];
   const avoidLibraryIds = [];
+  const keepFamilyIds = [];
+  const keepLibraryIds = [];
+  for (const row of plan) {
+    const locked = LOCKED_STATUSES.has(row.status);
+    const manual = row.planOrigin === 'manual';
+    const kept = locked || manual || (fillEmptyOnly && hasDinner(row));
+    if (!kept) continue;
+    if (row.recipeId != null) keepFamilyIds.push(row.recipeId);
+    if (row.libraryRecipeId != null) keepLibraryIds.push(row.libraryRecipeId);
+  }
   for (const day of targets) {
     const row = plan.find((slot) => slot.dayOfWeek === day);
     if (row && row.recipeId != null) avoidIds.push(row.recipeId);
@@ -639,6 +666,8 @@ function regenerateUnlockedDays(repos, weekYear, { fillEmptyOnly = false } = {})
   }
   const picks = buildVariedWeekPlan(repos, weekYear, avoidIds, {
     avoidLibraryIds,
+    keepFamilyIds,
+    keepLibraryIds,
     salt: Date.now() % 100000,
   });
   const write = () => {

@@ -6,6 +6,24 @@
 
 ---
 
+2026-11-14 – Bibliotekmiddag i resten av uka
+
+Task: En middag som bare er en bibliotekreferanse skal virke som en
+familierett, og en ny runde skal ikke gjenta en middag som blir stående.
+
+Done:
+- Tilberedt bruker bibliotekets ingredienser. I dag og handlelisten
+  viser retten. «Åpne oppskrift» går til utgiveren, ikke /recipes/null.
+  Backup tar med referansen. Avslåtte kilder skjules.
+- Beholdte dager ligger i used-settene, så retten ikke gjentas når det
+  finnes et alternativ. Høyst to bibliotekmiddager, med mindre familien
+  har færre enn sju egne retter eller biblioteket dekker pantry klart
+  bedre. Utvalget spenner hele biblioteket. Indeks på library_recipe_id.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – Rettelser etter gjennomgang av ukeplanen
 
 Task: Automatisk ukeplan skal ikke kopiere bibliotekretter inn i

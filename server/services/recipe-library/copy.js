@@ -60,4 +60,31 @@ function copyLibraryRecipe(repos, libraryId) {
   return { alreadyAdded: false, recipeId, recipe: repos.recipes.getById(recipeId) };
 }
 
-module.exports = { copyLibraryRecipe, familyRecipeByUrl, FEW_RECIPES };
+function visibleLibraryDinner(repos, libraryId) {
+  if (!libraryId || !repos.recipeLibrary || typeof repos.recipeLibrary.getById !== 'function') {
+    return null;
+  }
+  const row = repos.recipeLibrary.getById(libraryId);
+  if (!row || row.active === 0) return null;
+  if (!enabledSourceNames().includes(row.source_name)) return null;
+  return {
+    id: null,
+    libraryId: row.id,
+    name: row.title,
+    category: row.category || 'comfort',
+    prepTime: row.total_time_min ? `${row.total_time_min} min` : null,
+    servings: row.servings || 2,
+    source: row.source_name,
+    url: row.canonical_url || null,
+    fromLibrary: true,
+    notes: null,
+    ingredients: (row.ingredients || []).map((ing) => ({
+      name: ing.name || ing.rawLine,
+      qty: ing.qty,
+      unit: ing.unit,
+      productKey: ing.productKey || null,
+    })),
+  };
+}
+
+module.exports = { copyLibraryRecipe, familyRecipeByUrl, visibleLibraryDinner, FEW_RECIPES };

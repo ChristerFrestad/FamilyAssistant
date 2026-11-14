@@ -152,6 +152,7 @@ export function Meals(): JSX.Element {
   );
   const handleOpenRecipe = useCallback(
     (recipeId: number) => {
+      if (!Number.isInteger(recipeId) || recipeId <= 0) return;
       navigate(`/recipes/${recipeId}`);
     },
     [navigate]

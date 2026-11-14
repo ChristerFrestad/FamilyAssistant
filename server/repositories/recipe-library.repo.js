@@ -2,6 +2,20 @@
 
 const { enabledSourceNames } = require('../services/recipe-library/sources');
 
+function sampleSpread(rows, cap) {
+  if (rows.length <= cap) return rows;
+  if (cap <= 1) return rows.slice(0, 1);
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < cap; i += 1) {
+    const index = Math.round((i * (rows.length - 1)) / (cap - 1));
+    if (seen.has(index)) continue;
+    seen.add(index);
+    out.push(rows[index]);
+  }
+  return out;
+}
+
 function createRecipeLibraryRepo(db) {
   const upsertRecipe = db.prepare(`
     INSERT INTO recipe_library (
@@ -147,7 +161,7 @@ function createRecipeLibraryRepo(db) {
         )
         .all(...names, ...urls, cap);
     },
-    listPlanningCandidates(excludeUrls, limit = 60) {
+    listPlanningCandidates(excludeUrls, limit = 400) {
       const names = enabledSourceNames();
       if (names.length === 0) return [];
       const urls = (excludeUrls || []).filter(Boolean);
@@ -161,8 +175,8 @@ function createRecipeLibraryRepo(db) {
         sql += ` AND canonical_url NOT IN (${urls.map(() => '?').join(',')})`;
         params.push(...urls);
       }
-      sql += ' ORDER BY id LIMIT ?';
-      const rows = db.prepare(sql).all(...params, cap);
+      sql += ' ORDER BY id';
+      const rows = sampleSpread(db.prepare(sql).all(...params), cap);
       if (rows.length === 0) return rows;
       const ids = rows.map((row) => row.id);
       const ingredients = db

@@ -217,15 +217,25 @@ export function MealHero({
         ) : null}
       </div>
       <h2 className="mb-3 font-display text-display-sm text-text-1" data-testid="meal-hero-name">
-        {onOpenRecipe ? (
+        {recipe.id != null && onOpenRecipe ? (
           <button
             type="button"
-            onClick={() => onOpenRecipe(recipe.id)}
+            onClick={() => onOpenRecipe(recipe.id as number)}
             className="text-left underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
             data-testid="meal-hero-open-recipe"
           >
             {recipe.name}
           </button>
+        ) : recipe.url ? (
+          <a
+            href={recipe.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-left underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+            data-testid="meal-hero-open-recipe"
+          >
+            {recipe.name}
+          </a>
         ) : (
           recipe.name
         )}
@@ -247,8 +257,10 @@ export function MealHero({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => onSwap?.(slot.dayOfWeek, recipe.id)}
-            disabled={onSwap == null}
+            onClick={() => {
+              if (recipe.id != null) onSwap?.(slot.dayOfWeek, recipe.id);
+            }}
+            disabled={onSwap == null || recipe.id == null}
             data-testid="meal-hero-swap-button"
           >
             {t('actions.swap')}
@@ -268,17 +280,27 @@ export function MealHero({
       ) : (
         <ChildHint />
       )}
-      {onOpenRecipe || recipe.url ? (
+      {(recipe.id != null && onOpenRecipe) || recipe.url ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {onOpenRecipe ? (
+          {recipe.id != null && onOpenRecipe ? (
             <Button
               type="button"
               variant="secondary"
-              onClick={() => onOpenRecipe(recipe.id)}
+              onClick={() => onOpenRecipe(recipe.id as number)}
               data-testid="meal-hero-open-recipe-button"
             >
               {t('actions.openRecipe')}
             </Button>
+          ) : recipe.url ? (
+            <a
+              href={recipe.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-6 items-center rounded-pill border border-stroke px-3 py-1.5 font-body text-body text-text-2 hover:text-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+              data-testid="meal-hero-open-recipe-button"
+            >
+              {t('actions.openRecipe')}
+            </a>
           ) : null}
           {recipe.url ? (
             <a

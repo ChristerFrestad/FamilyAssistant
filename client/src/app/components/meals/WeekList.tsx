@@ -90,7 +90,7 @@ export function WeekList({
                 type="button"
                 onClick={() => {
                   onSelect(slot.dayOfWeek);
-                  if (awayWithRecipe && onSelectSwap && slot.recipe) {
+                  if (awayWithRecipe && onSelectSwap && slot.recipe && slot.recipe.id != null) {
                     onSelectSwap(slot.dayOfWeek, slot.recipe.id);
                     return;
                   }

@@ -24,6 +24,7 @@ const { aliasGroup, aliasKeys, preferredKey } = require('./product-key-alias');
 const { canonicalUnit, convertQuantity } = require('./unit-convert');
 const { getOptionalFamilyId } = require('../auth/family-context');
 const { effectiveScale } = require('./family.service');
+const { visibleLibraryDinner } = require('./recipe-library/copy');
 
 const CATEGORY_ORDER = [
   'Kj\u00f8tt & fisk',
@@ -104,18 +105,9 @@ function computeShoppingListForWeek(repos, weekYear) {
   //    'away', 'skipped' and 'removed' do not count — the day needs no food.
   for (const slot of plan) {
     if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed') continue;
-    let recipe = allRecipes.find((r) => r.id === slot.recipeId);
-    if (!recipe && slot.libraryRecipeId && repos.recipeLibrary) {
-      const lib = repos.recipeLibrary.getById(slot.libraryRecipeId);
-      if (lib) {
-        recipe = {
-          id: null,
-          name: lib.title,
-          servings: lib.servings || 2,
-          ingredients: lib.ingredients || [],
-        };
-      }
-    }
+    const recipe =
+      allRecipes.find((r) => r.id === slot.recipeId) ||
+      visibleLibraryDinner(repos, slot.libraryRecipeId);
     if (!recipe) continue;
     const scale = familyId ? effectiveScale(repos, familyId, recipe.servings) : 1;
     for (const ing of recipe.ingredients || []) {
