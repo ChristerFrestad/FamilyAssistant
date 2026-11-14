@@ -162,8 +162,12 @@ function snapshot(draft: EditorDraft): string {
 }
 
 function rowComplete(row: IngredientDraft): boolean {
-  const qty = Number(row.qty);
-  return row.name.trim().length > 0 && row.unit.trim().length > 0 && Number.isFinite(qty);
+  if (row.name.trim().length === 0) return false;
+  const qtyText = row.qty.trim();
+  const unitText = row.unit.trim();
+  if (!qtyText && !unitText) return true;
+  const qty = Number(qtyText);
+  return unitText.length > 0 && Number.isFinite(qty);
 }
 
 function parseRecipeId(raw: string | undefined): number | null {
@@ -308,12 +312,14 @@ export function RecipeEditor(): JSX.Element {
       name: draft.name.trim().slice(0, 200),
       category: draft.category,
       ingredients: complete.map((row) => {
+        const qtyText = row.qty.trim();
+        const unitText = row.unit.trim();
         const item: NonNullable<RecipeWriteBody['ingredients']>[number] = {
           name: row.name.trim(),
-          qty: Number(row.qty),
-          unit: row.unit.trim(),
           optional: row.optional,
         };
+        if (qtyText) item.qty = Number(qtyText);
+        if (unitText) item.unit = unitText;
         if (row.productKey) item.productKey = row.productKey;
         return item;
       }),
