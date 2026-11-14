@@ -18,6 +18,7 @@ const { createShelfObservationRepo } = require('./shelf-observation.repo');
 const { createPilotPasswordAttemptsRepo } = require('./pilot-password-attempts.repo');
 const { createCalendarRepos } = require('./calendar.repo');
 const { createRecipeLibraryRepo } = require('./recipe-library.repo');
+const { createCalendarFeedRepo } = require('../services/calendar-feed.service');
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
@@ -53,6 +54,7 @@ function createRepositories(db) {
   } = createSystemRepos(db, tryParseJson);
   const { calendar, calendarIntegrations } = createCalendarRepos(db);
   const auth = createAuthRepo(db);
+  const calendarFeeds = createCalendarFeedRepo(db);
   const family = createFamilyRepo(db);
   const llmConfig = createLlmConfigRepo(db);
   const feedback = createFeedbackRepo(db);
@@ -62,6 +64,7 @@ function createRepositories(db) {
   return {
     _db: db,
     auth,
+    calendarFeeds,
     family,
     llmConfig,
     feedback,

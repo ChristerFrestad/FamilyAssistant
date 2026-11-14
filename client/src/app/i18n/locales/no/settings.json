@@ -3,6 +3,22 @@
   "header": {
     "subtitle": "System, familie og konto"
   },
+  "calendarFeed": {
+    "title": "Kalenderlenke",
+    "help": "Lenken viser middager, gjøremål og familieavtaler. Den inneholder bare titler, for eksempel «Middag: Taco».",
+    "google": "Google Kalender: Andre kalendere → Fra URL, og lim inn lenken.",
+    "homeAssistant": "Home Assistant: Remote Calendar, og lim inn lenken.",
+    "create": "Lag lenke",
+    "regenerate": "Lag ny lenke",
+    "revoke": "Trekk tilbake",
+    "copy": "Kopier",
+    "once": "Kopier lenken nå. Den vises ikke igjen.",
+    "active": "En lenke er aktiv. Lag en ny hvis du mistet den.",
+    "inactive": "Ingen aktiv lenke.",
+    "loadFailed": "Kunne ikke hente kalenderlenken.",
+    "createFailed": "Kunne ikke lage lenken.",
+    "revokeFailed": "Kunne ikke trekke tilbake lenken."
+  },
   "sections": {
     "system": "System",
     "family": "Familie",
