@@ -3,6 +3,14 @@
 const { getFamilyId } = require('../auth/family-context');
 
 function createMealRepos(db, tryParseJson) {
+  function placeDinner(weekYear, day, source, status) {
+    if (source && source.libraryRecipeId != null && source.recipeId == null) {
+      mealPlans.setLibraryRecipe(weekYear, day, source.libraryRecipeId, status, 'manual');
+      return;
+    }
+    mealPlans.setRecipe(weekYear, day, source ? source.recipeId : null, status, 'manual');
+  }
+
   const mealPlans = {
     getWeek(weekYear) {
       const familyId = getFamilyId();
@@ -10,7 +18,8 @@ function createMealRepos(db, tryParseJson) {
         .prepare(
           `
         SELECT id, week_year as weekYear, day_of_week as dayOfWeek, meal_type as mealType,
-               recipe_id as recipeId, status, notes
+               recipe_id as recipeId, library_recipe_id as libraryRecipeId,
+               status, notes, plan_origin as planOrigin
         FROM meal_plans
         WHERE family_id = ? AND week_year = ? AND meal_type = 'middag'
         ORDER BY day_of_week
@@ -21,26 +30,64 @@ function createMealRepos(db, tryParseJson) {
     seedDefault(weekYear, defaultPlan) {
       const familyId = getFamilyId();
       const ins = db.prepare(`
-        INSERT OR IGNORE INTO meal_plans (family_id, week_year, day_of_week, meal_type, recipe_id, status)
-        VALUES (?, ?, ?, 'middag', ?, ?)
+        INSERT OR IGNORE INTO meal_plans (
+          family_id, week_year, day_of_week, meal_type, recipe_id, library_recipe_id, status, plan_origin
+        )
+        VALUES (?, ?, ?, 'middag', ?, ?, ?, 'auto')
       `);
       const tx = db.transaction(() => {
         for (const slot of defaultPlan) {
-          ins.run(familyId, weekYear, slot.dayOfWeek, slot.recipeId, slot.status || 'planned');
+          ins.run(
+            familyId,
+            weekYear,
+            slot.dayOfWeek,
+            slot.recipeId ?? null,
+            slot.libraryRecipeId ?? null,
+            slot.status || 'planned'
+          );
         }
       });
       tx();
     },
-    setRecipe(weekYear, dayOfWeek, recipeId, status = 'planned') {
+    setRecipe(weekYear, dayOfWeek, recipeId, status = 'planned', planOrigin = 'manual') {
       const familyId = getFamilyId();
+      const origin = planOrigin === 'auto' ? 'auto' : 'manual';
       db.prepare(
         `
-        INSERT INTO meal_plans (family_id, week_year, day_of_week, meal_type, recipe_id, status)
-        VALUES (?, ?, ?, 'middag', ?, ?)
+        INSERT INTO meal_plans (
+          family_id, week_year, day_of_week, meal_type, recipe_id, status, plan_origin
+        )
+        VALUES (?, ?, ?, 'middag', ?, ?, ?)
         ON CONFLICT(family_id, week_year, day_of_week, meal_type) DO UPDATE SET
-          recipe_id = excluded.recipe_id, status = excluded.status
+          recipe_id = excluded.recipe_id,
+          library_recipe_id = NULL,
+          status = excluded.status,
+          plan_origin = excluded.plan_origin
       `
-      ).run(familyId, weekYear, dayOfWeek, recipeId, status);
+      ).run(familyId, weekYear, dayOfWeek, recipeId, status, origin);
+    },
+    setLibraryRecipe(
+      weekYear,
+      dayOfWeek,
+      libraryRecipeId,
+      status = 'planned',
+      planOrigin = 'auto'
+    ) {
+      const familyId = getFamilyId();
+      const origin = planOrigin === 'auto' ? 'auto' : 'manual';
+      db.prepare(
+        `
+        INSERT INTO meal_plans (
+          family_id, week_year, day_of_week, meal_type, recipe_id, library_recipe_id, status, plan_origin
+        )
+        VALUES (?, ?, ?, 'middag', NULL, ?, ?, ?)
+        ON CONFLICT(family_id, week_year, day_of_week, meal_type) DO UPDATE SET
+          recipe_id = NULL,
+          library_recipe_id = excluded.library_recipe_id,
+          status = excluded.status,
+          plan_origin = excluded.plan_origin
+      `
+      ).run(familyId, weekYear, dayOfWeek, libraryRecipeId, status, origin);
     },
     /**
      * Mark a day as explicitly having no dinner. recipe_id is cleared
@@ -152,8 +199,8 @@ function createMealRepos(db, tryParseJson) {
       const slotB = plan.find((p) => p.dayOfWeek === dayB);
       if (!slotA || !slotB) return;
       const tx = db.transaction(() => {
-        mealPlans.setRecipe(weekYear, dayA, slotB.recipeId, slotA.status);
-        mealPlans.setRecipe(weekYear, dayB, slotA.recipeId, slotB.status);
+        placeDinner(weekYear, dayA, slotB, slotA.status);
+        placeDinner(weekYear, dayB, slotA, slotB.status);
       });
       tx();
     },
@@ -177,7 +224,8 @@ function createMealRepos(db, tryParseJson) {
       const rows = db
         .prepare(
           `
-        SELECT day_of_week as dayOfWeek, recipe_id as recipeId, status
+        SELECT day_of_week as dayOfWeek, recipe_id as recipeId,
+               library_recipe_id as libraryRecipeId, status
         FROM meal_plans
         WHERE family_id = ? AND week_year = ? AND meal_type = 'middag'
       `
@@ -189,6 +237,7 @@ function createMealRepos(db, tryParseJson) {
         seen.add(r.dayOfWeek);
         const decided =
           r.recipeId != null ||
+          r.libraryRecipeId != null ||
           r.status === 'away' ||
           r.status === 'skipped' ||
           r.status === 'removed';

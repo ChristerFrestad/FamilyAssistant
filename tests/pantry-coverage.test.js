@@ -354,8 +354,8 @@ describe('suggestionMode i family_profile.preferences', () => {
     await ctx.close();
   });
 
-  test('default → resolveMode returnerer "default"', () => {
-    assert.equal(mealPlanning.resolveMode(ctx.repos), 'default');
+  test('no explicit mode uses balansert', () => {
+    assert.equal(mealPlanning.resolveMode(ctx.repos), 'balansert');
   });
 
   test('setter til "balansert" via /api/profile', async () => {
@@ -370,7 +370,7 @@ describe('suggestionMode i family_profile.preferences', () => {
     await request(ctx.baseUrl, 'PUT', '/api/profile', {
       body: { preferences: { suggestionMode: 'ugyldig-verdi' } },
     });
-    assert.equal(mealPlanning.resolveMode(ctx.repos), 'default');
+    assert.equal(mealPlanning.resolveMode(ctx.repos), 'balansert');
   });
 
   test('getSwapSuggestions respekterer pantry-first modus', async () => {

@@ -28,6 +28,7 @@ import { Card } from '../components/layout/Card';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { WeekSwitcher } from '../components/layout/WeekSwitcher';
 import { Button } from '../components/base/Button';
+import { Modal } from '../components/overlay/Modal';
 import { WeekStrip } from '../components/layout/WeekStrip';
 import { mealSlotDots } from '../components/meals/DayStrip';
 import { MealHero } from '../components/meals/MealHero';
@@ -43,7 +44,12 @@ import {
 } from '../meals/useMealsData';
 import { usePantryDeduction } from '../meals/usePantryDeduction';
 import { useRecipePicker } from '../meals/useRecipePicker';
-import { clearMeal, setMealStatus, type SwapMealResponse } from '../meals/mealsApi';
+import {
+  clearMeal,
+  setMealStatus,
+  suggestWeekAgain,
+  type SwapMealResponse,
+} from '../meals/mealsApi';
 import { useSelectedWeek } from '../hooks/useSelectedWeek';
 import { useAuth } from '../auth/useAuth';
 import type { MealSlot } from '../meals/mealsApi';
@@ -57,7 +63,11 @@ export function Meals(): JSX.Element {
   const canEdit = user != null && user.role !== 'child';
   const { weekYear, currentWeekYear, goPrevWeek, goNextWeek, pathWithWeek } = useSelectedWeek();
   const isPastWeek = weekYear < currentWeekYear;
+  const isFutureWeek = weekYear > currentWeekYear;
   const canEditWeek = canEdit && !isPastWeek;
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const {
     meals,
     isLoading,
@@ -228,6 +238,76 @@ export function Meals(): JSX.Element {
           testIdPrefix="meals"
           busy={isLoading}
         />
+        {canEditWeek && isFutureWeek ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setSuggestOpen(true)}
+              data-testid="meals-suggest-again"
+            >
+              {t('meals:suggestAgain.button')}
+            </Button>
+            <Modal
+              open={suggestOpen}
+              onClose={() => {
+                if (suggestBusy) return;
+                setSuggestError(null);
+                setSuggestOpen(false);
+              }}
+              title={t('meals:suggestAgain.title')}
+              description={t('meals:suggestAgain.body')}
+            >
+              <div className="flex flex-col gap-3" data-testid="meals-suggest-again-dialog">
+                {suggestError ? (
+                  <p
+                    role="alert"
+                    className="font-body text-body text-text-1"
+                    data-testid="meals-suggest-again-error"
+                  >
+                    {suggestError}
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    loading={suggestBusy}
+                    onClick={() => {
+                      if (suggestBusy) return;
+                      setSuggestBusy(true);
+                      setSuggestError(null);
+                      void suggestWeekAgain(weekYear)
+                        .then((result) => {
+                          applyMealResult(result);
+                          setSuggestOpen(false);
+                        })
+                        .catch(() => {
+                          setSuggestError(t('meals:suggestAgain.error'));
+                        })
+                        .finally(() => setSuggestBusy(false));
+                    }}
+                    data-testid="meals-suggest-again-confirm"
+                  >
+                    {t('meals:suggestAgain.confirm')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={suggestBusy}
+                    onClick={() => {
+                      setSuggestError(null);
+                      setSuggestOpen(false);
+                    }}
+                    data-testid="meals-suggest-again-cancel"
+                  >
+                    {t('meals:suggestAgain.cancel')}
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          </div>
+        ) : null}
       </ScreenHeader>
 
       <div aria-live="polite" aria-atomic="true" data-testid="meals-shopping-announce">
