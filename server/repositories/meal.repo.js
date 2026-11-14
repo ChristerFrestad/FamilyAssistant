@@ -105,12 +105,15 @@ function createMealRepos(db, tryParseJson) {
     },
     setStatus(weekYear, dayOfWeek, status) {
       const familyId = getFamilyId();
-      db.prepare(
-        `
+      const result = db
+        .prepare(
+          `
         UPDATE meal_plans SET status = ?
         WHERE family_id = ? AND week_year = ? AND day_of_week = ? AND meal_type = 'middag'
       `
-      ).run(status, familyId, weekYear, dayOfWeek);
+        )
+        .run(status, familyId, weekYear, dayOfWeek);
+      return result.changes;
     },
     /**
      * Sprint 6 — fetch a single meal_plan row by primary key. The

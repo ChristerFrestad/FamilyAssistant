@@ -648,7 +648,8 @@ function registerRoutes(router, { repos, serverState }) {
     (ctx) => {
       const { weekYear, dayOfWeek, status } = ctx.body;
       const wk = resolveWeekYear(repos, weekYear);
-      repos.mealPlans.setStatus(wk, dayOfWeek, status);
+      const changed = repos.mealPlans.setStatus(wk, dayOfWeek, status);
+      if (!changed) throw errors.notFound('Middagen finnes ikke');
       invalidate('meals', 'today');
       const autogen = maybeAutogenerateShoppingList(repos, wk);
       const plan = repos.mealPlans.getWeek(wk);

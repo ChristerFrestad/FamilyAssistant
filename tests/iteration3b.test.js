@@ -415,6 +415,17 @@ describe('Shopping routes', () => {
 // ============================================================
 
 describe('Autogenerer-hook', () => {
+  test('PUT /api/meals/status returns 404 when that day has no row', async () => {
+    const res = await request(server.baseUrl, 'PUT', '/api/meals/status', {
+      body: { weekYear: '2020-W02', dayOfWeek: 3, status: 'away' },
+    });
+    assert.equal(res.status, 404);
+    const rows = server.repos._db
+      .prepare(`SELECT COUNT(*) AS n FROM meal_plans WHERE week_year = '2020-W02'`)
+      .get();
+    assert.equal(rows.n, 0);
+  });
+
   test('PUT /api/meals/status autogenererer liste når uken blir komplett', async () => {
     const { repos } = server;
     const wk = '2080-W20';

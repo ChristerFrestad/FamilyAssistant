@@ -133,7 +133,12 @@ describe('Meals — initial render', () => {
     fetchSpy.mockImplementation(() => new Promise(() => undefined));
     mountMeals();
     expect(screen.getByTestId('meals-skeleton')).toBeInTheDocument();
+    expect(screen.getByTestId('meals-skeleton')).not.toHaveAttribute('aria-live');
     const label = screen.getByTestId('meals-week-year');
+    const speaking = [...document.querySelectorAll('[aria-live="polite"]')].filter((el) =>
+      el.textContent?.trim()
+    );
+    expect(speaking).toEqual([label]);
     expect(label).toHaveAttribute('aria-busy', 'true');
     expect(label).toHaveTextContent(`Henter uke ${getIsoWeekYear()}`);
     const announce = screen.getByTestId('meals-shopping-announce');
@@ -541,10 +546,9 @@ describe('Meals — week gate and shopping confirmation', () => {
     });
     fireEvent.click(screen.getByTestId('meal-hero-remove-button'));
     await waitFor(() => {
-      expect(screen.getByTestId('meals-week-ready')).toBeInTheDocument();
+      expect(screen.getByTestId('meals-shopping-ready')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('meals-shopping-announce')).toBeEmptyDOMElement();
-    expect(screen.queryByTestId('meals-shopping-ready')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('meals-week-ready')).not.toBeInTheDocument();
   });
 });
 
@@ -761,6 +765,10 @@ describe('Meals — Borte, past weeks, and child role', () => {
     });
     expect(screen.queryByTestId('meals-week-undecided')).not.toBeInTheDocument();
     expect(screen.queryByTestId('meals-week-ready')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('meal-hero-remove-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('meal-hero-swap-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('meal-hero-plan-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('meal-hero-away-button')).not.toBeInTheDocument();
   });
 
   test('a child does not see the buttons that return 403', async () => {
