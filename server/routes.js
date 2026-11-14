@@ -20,6 +20,7 @@ const { registerCalendarIntegrationRoutes } = require('./http/calendar-routes');
 const { expandRecurring } = require('./services/calendar/rrule-expand');
 const { config } = require('./config');
 const { requireRole, requireAdmin, hasRole } = require('./auth/middleware');
+const { getFamilyId } = require('./auth/family-context');
 const { withCache, invalidate, responseCache } = require('./http/cache');
 const metrics = require('./http/metrics');
 const schemas = require('./schemas');
@@ -1495,8 +1496,10 @@ function registerRoutes(router, { repos, serverState }) {
     if (purchasedAt) {
       try {
         repos._db
-          ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
-          .run(purchasedAt, productKey);
+          ?.prepare(
+            'UPDATE inventory SET last_purchased = ? WHERE family_id = ? AND product_key = ?'
+          )
+          .run(purchasedAt, getFamilyId(), productKey);
       } catch {
         /* ignore — cosmetic date override */
       }
@@ -1556,8 +1559,8 @@ function registerRoutes(router, { repos, serverState }) {
 
       try {
         repos._db
-          .prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
-          .run(expiresAt, productKey);
+          .prepare('UPDATE inventory SET expires_est = ? WHERE family_id = ? AND product_key = ?')
+          .run(expiresAt, getFamilyId(), productKey);
       } catch {
         /* cosmetic — best effort */
       }
@@ -1598,8 +1601,8 @@ function registerRoutes(router, { repos, serverState }) {
 
       try {
         repos._db
-          .prepare('UPDATE inventory SET expires_est = ? WHERE product_key = ?')
-          .run(expiresAt, productKey);
+          .prepare('UPDATE inventory SET expires_est = ? WHERE family_id = ? AND product_key = ?')
+          .run(expiresAt, getFamilyId(), productKey);
       } catch {
         /* cosmetic — best effort */
       }
@@ -2052,8 +2055,10 @@ function registerRoutes(router, { repos, serverState }) {
         if (body.purchasedAt && body.productKey) {
           try {
             repos._db
-              ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
-              .run(body.purchasedAt, body.productKey);
+              ?.prepare(
+                'UPDATE inventory SET last_purchased = ? WHERE family_id = ? AND product_key = ?'
+              )
+              .run(body.purchasedAt, getFamilyId(), body.productKey);
           } catch {
             /* cosmetic — ignore */
           }
@@ -2077,8 +2082,10 @@ function registerRoutes(router, { repos, serverState }) {
         if (ctx.body.purchasedAt && ctx.body.productKey) {
           try {
             repos._db
-              ?.prepare('UPDATE inventory SET last_purchased = ? WHERE product_key = ?')
-              .run(ctx.body.purchasedAt, ctx.body.productKey);
+              ?.prepare(
+                'UPDATE inventory SET last_purchased = ? WHERE family_id = ? AND product_key = ?'
+              )
+              .run(ctx.body.purchasedAt, getFamilyId(), ctx.body.productKey);
           } catch {
             /* cosmetic — ignore */
           }

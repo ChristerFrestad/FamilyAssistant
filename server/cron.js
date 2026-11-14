@@ -155,8 +155,25 @@ function llmCacheCleanupJob(repos) {
 }
 
 // === Job 6: Pantry expired cleanup (daily at 08:05 — just after shelf-life warning) ===
+function familyIdsOrLog(repos, jobName) {
+  if (!repos.family || typeof repos.family.listIds !== 'function') {
+    log(`ERROR in ${jobName}: family.listIds is missing; job did not run`);
+    return null;
+  }
+  return repos.family.listIds();
+}
+
 function pantryExpiredJob(repos) {
-  const removed = removeExpired(repos);
+  const familyIds = familyIdsOrLog(repos, 'Pantry-expired');
+  if (!familyIds) return;
+  let removed = 0;
+  for (const familyId of familyIds) {
+    try {
+      removed += runWithFamily(familyId, () => removeExpired(repos));
+    } catch (err) {
+      log(`ERROR in Pantry-expired for family ${familyId}: ${err.message}`);
+    }
+  }
   if (removed > 0) log(`Pantry: removed ${removed} expired items from inventory`);
 }
 
@@ -178,17 +195,23 @@ function priceCpiIndexingJob(repos) {
 // them through product-resolver + Kassal. Sequential per list to share
 // the rate-limit budget. Errors are swallowed per list.
 function shoppingEnrichmentJob(repos) {
-  // enrichPendingLists is async — we don't await it inside the cron
-  // callback so reschedule isn't blocked. Errors go to the log.
-  enrichPendingLists(repos, { maxLists: 3, delayMs: 1100 })
-    .then((results) => {
-      if (results.length === 0) return;
-      const summary = results
-        .map((r) => `#${r.listId}:${r.finalStatus}(+${r.enriched}/~${r.skipped})`)
-        .join(' ');
-      log(`Enrichment: ${summary}`);
-    })
-    .catch((err) => log(`Enrichment ERROR: ${err.message}`));
+  const familyIds = familyIdsOrLog(repos, 'Enrichment');
+  if (!familyIds) return;
+  // enrichPendingLists is async. Run one family at a time so a list
+  // lookup stays inside that family's scope. Errors go to the log.
+  Promise.all(
+    familyIds.map((familyId) =>
+      runWithFamily(familyId, () => enrichPendingLists(repos, { maxLists: 3, delayMs: 1100 }))
+        .then((results) => {
+          if (!results || results.length === 0) return;
+          const summary = results
+            .map((r) => `#${r.listId}:${r.finalStatus}(+${r.enriched}/~${r.skipped})`)
+            .join(' ');
+          log(`Enrichment family ${familyId}: ${summary}`);
+        })
+        .catch((err) => log(`Enrichment ERROR family ${familyId}: ${err.message}`))
+    )
+  ).catch((err) => log(`Enrichment ERROR: ${err.message}`));
 }
 
 // === Scheduler ===
@@ -268,12 +291,20 @@ function scheduleIntervalJob(name, intervalMs, jobFn, repos) {
 
 // === Phase F7: Sync of recipe sources ===
 async function recipeSourcesSyncJob(repos) {
-  try {
-    const recipeSourcesService = require('./services/recipe-sources.service');
-    const result = await recipeSourcesService.syncAllEnabled(repos);
-    log(`Recipe-sources sync: ${result.synced || 0}/${result.total || 0} synced`);
-  } catch (err) {
-    log(`ERROR in recipe-sources sync: ${err.message}`);
+  const familyIds = familyIdsOrLog(repos, 'Recipe-sources');
+  if (!familyIds) return;
+  const recipeSourcesService = require('./services/recipe-sources.service');
+  for (const familyId of familyIds) {
+    try {
+      const result = await runWithFamily(familyId, () =>
+        recipeSourcesService.syncAllEnabled(repos)
+      );
+      log(
+        `Recipe-sources sync family ${familyId}: ${result.synced || 0}/${result.total || 0} synced`
+      );
+    } catch (err) {
+      log(`ERROR in recipe-sources sync for family ${familyId}: ${err.message}`);
+    }
   }
 }
 
