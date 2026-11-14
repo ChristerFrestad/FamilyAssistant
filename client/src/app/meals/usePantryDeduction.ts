@@ -51,7 +51,11 @@ export interface UsePantryDeductionResult {
   skip: () => void;
   /** Cancel the cook entirely (rolls status back to planned). */
   cancel: () => Promise<void>;
-  /** Close without firing any further request (used by the X / backdrop). */
+  /**
+   * Backdrop, Escape, and X. Undoes the cooked mark until the person
+   * confirms a deduction or explicitly skips it. After that, close
+   * only hides the dialog.
+   */
   close: () => void;
 }
 
@@ -143,8 +147,22 @@ export function usePantryDeduction(onAfterMutate?: () => void): UsePantryDeducti
   }, [state.mealId, onAfterMutate]);
 
   const close = useCallback((): void => {
-    setState(INITIAL_STATE);
-  }, []);
+    const mealId = state.mealId;
+    const settled = state.resultMessage !== null;
+    if (mealId == null || settled) {
+      setState(INITIAL_STATE);
+      return;
+    }
+    void (async () => {
+      try {
+        await unmarkMealEaten(mealId);
+      } catch {
+        // Same as cancel: dismissing must not trap the dialog.
+      }
+      setState(INITIAL_STATE);
+      onAfterMutate?.();
+    })();
+  }, [onAfterMutate, state.mealId, state.resultMessage]);
 
   return { state, open, confirm, skip, cancel, close };
 }

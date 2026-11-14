@@ -202,7 +202,7 @@ describe('usePantryDeduction', () => {
     });
   });
 
-  test('close() resets state without calling any API', () => {
+  test('close() resets state without calling any API when nothing is open', () => {
     const { result } = renderHook(() => usePantryDeduction());
     act(() => {
       result.current.close();
@@ -211,5 +211,58 @@ describe('usePantryDeduction', () => {
     expect(mocks.markMealEaten).not.toHaveBeenCalled();
     expect(mocks.applyMealDeduction).not.toHaveBeenCalled();
     expect(mocks.unmarkMealEaten).not.toHaveBeenCalled();
+  });
+
+  test('close() undoes the cooked mark when the dialog is dismissed first', async () => {
+    mocks.markMealEaten.mockResolvedValue({
+      mealId: 5,
+      recipeId: 11,
+      alreadyCooked: false,
+      suggestions: [],
+    });
+    mocks.unmarkMealEaten.mockResolvedValue({ ok: true });
+    const onAfter = vi.fn();
+    const { result } = renderHook(() => usePantryDeduction(onAfter));
+
+    await act(async () => {
+      await result.current.open(5);
+    });
+    await act(async () => {
+      result.current.close();
+    });
+
+    expect(mocks.unmarkMealEaten).toHaveBeenCalledWith(5);
+    expect(result.current.state.open).toBe(false);
+    expect(onAfter).toHaveBeenCalled();
+  });
+
+  test('close() after confirm does not unmark', async () => {
+    mocks.markMealEaten.mockResolvedValue({
+      mealId: 5,
+      recipeId: 11,
+      alreadyCooked: false,
+      suggestions: [],
+    });
+    mocks.applyMealDeduction.mockResolvedValue({
+      ok: true,
+      mealId: 5,
+      applied: [],
+      skipped: [],
+      lowStockTriggered: [],
+    });
+    const { result } = renderHook(() => usePantryDeduction());
+
+    await act(async () => {
+      await result.current.open(5);
+    });
+    await act(async () => {
+      await result.current.confirm([]);
+    });
+    await act(async () => {
+      result.current.close();
+    });
+
+    expect(mocks.unmarkMealEaten).not.toHaveBeenCalled();
+    expect(result.current.state.open).toBe(false);
   });
 });
