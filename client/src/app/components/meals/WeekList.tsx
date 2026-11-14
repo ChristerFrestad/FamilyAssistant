@@ -39,6 +39,8 @@ export interface WeekListProps {
    * row just navigates (legacy behaviour).
    */
   onSelectEmpty?: ((dayOfWeek: number) => void) | undefined;
+  /** Away day that still has a recipe opens swap, not a fresh plan. */
+  onSelectSwap?: ((dayOfWeek: number, recipeId: number) => void) | undefined;
 }
 
 export function WeekList({
@@ -54,6 +56,7 @@ export function WeekList({
   sectionLabel,
   onSelect,
   onSelectEmpty,
+  onSelectSwap,
 }: WeekListProps): JSX.Element {
   return (
     <section aria-labelledby="week-list-heading" className="flex flex-col gap-2">
@@ -78,13 +81,19 @@ export function WeekList({
             slot.status !== 'away' &&
             slot.status !== 'skipped' &&
             slot.status !== 'removed';
-          const opensPicker = Boolean(onSelectEmpty) && (isEmpty || slot.status === 'away');
+          const awayWithRecipe = slot.status === 'away' && slot.recipe != null;
+          const opensPicker =
+            Boolean(onSelectEmpty) && (isEmpty || (slot.status === 'away' && !awayWithRecipe));
           return (
             <li key={slot.dayOfWeek}>
               <button
                 type="button"
                 onClick={() => {
                   onSelect(slot.dayOfWeek);
+                  if (awayWithRecipe && onSelectSwap && slot.recipe) {
+                    onSelectSwap(slot.dayOfWeek, slot.recipe.id);
+                    return;
+                  }
                   if (opensPicker && onSelectEmpty) onSelectEmpty(slot.dayOfWeek);
                 }}
                 aria-pressed={isSelected}

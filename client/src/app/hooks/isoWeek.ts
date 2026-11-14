@@ -7,6 +7,12 @@ export function isValidWeekYear(weekYear: string): boolean {
   return WEEK_RE.test(weekYear);
 }
 
+/** "47" from "2026-W47". The year stays in the URL, not in the label. */
+export function weekNumber(weekYear: string): string {
+  const match = WEEK_RE.exec(weekYear);
+  return match ? String(Number(match[2])) : weekYear;
+}
+
 /**
  * ISO week-year string (YYYY-WNN) for a calendar date.
  * Matches server/seed.js getWeekYear.

@@ -4,6 +4,7 @@ import {
   nextIsoWeek,
   parseWeekParam,
   previousIsoWeek,
+  weekNumber,
   weekSearchPath,
 } from './isoWeek';
 
@@ -28,6 +29,13 @@ describe('previousIsoWeek / nextIsoWeek', () => {
   test('next then previous returns to start', () => {
     const start = '2026-W01';
     expect(previousIsoWeek(nextIsoWeek(start))).toBe(start);
+  });
+});
+
+describe('weekNumber', () => {
+  test('drops the year and the leading zero', () => {
+    expect(weekNumber('2026-W47')).toBe('47');
+    expect(weekNumber('2026-W09')).toBe('9');
   });
 });
 

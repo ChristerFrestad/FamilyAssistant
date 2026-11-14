@@ -42,6 +42,7 @@ import { QuickAddInput } from '../components/shopping/QuickAddInput';
 import { EmptyState } from '../components/shopping/EmptyState';
 import { RegenerateDialog } from '../components/shopping/RegenerateDialog';
 import { useShoppingData } from '../shopping/useShoppingData';
+import { weekNumber } from '../hooks/isoWeek';
 import { useSelectedWeek } from '../hooks/useSelectedWeek';
 import { PantryView } from '../components/pantry/PantryView';
 import { ShoppingViewToggle, readShoppingView } from '../components/pantry/ShoppingViewToggle';
@@ -156,8 +157,10 @@ function ShoppingListView(): JSX.Element {
       <WeekSwitcher
         label={
           isLoading
-            ? t('shopping:weekHeader.loading', { weekYear })
-            : t('shopping:weekHeader.week', { weekYear: list?.weekYear ?? weekYear })
+            ? t('shopping:weekHeader.loading', { weekYear: weekNumber(weekYear) })
+            : t('shopping:weekHeader.week', {
+                weekYear: weekNumber(list?.weekYear ?? weekYear),
+              })
         }
         prevLabel={t('shopping:weekNav.prevAria')}
         nextLabel={t('shopping:weekNav.nextAria')}
