@@ -49,15 +49,16 @@
     "openRecipe": "Åpne oppskrift",
     "removeDinner": "Ingen middag",
     "markAway": "Borte",
+    "undoAway": "Angre borte",
     "childHint": "Bare voksne kan endre middagsplanen."
   },
   "empty": {
     "heroTitle": "Ingen middag planlagt",
     "heroBody": "Legg inn en oppskrift for denne dagen.",
-    "weekTitle": "Ingen middager planlagt denne uken",
+    "weekTitle": "Ingen middager planlagt denne uka",
     "weekBody": "Bruk «Planlegg middag» for å legge til en for hver dag.",
-    "weekSettledTitle": "Ingen middag hjemme denne uka",
-    "weekSettledBody": "Alle dagene er satt til ingen middag eller borte. Uka er avklart."
+    "weekSettledTitle": "Uka er avklart",
+    "weekSettledBody": "Alle dagene er «Ingen middag» eller «Borte»."
   },
   "readOnly": {
     "title": "Ingen plan for denne uka",
@@ -91,17 +92,18 @@
   "errors": {
     "loadFailed": "Kunne ikke hente måltidsplanen.",
     "removeFailed": "Kunne ikke fjerne middagen.",
-    "awayFailed": "Kunne ikke markere dagen som borte."
+    "awayFailed": "Kunne ikke markere dagen som borte.",
+    "undoAwayFailed": "Kunne ikke angre borte."
   },
   "weekGate": {
     "undecidedTitle": "Handlelisten venter",
-    "undecidedBody": "Disse dagene mangler et valg. Sett en middag, eller marker dagen som ingen middag eller borte.",
+    "undecidedBody": "Disse dagene mangler et valg. Sett en middag, eller marker dagen som «Ingen middag» eller «Borte».",
     "dayListAria": "Dager som ikke er avklart",
     "readyTitle": "Uka er avklart",
     "readyBody": "Du kan lage handleliste fra disse middagene."
   },
   "shoppingReady": {
-    "title": "Handlelisten er oppdatert",
+    "title": "Handlelisten er klar",
     "body": "Middagene denne uka er lagt inn i handlelisten."
   },
   "picker": {

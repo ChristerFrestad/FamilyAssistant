@@ -54,6 +54,8 @@ export interface MealHeroProps {
   onRemove?: ((dayOfWeek: number) => void) | undefined;
   /** Marks the day as away. The recipe, if any, stays on the slot. */
   onMarkAway?: ((dayOfWeek: number) => void) | undefined;
+  /** Puts an away day back to planned so it can be cooked or changed. */
+  onUndoAway?: ((dayOfWeek: number) => void) | undefined;
   /**
    * Children cannot call the adult meal endpoints (they return 403).
    * Hide those buttons and explain why.
@@ -71,6 +73,7 @@ export function MealHero({
   onOpenRecipe,
   onRemove,
   onMarkAway,
+  onUndoAway,
   canEdit = true,
 }: MealHeroProps): JSX.Element {
   const { t } = useTranslation('meals');
@@ -84,15 +87,39 @@ export function MealHero({
       <Card padding="md" shadow="low" data-testid="meal-hero-away">
         <HeroDayHeader label={headerLabel} />
         <h2 className="font-display text-display-sm text-text-1">{t('status.awayTitle')}</h2>
-        <p className="font-body text-body text-text-2">{t('status.awayBody')}</p>
+        <p className="mb-3 font-body text-body text-text-2">{t('status.awayBody')}</p>
         {slot.recipe ? (
           <p
-            className="mt-2 font-body text-meta text-text-3"
+            className="mb-3 font-body text-meta text-text-3"
             data-testid="meal-hero-away-recipe-meta"
           >
             {t('status.awayRecipeMeta', { name: slot.recipe.name })}
           </p>
         ) : null}
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => onPlan?.(slot.dayOfWeek)}
+              disabled={onPlan == null}
+              data-testid="meal-hero-plan-button"
+            >
+              {t('actions.plan')}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onUndoAway?.(slot.dayOfWeek)}
+              disabled={onUndoAway == null}
+              data-testid="meal-hero-undo-away"
+            >
+              {t('actions.undoAway')}
+            </Button>
+          </div>
+        ) : (
+          <ChildHint />
+        )}
       </Card>
     );
   }
