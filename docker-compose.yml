@@ -27,6 +27,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: '7777'
+      # Wall clock for cron and "today". Not a secret, and not optional:
+      # an unset TZ leaves Node on UTC and shifts the day around midnight.
+      TZ: Europe/Oslo
       # Override image default so LAN http://<ip>:7777 can keep the
       # session cookie. TLS proxies still set Secure via X-Forwarded-Proto.
       HTTPS_TERMINATED: ${HTTPS_TERMINATED:-false}

@@ -45,6 +45,7 @@
     "appPassword": "App password",
     "empty": "No calendars connected yet.",
     "googleDisabled": "Google Calendar is not configured on this server.",
+    "unavailable": "Connecting Google and iCloud does not work yet. The buttons stay hidden until the connection is ready.",
     "connectedAs": "{{provider}} · {{email}}",
     "lastError": "Last error: {{error}}",
     "connectFailed": "Could not connect the calendar.",
