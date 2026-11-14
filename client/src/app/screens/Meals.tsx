@@ -134,7 +134,7 @@ export function Meals(): JSX.Element {
     [picker]
   );
   const handleSwap = useCallback(
-    (dayOfWeek: number, currentRecipeId: number) => {
+    (dayOfWeek: number, currentRecipeId: number | null) => {
       setActionError(null);
       void picker.openForSwap(dayOfWeek, currentRecipeId);
     },
@@ -469,7 +469,7 @@ interface MealsContentProps {
   dayStripAria: string;
   onSelectDay: (index: number) => void;
   onPlan?: ((dayOfWeek: number) => void) | undefined;
-  onSwap?: ((dayOfWeek: number, currentRecipeId: number) => void) | undefined;
+  onSwap?: ((dayOfWeek: number, currentRecipeId: number | null) => void) | undefined;
   onMarkCooked?: ((mealId: number) => void) | undefined;
   heroLabel: string;
   onOpenRecipe: (recipeId: number) => void;

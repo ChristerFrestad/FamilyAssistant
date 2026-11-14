@@ -88,6 +88,29 @@ describe('MealHero — recipe state', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  test('Bytt middag stays enabled for a library dinner', () => {
+    const handler = vi.fn();
+    render(
+      <MealHero
+        slot={makeSlot({
+          recipeId: null,
+          recipe: {
+            ...makeSlot().recipe!,
+            id: null,
+            fromLibrary: true,
+          },
+        })}
+        dayLabel="Mandag"
+        isToday={false}
+        onSwap={handler}
+      />
+    );
+    const button = screen.getByTestId('meal-hero-swap-button');
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(handler).toHaveBeenCalledWith(0, null);
+  });
+
   test('recipe name and open button call onOpenRecipe', () => {
     const handler = vi.fn();
     render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onOpenRecipe={handler} />);

@@ -590,7 +590,7 @@ function buildVariedWeekPlan(repos, weekYear, blockedIds = [], options = {}) {
     const libraryRoom =
       family.length < MIN_OWN_FOR_FULL_WEEK || usedLibrary.size < MAX_LIBRARY_DINNERS;
     const clearlyBetter =
-      Boolean(libBest && ownBest) && libBest.score >= ownBest.score + LIBRARY_SCORE_MARGIN;
+      Boolean(libBest && ownBest) && libBest.coverage >= ownBest.coverage + LIBRARY_SCORE_MARGIN;
     let chosen = null;
     if (ownBest && libBest && (clearlyBetter || (libraryRoom && libBest.score > ownBest.score))) {
       chosen = libBest.recipe;

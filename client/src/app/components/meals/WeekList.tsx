@@ -40,7 +40,7 @@ export interface WeekListProps {
    */
   onSelectEmpty?: ((dayOfWeek: number) => void) | undefined;
   /** Away day that still has a recipe opens swap, not a fresh plan. */
-  onSelectSwap?: ((dayOfWeek: number, recipeId: number) => void) | undefined;
+  onSelectSwap?: ((dayOfWeek: number, recipeId: number | null) => void) | undefined;
 }
 
 export function WeekList({
@@ -90,7 +90,7 @@ export function WeekList({
                 type="button"
                 onClick={() => {
                   onSelect(slot.dayOfWeek);
-                  if (awayWithRecipe && onSelectSwap && slot.recipe && slot.recipe.id != null) {
+                  if (awayWithRecipe && onSelectSwap && slot.recipe) {
                     onSelectSwap(slot.dayOfWeek, slot.recipe.id);
                     return;
                   }

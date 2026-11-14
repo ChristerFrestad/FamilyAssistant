@@ -62,7 +62,7 @@ const INITIAL_STATE: RecipePickerState = {
 export interface UseRecipePickerResult {
   state: RecipePickerState;
   openForPlan: (dayOfWeek: number) => Promise<void>;
-  openForSwap: (dayOfWeek: number, currentRecipeId: number) => Promise<void>;
+  openForSwap: (dayOfWeek: number, currentRecipeId: number | null) => Promise<void>;
   select: (recipeId: number) => Promise<void>;
   selectLibrary: (libraryId: number) => Promise<void>;
   close: () => void;
@@ -167,7 +167,7 @@ export function useRecipePicker(
   }, []);
 
   const openForSwap = useCallback(
-    async (dayOfWeek: number, currentRecipeId: number): Promise<void> => {
+    async (dayOfWeek: number, currentRecipeId: number | null): Promise<void> => {
       dayRef.current = dayOfWeek;
       setState({
         ...INITIAL_STATE,

@@ -41,7 +41,7 @@ export interface MealHeroProps {
    * Sprint 6 — fires when the user taps "Bytt middag". Parent opens
    * the same picker dialog with the current recipe id pre-marked.
    */
-  onSwap?: ((dayOfWeek: number, currentRecipeId: number) => void) | undefined;
+  onSwap?: ((dayOfWeek: number, currentRecipeId: number | null) => void) | undefined;
   /**
    * Sprint 6 — fires when the user taps "Marker tilberedt". Optional
    * so existing tests that do not exercise the cook-flow can keep
@@ -257,10 +257,8 @@ export function MealHero({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => {
-              if (recipe.id != null) onSwap?.(slot.dayOfWeek, recipe.id);
-            }}
-            disabled={onSwap == null || recipe.id == null}
+            onClick={() => onSwap?.(slot.dayOfWeek, recipe.id)}
+            disabled={onSwap == null}
             data-testid="meal-hero-swap-button"
           >
             {t('actions.swap')}

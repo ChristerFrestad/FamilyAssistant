@@ -4,7 +4,10 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { startTestServer, request } = require('./helpers');
 const { runWithFamily } = require('../server/auth/family-context');
-const { regenerateUnlockedDays } = require('../server/services/meal-planning.service');
+const {
+  regenerateUnlockedDays,
+  buildVariedWeekPlan,
+} = require('../server/services/meal-planning.service');
 const { buildShoppingList } = require('../server/services/shopping-list.service');
 const {
   buildFamilyBackup,
@@ -124,6 +127,90 @@ test('a library dinner can be cooked, shown today, shopped and restored', async 
     .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
     .get('idx_meal_plans_library_recipe');
   assert.ok(index);
+});
+
+function ownRecipe(id, category, key, qty) {
+  return {
+    id,
+    name: `Own ${id}`,
+    category,
+    ingredients: [{ name: key, productKey: key, qty, unit: 'stk' }],
+  };
+}
+
+function libraryRow(id, category, key, qty) {
+  return {
+    id,
+    title: `Lib ${id}`,
+    category,
+    canonicalUrl: `https://meny.no/oppskrifter/cap/${id}`,
+    sourceName: 'Meny',
+    totalTimeMin: 20,
+    ingredients: [{ name: key, productKey: key, qty, unit: 'stk' }],
+  };
+}
+
+function planRepos(familyRecipes, libraryRecipes, inventory) {
+  return {
+    familyProfile: { get: () => ({ preferences: { suggestionMode: 'balansert' } }) },
+    recipes: { getAll: () => familyRecipes },
+    recipeLibrary: { listPlanningCandidates: () => libraryRecipes },
+    inventory: { getAll: () => inventory },
+    mealPlans: { recentRecipeIds: () => [] },
+  };
+}
+
+function stock(key, qty, expiresEst) {
+  return { [key]: { qtyRemaining: qty, unit: 'stk', expiresEst: expiresEst || null } };
+}
+
+function libraryCount(plan) {
+  return plan.filter((slot) => slot.libraryRecipeId != null).length;
+}
+
+test('library dinners stay within the cap unless coverage or a short list allows more', () => {
+  const soon = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+  const mix = [
+    ['rask', 4],
+    ['comfort', 1],
+    ['helg', 2],
+  ];
+  const family = [];
+  const library = [];
+  const inventory = {};
+  let id = 1;
+  for (const [category, count] of mix) {
+    for (let n = 0; n < count; n += 1) {
+      const familyKey = `fam-${id}`;
+      const libraryKey = `lib-${id}`;
+      family.push(ownRecipe(id, category, familyKey, 10));
+      library.push(libraryRow(1000 + id, category, libraryKey, 10));
+      Object.assign(inventory, stock(familyKey, 9));
+      Object.assign(inventory, stock(libraryKey, 10, soon));
+      id += 1;
+    }
+  }
+  const capped = buildVariedWeekPlan(planRepos(family, library, inventory), '2099-W10');
+  assert.equal(libraryCount(capped), 2);
+
+  const wideFamily = family.map((recipe) => ({
+    ...recipe,
+    ingredients: [{ name: 'tom', productKey: `empty-${recipe.id}`, qty: 10, unit: 'stk' }],
+  }));
+  const wide = buildVariedWeekPlan(planRepos(wideFamily, library, inventory), '2099-W11');
+  assert.equal(libraryCount(wide) > 2, true);
+
+  const fewFamily = family.filter((recipe) => recipe.category === 'rask').slice(0, 3);
+  const fewInventory = {};
+  for (const recipe of fewFamily) {
+    fewInventory[recipe.ingredients[0].productKey] = {
+      qtyRemaining: 10,
+      unit: 'stk',
+      expiresEst: null,
+    };
+  }
+  const few = buildVariedWeekPlan(planRepos(fewFamily, library, fewInventory), '2099-W12');
+  assert.equal(libraryCount(few) > 2, true);
 });
 
 test('regenerate does not repeat a cooked or manual dinner', () => {

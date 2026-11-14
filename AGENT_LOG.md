@@ -6,6 +6,20 @@
 
 ---
 
+2026-11-14 – Bytt bibliotekmiddag, og dekning uten utløpsbonus
+
+Task: «Bytt middag» var av for bibliotekmiddager, og unntaket på 0,25
+brukte poengsummen som inkluderer det som går ut snart.
+
+Done:
+- Bytt er aktiv for en bibliotekmiddag og sender null som nåværende rett.
+- Taket på to bibliotekmiddager sammenlignes på pantrydekning alene.
+  Færre enn sju egne retter, eller klart høyere dekning, kan gi flere.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – Bibliotekmiddag i resten av uka
 
 Task: En middag som bare er en bibliotekreferanse skal virke som en
