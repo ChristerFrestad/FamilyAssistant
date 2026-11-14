@@ -2485,6 +2485,39 @@ function registerRoutes(router, { repos, serverState }) {
     )
   );
 
+  const { buildIcs, allowFeedRequest } = require('./services/calendar-feed.service');
+
+  router.get('/cal/:secret', (ctx) => {
+    const raw = String(ctx.params.secret || '');
+    if (!raw.endsWith('.ics')) throw errors.notFound('Not found');
+    const secret = raw.slice(0, -'.ics'.length);
+    const ip = ctx.req.socket?.remoteAddress || 'unknown';
+    if (!allowFeedRequest(ip)) {
+      ctx.res.setHeader('Retry-After', '60');
+      throw errors.tooManyRequests('For mange forespørsler');
+    }
+    const familyId = repos.calendarFeeds.findFamilyId(secret);
+    if (!familyId) throw errors.notFound('Not found');
+    const body = buildIcs(repos, familyId);
+    ctx.res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    ctx.res.setHeader('Cache-Control', 'private, max-age=900');
+    ctx.res.end(body);
+  });
+
+  router.get('/api/calendar-feed', requireRole('owner'), (ctx) => {
+    ctx.json(repos.calendarFeeds.status(ctx.familyId));
+  });
+
+  router.post('/api/calendar-feed', requireRole('owner'), (ctx) => {
+    const secret = repos.calendarFeeds.issue(ctx.familyId);
+    ctx.json({ ok: true, path: `/cal/${secret}.ics` });
+  });
+
+  router.delete('/api/calendar-feed', requireRole('owner'), (ctx) => {
+    repos.calendarFeeds.revoke(ctx.familyId);
+    ctx.json({ ok: true });
+  });
+
   // ============================================================
   // TODAY
   // ============================================================

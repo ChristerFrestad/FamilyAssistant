@@ -6,6 +6,25 @@
 
 ---
 
+2026-11-14 – iCal-lenke per familie
+
+Task: Familien skal kunne abonnere på middager, gjøremål og avtaler
+uten innlogging, med en hemmelig lenke som kan byttes eller trekkes tilbake.
+
+Done:
+- GET /cal/<hemmelighet>.ics. VTIMEZONE Europe/Oslo, stabile UID-er,
+  bare titler som «Middag: Taco». Cache private i 15 minutter.
+  Maks 30 kall per IP på 10 minutter.
+- Hemmeligheten lagres som sha256. Innstillinger viser lenken én gang,
+  med kopier-knapp og kort tekst for Google «Fra URL» og Home Assistant.
+- Migrasjon 041 lager calendar_feeds. Eksisterende rader røres ikke.
+- Stien er ikke under /api, så den krever ikke innlogging. Hvis
+  Cloudflare Access ligger foran hele verten, må /cal/ slippes gjennom.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-03 – Security audit: zod 4.6.5
 
 Task: CI-sjekken Security audit feilet på PR 239.

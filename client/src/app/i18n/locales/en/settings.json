@@ -3,6 +3,22 @@
   "header": {
     "subtitle": "System, family, and account"
   },
+  "calendarFeed": {
+    "title": "Calendar link",
+    "help": "The link shows dinners, chores and family events. It contains titles only, for example “Dinner: Taco”.",
+    "google": "Google Calendar: Other calendars → From URL, and paste the link.",
+    "homeAssistant": "Home Assistant: Remote Calendar, and paste the link.",
+    "create": "Create link",
+    "regenerate": "Create a new link",
+    "revoke": "Revoke",
+    "copy": "Copy",
+    "once": "Copy the link now. It will not be shown again.",
+    "active": "A link is active. Create a new one if you lost it.",
+    "inactive": "No active link.",
+    "loadFailed": "Could not load the calendar link.",
+    "createFailed": "Could not create the link.",
+    "revokeFailed": "Could not revoke the link."
+  },
   "sections": {
     "system": "System",
     "family": "Family",
