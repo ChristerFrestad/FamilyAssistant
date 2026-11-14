@@ -36,7 +36,9 @@
   },
   "source": {
     "google": "Google",
-    "icloud": "iCloud"
+    "icloud": "iCloud",
+    "dinner": "Dinner",
+    "chore": "Chore"
   },
   "integrations": {
     "title": "Calendar connections",

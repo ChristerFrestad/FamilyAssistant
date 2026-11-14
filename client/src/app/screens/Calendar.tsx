@@ -21,7 +21,9 @@ import { isoDate } from '../dashboard/dashboardApi';
 import {
   createCalendarEvent,
   deleteCalendarEvent,
+  fetchCalendarAgenda,
   fetchCalendarEvents,
+  type AgendaItem,
   type CalendarEvent,
   type CreateCalendarEventBody,
 } from '../calendar/calendarApi';
@@ -86,6 +88,7 @@ export function Calendar(): JSX.Element {
   const locale = i18n.language === 'en' ? 'en' : 'nb';
 
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
+  const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -110,8 +113,10 @@ export function Calendar(): JSX.Element {
       setError(null);
       try {
         const res = await fetchCalendarEvents(from, to, signal);
+        const overlay = await fetchCalendarAgenda(from, to).catch(() => [] as AgendaItem[]);
         if (signal?.aborted) return;
         setEvents(Array.isArray(res.events) ? res.events : []);
+        setAgenda(overlay);
       } catch (err) {
         if (signal?.aborted) return;
         setEvents(null);
@@ -155,7 +160,22 @@ export function Calendar(): JSX.Element {
     return () => ctrl.abort();
   }, [loadIntegrations]);
 
-  const groups = useMemo(() => groupByDate(events ?? []), [events]);
+  const groups = useMemo(() => {
+    const merged: CalendarEvent[] = [
+      ...(events ?? []),
+      ...agenda.map((item, index) => ({
+        id: -(index + 1),
+        title: item.title,
+        date: item.date,
+        startTime: item.startTime ?? null,
+        allDay: item.allDay === true,
+        source: item.kind,
+        readOnly: true,
+      })),
+    ];
+    merged.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, 'nb'));
+    return groupByDate(merged);
+  }, [events, agenda]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
@@ -281,7 +301,11 @@ export function Calendar(): JSX.Element {
         </Card>
       ) : null}
 
-      {!isLoading && error === null && events !== null && events.length === 0 ? (
+      {!isLoading &&
+      error === null &&
+      events !== null &&
+      events.length === 0 &&
+      agenda.length === 0 ? (
         <Card
           padding="lg"
           className="flex flex-col items-center gap-2 text-center"
@@ -291,7 +315,10 @@ export function Calendar(): JSX.Element {
         </Card>
       ) : null}
 
-      {!isLoading && error === null && events !== null && events.length > 0 ? (
+      {!isLoading &&
+      error === null &&
+      events !== null &&
+      (events.length > 0 || agenda.length > 0) ? (
         <div className="flex flex-col gap-4" data-testid="calendar-events">
           {groups.map((group) => (
             <section
@@ -304,7 +331,7 @@ export function Calendar(): JSX.Element {
               </h2>
               <ul className="flex flex-col gap-2">
                 {group.events.map((event) => (
-                  <li key={`${event.id}-${event.date}`}>
+                  <li key={`${event.source || 'local'}-${event.id}-${event.date}-${event.title}`}>
                     <Card padding="md" shadow="low" data-testid={`event-row-${event.id}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-col gap-0.5">
@@ -317,7 +344,11 @@ export function Calendar(): JSX.Element {
                               >
                                 {event.source === 'google'
                                   ? t('calendar:source.google')
-                                  : t('calendar:source.icloud')}
+                                  : event.source === 'dinner'
+                                    ? t('calendar:source.dinner')
+                                    : event.source === 'chore'
+                                      ? t('calendar:source.chore')
+                                      : t('calendar:source.icloud')}
                               </Tag>
                             ) : null}
                           </span>
@@ -339,7 +370,7 @@ export function Calendar(): JSX.Element {
                             <span className="font-body text-meta text-text-3">{event.notes}</span>
                           ) : null}
                         </div>
-                        {canManage ? (
+                        {canManage && event.source !== 'dinner' && event.source !== 'chore' ? (
                           <Button
                             type="button"
                             variant="ghost"
