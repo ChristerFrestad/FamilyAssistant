@@ -6,6 +6,28 @@
 
 ---
 
+2026-11-14 – Recipe library crawl review
+
+Task: Review blockers on the shared library crawl.
+
+Done:
+- Branch: cursor/recipe-library-ingest-7150
+- The per-family recipe-sources job is restored. The library crawl is a
+  separate job and is only scheduled when RECIPE_LIBRARY_INGEST is on.
+- Fetches stay on https and the source host, follow redirects manually,
+  and cap time and body size. robots.txt Disallow is not a block.
+  Crawl-delay is used when it is longer than 2.5s.
+- One bad URL is stored and the run continues. Cron and admin share one
+  lock. Admin returns 202, or 409 when the flag is off or a run is active.
+- URLs are canonical. Disabled sources cannot be selected. The default
+  User-Agent is the Hverdagsplanleggeren contact string.
+
+Status: waiting-for-operator
+
+Next: Family library screens rebase onto this head.
+
+---
+
 2026-11-03 – Security audit: zod 4.6.5
 
 Task: CI-sjekken Security audit feilet på PR 239.

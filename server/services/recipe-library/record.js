@@ -3,9 +3,12 @@
 const { extractJsonLd, findRecipeNode, mapRecipeNode } = require('../recipe-url-import.service');
 const { parseLibraryIngredient } = require('./ingredients');
 const { matchCatalogKey } = require('./catalog-match');
+const { canonicalRecipeUrl } = require('./url');
 
 function libraryRecordFromHtml(html, canonicalUrl, sourceName, productsMap) {
-  const urlObj = new URL(canonicalUrl);
+  const canonical = canonicalRecipeUrl(canonicalUrl);
+  if (!canonical) return null;
+  const urlObj = new URL(canonical);
   const node = findRecipeNode(extractJsonLd(html));
   if (!node) return null;
   const mapped = mapRecipeNode(node, urlObj, { includeInstructions: false });
@@ -27,7 +30,7 @@ function libraryRecordFromHtml(html, canonicalUrl, sourceName, productsMap) {
   return {
     title: mapped.name,
     sourceName,
-    canonicalUrl: urlObj.toString(),
+    canonicalUrl: canonical,
     imageUrl: mapped.imageUrl,
     servings: mapped.servings,
     totalTimeMin: mapped.totalTimeMin,

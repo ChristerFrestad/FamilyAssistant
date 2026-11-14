@@ -205,12 +205,13 @@ const envSchema = z.object({
   APP_PUBLIC_URL: z.string().optional(),
 
   // Shared recipe library crawl. Off unless an operator turns it on.
-  // The admin trigger can still run a capped ingest on purpose.
+  // The admin trigger refuses to start while this is off.
   RECIPE_LIBRARY_INGEST: envBoolean.default(false),
   RECIPE_LIBRARY_MAX_PAGES: z.coerce.number().int().positive().default(300),
-  // Operator site name belongs in Portainer, not in the public repo.
-  // Example: Hverdagsplanleggeren/1.0 (+https://example.com)
-  RECIPE_LIBRARY_USER_AGENT: z.string().min(1).default('FamilyAssistant/1.0 (recipe-library)'),
+  RECIPE_LIBRARY_USER_AGENT: z
+    .string()
+    .min(1)
+    .default('Hverdagsplanleggeren/1.0 (+https://hverdagsplanleggeren.com)'),
 });
 
 // Auto-detect node --test and set NODE_ENV=test if not explicitly set.

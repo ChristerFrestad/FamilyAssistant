@@ -33,7 +33,10 @@ const SOURCES = [
     sourceName: 'REMA 1000',
     enabled: true,
     host: 'www.rema.no',
+    // REMA publishes one urlset. Only /oppskrifter/ locs are queued.
+    // If that file becomes an index, follow recipe children only.
     sitemapUrl: 'https://www.rema.no/sitemap.xml',
+    sitemapChild: /oppskrift/i,
     recipePath: /^https:\/\/www\.rema\.no\/oppskrifter\/.+/i,
   },
   {

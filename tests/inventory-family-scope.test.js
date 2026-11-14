@@ -107,5 +107,5 @@ test('pantry expiry job visits every family and logs a missing listIds', async (
   }
   assert.ok(lines.some((line) => line.includes('Pantry-expired') && line.includes('listIds')));
   assert.ok(lines.some((line) => line.includes('Enrichment') && line.includes('listIds')));
-  assert.ok(lines.some((line) => line.includes('Recipe-library') && line.includes('off')));
+  assert.ok(lines.some((line) => line.includes('Recipe-sources') && line.includes('listIds')));
 });

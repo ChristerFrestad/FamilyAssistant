@@ -3069,16 +3069,26 @@ function registerRoutes(router, { repos, serverState }) {
   // ctx.user.is_admin populated by the auth middleware. When the admin
   // role migration (026) hasn't been applied yet this falls back to
   // false, which 403s — safe.
-  router.post('/api/admin/recipe-library/ingest', requireAdmin(), async (ctx) => {
-    const { ingestRecipeLibrary } = require('./services/recipe-library/ingest');
-    const { config } = require('./config');
+  router.post('/api/admin/recipe-library/ingest', requireAdmin(), (ctx) => {
+    if (!config.RECIPE_LIBRARY_INGEST) {
+      throw errors.conflict('Recipe-library ingest is off');
+    }
+    const { ingestRecipeLibrary, holdIngestLock } = require('./services/recipe-library/ingest');
+    if (!holdIngestLock()) {
+      throw errors.conflict('Recipe-library ingest is already running');
+    }
     const requested = Number(ctx.body?.maxPages);
     const maxPages =
       Number.isInteger(requested) && requested > 0
         ? Math.min(requested, config.RECIPE_LIBRARY_MAX_PAGES)
         : config.RECIPE_LIBRARY_MAX_PAGES;
-    const result = await ingestRecipeLibrary(repos, { maxPages });
-    ctx.json({ ok: true, ...result });
+    setImmediate(() => {
+      ingestRecipeLibrary(repos, { maxPages, lockHeld: true }).catch((err) => {
+        const { logger } = require('./logger');
+        logger.error({ err: err.message }, 'recipe-library ingest failed');
+      });
+    });
+    ctx.json({ ok: true, started: true }, 202);
   });
 
   router.get('/api/admin/kassal/status', (ctx) => {
