@@ -21,6 +21,7 @@
  */
 
 const { slugifyProductKey } = require('./slugify');
+const { getFamilyId } = require('../auth/family-context');
 
 const MAX_RESULTS = 8;
 
@@ -88,15 +89,15 @@ function resolvePantryInput(repos, query) {
       const rows = repos._db
         .prepare(
           `
-          SELECT product_key, COUNT(*) as cnt, MAX(created_at) as last_used
+          SELECT product_key, COUNT(*) as cnt, MAX(logged_at) as last_used
           FROM inventory_log
-          WHERE lower(product_key) LIKE ? ESCAPE '\\'
+          WHERE family_id = ? AND lower(product_key) LIKE ? ESCAPE '\\'
           GROUP BY product_key
           ORDER BY cnt DESC
           LIMIT 20
         `
         )
-        .all(`%${escapedQ}%`);
+        .all(getFamilyId(), `%${escapedQ}%`);
       for (const r of rows) {
         if (seenKeys.has(r.product_key)) continue;
         seenKeys.add(r.product_key);
