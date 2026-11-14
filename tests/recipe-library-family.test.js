@@ -299,3 +299,50 @@ test('a child cannot copy or plan, and each family keeps its own copy', async ()
     false
   );
 });
+
+test('browse, copy and plan use stored recipes while ingest is off', async () => {
+  const { config } = require('../server/config');
+  assert.equal(config.RECIPE_LIBRARY_INGEST, false);
+  const menyId = libraryId();
+  const hiddenId = server.repos.recipeLibrary.upsert({
+    title: 'Matprat suppe',
+    sourceName: 'Matprat',
+    canonicalUrl: 'https://www.matprat.no/oppskrifter/suppe/skjult',
+    imageUrl: null,
+    servings: 4,
+    totalTimeMin: 40,
+    category: 'comfort',
+    fetchedAt: '2026-11-14T00:00:00.000Z',
+    ingredients: [],
+  });
+
+  const listed = await request(server.baseUrl, 'GET', '/api/recipe-library');
+  assert.equal(listed.status, 200);
+  assert.equal(Object.hasOwn(listed.body, 'enabled'), false);
+  assert.ok(listed.body.recipes.some((recipe) => recipe.id === menyId));
+  assert.equal(
+    listed.body.recipes.some((recipe) => recipe.sourceName === 'Matprat'),
+    false
+  );
+  assert.equal(listed.body.sources.includes('Matprat'), false);
+
+  const copied = await request(server.baseUrl, 'POST', `/api/recipe-library/${menyId}/copy`, {
+    body: {},
+  });
+  assert.equal(copied.status, 200);
+  const hidden = await request(server.baseUrl, 'POST', `/api/recipe-library/${hiddenId}/copy`, {
+    body: {},
+  });
+  assert.equal(hidden.status, 404);
+  const hiddenPlan = await request(server.baseUrl, 'POST', `/api/recipe-library/${hiddenId}/plan`, {
+    body: { weekYear: '2081-W02', dayOfWeek: 1 },
+  });
+  assert.equal(hiddenPlan.status, 404);
+
+  const suggestions = server.repos.recipeLibrary.listSuggestions([], 50);
+  assert.ok(suggestions.some((row) => row.id === menyId));
+  assert.equal(
+    suggestions.some((row) => row.sourceName === 'Matprat'),
+    false
+  );
+});

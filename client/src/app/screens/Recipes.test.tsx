@@ -234,12 +234,11 @@ describe('Recipes — import URL', () => {
 });
 
 describe('Recipes — shared library', () => {
-  test('hides the section when the library flag is off', async () => {
+  test('shows stored recipes without an ingest flag', async () => {
     mockFetchByPath({
       '/api/recipes': () => jsonResponse(200, recipesPayload([])),
       '/api/recipe-library': () =>
         jsonResponse(200, {
-          enabled: false,
           recipes: [
             {
               id: 3,
@@ -254,6 +253,16 @@ describe('Recipes — shared library', () => {
           ],
           sources: ['Meny'],
         }),
+    });
+    mountRecipes();
+    expect(await screen.findByRole('heading', { name: 'Felles bibliotek' })).toBeInTheDocument();
+    expect(screen.getByText('Fiskekaker')).toBeInTheDocument();
+  });
+
+  test('hides the section when the library is empty', async () => {
+    mockFetchByPath({
+      '/api/recipes': () => jsonResponse(200, recipesPayload([])),
+      '/api/recipe-library': () => jsonResponse(200, { recipes: [], sources: [] }),
     });
     mountRecipes();
     await waitFor(() => {
@@ -286,7 +295,6 @@ describe('Recipes — shared library', () => {
       },
       '/api/recipe-library': () =>
         jsonResponse(200, {
-          enabled: true,
           recipes: [
             {
               id: 3,

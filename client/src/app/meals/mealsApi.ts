@@ -506,7 +506,6 @@ export interface LibraryRecipeSummary {
 }
 
 export interface LibrarySearchResponse {
-  enabled?: boolean;
   recipes: LibraryRecipeSummary[];
   sources: string[];
 }

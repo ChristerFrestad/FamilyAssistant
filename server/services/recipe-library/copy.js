@@ -1,6 +1,7 @@
 'use strict';
 
 const { canonicalRecipeUrl } = require('./url');
+const { enabledSourceNames } = require('./sources');
 
 const ALLOWED_CATEGORY = new Set(['rask', 'comfort', 'helg']);
 const FEW_RECIPES = 15;
@@ -33,6 +34,7 @@ function familyRecipeByUrl(repos, url) {
 function copyLibraryRecipe(repos, libraryId) {
   const row = repos.recipeLibrary.getById(libraryId);
   if (!row || row.active === 0) return null;
+  if (!enabledSourceNames().includes(row.source_name)) return null;
   const canonical = canonicalRecipeUrl(row.canonical_url);
   if (!canonical) return { rejected: true };
   const existing = familyRecipeByUrl(repos, canonical);

@@ -50,6 +50,10 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       XAI_API_KEY: ${XAI_API_KEY:-}
+      # Crawl stays off until Portainer sets the flag. Browse reads the
+      # stored library, not this flag. Defaults match server/config.js.
+      RECIPE_LIBRARY_INGEST: ${RECIPE_LIBRARY_INGEST:-false}
+      RECIPE_LIBRARY_MAX_PAGES: ${RECIPE_LIBRARY_MAX_PAGES:-300}
     mem_limit: 768m
     healthcheck:
       test:

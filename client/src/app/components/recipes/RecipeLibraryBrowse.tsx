@@ -32,7 +32,6 @@ export function RecipeLibraryBrowse({
   const [error, setError] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [enabled, setEnabled] = useState(true);
   const [searched, setSearched] = useState(false);
 
   async function load(next = { q, ingredient, source, maxMinutes }): Promise<void> {
@@ -40,7 +39,6 @@ export function RecipeLibraryBrowse({
     setError(false);
     try {
       const res = await fetchRecipeLibrary(next);
-      setEnabled(res.enabled !== false);
       setRecipes(res.recipes);
       setSources(res.sources);
     } catch {
@@ -82,7 +80,6 @@ export function RecipeLibraryBrowse({
     }
   }
 
-  if (!enabled) return null;
   if (!loading && !error && !searched && recipes && recipes.length === 0) return null;
 
   return (

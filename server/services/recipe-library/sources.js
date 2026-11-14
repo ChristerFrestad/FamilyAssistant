@@ -77,8 +77,12 @@ function enabledSources() {
   return SOURCES.filter((source) => source.enabled);
 }
 
+function enabledSourceNames() {
+  return enabledSources().map((source) => source.sourceName);
+}
+
 function sourceById(id) {
   return SOURCES.find((source) => source.id === id) || null;
 }
 
-module.exports = { SOURCES, enabledSources, sourceById };
+module.exports = { SOURCES, enabledSources, enabledSourceNames, sourceById };
