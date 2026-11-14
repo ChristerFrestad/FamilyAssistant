@@ -301,8 +301,8 @@ export interface RecipeWriteBody {
   url?: string;
   ingredients?: Array<{
     name: string;
-    qty: number;
-    unit: string;
+    qty?: number | null;
+    unit?: string;
     optional?: boolean;
     productKey?: string;
   }>;

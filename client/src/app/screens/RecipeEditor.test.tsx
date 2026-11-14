@@ -129,6 +129,29 @@ describe('RecipeEditor — create', () => {
     });
   });
 
+  test('keeps a line with no amount', async () => {
+    const posts: unknown[] = [];
+    mockApi({
+      'POST /api/recipes': (_url, init) => {
+        posts.push(JSON.parse(String(init?.body ?? '{}')));
+        return jsonResponse(201, { ok: true, recipeId: 100, recipe: { ...TACO, id: 100 } });
+      },
+      'GET /api/recipes/100': () => jsonResponse(200, { recipe: { ...TACO, id: 100 } }),
+    });
+    mountEditor('/recipes/new');
+    fireEvent.change(screen.getByTestId('recipe-field-name'), { target: { value: 'Laks' } });
+    fireEvent.change(screen.getByTestId('recipe-ing-name-0'), {
+      target: { value: 'salt og pepper' },
+    });
+    fireEvent.click(screen.getByTestId('recipe-save'));
+    await waitFor(() => {
+      expect(posts).toHaveLength(1);
+    });
+    expect(posts[0]).toMatchObject({
+      ingredients: [{ name: 'salt og pepper', optional: false }],
+    });
+  });
+
   test('save stays disabled until name is long enough', () => {
     fetchSpy.mockImplementation(() => Promise.reject(new Error('no fetch on create')));
     mountEditor('/recipes/new');
