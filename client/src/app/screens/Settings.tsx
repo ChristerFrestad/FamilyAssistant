@@ -42,6 +42,7 @@ import { fetchHealth } from '../settings/settingsApi';
 import { useBrandConfig } from '../hooks/useBrandConfig';
 import { FamilyLlmSettings } from '../components/settings/FamilyLlmSettings';
 import { ApiTokensCard } from '../components/settings/ApiTokensCard';
+import { CalendarFeedCard } from '../components/settings/CalendarFeedCard';
 
 const TOAST_DISMISS_MS = 4000;
 
@@ -193,6 +194,7 @@ export function Settings(): JSX.Element {
             />
             <FamilyLlmSettings isOwner={isOwner} />
             <ApiTokensCard isOwner={isOwner} />
+            <CalendarFeedCard isOwner={isOwner} />
             <SettingsRow
               label={t('settings:family.gamification.label')}
               description={t('settings:family.gamification.description')}
