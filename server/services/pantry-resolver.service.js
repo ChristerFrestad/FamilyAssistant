@@ -104,7 +104,7 @@ function resolvePantryInput(repos, query) {
         const loggedKey = String(r.product_key).toLowerCase();
         const exactLog = loggedKey === q;
         const prefixLog = loggedKey.startsWith(q);
-        results.push({
+        const row = {
           productKey: r.product_key,
           name: r.product_key,
           source: 'lokal',
@@ -116,7 +116,11 @@ function resolvePantryInput(repos, query) {
           // Substring hits stay as suggestions. They must not outrank an
           // exact key, or "løk" collapses into "hvitløk".
           confidence: exactLog ? 1.0 : prefixLog ? 0.7 : 0.4,
-        });
+        };
+        // Not sent to the client. resolveOrCreate uses it so a history
+        // prefix (melk → melkesjokolade) is never saved automatically.
+        Object.defineProperty(row, 'origin', { value: 'history' });
+        results.push(row);
       }
     }
   } catch {
@@ -154,12 +158,14 @@ function resolvePantryInput(repos, query) {
 }
 
 /**
- * True when a suggestion is the query itself or a longer key/name that
- * starts with it. A substring such as hvitløk for løk is not a pick.
- * @param {{ productKey?: string, name?: string, source?: string }} suggestion
+ * Catalog and current pantry rows may be picked on an exact or prefix
+ * match. A catalog substring is not a pick. History (inventory_log) may
+ * be picked only when the key is exactly the query — a prefix such as
+ * melk → melkesjokolade stays a suggestion.
+ * @param {{ productKey?: string, name?: string, source?: string, origin?: string }} suggestion
  * @param {string} query
  */
-function isExactOrPrefix(suggestion, query) {
+function isAutoPick(suggestion, query) {
   if (!suggestion || suggestion.source === 'ny') return false;
   const q = String(query || '')
     .trim()
@@ -167,17 +173,19 @@ function isExactOrPrefix(suggestion, query) {
   if (!q) return false;
   const key = String(suggestion.productKey || '').toLowerCase();
   const name = String(suggestion.name || '').toLowerCase();
-  return key === q || name === q || key.startsWith(q) || name.startsWith(q);
+  const exact = key === q || name === q;
+  if (suggestion.origin === 'history') return exact;
+  return exact || key.startsWith(q) || name.startsWith(q);
 }
 
 /**
- * Resolve an incoming add request. History substring hits stay in the
- * suggestion list only. Auto-pick an exact or prefix match; otherwise
- * create a new key. Used by shopping bought, quick-add, and pantry add.
+ * Resolve an incoming add request. History feeds the suggestion list.
+ * Auto-pick is exact, or a catalog/pantry prefix. Otherwise create a
+ * new key. Used by shopping bought, quick-add, and pantry add.
  */
 function resolveOrCreate(repos, query) {
   const suggestions = resolvePantryInput(repos, query);
-  const best = suggestions.find((row) => isExactOrPrefix(row, query));
+  const best = suggestions.find((row) => isAutoPick(row, query));
   let result;
   if (!best) {
     const key = slugifyProductKey(query);

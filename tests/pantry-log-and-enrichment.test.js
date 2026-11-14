@@ -122,6 +122,42 @@ test('løk is not resolved to hvitløk from a history substring', async () => {
   assert.equal(added.body.item.productKey, 'lok');
 });
 
+test('history prefix melk is not saved as melkesjokolade', () => {
+  // The query is not itself a catalog, pantry, or history key.
+  const repos = {
+    products: {
+      search() {
+        return [];
+      },
+      getByKey() {
+        return null;
+      },
+      upsert() {},
+    },
+    inventory: {
+      getAll() {
+        return {};
+      },
+    },
+    _db: {
+      prepare() {
+        return {
+          all() {
+            return [{ product_key: 'melkesjokolade', cnt: 4, last_used: '2026-01-01' }];
+          },
+        };
+      },
+    },
+  };
+  const resolved = runWithFamily(1, () => resolveOrCreate(repos, 'melk'));
+  assert.equal(resolved.source, 'ny');
+  assert.equal(resolved.productKey, 'melk');
+  assert.notEqual(resolved.productKey, 'melkesjokolade');
+
+  const suggestions = runWithFamily(1, () => resolvePantryInput(repos, 'melk'));
+  assert.ok(suggestions.some((row) => row.productKey === 'melkesjokolade'));
+});
+
 test('shopping enrichment visits families one after another', async () => {
   createFamily('Enrich B');
   const ids = server.repos.family.listIds();
