@@ -107,9 +107,6 @@
     "errorLoad": "Kunne ikke hente oppskrifter.",
     "errorApply": "Kunne ikke lagre valget. Prøv igjen."
   },
-  "placeholder": {
-    "description": "Kommer i Fase 2C — ukemeny, oppskrifter og swap-flyt."
-  },
   "cookedDialog": {
     "title": "Trekk fra pantry",
     "description": "Velg hvor mye av hver ingrediens som skal trekkes fra pantry.",
