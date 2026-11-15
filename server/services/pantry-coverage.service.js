@@ -15,6 +15,7 @@
 'use strict';
 
 const { aliasKeys, pantryOnHand } = require('./product-key-alias');
+const { convertQuantity, canonicalUnit, toCanonical } = require('./unit-convert');
 
 const OPTIONAL_WEIGHT = 0.3;
 const REQUIRED_WEIGHT = 1.0;
@@ -30,9 +31,19 @@ function keyForIngredient(ing) {
 
 function coverForIngredient(ing, invItem) {
   if (!invItem) return 0;
-  const need = Number(ing.qty) || 0;
-  if (need <= 0) return 1;
+  if (ing.qty == null) return 1;
   const have = Number(invItem.qtyRemaining) || 0;
+  const needed = convertQuantity(ing.qty, ing.unit, invItem.unit || ing.unit);
+  const need = needed == null ? Number(ing.qty) || 0 : needed;
+  if (need <= 0) return 1;
+  if (
+    needed == null &&
+    canonicalUnit(ing.unit) &&
+    canonicalUnit(invItem.unit) &&
+    canonicalUnit(ing.unit) !== canonicalUnit(invItem.unit)
+  ) {
+    return 0;
+  }
   return Math.min(1, have / need);
 }
 
@@ -86,8 +97,8 @@ function scoreRecipeByPantry(recipe, inventoryMap, mode = 'maksimer', now = Date
 
   for (const ing of ings) {
     const key = keyForIngredient(ing);
-    const onHand = pantryOnHand(inventoryMap, key);
-    const invItem = aliasInventory(inventoryMap, key, onHand);
+    const stock = stockInRecipeUnit(inventoryMap, key, ing.unit);
+    const invItem = stock || aliasInventory(inventoryMap, key, pantryOnHand(inventoryMap, key));
     const cover = coverForIngredient(ing, invItem);
     const weight = ing.optional ? OPTIONAL_WEIGHT : REQUIRED_WEIGHT;
 
@@ -198,18 +209,60 @@ function aliasInventory(inventoryMap, productKey, onHand) {
   return onHand > 0 ? { qtyRemaining: onHand } : null;
 }
 
+function stockInRecipeUnit(inventoryMap, productKey, unit) {
+  let total = 0;
+  let found = false;
+  let expiresEst = null;
+  for (const key of aliasKeys(productKey, Object.keys(inventoryMap || {}))) {
+    const inv = inventoryMap[key];
+    if (!inv) continue;
+    found = true;
+    expiresEst = expiresEst || inv.expiresEst || null;
+    const converted = convertQuantity(inv.qtyRemaining, inv.unit, unit || inv.unit);
+    if (converted == null) {
+      if (!canonicalUnit(inv.unit) || canonicalUnit(inv.unit) === canonicalUnit(unit)) {
+        total += Number(inv.qtyRemaining) || 0;
+      }
+      continue;
+    }
+    total += converted;
+  }
+  if (!found) return null;
+  return { qtyRemaining: total, unit: unit || null, expiresEst };
+}
+
 function subtractIngredientsFromInventory(inventoryMap, recipe) {
   const next = { ...inventoryMap };
   for (const ing of recipe.ingredients || []) {
-    let left = Number(ing.qty) || 0;
+    if (ing.qty == null) continue;
+    let remaining = toCanonical(ing.qty, ing.unit);
+    let rawLeft = remaining ? 0 : Number(ing.qty) || 0;
     for (const key of aliasKeys(keyForIngredient(ing), Object.keys(next))) {
-      if (left <= 0) break;
       const inv = next[key];
       if (!inv) continue;
+      if (remaining) {
+        if (remaining.qty <= 0) break;
+        const have = toCanonical(inv.qtyRemaining, inv.unit);
+        if (!have || have.unit !== remaining.unit) continue;
+        const take = Math.min(remaining.qty, have.qty);
+        const leftHave = have.qty - take;
+        const back = convertQuantity(leftHave, have.unit, inv.unit);
+        next[key] = { ...inv, qtyRemaining: back == null ? 0 : Math.max(0, back) };
+        remaining = { qty: remaining.qty - take, unit: remaining.unit };
+        continue;
+      }
+      if (rawLeft <= 0) break;
+      if (
+        canonicalUnit(inv.unit) &&
+        canonicalUnit(ing.unit) &&
+        canonicalUnit(inv.unit) !== canonicalUnit(ing.unit)
+      ) {
+        continue;
+      }
       const have = Number(inv.qtyRemaining) || 0;
-      const take = Math.min(left, have);
+      const take = Math.min(rawLeft, have);
       next[key] = { ...inv, qtyRemaining: Math.max(0, have - take) };
-      left -= take;
+      rawLeft -= take;
     }
   }
   return next;

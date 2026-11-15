@@ -20,7 +20,8 @@
 //     for enrichment after the list is saved.
 
 const { normalizeSync } = require('./ingredient-normalizer.service');
-const { aliasGroup, aliasKeys, pantryOnHand, preferredKey } = require('./product-key-alias');
+const { aliasGroup, aliasKeys, preferredKey } = require('./product-key-alias');
+const { canonicalUnit, convertQuantity } = require('./unit-convert');
 const { getOptionalFamilyId } = require('../auth/family-context');
 const { effectiveScale } = require('./family.service');
 
@@ -62,6 +63,28 @@ function orderCategories(catMap) {
  * shopping_list_items plus the legacy category structure for backward
  * compatibility.
  */
+function pantryQuantity(inventoryMap, productKey, unit, repos) {
+  if (!productKey || !inventoryMap) return 0;
+  let total = 0;
+  const seenKeys = new Set();
+  const extraKeys = Object.keys(inventoryMap);
+  for (const key of aliasKeys(productKey, { repos, extraKeys })) {
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    const row = inventoryMap[key];
+    if (!row) continue;
+    const converted = convertQuantity(row.qtyRemaining, row.unit, unit);
+    if (converted == null) {
+      if (!row.unit || String(row.unit).toLowerCase() === String(unit || '').toLowerCase()) {
+        total += Number(row.qtyRemaining) || 0;
+      }
+      continue;
+    }
+    total += converted;
+  }
+  return total;
+}
+
 function computeShoppingListForWeek(repos, weekYear) {
   const plan = repos.mealPlans.getWeek(weekYear);
   const inventoryMap = repos.inventory.getAll();
@@ -85,7 +108,30 @@ function computeShoppingListForWeek(repos, weekYear) {
     if (!recipe) continue;
     const scale = familyId ? effectiveScale(repos, familyId, recipe.servings) : 1;
     for (const ing of recipe.ingredients || []) {
-      if (ing.qty == null) continue;
+      // A line with no amount stays on the list, without a quantity.
+      if (ing.qty == null) {
+        const plain = `plain:${String(ing.name || '')
+          .trim()
+          .toLowerCase()}`;
+        if (!plain.endsWith(':')) {
+          if (!seen.has(plain)) {
+            seen.set(plain, {
+              totalQty: null,
+              unit: null,
+              unmeasured: true,
+              meals: [],
+              name: ing.name,
+              productKey: null,
+              lookupKey: plain,
+              recipeIds: new Set(),
+            });
+          }
+          const plainEntry = seen.get(plain);
+          plainEntry.meals.push(recipe.name);
+          plainEntry.recipeIds.add(recipe.id);
+        }
+        continue;
+      }
       // Name-only lines keep a null productKey. The lowercased name is
       // only the in-memory group, matching the pre-alias shopping list.
       const namedOnly = !ing.productKey;
@@ -94,18 +140,24 @@ function computeShoppingListForWeek(repos, weekYear) {
         ? String(rawKey).trim().toLowerCase()
         : aliasGroup(ing.productKey, repos);
       if (!key) continue;
-      if (!seen.has(key)) {
-        seen.set(key, {
+      const dimension = canonicalUnit(ing.unit) || String(ing.unit || '');
+      const groupKey = `${key}:${dimension}`;
+      if (!seen.has(groupKey)) {
+        seen.set(groupKey, {
           totalQty: 0,
           unit: ing.unit,
+          unmeasured: false,
           meals: [],
           name: ing.name,
           productKey: namedOnly ? null : preferredKey(ing.productKey, repos),
+          lookupKey: key,
           recipeIds: new Set(),
         });
       }
-      const entry = seen.get(key);
-      entry.totalQty += (ing.qty || 0) * scale;
+      const entry = seen.get(groupKey);
+      const amount = (Number(ing.qty) || 0) * scale;
+      const converted = convertQuantity(amount, ing.unit, entry.unit);
+      entry.totalQty += converted == null ? amount : converted;
       entry.meals.push(recipe.name);
       entry.recipeIds.add(recipe.id);
     }
@@ -128,12 +180,12 @@ function computeShoppingListForWeek(repos, weekYear) {
       }
     }
     const cat = product ? product.category : 'T\u00f8rrvarer & annet';
-    const hasHome = data.productKey
-      ? pantryOnHand(inventoryMap, data.productKey, repos)
-      : Number(inventoryMap[key]?.qtyRemaining) || 0;
-    const stillNeed = Math.max(0, data.totalQty - hasHome);
-    const pantryHas = hasHome > 0 && stillNeed === 0;
-    const needsBuy = stillNeed > 0;
+    const hasHome = data.unmeasured
+      ? 0
+      : pantryQuantity(inventoryMap, data.lookupKey || data.productKey, data.unit, repos);
+    const stillNeed = data.unmeasured ? null : Math.max(0, data.totalQty - hasHome);
+    const pantryHas = !data.unmeasured && hasHome > 0 && stillNeed === 0;
+    const needsBuy = data.unmeasured ? true : stillNeed > 0;
 
     const packCount = product && product.packSize > 0 ? Math.ceil(stillNeed / product.packSize) : 0;
     const estPrice = product ? packCount * (product.estPrice || 0) : 0;
@@ -164,7 +216,7 @@ function computeShoppingListForWeek(repos, weekYear) {
       ingredientName: name,
       ingredientNameNo,
       productKey: catalogKey,
-      qty: stillNeed > 0 ? stillNeed : data.totalQty,
+      qty: data.unmeasured ? null : stillNeed > 0 ? stillNeed : data.totalQty,
       unit: data.unit,
       category: cat,
       packSize: product ? product.packSize : null,
@@ -178,8 +230,9 @@ function computeShoppingListForWeek(repos, weekYear) {
       dairyNote,
     });
 
-    // Legacy catMap skips items that are covered from the pantry
-    if (stillNeed <= 0) continue;
+    // Legacy catMap skips items that are covered from the pantry.
+    // A line with no amount is still shown, without a number.
+    if (!data.unmeasured && stillNeed <= 0) continue;
     if (!catMap[cat]) catMap[cat] = [];
     catMap[cat].push({
       key,

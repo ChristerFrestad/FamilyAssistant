@@ -6,6 +6,22 @@
 
 ---
 
+2026-11-14 – Ingrediensmot og enheter
+
+Task: Ingredienser skal treffe produktkatalogen bedre, handlelisten
+skal summere like enheter, og en linje uten mengde skal overleve lagring.
+
+Done:
+- Normalisering, synonymer og flertall i catalog-match. Løk blir ikke hvitløk.
+- Enhetsomregning g/kg, ml/dl/l og ss/ts. Handleliste og pantry-dekning bruker den.
+- «Salt og pepper» lagres uten mengde og vises på handlelisten uten tall.
+- `scripts/backfill-ingredient-matches.js` fyller tomme product_key. Sletter ingen rader. Kan kjøres om igjen.
+- Ingen database-migrasjon. Tom mengde var allerede tillatt i tabellen.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-03 – Security audit: zod 4.6.5
 
 Task: CI-sjekken Security audit feilet på PR 239.

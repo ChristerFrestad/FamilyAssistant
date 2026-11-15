@@ -360,8 +360,8 @@ const recipeImportTextBody = z
 const recipeIngredientBody = z
   .object({
     name: z.string().min(1).max(200),
-    qty: z.number(),
-    unit: z.string().min(1).max(50),
+    qty: z.number().nullable().optional(),
+    unit: z.string().max(50).optional(),
     optional: z.boolean().optional(),
     productKey: z.string().min(1).max(100).optional(),
   })
