@@ -2,6 +2,20 @@
 
 const { enabledSourceNames } = require('../services/recipe-library/sources');
 
+function sampleSpread(rows, cap) {
+  if (rows.length <= cap) return rows;
+  if (cap <= 1) return rows.slice(0, 1);
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < cap; i += 1) {
+    const index = Math.round((i * (rows.length - 1)) / (cap - 1));
+    if (seen.has(index)) continue;
+    seen.add(index);
+    out.push(rows[index]);
+  }
+  return out;
+}
+
 function createRecipeLibraryRepo(db) {
   const upsertRecipe = db.prepare(`
     INSERT INTO recipe_library (
@@ -146,6 +160,39 @@ function createRecipeLibraryRepo(db) {
             ORDER BY title LIMIT ?`
         )
         .all(...names, ...urls, cap);
+    },
+    listPlanningCandidates(excludeUrls, limit = 400) {
+      const names = enabledSourceNames();
+      if (names.length === 0) return [];
+      const urls = (excludeUrls || []).filter(Boolean);
+      const cap = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 400) : 400;
+      const params = [...names];
+      let sql = `SELECT id, title, source_name as sourceName, canonical_url as canonicalUrl,
+                        total_time_min as totalTimeMin, category
+                   FROM recipe_library
+                  WHERE active = 1 AND source_name IN (${names.map(() => '?').join(',')})`;
+      if (urls.length > 0) {
+        sql += ` AND canonical_url NOT IN (${urls.map(() => '?').join(',')})`;
+        params.push(...urls);
+      }
+      sql += ' ORDER BY id';
+      const rows = sampleSpread(db.prepare(sql).all(...params), cap);
+      if (rows.length === 0) return rows;
+      const ids = rows.map((row) => row.id);
+      const ingredients = db
+        .prepare(
+          `SELECT library_id as libraryId, name, qty, unit, product_key as productKey
+             FROM recipe_library_ingredients
+            WHERE library_id IN (${ids.map(() => '?').join(',')})
+            ORDER BY sort_order, id`
+        )
+        .all(...ids);
+      const byId = new Map();
+      for (const ing of ingredients) {
+        if (!byId.has(ing.libraryId)) byId.set(ing.libraryId, []);
+        byId.get(ing.libraryId).push(ing);
+      }
+      return rows.map((row) => ({ ...row, ingredients: byId.get(row.id) || [] }));
     },
     getFetch(url) {
       return db.prepare('SELECT * FROM recipe_library_fetch WHERE url = ?').get(url) || null;

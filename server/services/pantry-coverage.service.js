@@ -128,6 +128,7 @@ function scoreRecipeByPantry(recipe, inventoryMap, mode = 'maksimer', now = Date
 
   return {
     score,
+    coverage: baseScore,
     ingredientsAtHome,
     totalIngredients: ings.length,
     expiringUsed,
@@ -161,6 +162,7 @@ function rankRecipes(
     return {
       recipe: r,
       score: s.score,
+      coverage: s.coverage,
       ingredientsAtHome: s.ingredientsAtHome,
       totalIngredients: s.totalIngredients,
       expiringUsed: s.expiringUsed,

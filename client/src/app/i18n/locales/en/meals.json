@@ -107,6 +107,14 @@
     "title": "Shopping list is ready",
     "body": "This week's dinners are on the shopping list."
   },
+  "suggestAgain": {
+    "button": "Suggest the week again",
+    "title": "Suggest the week again?",
+    "body": "Dinners the app suggested are replaced. Dinners you chose, and days marked cooked, away or no dinner, stay as they are.",
+    "confirm": "Replace the dinners",
+    "cancel": "Cancel",
+    "error": "Could not suggest the week again. Try again."
+  },
   "picker": {
     "titlePlan": "Plan meal",
     "titleSwap": "Swap meal",
@@ -126,6 +134,9 @@
     "cancel": "Cancel",
     "fromLibrary": "From {{source}}",
     "addAndPlan": "Add and plan",
+    "reasonUsing": "Uses {{count}} things you have",
+    "reasonExpiring": "Goes off soon",
+    "reasonNew": "A new taste",
     "errorLoad": "Could not load recipes.",
     "errorApply": "Could not save the selection. Try again."
   },

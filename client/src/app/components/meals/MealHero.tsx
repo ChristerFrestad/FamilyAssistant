@@ -41,7 +41,7 @@ export interface MealHeroProps {
    * Sprint 6 — fires when the user taps "Bytt middag". Parent opens
    * the same picker dialog with the current recipe id pre-marked.
    */
-  onSwap?: ((dayOfWeek: number, currentRecipeId: number) => void) | undefined;
+  onSwap?: ((dayOfWeek: number, currentRecipeId: number | null) => void) | undefined;
   /**
    * Sprint 6 — fires when the user taps "Marker tilberedt". Optional
    * so existing tests that do not exercise the cook-flow can keep
@@ -217,15 +217,25 @@ export function MealHero({
         ) : null}
       </div>
       <h2 className="mb-3 font-display text-display-sm text-text-1" data-testid="meal-hero-name">
-        {onOpenRecipe ? (
+        {recipe.id != null && onOpenRecipe ? (
           <button
             type="button"
-            onClick={() => onOpenRecipe(recipe.id)}
+            onClick={() => onOpenRecipe(recipe.id as number)}
             className="text-left underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
             data-testid="meal-hero-open-recipe"
           >
             {recipe.name}
           </button>
+        ) : recipe.url ? (
+          <a
+            href={recipe.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-left underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+            data-testid="meal-hero-open-recipe"
+          >
+            {recipe.name}
+          </a>
         ) : (
           recipe.name
         )}
@@ -268,17 +278,27 @@ export function MealHero({
       ) : (
         <ChildHint />
       )}
-      {onOpenRecipe || recipe.url ? (
+      {(recipe.id != null && onOpenRecipe) || recipe.url ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {onOpenRecipe ? (
+          {recipe.id != null && onOpenRecipe ? (
             <Button
               type="button"
               variant="secondary"
-              onClick={() => onOpenRecipe(recipe.id)}
+              onClick={() => onOpenRecipe(recipe.id as number)}
               data-testid="meal-hero-open-recipe-button"
             >
               {t('actions.openRecipe')}
             </Button>
+          ) : recipe.url ? (
+            <a
+              href={recipe.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-6 items-center rounded-pill border border-stroke px-3 py-1.5 font-body text-body text-text-2 hover:text-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+              data-testid="meal-hero-open-recipe-button"
+            >
+              {t('actions.openRecipe')}
+            </a>
           ) : null}
           {recipe.url ? (
             <a

@@ -160,8 +160,11 @@ function deductAcrossAliases(repos, mealId, productKey, amount, reason) {
 }
 
 function buildSuggestions(repos, mealPlanRow) {
-  if (!mealPlanRow || !mealPlanRow.recipeId) return [];
-  const recipe = repos.recipes.getById(mealPlanRow.recipeId);
+  if (!mealPlanRow || (!mealPlanRow.recipeId && !mealPlanRow.libraryRecipeId)) return [];
+  const { visibleLibraryDinner } = require('./recipe-library/copy');
+  const recipe = mealPlanRow.recipeId
+    ? repos.recipes.getById(mealPlanRow.recipeId)
+    : visibleLibraryDinner(repos, mealPlanRow.libraryRecipeId);
   if (!recipe || !Array.isArray(recipe.ingredients)) return [];
 
   const familyId = getFamilyId();

@@ -39,8 +39,15 @@ const {
   generateSundayDraft,
   generatePantryRestOfWeek,
   computeMissingForRestOfWeek,
+  regenerateUnlockedDays,
 } = require('./services/meal-planning.service');
-const { ensureCurrentWeek, ensureWeek, isPastWeek } = require('./services/seed.service');
+const { visibleLibraryDinner } = require('./services/recipe-library/copy');
+const {
+  ensureCurrentWeek,
+  ensureWeek,
+  isPastWeek,
+  getWeekYearInTimeZone,
+} = require('./services/seed.service');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
 const pantryDeduction = require('./services/pantry-deduction.service');
@@ -117,6 +124,12 @@ function isValidWeekYear(weekYear) {
  * stored row (read-only past weeks) are virtual, unplanned slots with
  * id null — they are NOT persisted.
  */
+function recipeForSlot(repos, slot) {
+  if (!slot) return null;
+  if (slot.recipeId) return repos.recipes.getById(slot.recipeId);
+  return visibleLibraryDinner(repos, slot.libraryRecipeId);
+}
+
 function toMealsWeekResponse(repos, weekYear, plan, { readOnly = false } = {}) {
   const byDay = new Map(plan.map((slot) => [slot.dayOfWeek, slot]));
   return {
@@ -135,7 +148,7 @@ function toMealsWeekResponse(repos, weekYear, plan, { readOnly = false } = {}) {
       return {
         ...slot,
         dayName,
-        recipe: slot.recipeId ? repos.recipes.getById(slot.recipeId) : null,
+        recipe: recipeForSlot(repos, slot),
       };
     }),
   };
@@ -589,6 +602,24 @@ function registerRoutes(router, { repos, serverState }) {
     })
   );
 
+  router.post('/api/meals/week/:weekYear/suggest-again', requireRole('adult'), (ctx) => {
+    const wk = ctx.params.weekYear;
+    if (!isValidWeekYear(wk)) {
+      throw errors.badRequest('Ugyldig weekYear (f.eks. 2026-W15)', { code: 'INVALID_WEEK' });
+    }
+    if (ctx.body?.confirm !== true) {
+      throw errors.badRequest('Bekreft med confirm: true');
+    }
+    if (isPastWeek(wk) || wk === getWeekYearInTimeZone()) {
+      throw errors.badRequest('Bare en fremtidig uke kan foreslås på nytt');
+    }
+    ensureWeek(repos, wk);
+    regenerateUnlockedDays(repos, wk);
+    invalidate('meals', 'today', 'shopping');
+    const plan = repos.mealPlans.getWeek(wk);
+    ctx.json({ ok: true, week: toMealsWeekResponse(repos, wk, plan) });
+  });
+
   router.get(
     '/api/meals/current',
     withCache(['meals'], (ctx) => {
@@ -740,7 +771,8 @@ function registerRoutes(router, { repos, serverState }) {
     if (!Number.isInteger(dow) || dow < 0 || dow > 6) {
       throw errors.badRequest('dayOfWeek m\u00e5 v\u00e6re 0\u20136');
     }
-    const wk = ensureCurrentWeek(repos);
+    const requested = typeof ctx.query.weekYear === 'string' ? ctx.query.weekYear : '';
+    const wk = requested && isValidWeekYear(requested) ? requested : ensureCurrentWeek(repos);
     ctx.json({ suggestions: getSwapSuggestions(repos, dow, wk) });
   });
 
@@ -808,7 +840,12 @@ function registerRoutes(router, { repos, serverState }) {
     if (!Number.isInteger(mealId) || mealId <= 0) throw errors.badRequest('Invalid meal id');
     const slot = repos.mealPlans.getById(mealId);
     if (!slot) throw errors.notFound(`Meal ${mealId} not found`);
-    if (!slot.recipeId) {
+    if (!slot.recipeId && !slot.libraryRecipeId) {
+      throw errors.badRequest('Cannot mark cooked: no recipe on this slot', {
+        code: 'NO_RECIPE',
+      });
+    }
+    if (!slot.recipeId && !visibleLibraryDinner(repos, slot.libraryRecipeId)) {
       throw errors.badRequest('Cannot mark cooked: no recipe on this slot', {
         code: 'NO_RECIPE',
       });
@@ -2495,7 +2532,7 @@ function registerRoutes(router, { repos, serverState }) {
       const dayOfWeek = (new Date().getDay() + 6) % 7;
       const plan = repos.mealPlans.getWeek(wk);
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
-      const recipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
+      const recipe = recipeForSlot(repos, todaySlot);
 
       const choresMap = choreCatalogMap(repos);
       const todayChores = repos.choreSchedules
@@ -2738,7 +2775,7 @@ function registerRoutes(router, { repos, serverState }) {
       const dayOfWeek = (new Date().getDay() + 6) % 7;
       const plan = repos.mealPlans.getWeek(wk);
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
-      const todayRecipe = todaySlot?.recipeId ? repos.recipes.getById(todaySlot.recipeId) : null;
+      const todayRecipe = recipeForSlot(repos, todaySlot);
 
       const choresMap = choreCatalogMap(repos);
       const todayChoresList = repos.choreSchedules

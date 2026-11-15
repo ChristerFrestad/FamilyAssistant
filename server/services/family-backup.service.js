@@ -324,6 +324,19 @@ function importMealPlans(repos, mealPlans, recipeIdMap) {
     if (!slot || !slot.weekYear || slot.dayOfWeek == null) continue;
     const rawId = slot.recipeId ?? slot.recipe_id;
     const recipeId = rawId == null ? null : (recipeIdMap.get(Number(rawId)) ?? null);
+    const libraryId = slot.libraryRecipeId ?? slot.library_recipe_id;
+    if (recipeId == null && libraryId != null && repos.recipeLibrary) {
+      const library = repos.recipeLibrary.getById(Number(libraryId));
+      if (!library) continue;
+      repos.mealPlans.setLibraryRecipe(
+        slot.weekYear,
+        slot.dayOfWeek,
+        library.id,
+        slot.status || 'planned',
+        slot.planOrigin === 'manual' ? 'manual' : 'auto'
+      );
+      continue;
+    }
     if (recipeId == null) continue;
     repos.mealPlans.setRecipe(slot.weekYear, slot.dayOfWeek, recipeId, slot.status || 'planned');
   }

@@ -63,6 +63,54 @@ describe('MealHero — recipe state', () => {
     expect(screen.queryByTestId('meal-hero-source-link')).toBeNull();
   });
 
+  test('a library dinner opens the publisher and not /recipes/null', () => {
+    const handler = vi.fn();
+    render(
+      <MealHero
+        slot={makeSlot({
+          recipeId: null,
+          recipe: {
+            ...makeSlot().recipe!,
+            id: null,
+            fromLibrary: true,
+            url: 'https://meny.no/oppskrifter/kylling/taco',
+          },
+        })}
+        dayLabel="Mandag"
+        isToday={false}
+        onOpenRecipe={handler}
+      />
+    );
+    const link = screen.getByTestId('meal-hero-open-recipe-button');
+    expect(link).toHaveAttribute('href', 'https://meny.no/oppskrifter/kylling/taco');
+    expect(link).toHaveAttribute('target', '_blank');
+    fireEvent.click(link);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  test('Bytt middag stays enabled for a library dinner', () => {
+    const handler = vi.fn();
+    render(
+      <MealHero
+        slot={makeSlot({
+          recipeId: null,
+          recipe: {
+            ...makeSlot().recipe!,
+            id: null,
+            fromLibrary: true,
+          },
+        })}
+        dayLabel="Mandag"
+        isToday={false}
+        onSwap={handler}
+      />
+    );
+    const button = screen.getByTestId('meal-hero-swap-button');
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(handler).toHaveBeenCalledWith(0, null);
+  });
+
   test('recipe name and open button call onOpenRecipe', () => {
     const handler = vi.fn();
     render(<MealHero slot={makeSlot()} dayLabel="Mandag" isToday={false} onOpenRecipe={handler} />);
