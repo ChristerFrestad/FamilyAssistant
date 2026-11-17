@@ -99,3 +99,47 @@ test('the feed is a private ICS and does not leak another family', async () => {
   const oldStillGone = await request(server.baseUrl, 'GET', path);
   assert.equal(oldStillGone.status, 404);
 });
+
+test('the feed keeps library dinners, real end times, rules, and escaped titles', async () => {
+  const owner = createOwner('ical-lib@example.com', 'Ical Lib');
+  const week = getWeekYearInTimeZone(new Date());
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Oslo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  runWithFamily(owner.familyId, () => {
+    const libraryId = server.repos.recipeLibrary.upsert({
+      title: 'Bibliotektaco',
+      sourceName: 'Meny',
+      canonicalUrl: 'https://meny.no/oppskrifter/test/bibliotektaco',
+      imageUrl: null,
+      servings: 4,
+      totalTimeMin: 30,
+      category: 'rask',
+      fetchedAt: '2026-11-14T00:00:00.000Z',
+      ingredients: [],
+    });
+    server.repos.mealPlans.setLibraryRecipe(week, 6, libraryId, 'planned', 'auto');
+    server.repos.calendar.insert({
+      title: 'Linje1\nLinje2',
+      date: today,
+      startTime: '17:00',
+      endTime: '18:30',
+      allDay: false,
+      rrule: 'FREQ=WEEKLY',
+    });
+  });
+  const issued = await request(server.baseUrl, 'POST', '/api/calendar-feed', {
+    headers: { Cookie: owner.cookie },
+  });
+  const feed = await request(server.baseUrl, 'GET', issued.body.path);
+  const ics = feed.raw;
+  assert.match(ics, /SUMMARY:Middag: Bibliotektaco/);
+  assert.match(ics, /DTSTART;TZID=Europe\/Oslo:\d{8}T170000/);
+  assert.match(ics, /DTEND;TZID=Europe\/Oslo:\d{8}T183000/);
+  assert.match(ics, /RRULE:FREQ=WEEKLY/);
+  assert.match(ics, /SUMMARY:Linje1\\nLinje2/);
+  assert.equal(/^Linje2/m.test(ics), false);
+});

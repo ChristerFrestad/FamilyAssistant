@@ -6,6 +6,21 @@
 
 ---
 
+2026-11-17 – iCal: tegn, sluttid og bibliotekmiddager
+
+Task: Linjebryting kunne dele æ/ø/å, sluttiden var ett minutt,
+og bibliotekmiddager manglet.
+
+Done:
+- Folding stopper på tegngrenser. CR og LF i titler escapes.
+- Avtaler med klokkeslett får riktig slutt, og RRULE følger med.
+- Bibliotekmiddager tas med på samme måte som /api/today.
+- Migrasjonen heter 042. Ny lenke spør først, og lenken leses opp.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – iCal-lenke per familie
 
 Task: Familien skal kunne abonnere på middager, gjøremål og avtaler

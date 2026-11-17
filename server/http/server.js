@@ -330,7 +330,7 @@ function logRequest(ctx, status, durationMs, extra) {
   const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
   ctx.log[level]({
     method: ctx.req.method,
-    path: ctx.pathname,
+    path: String(ctx.pathname || '').replace(/\/cal\/[^/?#]+\.ics$/i, '/cal/[secret].ics'),
     status,
     durationMs,
     ...(extra ? { detail: extra } : {}),
