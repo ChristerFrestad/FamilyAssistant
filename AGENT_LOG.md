@@ -6,6 +6,21 @@
 
 ---
 
+2026-11-17 – iCal: tester som fanger en åpen regel
+
+Task: Feed-en slapp en ugyldig regel gjennom hvis sjekken ble tatt
+bort, og en feil kunne sende kalenderhemmeligheten til Sentry.
+
+Done:
+- Hele feeden testes med X-NAME, FREQ=EVIL, en regel uten FREQ og en
+  ødelagt EXDATE. En gyldig regel blir stående.
+- Sentry-ruten og beforeSend skjuler /cal-hemmeligheten, også i
+  url, query og breadcrumbs. Tabulator i tittelen blir et mellomrom.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-17 – iCal: bare gyldig RRULE
 
 Task: Et linjeskift inne i regelen ble med ut i feeden, og en

@@ -172,6 +172,42 @@ test('a CR in the title and the rule never reaches the feed', () => {
   assert.ok(ics.split('\r\n').includes('RRULE:FREQ=WEEKLY'));
 });
 
+test('rejected rules stay out of the feed and a valid rule stays in', () => {
+  const ics = buildIcs(
+    feedRepos([
+      {
+        id: 11,
+        title: 'Tab\tHere',
+        date: '2026-11-17',
+        startTime: '17:00',
+        endTime: '18:00',
+        allDay: false,
+        rrule: [
+          'FREQ=WEEKLY',
+          'FREQ=WEEKLY;X-NAME=1',
+          'FREQ=EVIL',
+          'INTERVAL=2',
+          'FREQ=WEEKLY;COUNT=1.5',
+          'EXDATE:2026;X=1:ATTACH',
+          'EXDATE:20261124T170000',
+        ].join('\n'),
+      },
+    ]),
+    1
+  );
+  assertNoBareBreaks(ics);
+  const lines = ics.split('\r\n');
+  assert.ok(lines.includes('RRULE:FREQ=WEEKLY'));
+  assert.ok(lines.includes('EXDATE:20261124T170000'));
+  assert.equal(ics.includes('X-NAME'), false);
+  assert.equal(ics.includes('FREQ=EVIL'), false);
+  assert.equal(ics.includes('INTERVAL=2'), false);
+  assert.equal(ics.includes('1.5'), false);
+  assert.equal(ics.includes('ATTACH'), false);
+  assert.match(ics, /SUMMARY:Tab Here/);
+  assert.equal(ics.includes('Tab\\nHere'), false);
+});
+
 test('a zero-length event does not repeat the start as the end', () => {
   const ics = buildIcs(
     feedRepos([

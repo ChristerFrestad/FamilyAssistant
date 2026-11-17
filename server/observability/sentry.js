@@ -19,7 +19,7 @@
 // never crashes the parent app.
 
 const crypto = require('crypto');
-const { redactRequestPath } = require('../services/calendar-feed.service');
+const { redactRequestPath, scrubCalText } = require('../services/calendar-feed.service');
 
 const state = {
   enabled: false,
@@ -32,10 +32,23 @@ function hashFamilyId(familyId) {
   return crypto.createHash('sha256').update(String(familyId)).digest('hex').slice(0, 16);
 }
 
+function scrubObjectStrings(value) {
+  if (typeof value === 'string') return scrubCalText(value);
+  if (Array.isArray(value)) return value.map(scrubObjectStrings);
+  if (value && typeof value === 'object') {
+    for (const key of Object.keys(value)) value[key] = scrubObjectStrings(value[key]);
+  }
+  return value;
+}
+
 function beforeSend(event) {
   // Wholesale-drop request bodies — never ship pantry content, AI chat
   // messages, feedback text or anything the user typed.
   if (event.request) {
+    if (typeof event.request.url === 'string') event.request.url = scrubCalText(event.request.url);
+    if (typeof event.request.query_string === 'string') {
+      event.request.query_string = scrubCalText(event.request.query_string);
+    }
     if (event.request.data !== undefined) delete event.request.data;
     if (event.request.cookies) delete event.request.cookies;
     if (event.request.headers) {
@@ -53,6 +66,13 @@ function beforeSend(event) {
     if (event.user.ip_address) event.user.ip_address = '[redacted]';
   }
   // Extra-field scrub: strip anything that looks like an email or bearer.
+  if (Array.isArray(event.breadcrumbs)) {
+    for (const crumb of event.breadcrumbs) {
+      if (!crumb || typeof crumb !== 'object') continue;
+      if (typeof crumb.message === 'string') crumb.message = scrubCalText(crumb.message);
+      if (crumb.data) crumb.data = scrubObjectStrings(crumb.data);
+    }
+  }
   if (event.extra) {
     for (const k of Object.keys(event.extra)) {
       const v = event.extra[k];
@@ -168,6 +188,11 @@ function resetForTests() {
   state.loadError = null;
 }
 
+function installFakeForTests(fake) {
+  state.Sentry = fake;
+  state.enabled = true;
+}
+
 module.exports = {
   initSentry,
   captureException,
@@ -176,4 +201,5 @@ module.exports = {
   beforeSend,
   hashFamilyId,
   resetForTests,
+  installFakeForTests,
 };

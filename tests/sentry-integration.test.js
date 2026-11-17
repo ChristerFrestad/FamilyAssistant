@@ -125,10 +125,60 @@ describe('Phase 17 · beforeSend scrubbing', () => {
     assert.equal(event.extra.number, 42);
   });
 
+  test('scrubs calendar secrets from the request url, query string and breadcrumbs', () => {
+    const secret = 'super-secret-token';
+    const event = {
+      request: {
+        url: `https://home.example/cal//${secret}.ics?x=1`,
+        query_string: `/cal/${secret}.ics`,
+      },
+      breadcrumbs: [
+        {
+          message: `GET /cal/${secret}.ics`,
+          data: { url: `/cal//${secret}.ics?x=1` },
+        },
+      ],
+    };
+    sentry.beforeSend(event);
+    const packed = JSON.stringify(event);
+    assert.equal(packed.includes(secret), false);
+    assert.match(event.request.url, /\/cal\/\[secret\]/);
+    assert.match(event.request.query_string, /\/cal\/\[secret\]/);
+    assert.match(event.breadcrumbs[0].message, /\/cal\/\[secret\]/);
+    assert.match(event.breadcrumbs[0].data.url, /\/cal\/\[secret\]/);
+  });
+
   test('returns the event object so Sentry can forward it', () => {
     const event = { foo: 'bar' };
     const out = sentry.beforeSend(event);
     assert.strictEqual(out, event);
+  });
+});
+
+describe('Phase 17 · route tag', () => {
+  test('a fake SDK gets a redacted calendar route', () => {
+    let route = '';
+    sentry.installFakeForTests({
+      withScope(fn) {
+        const scope = {
+          setUser() {},
+          setTag(key, value) {
+            if (key === 'route') route = value;
+          },
+        };
+        return fn(scope);
+      },
+      captureException(err) {
+        return err.message;
+      },
+    });
+    const result = sentry.captureException(new Error('boom'), {
+      req: { method: 'GET' },
+      pathname: '/cal//super-secret.ics',
+    });
+    assert.equal(result, 'boom');
+    assert.equal(route, 'GET /cal/[secret]');
+    assert.equal(route.includes('super-secret'), false);
   });
 });
 

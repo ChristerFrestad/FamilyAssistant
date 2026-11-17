@@ -52,6 +52,7 @@ function addDays(date, days) {
 function escapeText(value) {
   return String(value || '')
     .replace(/\\/g, '\\\\')
+    .replace(/\t/g, ' ')
     .replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;');
@@ -200,6 +201,11 @@ function recurrenceLines(raw) {
 
 function redactRequestPath(pathname) {
   return String(pathname || '').replace(/\/cal(?=\/)[^?#]*/gi, '/cal/[secret]');
+}
+
+function scrubCalText(value) {
+  if (typeof value !== 'string') return value;
+  return value.replace(/\/cal(?=\/)[^?#\s'"]*(\?[^#\s'"]*)?/gi, '/cal/[secret]');
 }
 
 function createCalendarFeedRepo(db) {
@@ -392,4 +398,5 @@ module.exports = {
   escapeText,
   fold,
   redactRequestPath,
+  scrubCalText,
 };
