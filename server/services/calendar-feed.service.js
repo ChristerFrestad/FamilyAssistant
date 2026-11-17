@@ -52,7 +52,7 @@ function addDays(date, days) {
 function escapeText(value) {
   return String(value || '')
     .replace(/\\/g, '\\\\')
-    .replace(/[\r\n\u000b\u0085\u2028\u2029]/g, '\\n')
+    .replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;');
 }
@@ -128,27 +128,78 @@ function clockValue(parts) {
   return parts.h * 3600 + parts.m * 60 + parts.s;
 }
 
+const RRULE_KEYS = new Set([
+  'FREQ',
+  'UNTIL',
+  'COUNT',
+  'INTERVAL',
+  'BYSECOND',
+  'BYMINUTE',
+  'BYHOUR',
+  'BYDAY',
+  'BYMONTHDAY',
+  'BYYEARDAY',
+  'BYWEEKNO',
+  'BYMONTH',
+  'BYSETPOS',
+  'WKST',
+]);
+const RRULE_FREQ = new Set([
+  'SECONDLY',
+  'MINUTELY',
+  'HOURLY',
+  'DAILY',
+  'WEEKLY',
+  'MONTHLY',
+  'YEARLY',
+]);
+
+function recurrenceChunks(raw) {
+  return String(raw || '').split(/\r\n|\n|\r|[\u000b\u000c\u0085\u2028\u2029]|(?=EXDATE)/i);
+}
+
+function sanitizeRrule(line) {
+  const body = line.replace(/^RRULE:/i, '').replace(/;+$/g, '');
+  if (!body) return null;
+  const parts = [];
+  let freq = '';
+  for (const chunk of body.split(';')) {
+    if (!chunk) continue;
+    const eq = chunk.indexOf('=');
+    if (eq <= 0) return null;
+    const key = chunk.slice(0, eq).toUpperCase();
+    const value = chunk.slice(eq + 1).toUpperCase();
+    if (!RRULE_KEYS.has(key) || !/^[A-Z0-9,+\-]+$/.test(value)) return null;
+    if (key === 'FREQ') freq = value;
+    parts.push(`${key}=${value}`);
+  }
+  if (!RRULE_FREQ.has(freq)) return null;
+  return `RRULE:${parts.join(';')}`;
+}
+
+function sanitizeExdate(line) {
+  if (!/^EXDATE(?:;[A-Z0-9]+=[A-Za-z0-9_/+-]+)*:[0-9TZ,]+$/i.test(line)) return null;
+  return line.replace(/^exdate/i, 'EXDATE');
+}
+
 function recurrenceLines(raw) {
-  const text = String(raw || '').trim();
-  if (!text) return [];
-  const chunks = text.split(/\r?\n|(?=EXDATE)/i);
   const lines = [];
-  for (const chunk of chunks) {
-    const line = chunk.trim();
+  for (const chunk of recurrenceChunks(raw)) {
+    const line = chunk.replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g, '').trim();
     if (!line) continue;
     if (/^EXDATE/i.test(line)) {
-      lines.push(line.replace(/;+$/g, ''));
+      const safe = sanitizeExdate(line);
+      if (safe) lines.push(safe);
       continue;
     }
-    const rule = line.replace(/^RRULE:/i, '').replace(/;+$/g, '');
-    if (!rule || /EXDATE/i.test(rule)) continue;
-    lines.push(`RRULE:${rule}`);
+    const safe = sanitizeRrule(line);
+    if (safe) lines.push(safe);
   }
   return lines;
 }
 
 function redactRequestPath(pathname) {
-  return String(pathname || '').replace(/\/cal\/[^/?#]+/gi, '/cal/[secret]');
+  return String(pathname || '').replace(/\/cal(?=\/)[^?#]*/gi, '/cal/[secret]');
 }
 
 function createCalendarFeedRepo(db) {
@@ -285,13 +336,13 @@ function buildIcs(repos, familyId) {
         const start = clockParts(event.startTime);
         const end = event.endTime ? clockParts(event.endTime) : null;
         lines.push(`DTSTART;TZID=Europe/Oslo:${compact}T${formatClock(start)}`);
-        if (end) {
+        if (end && clockValue(end) !== clockValue(start)) {
           const endDate =
             clockValue(end) < clockValue(start)
               ? ymd(addDays(new Date(`${event.date}T00:00:00Z`), 1))
               : compact;
           lines.push(`DTEND;TZID=Europe/Oslo:${endDate}T${formatClock(end)}`);
-        } else {
+        } else if (!end) {
           const next = plusOneHour(start);
           const endDate = next.dayCarry
             ? ymd(addDays(new Date(`${event.date}T00:00:00Z`), next.dayCarry))

@@ -6,6 +6,21 @@
 
 ---
 
+2026-11-17 – iCal: bare gyldig RRULE
+
+Task: Et linjeskift inne i regelen ble med ut i feeden, og en
+flerlinjet Google-regel ga bare ett treff i måneden.
+
+Done:
+- RRULE og EXDATE må matche en tillatt form. Kontrolltegn strippes.
+- En uke med EXDATE utvider seg igjen, og hopper over den datoen.
+- Lik start og slutt skriver ikke DTEND lik DTSTART.
+- /cal//hemmelighet.ics og Sentry-ruten skjuler hemmeligheten.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-17 – iCal: tidssone linje for linje
 
 Task: Tidssonen ble brettet midt i et linjeskift, så vinterregelen

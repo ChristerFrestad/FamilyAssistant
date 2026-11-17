@@ -19,6 +19,7 @@
 // never crashes the parent app.
 
 const crypto = require('crypto');
+const { redactRequestPath } = require('../services/calendar-feed.service');
 
 const state = {
   enabled: false,
@@ -134,7 +135,7 @@ function captureException(err, ctx) {
       if (ctx?.requestId) scope.setTag('request_id', ctx.requestId);
       if (ctx?.sessionCorr) scope.setTag('session_corr', ctx.sessionCorr);
       if (ctx?.req?.method && ctx?.pathname) {
-        scope.setTag('route', `${ctx.req.method} ${ctx.pathname}`);
+        scope.setTag('route', `${ctx.req.method} ${redactRequestPath(ctx.pathname)}`);
       }
       return Sentry.captureException(err);
     });
