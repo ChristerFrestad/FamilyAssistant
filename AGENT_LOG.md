@@ -14,6 +14,7 @@ ikke love en tilkobling som ikke virker.
 Done:
 - docker-compose setter TZ=Europe/Oslo. Ingen Google-hemmeligheter.
 - /api/today bruker dato og ukedag i Oslo, også rett etter midnatt.
+  Samme klokke brukes for chat-konteksten, resten av uka og utgåtte varer.
 - Knappene «Koble til Google» og «Koble til iCloud» er borte. Teksten
   sier at koblingen ikke virker ennå.
 

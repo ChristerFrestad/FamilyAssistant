@@ -10,6 +10,8 @@
 // The scoring logic lives in pantry-coverage.service.js.
 
 const { altSuggestionMap, getWeekYear, recipes: seedRecipes } = require('../seed');
+const { getWeekYearInTimeZone } = require('./seed.service');
+const { osloDayOfWeek } = require('./app-clock');
 const { FEW_RECIPES } = require('./recipe-library/copy');
 
 const seedRecipeById = new Map(seedRecipes.map((recipe) => [recipe.id, recipe]));
@@ -325,8 +327,8 @@ function generatePantryRestOfWeek(repos, { category }) {
     throw new Error(`Invalid category: ${category}`);
   }
 
-  const weekYear = getWeekYear();
-  const todayDow = (new Date().getDay() + 6) % 7; // ISO: Monday = 0
+  const weekYear = getWeekYearInTimeZone();
+  const todayDow = osloDayOfWeek();
   const plan = repos.mealPlans.getWeek(weekYear);
   const usedIds = new Set(plan.map((p) => p.recipeId).filter(Boolean));
   const remainingDays = [];
@@ -390,7 +392,7 @@ function computeMissingForRestOfWeek(repos, weekYear) {
   const inventoryMap = repos.inventory.getAll();
   const productsMap = repos.products.getAllAsMap();
   const allRecipes = repos.recipes.getAll();
-  const todayDow = (new Date().getDay() + 6) % 7;
+  const todayDow = osloDayOfWeek();
   const familyId = getOptionalFamilyId();
 
   const totals = new Map();

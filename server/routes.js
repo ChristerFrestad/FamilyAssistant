@@ -2773,8 +2773,9 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.llmChatBody),
     async (ctx) => {
       const { message, history, saveToKB } = ctx.body;
-      const wk = ensureCurrentWeek(repos);
-      const dayOfWeek = (new Date().getDay() + 6) % 7;
+      const now = new Date();
+      const wk = ensureWeek(repos, getWeekYearInTimeZone(now));
+      const dayOfWeek = osloDayOfWeek(now);
       const plan = repos.mealPlans.getWeek(wk);
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
       const todayRecipe = recipeForSlot(repos, todaySlot);
