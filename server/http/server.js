@@ -20,6 +20,7 @@ const metrics = require('./metrics');
 const sentry = require('../observability/sentry');
 const { tryHandleMarketing, tryServeAppRobots, rewriteCanonical } = require('./marketing');
 const { normalizeIncomingUrl } = require('./request-url');
+const { redactRequestPath } = require('../services/calendar-feed.service');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
@@ -330,7 +331,7 @@ function logRequest(ctx, status, durationMs, extra) {
   const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
   ctx.log[level]({
     method: ctx.req.method,
-    path: String(ctx.pathname || '').replace(/\/cal\/[^/?#]+\.ics$/i, '/cal/[secret].ics'),
+    path: redactRequestPath(ctx.pathname),
     status,
     durationMs,
     ...(extra ? { detail: extra } : {}),

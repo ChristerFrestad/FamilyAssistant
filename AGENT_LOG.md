@@ -6,6 +6,22 @@
 
 ---
 
+2026-11-17 – iCal: tidssone linje for linje
+
+Task: Tidssonen ble brettet midt i et linjeskift, så vinterregelen
+forsvant og tidsstyrte avtaler kunne flytte seg en time.
+
+Done:
+- VTIMEZONE skrives som egne linjer. Feeden har ingen løs CR eller LF.
+- En avtale over midnatt slutter neste dag.
+- EXDATE blir en egen linje, ikke en del av RRULE.
+- VT, linjeskilletegn og NEL escapes. /cal/ uten .ics logges uten hemmelighet.
+- Opplesingsfeltet står der før lenken vises.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-17 – iCal: tegn, sluttid og bibliotekmiddager
 
 Task: Linjebryting kunne dele æ/ø/å, sluttiden var ett minutt,

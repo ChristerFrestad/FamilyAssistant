@@ -52,7 +52,7 @@ function addDays(date, days) {
 function escapeText(value) {
   return String(value || '')
     .replace(/\\/g, '\\\\')
-    .replace(/\r\n|\r|\n/g, '\\n')
+    .replace(/[\r\n\u000b\u0085\u2028\u2029]/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;');
 }
@@ -104,7 +104,7 @@ function plusOneHour(parts) {
   };
 }
 
-const VTIMEZONE = [
+const VTIMEZONE_LINES = [
   'BEGIN:VTIMEZONE',
   'TZID:Europe/Oslo',
   'BEGIN:STANDARD',
@@ -122,7 +122,34 @@ const VTIMEZONE = [
   'TZNAME:CEST',
   'END:DAYLIGHT',
   'END:VTIMEZONE',
-].join('\r\n');
+];
+
+function clockValue(parts) {
+  return parts.h * 3600 + parts.m * 60 + parts.s;
+}
+
+function recurrenceLines(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return [];
+  const chunks = text.split(/\r?\n|(?=EXDATE)/i);
+  const lines = [];
+  for (const chunk of chunks) {
+    const line = chunk.trim();
+    if (!line) continue;
+    if (/^EXDATE/i.test(line)) {
+      lines.push(line.replace(/;+$/g, ''));
+      continue;
+    }
+    const rule = line.replace(/^RRULE:/i, '').replace(/;+$/g, '');
+    if (!rule || /EXDATE/i.test(rule)) continue;
+    lines.push(`RRULE:${rule}`);
+  }
+  return lines;
+}
+
+function redactRequestPath(pathname) {
+  return String(pathname || '').replace(/\/cal\/[^/?#]+/gi, '/cal/[secret]');
+}
 
 function createCalendarFeedRepo(db) {
   return {
@@ -184,7 +211,7 @@ function buildIcs(repos, familyId) {
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-TIMEZONE:Europe/Oslo',
-    VTIMEZONE,
+    ...VTIMEZONE_LINES,
   ];
 
   const weeks = repos._db
@@ -259,7 +286,11 @@ function buildIcs(repos, familyId) {
         const end = event.endTime ? clockParts(event.endTime) : null;
         lines.push(`DTSTART;TZID=Europe/Oslo:${compact}T${formatClock(start)}`);
         if (end) {
-          lines.push(`DTEND;TZID=Europe/Oslo:${compact}T${formatClock(end)}`);
+          const endDate =
+            clockValue(end) < clockValue(start)
+              ? ymd(addDays(new Date(`${event.date}T00:00:00Z`), 1))
+              : compact;
+          lines.push(`DTEND;TZID=Europe/Oslo:${endDate}T${formatClock(end)}`);
         } else {
           const next = plusOneHour(start);
           const endDate = next.dayCarry
@@ -268,11 +299,8 @@ function buildIcs(repos, familyId) {
           lines.push(`DTEND;TZID=Europe/Oslo:${endDate}T${next.clock}`);
         }
       }
-      if (event.rrule) {
-        const rule = String(event.rrule)
-          .replace(/^RRULE:/i, '')
-          .replace(/[\r\n]/g, '');
-        if (rule) lines.push(`RRULE:${rule}`);
+      for (const ruleLine of recurrenceLines(event.rrule)) {
+        lines.push(ruleLine);
       }
       lines.push(`SUMMARY:${escapeText(event.title)}`);
       lines.push('END:VEVENT');
@@ -312,4 +340,5 @@ module.exports = {
   hashSecret,
   escapeText,
   fold,
+  redactRequestPath,
 };

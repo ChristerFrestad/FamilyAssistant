@@ -51,23 +51,25 @@ export function CalendarFeedCard({ isOwner }: { isOwner: boolean }): JSX.Element
       <p className="font-body text-body text-text-2">{t('calendarFeed.help')}</p>
       <p className="font-body text-meta text-text-3">{t('calendarFeed.google')}</p>
       <p className="font-body text-meta text-text-3">{t('calendarFeed.homeAssistant')}</p>
-      {path ? (
-        <div className="flex flex-col gap-2" aria-live="polite" data-testid="calendar-feed-link">
-          <p className="break-all font-mono text-meta">{link}</p>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void navigator.clipboard.writeText(link)}
-          >
-            {t('calendarFeed.copy')}
-          </Button>
-          <p className="font-body text-meta text-text-2">{t('calendarFeed.once')}</p>
-        </div>
-      ) : (
-        <p className="font-body text-meta text-text-2">
-          {active ? t('calendarFeed.active') : t('calendarFeed.inactive')}
-        </p>
-      )}
+      <div aria-live="polite" data-testid="calendar-feed-live">
+        {path ? (
+          <div className="flex flex-col gap-2" data-testid="calendar-feed-link">
+            <p className="break-all font-mono text-meta">{link}</p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void navigator.clipboard.writeText(link)}
+            >
+              {t('calendarFeed.copy')}
+            </Button>
+            <p className="font-body text-meta text-text-2">{t('calendarFeed.once')}</p>
+          </div>
+        ) : (
+          <p className="font-body text-meta text-text-2">
+            {active ? t('calendarFeed.active') : t('calendarFeed.inactive')}
+          </p>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"

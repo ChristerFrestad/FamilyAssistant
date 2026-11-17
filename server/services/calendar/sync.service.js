@@ -7,6 +7,14 @@ const { refreshAccessToken } = require('./google.oauth');
 const { createCalDavClient } = require('./icloud.caldav');
 const { parseVEvent, serializeVEvent } = require('./ics');
 
+function storedRecurrence(recurrence) {
+  const lines = Array.isArray(recurrence) ? recurrence : recurrence ? [recurrence] : [];
+  const kept = lines
+    .map((line) => String(line || '').trim())
+    .filter((line) => line && !/^RDATE/i.test(line));
+  return kept.length > 0 ? kept.join('\n') : null;
+}
+
 function googleDateParts(event) {
   const start = event.start || {};
   const end = event.end || {};
@@ -76,7 +84,7 @@ async function pullGoogle(repos, integration, { googleClient, fetchImpl } = {}) 
       allDay: parts.allDay,
       location: item.location || null,
       notes: item.description || null,
-      rrule: Array.isArray(item.recurrence) ? item.recurrence.join(';') : item.recurrence || null,
+      rrule: storedRecurrence(item.recurrence),
       source: 'google',
       externalId: item.id,
       etag: item.etag || null,
