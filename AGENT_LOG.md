@@ -6,6 +6,32 @@
 
 ---
 
+2026-11-17 – Kalenderoverlegg viser bibliotekmiddager
+
+Task: Overlegget hoppet over middager som bare er en bibliotekreferanse.
+
+Done:
+- GET /api/calendar/agenda bruker samme synlige bibliotekmiddag som
+  /api/today. En avslått kilde vises ikke. Raden er fortsatt bare lesing.
+
+Status: waiting-for-operator
+
+---
+
+2026-11-14 – Middager og gjøremål på kalenderskjermen
+
+Task: Kalenderskjermen skal vise middager og gjøremål, bare til lesing.
+
+Done:
+- GET /api/calendar/agenda legger dem inn i perioden, med tittel
+  «Middag: …» og «Gjøremål: …». Ingen sletteknapp. Merket med tekst,
+  ikke bare farge.
+- Ingen migrasjon. Eksisterende avtaler er uendret.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-17 – Token: tilgang må velges, og tilbakekall bekreftes
 
 Task: Manglende scopes ga alle tilganger, og «Trekk tilbake» var lik

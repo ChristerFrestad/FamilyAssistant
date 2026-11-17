@@ -36,7 +36,9 @@
   },
   "source": {
     "google": "Google",
-    "icloud": "iCloud"
+    "icloud": "iCloud",
+    "dinner": "Middag",
+    "chore": "Gjøremål"
   },
   "integrations": {
     "title": "Kalenderkoblinger",

@@ -71,6 +71,7 @@ function mountCalendar(user: AuthUser = ADULT_USER): void {
 
 function mockCalendarApi(options: {
   events?: unknown[];
+  agenda?: unknown[];
   onGet?: () => unknown[];
   onPost?: (init?: RequestInit) => unknown;
   onDelete?: (url: string, init?: RequestInit) => unknown;
@@ -85,6 +86,9 @@ function mockCalendarApi(options: {
       url.startsWith('/api/integrations/google-calendar')
     ) {
       return Promise.resolve(jsonResponse(200, { integrations: [], googleConfigured: false }));
+    }
+    if (url.startsWith('/api/calendar/agenda')) {
+      return Promise.resolve(jsonResponse(200, { items: options.agenda ?? [] }));
     }
     if (!url.startsWith('/api/calendar/events')) {
       return Promise.reject(new Error(`Unmocked fetch: ${url}`));
@@ -313,5 +317,25 @@ describe('Calendar — delete (adult)', () => {
     type FetchCall = [RequestInfo | URL, RequestInit | undefined];
     const calls = fetchSpy.mock.calls as unknown as FetchCall[];
     expect(calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+  });
+
+  test('a library dinner is read-only on the calendar', async () => {
+    mockCalendarApi({
+      events: [],
+      agenda: [
+        {
+          id: 'dinner-lib',
+          kind: 'dinner',
+          date: '2026-05-02',
+          title: 'Middag: Bibliotektaco',
+          startTime: '17:00',
+          readOnly: true,
+        },
+      ],
+    });
+    mountCalendar(ADULT_USER);
+    expect(await screen.findByText('Middag: Bibliotektaco')).toBeInTheDocument();
+    expect(screen.getByText('Middag')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /slett/i })).not.toBeInTheDocument();
   });
 });
