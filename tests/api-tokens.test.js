@@ -56,6 +56,17 @@ test('owner creates a scoped token, sees it once, and can revoke it', async () =
   });
   assert.equal(admin.status, 400);
 
+  const missing = await request(server.baseUrl, 'POST', '/api/api-tokens', {
+    headers: { Cookie: owner.cookie },
+    body: { name: 'Uten' },
+  });
+  assert.equal(missing.status, 400);
+  const notAList = await request(server.baseUrl, 'POST', '/api/api-tokens', {
+    headers: { Cookie: owner.cookie },
+    body: { name: 'Tekst', scopes: 'read' },
+  });
+  assert.equal(notAList.status, 400);
+
   const child = createUser('child-token@example.com', 'child', 'Token Child');
   const denied = await request(server.baseUrl, 'POST', '/api/api-tokens', {
     headers: { Cookie: child.cookie },

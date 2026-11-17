@@ -2,6 +2,7 @@ import type { FormEvent, JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../base/Button';
+import { Modal } from '../overlay/Modal';
 
 const SCOPES = ['read', 'shopping:write', 'chores:write', 'meals:cooked'] as const;
 
@@ -19,6 +20,7 @@ export function ApiTokensCard({ isOwner }: { isOwner: boolean }): JSX.Element | 
   const [scopes, setScopes] = useState<string[]>([...SCOPES]);
   const [fresh, setFresh] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<TokenRow | null>(null);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -130,13 +132,46 @@ export function ApiTokensCard({ isOwner }: { isOwner: boolean }): JSX.Element | 
               {row.revoked ? ` (${t('apiTokens.revoked')})` : ''}
             </span>
             {row.revoked ? null : (
-              <Button type="button" variant="ghost" onClick={() => void revoke(row.id)}>
+              <Button
+                type="button"
+                variant="ghost"
+                aria-label={t('apiTokens.revokeNamed', { name: row.name })}
+                data-testid={`api-token-revoke-${row.id}`}
+                onClick={() => setPendingRevoke(row)}
+              >
                 {t('apiTokens.revoke')}
               </Button>
             )}
           </li>
         ))}
       </ul>
+      <Modal
+        open={pendingRevoke != null}
+        onClose={() => setPendingRevoke(null)}
+        title={t('apiTokens.revoke')}
+        description={
+          pendingRevoke ? t('apiTokens.revokeConfirm', { name: pendingRevoke.name }) : ''
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            data-testid="api-token-revoke-confirm"
+            onClick={() => {
+              if (!pendingRevoke) return;
+              const id = pendingRevoke.id;
+              setPendingRevoke(null);
+              void revoke(id);
+            }}
+          >
+            {t('apiTokens.revokeYes')}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setPendingRevoke(null)}>
+            {t('apiTokens.revokeCancel')}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -2538,7 +2538,10 @@ function registerRoutes(router, { repos, serverState }) {
       .trim()
       .slice(0, 80);
     if (!name) throw errors.badRequest('Navn mangler');
-    const requested = Array.isArray(ctx.body?.scopes) ? ctx.body.scopes : [...ALLOWED_SCOPES];
+    if (!Array.isArray(ctx.body?.scopes)) {
+      throw errors.badRequest('Tilgang må være en liste');
+    }
+    const requested = ctx.body.scopes;
     if (requested.some((scope) => scope === 'admin' || !ALLOWED_SCOPES.includes(scope))) {
       throw errors.badRequest('Ukjent tilgang');
     }

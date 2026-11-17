@@ -6,6 +6,20 @@
 
 ---
 
+2026-11-17 – Token: tilgang må velges, og tilbakekall bekreftes
+
+Task: Manglende scopes ga alle tilganger, og «Trekk tilbake» var lik
+for hvert token.
+
+Done:
+- Uten en liste med scopes svarer opprettelsen 400.
+- Hver knapp heter «Trekk tilbake {navn}» og spør før den sletter.
+- Migrasjonen heter 041, fordi 040 allerede er library_recipe_id.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – Familietoken til Home Assistant
 
 Task: Hver familie skal kunne lage et token med begrenset tilgang.
