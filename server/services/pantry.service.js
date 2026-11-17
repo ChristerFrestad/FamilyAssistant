@@ -14,6 +14,7 @@
 // an object.
 
 const { logger } = require('../logger');
+const { osloDateString } = require('./app-clock');
 const { getFamilyId } = require('../auth/family-context');
 const units = require('./units');
 const seed = require('../seed');
@@ -295,7 +296,7 @@ function checkAndTriggerLowStock(repos, productKey, qty, total) {
  * Returns the number removed.
  */
 function removeExpired(repos) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = osloDateString();
   const inventoryMap = repos.inventory.getAll();
   let removed = 0;
 

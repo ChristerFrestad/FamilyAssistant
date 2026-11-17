@@ -28,6 +28,12 @@ for (const name of MUST_PASS_THROUGH) {
   });
 }
 
+test('docker-compose sets the container clock to Europe/Oslo', () => {
+  assert.match(COMPOSE, /TZ:\s*Europe\/Oslo/);
+  assert.doesNotMatch(COMPOSE, /GOOGLE_CLIENT_ID:/);
+  assert.doesNotMatch(COMPOSE, /GOOGLE_CLIENT_SECRET:/);
+});
+
 test('compose does not hardcode integration secrets', () => {
   assert.doesNotMatch(COMPOSE, /KASSAL_API_KEY:\s*['\"]?[a-zA-Z0-9_\-.]{10,}/);
 });

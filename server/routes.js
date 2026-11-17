@@ -48,6 +48,7 @@ const {
   isPastWeek,
   getWeekYearInTimeZone,
 } = require('./services/seed.service');
+const { osloDateString, osloDayOfWeek } = require('./services/app-clock');
 const pantryService = require('./services/pantry.service');
 const pantryResolver = require('./services/pantry-resolver.service');
 const pantryDeduction = require('./services/pantry-deduction.service');
@@ -2528,8 +2529,9 @@ function registerRoutes(router, { repos, serverState }) {
   router.get(
     '/api/today',
     withCache(['today'], (ctx) => {
-      const wk = ensureCurrentWeek(repos);
-      const dayOfWeek = (new Date().getDay() + 6) % 7;
+      const now = new Date();
+      const wk = ensureWeek(repos, getWeekYearInTimeZone(now));
+      const dayOfWeek = osloDayOfWeek(now);
       const plan = repos.mealPlans.getWeek(wk);
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
       const recipe = recipeForSlot(repos, todaySlot);
@@ -2552,7 +2554,7 @@ function registerRoutes(router, { repos, serverState }) {
           };
         });
 
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = osloDateString(now);
       const events = expandRecurring(
         repos.calendar.getEvents(todayStr, todayStr),
         todayStr,
@@ -2771,8 +2773,9 @@ function registerRoutes(router, { repos, serverState }) {
     validateBody(schemas.llmChatBody),
     async (ctx) => {
       const { message, history, saveToKB } = ctx.body;
-      const wk = ensureCurrentWeek(repos);
-      const dayOfWeek = (new Date().getDay() + 6) % 7;
+      const now = new Date();
+      const wk = ensureWeek(repos, getWeekYearInTimeZone(now));
+      const dayOfWeek = osloDayOfWeek(now);
       const plan = repos.mealPlans.getWeek(wk);
       const todaySlot = plan.find((p) => p.dayOfWeek === dayOfWeek);
       const todayRecipe = recipeForSlot(repos, todaySlot);
