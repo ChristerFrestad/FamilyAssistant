@@ -205,18 +205,13 @@ function buildIcs(repos, familyId) {
           continue;
         }
         const { visibleLibraryDinner } = require('./recipe-library/copy');
-        let title = null;
-        if (slot.recipeId) {
-          const recipe = repos.recipes.getById(slot.recipeId);
-          if (!recipe) continue;
-          title = `Middag: ${recipe.name}`;
-        } else if (slot.libraryRecipeId) {
-          const recipe = visibleLibraryDinner(repos, slot.libraryRecipeId);
-          if (!recipe) continue;
-          title = `Middag: ${recipe.name}`;
-        } else {
-          continue;
-        }
+        const recipe = slot.recipeId
+          ? repos.recipes.getById(slot.recipeId)
+          : slot.libraryRecipeId
+            ? visibleLibraryDinner(repos, slot.libraryRecipeId)
+            : null;
+        if (!recipe) continue;
+        const title = `Middag: ${recipe.name || 'Middag'}`;
         const day = addDays(monday, slot.dayOfWeek);
         const date = ymd(day);
         const iso = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6)}`;
