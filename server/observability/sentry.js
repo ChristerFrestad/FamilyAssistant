@@ -32,23 +32,49 @@ function hashFamilyId(familyId) {
   return crypto.createHash('sha256').update(String(familyId)).digest('hex').slice(0, 16);
 }
 
-function scrubObjectStrings(value) {
+function scrubObjectStrings(value, seen) {
   if (typeof value === 'string') return scrubCalText(value);
-  if (Array.isArray(value)) return value.map(scrubObjectStrings);
-  if (value && typeof value === 'object') {
-    for (const key of Object.keys(value)) value[key] = scrubObjectStrings(value[key]);
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return value;
+  seen.add(value);
+  if (Array.isArray(value)) return value.map((item) => scrubObjectStrings(item, seen));
+  for (const key of Object.keys(value)) {
+    value[key] = scrubObjectStrings(value[key], seen);
   }
   return value;
 }
 
+function scrubEvent(event) {
+  if (!event || typeof event !== 'object') return event;
+  scrubObjectStrings(event, new WeakSet());
+  return event;
+}
+
+function feedTransactionName(event) {
+  const method = String(
+    event.request?.method || event.contexts?.trace?.data?.['http.method'] || 'GET'
+  ).toUpperCase();
+  const hints = [
+    event.transaction,
+    event.request?.url,
+    event.contexts?.trace?.data?.url,
+    event.contexts?.trace?.data?.['http.url'],
+    event.contexts?.trace?.data?.['http.target'],
+    event.tags?.url,
+  ]
+    .filter((item) => typeof item === 'string')
+    .join('\n');
+  if (!/\/cal\/\[secret\]|\/cal(?=\/)/i.test(hints)) return;
+  event.transaction = `${method} /cal/:secret`;
+}
+
 function beforeSend(event) {
+  // The secret can sit in the transaction name, Referer, spans, or the
+  // exception text. Walk the whole event before the field-specific rules.
+  scrubEvent(event);
   // Wholesale-drop request bodies — never ship pantry content, AI chat
   // messages, feedback text or anything the user typed.
   if (event.request) {
-    if (typeof event.request.url === 'string') event.request.url = scrubCalText(event.request.url);
-    if (typeof event.request.query_string === 'string') {
-      event.request.query_string = scrubCalText(event.request.query_string);
-    }
     if (event.request.data !== undefined) delete event.request.data;
     if (event.request.cookies) delete event.request.cookies;
     if (event.request.headers) {
@@ -66,13 +92,6 @@ function beforeSend(event) {
     if (event.user.ip_address) event.user.ip_address = '[redacted]';
   }
   // Extra-field scrub: strip anything that looks like an email or bearer.
-  if (Array.isArray(event.breadcrumbs)) {
-    for (const crumb of event.breadcrumbs) {
-      if (!crumb || typeof crumb !== 'object') continue;
-      if (typeof crumb.message === 'string') crumb.message = scrubCalText(crumb.message);
-      if (crumb.data) crumb.data = scrubObjectStrings(crumb.data);
-    }
-  }
   if (event.extra) {
     for (const k of Object.keys(event.extra)) {
       const v = event.extra[k];
@@ -83,6 +102,12 @@ function beforeSend(event) {
       }
     }
   }
+  return event;
+}
+
+function beforeSendTransaction(event) {
+  scrubEvent(event);
+  feedTransactionName(event);
   return event;
 }
 
@@ -111,16 +136,21 @@ function initSentry(config, logger) {
     return { enabled: false, reason: 'module-missing' };
   }
   try {
-    Sentry.init({
+    const initOptions = {
       dsn: config.SENTRY_DSN,
       environment: config.SENTRY_ENVIRONMENT || config.NODE_ENV,
       release: config.SENTRY_RELEASE,
       tracesSampleRate: config.SENTRY_TRACES_SAMPLE_RATE,
       beforeSend,
+      beforeSendTransaction,
       // Avoid auto-capturing unhandled promise rejections twice — the
       // parent app already logs them through pino.
       integrations: (defaults) => defaults.filter((i) => i.name !== 'OnUnhandledRejection'),
-    });
+    };
+    if (process.env.NODE_ENV === 'test' && typeof config.transport === 'function') {
+      initOptions.transport = config.transport;
+    }
+    Sentry.init(initOptions);
     state.Sentry = Sentry;
     state.enabled = true;
     if (logger?.info) {
@@ -189,6 +219,7 @@ function resetForTests() {
 }
 
 function installFakeForTests(fake) {
+  if (process.env.NODE_ENV !== 'test') return;
   state.Sentry = fake;
   state.enabled = true;
 }
@@ -199,6 +230,7 @@ module.exports = {
   closeSentry,
   isEnabled,
   beforeSend,
+  beforeSendTransaction,
   hashFamilyId,
   resetForTests,
   installFakeForTests,

@@ -6,6 +6,21 @@
 
 ---
 
+2026-11-17 – Sentry: hele hendelsen, også transaksjonen
+
+Task: Hemmeligheten i /cal slapp ut via transaksjonsnavn, span og
+Referer selv om url-feltet ble renset.
+
+Done:
+- beforeSend går gjennom hele hendelsen. beforeSendTransaction gjør
+  det samme og døper feeden om til GET /cal/:secret.
+- Tester med en feilhendelse og en transaksjon i SDK-form, og med
+  den ekte klienten når pakken er installert.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-17 – iCal: tester som fanger en åpen regel
 
 Task: Feed-en slapp en ugyldig regel gjennom hvis sjekken ble tatt

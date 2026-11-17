@@ -21,6 +21,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
+process.env.NODE_ENV = 'test';
 const sentry = require('../server/observability/sentry');
 
 const REPO = path.join(__dirname, '..');
@@ -152,6 +153,61 @@ describe('Phase 17 · beforeSend scrubbing', () => {
     const event = { foo: 'bar' };
     const out = sentry.beforeSend(event);
     assert.strictEqual(out, event);
+  });
+});
+
+function feedLeakEvent(secret) {
+  const path = `/cal/${secret}.ics`;
+  const url = `http://127.0.0.1:3000${path}`;
+  return {
+    type: 'transaction',
+    transaction: `GET ${path}`,
+    message: `GET ${path}`,
+    request: {
+      method: 'GET',
+      url,
+      query_string: `next=/cal/${secret}`,
+      headers: { Referer: url, referer: url },
+    },
+    tags: { url },
+    contexts: {
+      trace: {
+        data: {
+          url,
+          'http.url': url,
+          'http.target': path,
+          'http.method': 'GET',
+        },
+      },
+    },
+    exception: { values: [{ type: 'Error', value: `boom ${path}` }] },
+    breadcrumbs: [{ message: `GET ${path}`, data: { url } }],
+    spans: [{ description: `GET ${path}`, data: { 'http.target': path, url } }],
+    extra: { path },
+  };
+}
+
+describe('Phase 17 · calendar secret scrub', () => {
+  const secret = 'feed-secret-value';
+
+  test('an error event loses the secret in the transaction, referer and exception', () => {
+    const event = feedLeakEvent(secret);
+    delete event.spans;
+    sentry.beforeSend(event);
+    assert.equal(JSON.stringify(event).includes(secret), false);
+    assert.equal(event.transaction.includes('/cal/[secret]'), true);
+    assert.equal(event.request.headers.Referer.includes('/cal/[secret]'), true);
+    assert.equal(event.exception.values[0].value.includes('/cal/[secret]'), true);
+  });
+
+  test('a transaction event is renamed and loses the secret in spans', () => {
+    const event = feedLeakEvent(secret);
+    sentry.beforeSendTransaction(event);
+    assert.equal(JSON.stringify(event).includes(secret), false);
+    assert.equal(event.transaction, 'GET /cal/:secret');
+    assert.equal(event.spans[0].description, 'GET /cal/[secret]');
+    assert.equal(event.contexts.trace.data['http.target'], '/cal/[secret]');
+    assert.equal(event.tags.url.includes('/cal/[secret]'), true);
   });
 });
 
