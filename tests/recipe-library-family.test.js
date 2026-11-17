@@ -98,6 +98,9 @@ test('later families match seed suggestions by name and fill from the library', 
     server.repos._db.prepare('INSERT INTO families(name) VALUES(?)').run('Later').lastInsertRowid
   );
   seedFamilyDefaults(server.repos, fid);
+  runWithFamily(fid, () => {
+    server.repos.familyProfile.update({ preferences: { suggestionMode: 'default' } });
+  });
   const seedWok = seedRecipes.find((recipe) => recipe.id === 8);
   const suggestions = runWithFamily(fid, () => getSwapSuggestions(server.repos, 0, '2026-W46'));
   const wok = suggestions.find((item) => item.name === seedWok.name);
