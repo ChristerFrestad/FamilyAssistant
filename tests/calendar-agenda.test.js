@@ -69,3 +69,49 @@ test('the calendar agenda is read-only data for one family', async () => {
     false
   );
 });
+
+test('a library dinner is on the agenda and a disabled source is not', async () => {
+  const owner = createOwner('agenda-lib@example.com', 'Agenda Lib');
+  const week = getWeekYearInTimeZone(new Date());
+  runWithFamily(owner.familyId, () => {
+    const shown = server.repos.recipeLibrary.upsert({
+      title: 'Bibliotektaco',
+      sourceName: 'Meny',
+      canonicalUrl: 'https://meny.no/oppskrifter/test/agenda-taco',
+      imageUrl: null,
+      servings: 4,
+      totalTimeMin: 20,
+      category: 'rask',
+      fetchedAt: '2026-11-14T00:00:00.000Z',
+      ingredients: [],
+    });
+    const hidden = server.repos.recipeLibrary.upsert({
+      title: 'Skjult rett',
+      sourceName: 'Matprat',
+      canonicalUrl: 'https://www.matprat.no/oppskrifter/skjult',
+      imageUrl: null,
+      servings: 2,
+      totalTimeMin: 20,
+      category: 'comfort',
+      fetchedAt: '2026-11-14T00:00:00.000Z',
+      ingredients: [],
+    });
+    server.repos.mealPlans.setLibraryRecipe(week, 6, shown, 'planned', 'auto');
+    server.repos.mealPlans.setLibraryRecipe(week, 5, hidden, 'planned', 'auto');
+  });
+  const res = await request(
+    server.baseUrl,
+    'GET',
+    '/api/calendar/agenda?from=2020-01-01&to=2099-12-31',
+    { headers: { Cookie: owner.cookie } }
+  );
+  assert.equal(res.status, 200);
+  assert.equal(
+    res.body.items.some((item) => item.title === 'Middag: Bibliotektaco'),
+    true
+  );
+  assert.equal(
+    res.body.items.some((item) => item.title === 'Middag: Skjult rett'),
+    false
+  );
+});

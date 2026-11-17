@@ -6,6 +6,18 @@
 
 ---
 
+2026-11-17 – Kalenderoverlegg viser bibliotekmiddager
+
+Task: Overlegget hoppet over middager som bare er en bibliotekreferanse.
+
+Done:
+- GET /api/calendar/agenda bruker samme synlige bibliotekmiddag som
+  /api/today. En avslått kilde vises ikke. Raden er fortsatt bare lesing.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-14 – Middager og gjøremål på kalenderskjermen
 
 Task: Kalenderskjermen skal vise middager og gjøremål, bare til lesing.

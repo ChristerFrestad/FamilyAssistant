@@ -1,6 +1,7 @@
 'use strict';
 
 const { runWithFamily } = require('../auth/family-context');
+const { visibleLibraryDinner } = require('./recipe-library/copy');
 
 function mondayOf(weekYear) {
   const year = Number(String(weekYear).slice(0, 4));
@@ -40,17 +41,22 @@ function agendaForFamily(repos, familyId, from, to) {
       const monday = mondayOf(weekYear);
       if (!monday) continue;
       for (const slot of repos.mealPlans.getWeek(weekYear)) {
-        if (!slot.recipeId) continue;
         if (slot.status === 'away' || slot.status === 'skipped' || slot.status === 'removed')
           continue;
+        let name = null;
+        if (slot.recipeId) {
+          name = repos.recipes.getById(slot.recipeId)?.name || null;
+        } else if (slot.libraryRecipeId) {
+          name = visibleLibraryDinner(repos, slot.libraryRecipeId)?.name || null;
+        }
+        if (!name) continue;
         const date = isoDate(addDays(monday, slot.dayOfWeek));
         if (date < from || date > to) continue;
-        const recipe = repos.recipes.getById(slot.recipeId);
         items.push({
           id: `dinner-${weekYear}-${slot.dayOfWeek}`,
           kind: 'dinner',
           date,
-          title: `Middag: ${recipe?.name || 'Middag'}`,
+          title: `Middag: ${name}`,
           startTime: '17:00',
           readOnly: true,
         });
