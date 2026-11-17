@@ -31,17 +31,38 @@ function addMonths(date, n) {
   return next;
 }
 
+function recurrenceLines(rrule) {
+  return String(rrule || '')
+    .split(/\r\n|\n|\r|[\u000b\u000c\u0085\u2028\u2029]/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function parseRrule(rrule) {
   if (!rrule || typeof rrule !== 'string') return null;
-  const body = rrule.replace(/^RRULE:/i, '').trim();
+  const lines = recurrenceLines(rrule);
+  const ruleLine =
+    lines.find((line) => /^RRULE:/i.test(line)) || lines.find((line) => /^FREQ=/i.test(line));
+  if (!ruleLine) return null;
+  const body = ruleLine.replace(/^RRULE:/i, '').trim();
   if (!body) return null;
   const parts = {};
   for (const chunk of body.split(';')) {
-    const [k, v] = chunk.split('=');
-    if (!k || v == null) continue;
-    parts[k.toUpperCase()] = v;
+    const eq = chunk.indexOf('=');
+    if (eq <= 0) continue;
+    parts[chunk.slice(0, eq).toUpperCase()] = chunk.slice(eq + 1);
   }
   if (!parts.FREQ) return null;
+  const exdates = [];
+  for (const line of lines) {
+    if (!/^EXDATE/i.test(line)) continue;
+    const value = line.includes(':') ? line.slice(line.indexOf(':') + 1) : '';
+    for (const item of value.split(',')) {
+      const ymd = untilToYmd(item);
+      if (ymd) exdates.push(ymd);
+    }
+  }
+  parts.EXDATES = exdates;
   return parts;
 }
 
@@ -80,7 +101,7 @@ function expandRrule(event, from, to) {
   while (n < count) {
     const ymd = formatYmd(current);
     if (ymd > hardEnd) break;
-    if (ymd >= from && ymd <= to) {
+    if (ymd >= from && ymd <= to && !(parsed.EXDATES || []).includes(ymd)) {
       out.push({ ...event, date: ymd });
     }
     const next = nextOccurrence(current, freq, interval);

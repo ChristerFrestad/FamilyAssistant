@@ -19,6 +19,7 @@ const { createPilotPasswordAttemptsRepo } = require('./pilot-password-attempts.r
 const { createCalendarRepos } = require('./calendar.repo');
 const { createRecipeLibraryRepo } = require('./recipe-library.repo');
 const { createApiTokenRepo } = require('./api-token.repo');
+const { createCalendarFeedRepo } = require('../services/calendar-feed.service');
 
 function tryParseJson(s) {
   if (typeof s !== 'string' || s.length === 0) return null;
@@ -55,6 +56,7 @@ function createRepositories(db) {
   const { calendar, calendarIntegrations } = createCalendarRepos(db);
   const auth = createAuthRepo(db);
   const apiTokens = createApiTokenRepo(db);
+  const calendarFeeds = createCalendarFeedRepo(db);
   const family = createFamilyRepo(db);
   const llmConfig = createLlmConfigRepo(db);
   const feedback = createFeedbackRepo(db);
@@ -65,6 +67,7 @@ function createRepositories(db) {
     _db: db,
     auth,
     apiTokens,
+    calendarFeeds,
     family,
     llmConfig,
     feedback,

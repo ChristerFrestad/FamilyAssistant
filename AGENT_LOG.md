@@ -6,6 +6,102 @@
 
 ---
 
+2026-11-17 – Sentry: hele hendelsen, også transaksjonen
+
+Task: Hemmeligheten i /cal slapp ut via transaksjonsnavn, span og
+Referer selv om url-feltet ble renset.
+
+Done:
+- beforeSend går gjennom hele hendelsen. beforeSendTransaction gjør
+  det samme og døper feeden om til GET /cal/:secret.
+- Tester med en feilhendelse og en transaksjon i SDK-form, og med
+  den ekte klienten når pakken er installert.
+
+Status: waiting-for-operator
+
+---
+
+2026-11-17 – iCal: tester som fanger en åpen regel
+
+Task: Feed-en slapp en ugyldig regel gjennom hvis sjekken ble tatt
+bort, og en feil kunne sende kalenderhemmeligheten til Sentry.
+
+Done:
+- Hele feeden testes med X-NAME, FREQ=EVIL, en regel uten FREQ og en
+  ødelagt EXDATE. En gyldig regel blir stående.
+- Sentry-ruten og beforeSend skjuler /cal-hemmeligheten, også i
+  url, query og breadcrumbs. Tabulator i tittelen blir et mellomrom.
+
+Status: waiting-for-operator
+
+---
+
+2026-11-17 – iCal: bare gyldig RRULE
+
+Task: Et linjeskift inne i regelen ble med ut i feeden, og en
+flerlinjet Google-regel ga bare ett treff i måneden.
+
+Done:
+- RRULE og EXDATE må matche en tillatt form. Kontrolltegn strippes.
+- En uke med EXDATE utvider seg igjen, og hopper over den datoen.
+- Lik start og slutt skriver ikke DTEND lik DTSTART.
+- /cal//hemmelighet.ics og Sentry-ruten skjuler hemmeligheten.
+
+Status: waiting-for-operator
+
+---
+
+2026-11-17 – iCal: tidssone linje for linje
+
+Task: Tidssonen ble brettet midt i et linjeskift, så vinterregelen
+forsvant og tidsstyrte avtaler kunne flytte seg en time.
+
+Done:
+- VTIMEZONE skrives som egne linjer. Feeden har ingen løs CR eller LF.
+- En avtale over midnatt slutter neste dag.
+- EXDATE blir en egen linje, ikke en del av RRULE.
+- VT, linjeskilletegn og NEL escapes. /cal/ uten .ics logges uten hemmelighet.
+- Opplesingsfeltet står der før lenken vises.
+
+Status: waiting-for-operator
+
+---
+
+2026-11-17 – iCal: tegn, sluttid og bibliotekmiddager
+
+Task: Linjebryting kunne dele æ/ø/å, sluttiden var ett minutt,
+og bibliotekmiddager manglet.
+
+Done:
+- Folding stopper på tegngrenser. CR og LF i titler escapes.
+- Avtaler med klokkeslett får riktig slutt, og RRULE følger med.
+- Bibliotekmiddager tas med på samme måte som /api/today.
+- Migrasjonen heter 042. Ny lenke spør først, og lenken leses opp.
+
+Status: waiting-for-operator
+
+---
+
+2026-11-14 – iCal-lenke per familie
+
+Task: Familien skal kunne abonnere på middager, gjøremål og avtaler
+uten innlogging, med en hemmelig lenke som kan byttes eller trekkes tilbake.
+
+Done:
+- GET /cal/<hemmelighet>.ics. VTIMEZONE Europe/Oslo, stabile UID-er,
+  bare titler som «Middag: Taco». Cache private i 15 minutter.
+  Maks 30 kall per IP på 10 minutter.
+- Hemmeligheten lagres som sha256. Innstillinger viser lenken én gang,
+  med kopier-knapp og kort tekst for Google «Fra URL» og Home Assistant.
+- Migrasjon 042 lager calendar_feeds. 040 og 041 er opptatt.
+  Eksisterende rader røres ikke.
+- Stien er ikke under /api, så den krever ikke innlogging. Hvis
+  Cloudflare Access ligger foran hele verten, må /cal/ slippes gjennom.
+
+Status: waiting-for-operator
+
+---
+
 2026-11-17 – Kalenderoverlegg viser bibliotekmiddager
 
 Task: Overlegget hoppet over middager som bare er en bibliotekreferanse.

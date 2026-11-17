@@ -19,6 +19,7 @@
 // never crashes the parent app.
 
 const crypto = require('crypto');
+const { redactRequestPath, scrubCalText } = require('../services/calendar-feed.service');
 
 const state = {
   enabled: false,
@@ -31,7 +32,46 @@ function hashFamilyId(familyId) {
   return crypto.createHash('sha256').update(String(familyId)).digest('hex').slice(0, 16);
 }
 
+function scrubObjectStrings(value, seen) {
+  if (typeof value === 'string') return scrubCalText(value);
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return value;
+  seen.add(value);
+  if (Array.isArray(value)) return value.map((item) => scrubObjectStrings(item, seen));
+  for (const key of Object.keys(value)) {
+    value[key] = scrubObjectStrings(value[key], seen);
+  }
+  return value;
+}
+
+function scrubEvent(event) {
+  if (!event || typeof event !== 'object') return event;
+  scrubObjectStrings(event, new WeakSet());
+  return event;
+}
+
+function feedTransactionName(event) {
+  const method = String(
+    event.request?.method || event.contexts?.trace?.data?.['http.method'] || 'GET'
+  ).toUpperCase();
+  const hints = [
+    event.transaction,
+    event.request?.url,
+    event.contexts?.trace?.data?.url,
+    event.contexts?.trace?.data?.['http.url'],
+    event.contexts?.trace?.data?.['http.target'],
+    event.tags?.url,
+  ]
+    .filter((item) => typeof item === 'string')
+    .join('\n');
+  if (!/\/cal\/\[secret\]|\/cal(?=\/)/i.test(hints)) return;
+  event.transaction = `${method} /cal/:secret`;
+}
+
 function beforeSend(event) {
+  // The secret can sit in the transaction name, Referer, spans, or the
+  // exception text. Walk the whole event before the field-specific rules.
+  scrubEvent(event);
   // Wholesale-drop request bodies — never ship pantry content, AI chat
   // messages, feedback text or anything the user typed.
   if (event.request) {
@@ -65,6 +105,12 @@ function beforeSend(event) {
   return event;
 }
 
+function beforeSendTransaction(event) {
+  scrubEvent(event);
+  feedTransactionName(event);
+  return event;
+}
+
 /**
  * Initialize Sentry if SENTRY_DSN is configured AND @sentry/node is
  * installed. Safe to call repeatedly; only the first call does work.
@@ -90,16 +136,21 @@ function initSentry(config, logger) {
     return { enabled: false, reason: 'module-missing' };
   }
   try {
-    Sentry.init({
+    const initOptions = {
       dsn: config.SENTRY_DSN,
       environment: config.SENTRY_ENVIRONMENT || config.NODE_ENV,
       release: config.SENTRY_RELEASE,
       tracesSampleRate: config.SENTRY_TRACES_SAMPLE_RATE,
       beforeSend,
+      beforeSendTransaction,
       // Avoid auto-capturing unhandled promise rejections twice — the
       // parent app already logs them through pino.
       integrations: (defaults) => defaults.filter((i) => i.name !== 'OnUnhandledRejection'),
-    });
+    };
+    if (process.env.NODE_ENV === 'test' && typeof config.transport === 'function') {
+      initOptions.transport = config.transport;
+    }
+    Sentry.init(initOptions);
     state.Sentry = Sentry;
     state.enabled = true;
     if (logger?.info) {
@@ -134,7 +185,7 @@ function captureException(err, ctx) {
       if (ctx?.requestId) scope.setTag('request_id', ctx.requestId);
       if (ctx?.sessionCorr) scope.setTag('session_corr', ctx.sessionCorr);
       if (ctx?.req?.method && ctx?.pathname) {
-        scope.setTag('route', `${ctx.req.method} ${ctx.pathname}`);
+        scope.setTag('route', `${ctx.req.method} ${redactRequestPath(ctx.pathname)}`);
       }
       return Sentry.captureException(err);
     });
@@ -167,12 +218,20 @@ function resetForTests() {
   state.loadError = null;
 }
 
+function installFakeForTests(fake) {
+  if (process.env.NODE_ENV !== 'test') return;
+  state.Sentry = fake;
+  state.enabled = true;
+}
+
 module.exports = {
   initSentry,
   captureException,
   closeSentry,
   isEnabled,
   beforeSend,
+  beforeSendTransaction,
   hashFamilyId,
   resetForTests,
+  installFakeForTests,
 };
